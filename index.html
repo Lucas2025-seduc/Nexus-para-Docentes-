@@ -78,6 +78,50 @@
 
     <div id="app" class="flex flex-col h-full relative">
 
+        <!-- [MODIFICADO] MODAL DE BLOQUEIO DE LICENÇA / ATIVAÇÃO MANUAL -->
+        <div v-if="appLocked || showLicenseModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900 text-white p-6 backdrop-blur-sm">
+            <div class="max-w-md w-full text-center space-y-6 animate-fade-in relative">
+                
+                <!-- Botão de fechar (Aparece apenas se NÃO estiver bloqueado por tempo, ou seja, ativação manual) -->
+                <button v-if="!appLocked" @click="showLicenseModal = false" class="absolute -top-10 right-0 w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-white transition border border-gray-700">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+
+                <div class="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-2xl shadow-indigo-500/30">
+                    <i :class="isLicensed ? 'fa-solid fa-check' : 'fa-solid fa-lock'" class="text-3xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-black mb-2">{{ appLocked ? 'Período de Teste Expirado' : 'Ativar Nexus PRO' }}</h2>
+                    <p class="text-gray-400 text-sm">
+                        {{ appLocked ? 'O período gratuito de 1 hora acabou.' : 'Insira sua chave de licença abaixo para liberar o uso ilimitado.' }}
+                        <br>Adquira uma licença vitalícia para este dispositivo.
+                    </p>
+                </div>
+                
+                <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 text-left">
+                    <label class="text-[10px] font-bold text-gray-500 uppercase">Seu ID de Dispositivo</label>
+                    <div class="flex gap-2 mt-1">
+                        <code class="flex-1 bg-black/30 p-2 rounded text-indigo-400 font-mono text-xs break-all border border-gray-600">{{ deviceId }}</code>
+                        <button @click="copyDeviceId" class="px-3 bg-gray-700 hover:bg-gray-600 rounded text-xs transition"><i class="fa-regular fa-copy"></i></button>
+                    </div>
+                </div>
+
+                <a :href="whatsappLink" target="_blank" class="block w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2">
+                    <i class="fa-brands fa-whatsapp text-xl"></i> Comprar Licença (Nexus)
+                </a>
+
+                <div class="relative pt-4">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-700"></div></div>
+                    <div class="relative flex justify-center text-xs uppercase"><span class="bg-gray-900 px-2 text-gray-500 font-bold">Já tenho uma chave</span></div>
+                </div>
+
+                <div class="flex gap-2">
+                    <input v-model="licenseInput" placeholder="XXXX-XXXX-XXXX" class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 text-center font-mono text-white outline-none focus:border-indigo-500 uppercase">
+                    <button @click="validateLicense" class="px-6 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold transition"><i class="fa-solid fa-unlock"></i></button>
+                </div>
+            </div>
+        </div>
+
         <!-- Notificações -->
         <transition name="fade">
             <div v-if="toast.show" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-[150] px-6 py-3 rounded-full shadow-2xl font-bold text-sm flex items-center gap-3 transition-all text-center min-w-[320px] justify-center backdrop-blur-md border border-white/20"
@@ -115,7 +159,12 @@
                         <p class="text-[7px] font-bold text-indigo-400/80 leading-tight mt-0.5">Aplicativo desenvolvido por Lucas Sebastião Barbosa Silva</p>
                     </div>
                 </div>
-                <div class="flex gap-1 text-gray-400">
+                <div class="flex gap-1 text-gray-400 items-center">
+                    <!-- [NOVO] BOTÃO DE ATIVAÇÃO DE LICENÇA NO HEADER -->
+                    <button v-if="!isLicensed" @click="showLicenseModal = true" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition flex items-center justify-center animate-pulse mr-1" title="Ativar Licença PRO">
+                        <i class="fa-solid fa-key text-xs"></i>
+                    </button>
+                    
                     <button @click="triggerImport" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 transition flex items-center justify-center" title="Importar Backup"><i class="fa-solid fa-cloud-arrow-up"></i></button>
                     <input type="file" id="importFile" class="hidden" accept="application/json" @change="importBackup">
                     <button @click="backupData" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 transition flex items-center justify-center" title="Baixar Backup"><i class="fa-solid fa-cloud-arrow-down"></i></button>
@@ -147,6 +196,10 @@
                         </div>
                         <h2 class="text-xl font-bold">Relatórios & Desempenho</h2>
                         <p class="text-xs text-indigo-100 mt-1 font-medium opacity-80">Gestão Pedagógica Inteligente</p>
+                        <!-- [MODIFICADO] Exibição de Tempo Restante CLICÁVEL -->
+                        <div v-if="!isLicensed" @click="showLicenseModal = true" class="mt-3 text-[10px] font-bold bg-black/20 inline-block px-3 py-1.5 rounded-full border border-white/10 text-white/90 cursor-pointer hover:bg-black/30 transition shadow-lg active:scale-95">
+                            <i class="fa-regular fa-clock mr-1"></i> Teste: {{ timeLeft }} <span class="opacity-60 ml-1">| Toque para Ativar</span>
+                        </div>
                     </div>
                 </div>
 
@@ -269,7 +322,7 @@
                 </div>
 
                 <div v-for="c in filteredClasses" :key="c.id" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-md">
-                    <div class="p-4 flex justify-between items-center cursor-pointer select-none bg-white hover:bg-gray-50 transition" @click="c.expanded = !c.expanded">
+                    <div class="p-4 flex justify-between items-center cursor-pointer select-none bg-white hover:bg-gray-50 transition" @click="toggleExpand(c)">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm border border-indigo-100">
                                 <i class="fa-solid fa-user-group"></i>
@@ -286,9 +339,13 @@
                     
                     <transition name="fade">
                         <div v-if="c.expanded || studentFilter" class="px-4 pb-4 bg-gray-50/50 border-t border-gray-100">
-                            <div class="mb-3 pt-2">
-                                <button @click="generateGeneralReportPDF(c.id)" class="w-full py-2.5 bg-white border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-50 transition flex items-center justify-center gap-2 shadow-sm">
-                                    <i class="fa-solid fa-file-invoice"></i> Baixar Boletim Geral da Turma (PDF)
+                            <!-- AÇÕES DA TURMA -->
+                            <div class="flex gap-2 mb-3 pt-2">
+                                <button @click="generateGeneralReportPDF(c.id)" class="flex-1 py-2.5 bg-white border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-50 transition flex items-center justify-center gap-2 shadow-sm">
+                                    <i class="fa-solid fa-file-invoice"></i> Boletim Geral (PDF)
+                                </button>
+                                <button @click="deleteClass(c.id)" class="px-4 py-2.5 bg-white border border-red-200 text-red-500 rounded-xl text-xs font-bold hover:bg-red-50 transition flex items-center justify-center gap-2 shadow-sm" title="Apagar Turma Completa">
+                                    <i class="fa-solid fa-trash"></i>
                                 </button>
                             </div>
 
@@ -1019,6 +1076,101 @@
 
         createApp({
             setup() {
+                // --- SISTEMA DE LICENÇA E BLOQUEIO (INSERIDO NO CÓDIGO ORIGINAL) ---
+                const TRIAL_DURATION = 3600000; // 1 Hora em ms
+                const SECRET_SALT = "NEXUS_SECURE_KEY_2025_PRO_V1"; 
+                const appLocked = ref(false);
+                const isLicensed = ref(false);
+                const deviceId = ref('');
+                const timeLeft = ref('');
+                const licenseInput = ref('');
+                const showLicenseModal = ref(false); // [NOVO] Controle manual do modal de licença
+                
+                // Gera um ID único se não existir
+                const initLicenseSystem = async () => {
+                    let config = await db.settings.get('license_config');
+                    if (!config) {
+                        config = { 
+                            id: 'license_config',
+                            deviceId: crypto.randomUUID(),
+                            firstRun: Date.now(),
+                            licenseKey: null
+                        };
+                        await db.settings.put(config);
+                    }
+                    
+                    deviceId.value = config.deviceId;
+                    
+                    // Verifica se já tem chave válida
+                    if (config.licenseKey) {
+                        const isValid = await verifyKey(config.deviceId, config.licenseKey);
+                        if (isValid) {
+                            isLicensed.value = true;
+                            return; // App liberado
+                        }
+                    }
+
+                    // Verifica tempo de uso
+                    const elapsed = Date.now() - config.firstRun;
+                    if (elapsed > TRIAL_DURATION) {
+                        appLocked.value = true;
+                        timeLeft.value = "Expirado";
+                    } else {
+                        // Inicia contador
+                        setInterval(() => {
+                            const remaining = TRIAL_DURATION - (Date.now() - config.firstRun);
+                            if (remaining <= 0) {
+                                appLocked.value = true;
+                                timeLeft.value = "Expirado";
+                            } else {
+                                const m = Math.floor(remaining / 60000);
+                                timeLeft.value = `${m} min`;
+                            }
+                        }, 1000); // Check a cada segundo para ser preciso
+                    }
+                };
+
+                const verifyKey = async (did, key) => {
+                    const expected = await generateHash(did + SECRET_SALT);
+                    return key === expected;
+                };
+
+                // Função de hash
+                const generateHash = async (message) => {
+                    const msgBuffer = new TextEncoder().encode(message);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().substring(0, 12);
+                    return `${hashHex.slice(0,4)}-${hashHex.slice(4,8)}-${hashHex.slice(8,12)}`;
+                }
+
+                const validateLicense = async () => {
+                    const input = licenseInput.value.trim().toUpperCase();
+                    const isValid = await verifyKey(deviceId.value, input);
+                    
+                    if (isValid) {
+                        const config = await db.settings.get('license_config');
+                        config.licenseKey = input;
+                        await db.settings.put(config);
+                        appLocked.value = false;
+                        showLicenseModal.value = false;
+                        isLicensed.value = true;
+                        showToast("Licença Ativada com Sucesso!", "success");
+                    } else {
+                        showToast("Chave inválida para este dispositivo", "error");
+                    }
+                };
+
+                const whatsappLink = computed(() => {
+                    const msg = `Olá, tenho interesse na licença do Nexus App. Meu Device ID é: ${deviceId.value}`;
+                    return `https://wa.me/558899361992?text=${encodeURIComponent(msg)}`;
+                });
+
+                const copyDeviceId = () => {
+                    navigator.clipboard.writeText(deviceId.value);
+                    showToast("ID Copiado!", "success");
+                };
+
                 // Estado da Aplicação
                 const currentView = ref('dashboard');
                 const tabs = [
@@ -1354,11 +1506,17 @@
                     }
                 };
 
-                // Inicialização
+                // Inicialização (ATUALIZADO PARA LICENÇA E MANTER EXPANSÃO)
                 const load = async () => {
+                    // Preserva o estado de expansão das turmas ao recarregar
+                    const expandedIds = classes.value.filter(c => c.expanded).map(c => c.id);
+
                     const cls = await db.classes.toArray();
-                    // Inicializa a propriedade expanded para todos os objetos
-                    classes.value = cls.map(c => ({...c, expanded: false}));
+                    // Inicializa a propriedade expanded, restaurando quem estava aberto
+                    classes.value = cls.map(c => ({
+                        ...c, 
+                        expanded: expandedIds.includes(c.id) // Mantém aberto se já estava
+                    }));
                     
                     students.value = await db.students.toArray();
                     questions.value = await db.questions.orderBy('id').reverse().toArray();
@@ -1368,7 +1526,11 @@
                     const s = await db.settings.get('config');
                     if(s) settings.value = s;
                 };
-                onMounted(load);
+                
+                onMounted(() => {
+                    initLicenseSystem(); // Inicia sistema de licença
+                    load();
+                });
 
                 // --- Gerenciamento de Turmas ---
                 const addClass = async () => { 
@@ -1376,6 +1538,23 @@
                         await db.classes.add({name:newClass.value}); 
                         newClass.value=''; load(); showToast('Turma criada!', 'success');
                     }
+                };
+                
+                // [NOVO] Função para apagar turma inteira
+                const deleteClass = (classId) => {
+                    triggerConfirm("ATENÇÃO: Isso apagará a turma e TODOS os alunos dela. Confirmar?", async () => {
+                        // Apaga alunos da turma
+                        const classStudents = students.value.filter(s => s.classId === classId);
+                        const studentIds = classStudents.map(s => s.id);
+                        await db.students.bulkDelete(studentIds);
+                        
+                        // Apaga a turma
+                        await db.classes.delete(classId);
+                        
+                        // Recarrega tudo
+                        load();
+                        showToast("Turma apagada com sucesso.", "success");
+                    });
                 };
                 
                 const saveStudents = async (cid) => { 
@@ -1388,7 +1567,18 @@
                 
                 const getStudentCount = cid => students.value.filter(s=>s.classId===cid).length;
                 const getStudents = cid => students.value.filter(s=>s.classId===cid);
-                const deleteStudent = async id => { triggerConfirm("Remover aluno?", async () => { await db.students.delete(id); load(); }); };
+                
+                // [NOVO] Modificado para não resetar a view (usa array local ou load otimizado)
+                const deleteStudent = async id => { 
+                    triggerConfirm("Remover aluno?", async () => { 
+                        await db.students.delete(id);
+                        // Atualização local para evitar reload completo que fecha o accordion
+                        const idx = students.value.findIndex(s => s.id === id);
+                        if (idx > -1) students.value.splice(idx, 1);
+                        // load(); // Opcional se quiser sincronia total, mas o splice já resolve visualmente
+                        showToast("Aluno removido", "success");
+                    }); 
+                };
 
                 // --- Gerenciamento de Questões ---
                 const openQForm = (src) => { 
@@ -2420,7 +2610,9 @@
                     editingExamId, openEditExam, 
                     changeQType, // Nova função exposta
                     filteredDashboardStudents, dashboardStudentFilter, getStudentOverallGrade, // Novas exportações para o painel
-                    forceCapture: () => {} // Stub
+                    forceCapture: () => {}, // Stub
+                    // [NOVO] EXPORTS DO SISTEMA DE LICENÇA E AÇÕES NOVAS
+                    appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, timeLeft, deleteClass, showLicenseModal
                 };
             }
         }).mount('#app');
