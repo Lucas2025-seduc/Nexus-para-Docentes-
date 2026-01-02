@@ -1,0 +1,2442 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nexus - Gestão Docente</title>
+    
+    <!-- PWA Meta Tags (Adicionado) -->
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="description" content="Ferramenta completa para gestão escolar, correção de provas e banco de questões.">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <!-- Fim PWA Meta Tags -->
+
+    <!-- Bibliotecas -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Vue & Banco de Dados -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    
+    <!-- PDF & QR Code -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- OpenCV para Visão Computacional -->
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="window.cvLoaded=true" type="text/javascript"></script>
+
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        
+        .bubble { 
+            width: 38px; height: 38px; /* Maior para facilitar o toque */
+            border-radius: 50%; 
+            border: 2px solid #cbd5e1; 
+            display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; cursor: pointer; transition: all 0.15s; font-size: 14px; 
+            user-select: none;
+            background-color: white;
+        }
+        /* Efeitos visuais melhores para seleção manual */
+        .bubble.selected { background-color: #4f46e5; color: white; border-color: #4f46e5; transform: scale(1.1); box-shadow: 0 2px 5px rgba(79, 70, 229, 0.4); }
+        .bubble.correct { background-color: #22c55e; color: white; border-color: #22c55e; }
+        .bubble.wrong { background-color: #ef4444; color: white; border-color: #ef4444; }
+        /* Estilos específicos para Certo/Errado na correção */
+        .bubble.ce-c.selected { background-color: #22c55e; border-color: #22c55e; }
+        .bubble.ce-e.selected { background-color: #ef4444; border-color: #ef4444; }
+        
+        .invisible { visibility: hidden; pointer-events: none; }
+        
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        
+        .animate-fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .scan-line { 
+            position: absolute; width: 100%; height: 4px; 
+            background: #4f46e5; box-shadow: 0 0 15px #4f46e5; 
+            animation: scan 2s infinite linear; top: 0; z-index: 10; 
+        }
+        @keyframes scan { 0% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+        
+        .q-type-btn { @apply flex-1 py-3 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border border-transparent; }
+        .q-type-btn.active { @apply bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm ring-1 ring-indigo-200; }
+        .q-type-btn.inactive { @apply bg-white text-gray-400 border-gray-100 hover:bg-gray-50 hover:text-gray-600; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden select-none">
+
+    <div id="app" class="flex flex-col h-full relative">
+
+        <!-- Notificações -->
+        <transition name="fade">
+            <div v-if="toast.show" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-[150] px-6 py-3 rounded-full shadow-2xl font-bold text-sm flex items-center gap-3 transition-all text-center min-w-[320px] justify-center backdrop-blur-md border border-white/20"
+                :class="toast.type === 'error' ? 'bg-red-500/90 text-white' : (toast.type === 'success' ? 'bg-emerald-600/90 text-white' : 'bg-gray-800/90 text-white')">
+                <i :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'loading' ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-check-circle')"></i>
+                {{ toast.message }}
+            </div>
+        </transition>
+
+        <!-- Modal Confirmação -->
+        <transition name="fade">
+            <div v-if="confirmModal.show" class="fixed inset-0 z-[160] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-xs w-full animate-fade-in border border-gray-100">
+                    <div class="text-center mb-4 text-indigo-600"><i class="fa-solid fa-circle-question text-4xl"></i></div>
+                    <h3 class="text-lg font-bold text-center text-gray-800 mb-2">Confirmação</h3>
+                    <p class="text-gray-500 text-center mb-6 text-sm">{{ confirmModal.message }}</p>
+                    <div class="flex gap-3">
+                        <button @click="handleConfirm(false)" class="flex-1 py-2.5 rounded-xl border border-gray-200 font-bold text-gray-500 hover:bg-gray-50 transition">Cancelar</button>
+                        <button @click="handleConfirm(true)" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold shadow-lg hover:bg-indigo-700 transition">Sim</button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- HEADER -->
+        <header class="bg-white shadow-sm z-50 flex-none border-b border-gray-200 relative">
+            <div class="px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center gap-3 text-indigo-700 select-none">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                        <i class="fa-solid fa-layer-group text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-black text-xl leading-none tracking-tight">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-0.5 bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1>
+                        <p class="text-[9px] font-medium text-gray-400 leading-tight mt-0.5">Sistema de Gestão Escolar</p>
+                        <p class="text-[7px] font-bold text-indigo-400/80 leading-tight mt-0.5">Aplicativo desenvolvido por Lucas Sebastião Barbosa Silva</p>
+                    </div>
+                </div>
+                <div class="flex gap-1 text-gray-400">
+                    <button @click="triggerImport" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 transition flex items-center justify-center" title="Importar Backup"><i class="fa-solid fa-cloud-arrow-up"></i></button>
+                    <input type="file" id="importFile" class="hidden" accept="application/json" @change="importBackup">
+                    <button @click="backupData" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 transition flex items-center justify-center" title="Baixar Backup"><i class="fa-solid fa-cloud-arrow-down"></i></button>
+                </div>
+            </div>
+            
+            <!-- Navigation Tabs -->
+            <nav class="flex bg-white text-[10px] font-bold text-gray-400 uppercase tracking-wide overflow-x-auto no-scrollbar border-t border-gray-50">
+                <button v-for="tab in tabs" :key="tab.id" @click="currentView = tab.id"
+                    :class="{'text-indigo-600 border-indigo-600 bg-indigo-50/60': currentView === tab.id, 'border-transparent hover:bg-gray-50': currentView !== tab.id}"
+                    class="flex-1 py-3 min-w-[70px] text-center border-b-2 transition-all whitespace-nowrap flex flex-col items-center gap-1">
+                    <i :class="tab.icon" class="text-base mb-0.5"></i> {{ tab.label }}
+                </button>
+            </nav>
+        </header>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full relative z-0 pb-24 sm:pb-4 scroll-smooth">
+
+            <!-- DASHBOARD -->
+            <div v-if="currentView === 'dashboard'" class="space-y-6 animate-fade-in">
+                 <div class="text-center py-8 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl shadow-xl shadow-indigo-200 text-white relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                    <div class="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl -ml-5 -mb-5"></div>
+                    
+                    <div class="relative z-10">
+                        <div class="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/20">
+                            <i class="fa-solid fa-chart-simple text-2xl"></i>
+                        </div>
+                        <h2 class="text-xl font-bold">Relatórios & Desempenho</h2>
+                        <p class="text-xs text-indigo-100 mt-1 font-medium opacity-80">Gestão Pedagógica Inteligente</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 flex items-center gap-2"><i class="fa-solid fa-filter"></i> Selecione a Turma</label>
+                    <div class="relative">
+                        <select v-model="selectedClassIdForReport" class="w-full p-3.5 pl-10 border rounded-xl bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition font-bold text-gray-700 appearance-none">
+                            <option :value="null">Todas as turmas</option>
+                            <option v-for="c in classes" :value="c.id">{{ c.name }}</option>
+                        </select>
+                        <i class="fa-solid fa-users absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <i class="fa-solid fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div v-if="selectedClassIdForReport" class="space-y-4 animate-fade-in">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-indigo-500">
+                            <div class="text-[10px] text-gray-400 font-bold uppercase mb-1">Média Geral da Turma</div>
+                            <div class="text-3xl font-black text-indigo-700 tracking-tight">{{ getClassAverage(selectedClassIdForReport) }}</div>
+                        </div>
+                        <div class="bg-white p-4 rounded-2xl shadow-sm border-b-4 border-emerald-500">
+                            <div class="text-[10px] text-gray-400 font-bold uppercase mb-1">Alunos Avaliados</div>
+                            <div class="text-3xl font-black text-emerald-600 tracking-tight">{{ getEvaluatedStudentCount(selectedClassIdForReport) }}</div>
+                        </div>
+                    </div>
+
+                    <!-- BARRA DE PESQUISA ANTES DO RANKING -->
+                    <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex gap-2">
+                        <div class="flex-1 bg-gray-50 rounded-xl flex items-center px-3 border border-transparent focus-within:border-indigo-300 focus-within:bg-white transition">
+                            <i class="fa-solid fa-search text-gray-400 text-xs mr-2"></i>
+                            <input v-model="dashboardStudentFilter" placeholder="Pesquisar aluno no ranking..." class="w-full bg-transparent text-sm py-2.5 outline-none font-bold text-gray-600 placeholder-gray-400">
+                        </div>
+                        <button v-if="dashboardStudentFilter" @click="dashboardStudentFilter=''" class="text-gray-400 hover:text-red-500 px-2"><i class="fa-solid fa-times"></i></button>
+                    </div>
+
+                    <!-- EXTRATOS DE MÉDIA (NOVO) -->
+                    <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+                        <div class="bg-gray-50 p-4 font-bold text-gray-700 text-sm border-b border-gray-100 flex items-center gap-2">
+                            <i class="fa-solid fa-layer-group text-indigo-600"></i> Distribuição por Notas
+                        </div>
+
+                        <div v-if="getEvaluatedStudentCount(selectedClassIdForReport) === 0" class="p-8 text-center text-xs text-gray-400 italic">
+                            Sem dados de avaliação disponíveis.
+                        </div>
+                        <div v-else class="divide-y divide-gray-50">
+                            <!-- Loop pelos extratos -->
+                            <div v-for="(group, range) in getClassGradeDistribution(selectedClassIdForReport)" :key="range">
+                                <!-- Abre automaticamente se estiver filtrando -->
+                                <details class="group open:bg-indigo-50/30 transition" :open="!!dashboardStudentFilter && group.length > 0">
+                                    <summary class="flex justify-between items-center p-4 cursor-pointer list-none select-none hover:bg-gray-50">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-sm"
+                                                :class="{
+                                                    'bg-emerald-500': range === '8-10',
+                                                    'bg-blue-500': range === '6-8',
+                                                    'bg-yellow-500': range === '4-6',
+                                                    'bg-orange-500': range === '2-4',
+                                                    'bg-red-500': range === '0-2'
+                                                }">
+                                                {{ group.length }}
+                                            </div>
+                                            <div>
+                                                <h4 class="font-bold text-gray-700 text-sm">Entre {{ range.replace('-', ' e ') }}</h4>
+                                                <p class="text-[10px] text-gray-400 uppercase font-bold">{{ group.length }} Alunos</p>
+                                            </div>
+                                        </div>
+                                        <i class="fa-solid fa-chevron-down text-gray-300 text-xs transition-transform group-open:rotate-180"></i>
+                                    </summary>
+                                    <div class="px-4 pb-4 pt-2 grid grid-cols-2 gap-2 animate-fade-in">
+                                        <div v-if="group.length === 0" class="col-span-2 text-[10px] text-gray-400 italic text-center py-2">Nenhum aluno encontrado nesta faixa</div>
+                                        <div v-for="s in group" :key="s.name" @click="openStudentProfile(s.studentId)" class="bg-white border border-gray-100 p-2 rounded-lg flex justify-between items-center cursor-pointer hover:border-indigo-200 shadow-sm">
+                                            <span class="text-xs font-bold text-gray-600 truncate mr-2">{{ s.name }}</span>
+                                            <span class="text-xs font-black" :class="s.avg >= 6 ? 'text-emerald-600' : 'text-red-500'">{{ s.avg }}</span>
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                         <button @click="generateClassReportPDF" class="w-full py-4 bg-gray-900 text-white rounded-xl font-bold shadow-lg active:scale-95 transition flex justify-center items-center gap-2 hover:bg-black">
+                            <i class="fa-solid fa-file-pdf"></i> Ranking & Média
+                        </button>
+                        <button @click="generateGeneralReportPDF" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition flex justify-center items-center gap-2 hover:bg-indigo-700 border border-indigo-500">
+                            <i class="fa-solid fa-table"></i> Boletim Geral (4 Bim)
+                        </button>
+                    </div>
+                </div>
+                <div v-else-if="!selectedClassIdForReport" class="text-center py-10 opacity-50">
+                    <i class="fa-solid fa-arrow-up text-3xl mb-2 text-gray-300"></i>
+                    <p class="text-sm font-medium text-gray-400">Selecione uma turma para ver a análise.</p>
+                </div>
+            </div>
+
+            <!-- TURMAS -->
+            <div v-if="currentView === 'classes'" class="space-y-4 animate-fade-in">
+                 <div class="flex flex-col gap-3 bg-white p-3 rounded-2xl shadow-sm border border-gray-100 sticky top-0 z-20">
+                    <div class="flex gap-2">
+                        <div class="flex-1 bg-gray-50 rounded-xl flex items-center px-3 border border-transparent focus-within:border-indigo-300 focus-within:bg-white transition">
+                            <i class="fa-solid fa-search text-gray-400 text-xs mr-2"></i>
+                            <input v-model="studentFilter" placeholder="Buscar Aluno ou Turma..." class="w-full bg-transparent text-sm py-2.5 outline-none font-bold text-gray-600 placeholder-gray-400">
+                        </div>
+                        <button @click="studentFilter=''" v-if="studentFilter" class="bg-gray-100 text-gray-500 w-10 rounded-xl hover:bg-gray-200 transition flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
+                    </div>
+
+                    <div class="flex gap-2 border-t border-gray-100 pt-3">
+                        <div class="flex-1 bg-gray-50 rounded-xl flex items-center px-3 border border-transparent focus-within:border-indigo-300 focus-within:bg-white transition">
+                            <i class="fa-solid fa-folder-plus text-gray-400 text-xs mr-2"></i>
+                            <input v-model="newClass" placeholder="Nova Turma..." class="w-full bg-transparent text-sm py-2.5 outline-none font-bold text-gray-600 placeholder-gray-400" @keyup.enter="addClass">
+                        </div>
+                        <button @click="addClass" class="bg-indigo-600 text-white w-12 rounded-xl hover:bg-indigo-700 transition flex items-center justify-center shadow-lg active:scale-90"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div v-if="classes.length === 0" class="text-center py-12 text-gray-400">
+                    <i class="fa-solid fa-chalkboard-user text-4xl mb-3 opacity-20"></i>
+                    <p class="text-xs">Nenhuma turma cadastrada.</p>
+                </div>
+
+                <div v-for="c in filteredClasses" :key="c.id" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-md">
+                    <div class="p-4 flex justify-between items-center cursor-pointer select-none bg-white hover:bg-gray-50 transition" @click="c.expanded = !c.expanded">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm border border-indigo-100">
+                                <i class="fa-solid fa-user-group"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800">{{ c.name }}</h3>
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{{ getStudentCount(c.id) }} Alunos</p>
+                            </div>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 transition-transform duration-300" :class="{'rotate-180': c.expanded}">
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </div>
+                    </div>
+                    
+                    <transition name="fade">
+                        <div v-if="c.expanded || studentFilter" class="px-4 pb-4 bg-gray-50/50 border-t border-gray-100">
+                            <div class="mb-3 pt-2">
+                                <button @click="generateGeneralReportPDF(c.id)" class="w-full py-2.5 bg-white border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-50 transition flex items-center justify-center gap-2 shadow-sm">
+                                    <i class="fa-solid fa-file-invoice"></i> Baixar Boletim Geral da Turma (PDF)
+                                </button>
+                            </div>
+
+                            <!-- ÁREA DE CADASTRO DE ALUNOS AJUSTADA -->
+                            <div class="mt-4 mb-4">
+                                <label class="text-[10px] font-bold text-indigo-600 uppercase mb-2 block ml-1 flex items-center gap-2">
+                                    <i class="fa-solid fa-user-plus"></i> Cadastrar Alunos (Um nome por linha)
+                                </label>
+                                <div class="bg-white p-3 rounded-xl border border-gray-200 focus-within:ring-2 focus-within:ring-indigo-100 transition shadow-sm">
+                                    <textarea v-model="bulkStudents[c.id]" placeholder="Ex: Ana Souza&#10;Carlos Silva&#10;Maria Oliveira" class="w-full text-sm outline-none resize-y min-h-[100px] bg-transparent text-gray-700 placeholder-gray-400 font-medium" rows="4"></textarea>
+                                    <button @click="saveStudents(c.id)" class="w-full mt-3 bg-emerald-500 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-600 transition shadow-md flex items-center justify-center gap-2" :disabled="!bulkStudents[c.id]">
+                                        <i class="fa-solid fa-check"></i> Salvar Alunos
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-wrap gap-2">
+                                <span v-for="s in getFilteredStudents(c.id)" :key="s.id" 
+                                    class="bg-white border border-gray-200 text-gray-600 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 cursor-pointer hover:border-indigo-300 hover:text-indigo-600 transition shadow-sm group" 
+                                    @click="openStudentProfile(s.id)">
+                                    <span class="font-bold">{{ s.name }}</span>
+                                    <button @click.stop="deleteStudent(s.id)" class="text-gray-300 hover:text-red-500 transition px-1 -mr-1"><i class="fa-solid fa-times"></i></button>
+                                </span>
+                                <span v-if="getFilteredStudents(c.id).length === 0" class="text-xs text-gray-400 italic py-2 w-full text-center">
+                                    {{ studentFilter ? 'Nenhum aluno encontrado nesta turma.' : 'Nenhum aluno nesta turma.' }}
+                                </span>
+                            </div>
+                        </div>
+                    </transition>
+                </div>
+            </div>
+
+            <!-- QUESTÕES -->
+            <div v-if="currentView === 'questions'" class="space-y-4 animate-fade-in">
+                 <div class="flex flex-col gap-2 bg-white p-3 rounded-2xl shadow-sm border border-gray-100 sticky top-0 z-20 backdrop-blur-md bg-white/95">
+                    <div class="flex gap-2">
+                        <div class="flex-1 bg-gray-50 rounded-xl flex items-center px-3 border border-transparent focus-within:border-indigo-300 transition">
+                            <i class="fa-solid fa-search text-gray-400 text-xs mr-2"></i>
+                            <input v-model="qFilter" placeholder="Buscar no enunciado ou tópico..." class="w-full bg-transparent text-sm py-2.5 outline-none font-medium text-gray-600">
+                        </div>
+                        <button @click="openQForm('bank')" class="bg-indigo-600 text-white w-12 h-10 rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center transition active:scale-95"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    
+                    <!-- Filtros Avançados de Questão -->
+                    <div class="flex gap-2">
+                        <select v-model="filterType" class="flex-1 p-2 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 outline-none border border-transparent focus:bg-white focus:border-indigo-200 transition">
+                            <option value="">Todos os Tipos</option>
+                            <option value="mc">Multipla Escolha</option>
+                            <option value="ce">Certo / Errado</option>
+                            <option value="assoc">Associação</option>
+                        </select>
+                        <select v-model="filterSubject" class="flex-1 p-2 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 outline-none border border-transparent focus:bg-white focus:border-indigo-200 transition">
+                            <option value="">Todas Disciplinas</option>
+                            <option v-for="sub in uniqueSubjects" :key="sub" :value="sub">{{ sub }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pb-20">
+                    <div v-if="filteredQuestions.length === 0" class="text-center py-10 opacity-50">
+                        <p class="text-sm font-medium text-gray-400">Nenhuma questão encontrada com estes filtros.</p>
+                    </div>
+
+                    <div v-for="q in filteredQuestions" :key="q.id" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 relative group transition hover:shadow-md">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex flex-wrap gap-1.5">
+                                <span class="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold uppercase border border-indigo-100">{{ q.subject }}</span>
+                                <span v-if="q.topic" class="text-[9px] bg-gray-50 text-gray-500 px-2 py-0.5 rounded-md border border-gray-200 uppercase font-bold">{{ q.topic }}</span>
+                                <span class="text-[9px] px-2 py-0.5 rounded-md border uppercase font-bold" 
+                                    :class="{
+                                        'bg-blue-50 text-blue-600 border-blue-100': q.type === 'ce',
+                                        'bg-purple-50 text-purple-600 border-purple-100': q.type === 'assoc',
+                                        'bg-orange-50 text-orange-600 border-orange-100': q.type === 'mc' || !q.type
+                                    }">
+                                    {{ q.type === 'ce' ? 'C/E' : (q.type === 'assoc' ? 'Assoc' : 'Multi') }}
+                                </span>
+                            </div>
+                            <div class="flex gap-1 ml-2">
+                                <button @click="editQuestion(q)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition"><i class="fa-solid fa-pencil text-xs"></i></button>
+                                <button @click="deleteQuestion(q.id)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition"><i class="fa-solid fa-trash text-xs"></i></button>
+                            </div>
+                        </div>
+                        <p class="text-sm font-medium text-gray-700 leading-relaxed">{{ q.text }}</p>
+                        <div v-if="q.image" class="mt-2">
+                            <img :src="q.image" class="h-16 rounded border border-gray-200 object-cover">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PROVAS -->
+            <div v-if="currentView === 'exams'" class="space-y-4 h-full flex flex-col animate-fade-in">
+                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                    <!-- Cabeçalho Prova -->
+                    <div class="flex items-center gap-4 border-b border-gray-100 pb-4 mb-4">
+                        <div class="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden relative group cursor-pointer hover:border-indigo-500 transition shrink-0">
+                            <img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-cover">
+                            <i v-else class="fa-solid fa-school text-gray-300 text-xl group-hover:text-indigo-400"></i>
+                            <input type="file" @change="handleLogoUpload" class="absolute inset-0 opacity-0 cursor-pointer" title="Alterar Logo" accept="image/*">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-[9px] font-bold text-gray-400 uppercase">Instituição</label>
+                            <input v-model="settings.schoolName" placeholder="Nome da Escola" class="font-bold text-indigo-700 text-lg w-full outline-none bg-transparent placeholder-indigo-200" @change="saveSettings(true)">
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div v-if="editingExamId" class="bg-indigo-50 p-2 rounded-lg flex justify-between items-center text-xs font-bold text-indigo-700 border border-indigo-100 mb-2">
+                            <span><i class="fa-solid fa-pen-to-square mr-1"></i> Editando Prova Existente</span>
+                            <button @click="editingExamId = null; examCart=[]; examConfig.title=''" class="text-indigo-400 hover:text-indigo-600"><i class="fa-solid fa-times"></i> Cancelar</button>
+                        </div>
+
+                        <div>
+                            <label class="text-[9px] font-bold text-gray-400 uppercase">Título da Avaliação</label>
+                            <input v-model="examConfig.title" placeholder="Ex: Prova Bimestral de História" class="w-full font-bold text-gray-700 border-b border-gray-200 outline-none pb-2 pt-1 focus:border-indigo-500 transition">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[9px] font-bold text-gray-400 uppercase">Turma</label>
+                                <select v-model="examConfig.classId" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 outline-none border border-transparent focus:bg-white focus:border-indigo-200 transition">
+                                    <option value="">Selecione...</option>
+                                    <option v-for="c in classes" :value="c.id">{{ c.name }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-gray-400 uppercase">Bimestre</label>
+                                <select v-model="examConfig.bimester" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 outline-none border border-transparent focus:bg-white focus:border-indigo-200 transition">
+                                    <option value="1">1º Bimestre</option>
+                                    <option value="2">2º Bimestre</option>
+                                    <option value="3">3º Bimestre</option>
+                                    <option value="4">4º Bimestre</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Configurações Avançadas -->
+                        <div class="bg-gray-50/80 p-3 rounded-xl border border-gray-100 space-y-3">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Variação (Embaralhar)</p>
+                                    <select v-model="examConfig.variationMode" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600 font-medium">
+                                        <option value="standard">Padrão (Tipos A/B)</option>
+                                        <option value="unique">Personalizada (1 por Aluno)</option>
+                                        <option value="1_10">1 Versão a cada 10</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Tipo</p>
+                                    <select v-model="examConfig.type" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600 font-medium">
+                                        <option value="Mensal">Mensal</option>
+                                        <option value="Bimestral">Bimestral</option>
+                                        <option value="Trabalho">Trabalho</option>
+                                        <option value="Simulado">Simulado</option>
+                                        <option value="Recuperação Paralela">Recuperação Paralela</option>
+                                        <option value="Recuperação Final">Recuperação Final</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <div class="flex-1">
+                                    <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Professor(a)</p>
+                                    <input v-model="examConfig.teacher" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200">
+                                </div>
+                                <div class="w-20">
+                                    <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Data</p>
+                                    <input v-model="examConfig.date" type="date" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200">
+                                </div>
+                            </div>
+
+                            <!-- Opções de Impressão (NOVO) -->
+                            <div class="mt-3 border-t border-gray-200 pt-2">
+                                <p class="text-[9px] font-bold text-gray-400 uppercase mb-2 flex items-center gap-1"><i class="fa-solid fa-print"></i> Personalizar Impressão</p>
+                                
+                                <div class="grid grid-cols-2 gap-3 mb-2">
+                                    <div>
+                                        <label class="text-[9px] font-bold text-gray-500 block mb-1">Tamanho da Fonte</label>
+                                        <select v-model="printConfig.fontSize" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
+                                            <option value="8">8 pt (Muito Pequena)</option>
+                                            <option value="9">9 pt (Pequena)</option>
+                                            <option value="10">10 pt (Padrão)</option>
+                                            <option value="11">11 pt (Média)</option>
+                                            <option value="12">12 pt (Grande)</option>
+                                            <option value="14">14 pt (Muito Grande)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[9px] font-bold text-gray-500 block mb-1">Espaçamento (Linhas)</label>
+                                        <select v-model="printConfig.spacing" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
+                                            <option value="compact">Compacto (Economia)</option>
+                                            <option value="normal">Normal</option>
+                                            <option value="relaxed">Expandido</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3 mb-2">
+                                    <div>
+                                        <label class="text-[9px] font-bold text-gray-500 block mb-1">Layout Questões</label>
+                                        <select v-model="printConfig.layout" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
+                                            <option value="standard">Texto Corrido (1 Col)</option>
+                                            <option value="columns">Em Colunas (2 Col)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[9px] font-bold text-gray-500 block mb-1">Imagens das Questões</label>
+                                        <select v-model="printConfig.qImageSize" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
+                                            <option value="small">Pequena</option>
+                                            <option value="medium">Média</option>
+                                            <option value="large">Grande</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="text-[9px] font-bold text-gray-500 block mb-1">Tamanho Logo Escola: {{ printConfig.logoSize }}px</label>
+                                    <!-- Alterado max de 100 para 80 para evitar sobreposição na borda -->
+                                    <input type="range" v-model="printConfig.logoSize" min="30" max="80" step="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seleção de Questões -->
+                <div class="flex-1 bg-white rounded-2xl shadow-sm flex flex-col overflow-hidden border border-gray-200 min-h-[300px]">
+                    <div class="flex border-b border-gray-100">
+                        <button @click="examTab = 'all'" :class="examTab === 'all' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">BANCO DE QUESTÕES</button>
+                        <button @click="examTab = 'selected'" :class="examTab === 'selected' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">SELECIONADAS ({{ examCart.length }})</button>
+                    </div>
+                    
+                    <div class="p-2 border-b border-gray-100 bg-gray-50 flex gap-2 items-center">
+                        <input v-model="examFilter" placeholder="Filtrar questões..." class="flex-1 bg-white border border-gray-200 rounded-lg py-1.5 px-3 text-xs outline-none focus:border-indigo-300 transition">
+                        <button @click="openQForm('exam')" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow hover:bg-black transition flex items-center gap-1 shrink-0">
+                            <i class="fa-solid fa-bolt text-yellow-400"></i> Nova
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-2 bg-gray-50/30">
+                        <div v-if="examTab === 'all'">
+                            <div v-for="q in filteredExamQuestions" :key="q.id" class="p-3 rounded-xl border mb-2 cursor-pointer transition flex gap-3 bg-white hover:border-indigo-300 group" @click="toggleExamQ(q)" :class="isQInExam(q.id) ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/30' : 'border-gray-100'">
+                                <div class="mt-0.5 text-lg">
+                                    <i :class="isQInExam(q.id) ? 'fa-solid fa-check-square text-indigo-600' : 'fa-regular fa-square text-gray-300 group-hover:text-indigo-400'"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex gap-1 mb-1">
+                                        <span class="text-[9px] bg-gray-100 px-1.5 py-0.5 rounded font-bold text-gray-500 uppercase">{{ q.subject }}</span>
+                                        <span v-if="q.topic" class="text-[9px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded font-bold uppercase">{{ q.topic }}</span>
+                                    </div>
+                                    <p class="text-xs text-gray-700 line-clamp-2 leading-relaxed">{{ q.text }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-if="examTab === 'selected'">
+                            <div v-if="examCart.length === 0" class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
+                                <i class="fa-solid fa-basket-shopping text-3xl mb-2"></i>
+                                <p class="text-xs">Nenhuma questão selecionada.</p>
+                            </div>
+                            <div v-for="(q, idx) in examCart" :key="q.id" class="p-3 rounded-xl border border-indigo-100 bg-white mb-2 flex gap-3 items-start shadow-sm">
+                                <span class="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">{{ idx + 1 }}</span>
+                                <div class="flex-1"><p class="text-xs text-gray-800 line-clamp-3">{{ q.text }}</p></div>
+                                <button @click="toggleExamQ(q)" class="text-red-300 hover:text-red-500 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pb-24 sm:pb-0">
+                    <button @click="generatePDF" :disabled="!examCart.length || !examConfig.classId" class="bg-indigo-600 text-white py-3.5 rounded-xl font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition flex justify-center items-center gap-2">
+                        <i :class="editingExamId ? 'fa-solid fa-rotate' : 'fa-solid fa-print'"></i> {{ editingExamId ? 'Atualizar Prova (PDF)' : 'Gerar Prova' }}
+                    </button>
+                    <button @click="showHistory = true" class="bg-white border border-gray-200 text-gray-700 py-3.5 rounded-xl font-bold shadow-sm hover:bg-gray-50 transition flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Histórico
+                    </button>
+                </div>
+            </div>
+
+            <!-- SCANNER -->
+            <div v-if="currentView === 'scanner'" class="max-w-md mx-auto space-y-4 animate-fade-in pb-20">
+                <!-- QR CODE SCANNER -->
+                <div v-if="!correctionMode && !omrMode" class="relative bg-black rounded-3xl overflow-hidden shadow-2xl aspect-[3/4] border-4 border-gray-900 flex flex-col">
+                    <div id="qr-reader" class="w-full h-full bg-black flex-1"></div>
+                    
+                    <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                        <div class="w-full h-full border-[30px] border-black/50 relative shadow-[0_0_0_9999px_rgba(0,0,0,0.8)]">
+                            <div class="absolute inset-4 border-2 border-indigo-500/50 rounded-2xl">
+                                 <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-xl -mt-1 -ml-1"></div>
+                                <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-xl -mt-1 -mr-1"></div>
+                                <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-xl -mb-1 -ml-1"></div>
+                                <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-xl -mb-1 -mr-1"></div>
+                            </div>
+                            <div class="scan-line top-4"></div>
+                        </div>
+                        <div class="absolute bottom-20 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full text-white text-xs font-bold border border-white/10 flex items-center gap-2 pointer-events-none">
+                            <i class="fa-solid fa-qrcode text-indigo-400"></i> Aponte para o Nome do Aluno (QR)
+                        </div>
+                    </div>
+                    
+                    <div class="absolute top-4 right-4 z-20 pointer-events-auto">
+                        <button @click="toggleTorch" v-if="hasTorch" class="w-10 h-10 rounded-full bg-white/10 backdrop-blur text-white flex items-center justify-center border border-white/20 hover:bg-white/20"><i class="fa-solid fa-lightbulb" :class="{'text-yellow-400': torchOn}"></i></button>
+                    </div>
+
+                    <div class="absolute bottom-6 w-full flex justify-center pointer-events-auto z-20 px-6 gap-3">
+                        <button @click="startManualEntry" class="bg-white text-gray-900 px-4 py-3 rounded-2xl font-bold shadow-xl flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition text-sm flex-1 justify-center border border-gray-100">
+                            <i class="fa-solid fa-keyboard text-indigo-600"></i> Manual
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ESTADO 2: CORREÇÃO MANUAL (GABARITO DIGITAL INTELIGENTE) -->
+                <div v-if="correctionMode" class="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 animate-fade-in flex flex-col h-[75vh] relative z-30">
+                    <div class="bg-indigo-600 p-6 pb-8 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+                        <div class="relative z-10 flex justify-between items-start">
+                            <div>
+                                <h2 class="text-2xl font-black leading-none text-white">{{ activeStudent.name }}</h2>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="text-xs bg-white/20 px-2 py-0.5 rounded text-white font-medium border border-white/10">Tipo {{ activeVersion + 1 }}</span>
+                                    <span class="text-xs text-indigo-200">{{ new Date().toLocaleDateString() }}</span>
+                                </div>
+                            </div>
+                            <div class="text-center bg-white/10 rounded-xl p-2.5 backdrop-blur-md border border-white/20 min-w-[80px]">
+                                <span class="text-[9px] uppercase text-indigo-200 block font-bold tracking-widest mb-0.5">Nota</span>
+                                <span class="text-4xl font-black tracking-tighter text-white">{{ currentScore }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-4 bg-gray-50 -mt-4 rounded-t-3xl relative z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
+                        <div class="text-xs font-bold text-gray-400 mb-2 uppercase text-center">Toque nas respostas do aluno</div>
+                        <div class="space-y-3">
+                            <div v-for="(q, idx) in activeExamQuestions" :key="idx" class="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <span class="font-bold text-gray-400 text-xs w-6">#{{ idx+1 }}</span>
+                                    <!-- Indicador Visual do Gabarito Oficial -->
+                                    <div class="w-1.5 h-1.5 rounded-full" :class="studentAnswers[idx] === q.correctIndex ? 'bg-emerald-500' : (studentAnswers[idx] !== undefined ? 'bg-red-500' : 'bg-gray-200')"></div>
+                                </div>
+                                
+                                <div class="flex gap-2">
+                                    <!-- MODO DINÂMICO DE BOTÕES -->
+                                    
+                                    <!-- CASO 1: CERTO / ERRADO -->
+                                    <template v-if="q.type === 'ce'">
+                                        <div v-for="(label, i) in ['C', 'E']" :key="i" @click="studentAnswers[idx] = i" 
+                                             class="bubble" 
+                                             :class="{
+                                                'selected': studentAnswers[idx] === i,
+                                                'ce-c': i === 0, /* Cor Certo */
+                                                'ce-e': i === 1  /* Cor Errado */
+                                             }">
+                                            {{ label }}
+                                        </div>
+                                    </template>
+
+                                    <!-- CASO 2: VERDADEIRO / FALSO (Se implementado) -->
+                                    <template v-else-if="q.type === 'vf'">
+                                        <div v-for="(label, i) in ['A', 'B', 'C', 'D', 'E']" :key="i" @click="studentAnswers[idx] = i" 
+                                             class="bubble" :class="{'selected': studentAnswers[idx] === i}">
+                                            {{ label }}
+                                        </div>
+                                    </template>
+
+                                    <!-- CASO 3: PADRÃO (Múltipla Escolha / Associação) -->
+                                    <template v-else>
+                                        <div v-for="(o, i) in 5" :key="i" @click="studentAnswers[idx] = i" 
+                                             class="bubble" :class="{'selected': studentAnswers[idx] === i}">
+                                            {{ ['A','B','C','D','E'][i] }}
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-white border-t border-gray-100 flex gap-3 shadow-[0_-5px_15px_rgba(0,0,0,0.03)] z-30">
+                        <button @click="cancelCorrection" class="flex-1 py-3.5 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition text-sm">Cancelar</button>
+                        <button @click="saveResult" class="flex-[2] py-3.5 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition text-sm flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-check"></i> Salvar Nota
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- CANVAS GLOBAL (Para Processamento - Inativo nesta versão manual) -->
+        <canvas id="cv-canvas" class="hidden"></canvas>
+
+        <!-- MODAIS GLOBAIS (Editor de Questão, Histórico, Perfil Aluno) -->
+        
+        <!-- MODAL MANUAL INPUT -->
+        <div v-if="showManualInputModal" class="fixed inset-0 z-[160] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fade-in border border-gray-100">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">Entrada Manual</h3>
+                    <button @click="showManualInputModal = false" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase">Selecione a Prova</label>
+                        <select v-model="manualConfig.examId" class="w-full p-3 border rounded-xl bg-gray-50 text-sm outline-none font-bold text-gray-700 transition focus:border-indigo-500">
+                            <option value="">Escolha...</option>
+                            <option v-for="e in exams" :key="e.id" :value="e.id">{{ e.title }}</option>
+                        </select>
+                    </div>
+                    
+                    <div v-if="manualConfig.examId">
+                        <label class="text-xs font-bold text-gray-500 uppercase">Selecione o Aluno</label>
+                        <select v-model="manualConfig.studentId" class="w-full p-3 border rounded-xl bg-gray-50 text-sm outline-none font-bold text-gray-700 transition focus:border-indigo-500">
+                            <option value="">Escolha...</option>
+                            <option v-for="s in manualStudents" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        </select>
+                    </div>
+
+                    <!-- NOVO CAMPO: SELETOR DE TIPO DE PROVA -->
+                    <div v-if="manualConfig.studentId && selectedExamVersions.length > 0">
+                         <label class="text-xs font-bold text-gray-500 uppercase">Tipo de Prova (Gabarito)</label>
+                         <select v-model="manualConfig.version" class="w-full p-3 border rounded-xl bg-indigo-50 text-indigo-900 text-sm outline-none font-bold transition focus:border-indigo-500 border-indigo-100">
+                            <option v-for="v in selectedExamVersions" :key="v.id" :value="v.id">
+                                {{ v.label || ('Tipo ' + (v.id + 1)) }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <button @click="confirmManualEntry" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2" :disabled="!manualConfig.examId || !manualConfig.studentId">
+                        <i class="fa-solid fa-pen-to-square"></i> Iniciar Correção
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL EDITOR QUESTÃO -->
+        <div v-if="showQFormModal" class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4">
+            <div class="bg-white w-full sm:rounded-2xl rounded-t-3xl shadow-2xl sm:max-w-lg h-[90vh] sm:h-auto sm:max-h-[90vh] flex flex-col overflow-hidden animate-fade-in">
+                <div class="p-4 border-b bg-gray-50 flex justify-between items-center rounded-t-3xl sm:rounded-t-2xl">
+                    <h3 class="font-bold text-gray-800 text-lg flex items-center gap-2"><i class="fa-solid fa-pen-to-square text-indigo-600"></i> {{ newQ.id ? 'Editar Questão' : 'Nova Questão' }}</h3>
+                    <button @click="showQFormModal = false" class="w-8 h-8 rounded-full bg-gray-200 text-gray-500 hover:bg-red-100 hover:text-red-500 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
+                </div>
+                
+                <div class="overflow-y-auto p-5 custom-scrollbar flex-1 bg-white">
+                    <div class="mb-5">
+                         <div class="grid grid-cols-4 gap-2 mb-4">
+                            <button @click="changeQType('mc')" :class="qType==='mc'?'active':'inactive'" class="q-type-btn"><i class="fa-solid fa-list-ul"></i> Multi</button>
+                            <button @click="changeQType('vf')" :class="qType==='vf'?'active':'inactive'" class="q-type-btn"><i class="fa-solid fa-check-double"></i> V / F</button>
+                            <button @click="changeQType('assoc')" :class="qType==='assoc'?'active':'inactive'" class="q-type-btn"><i class="fa-solid fa-right-left"></i> Assoc</button>
+                            <button @click="changeQType('ce')" :class="qType==='ce'?'active':'inactive'" class="q-type-btn"><i class="fa-regular fa-thumbs-up"></i> C / E</button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div class="space-y-1"><label class="text-[10px] font-bold text-gray-400 uppercase">Disciplina</label><input v-model="newQ.subject" class="p-2.5 border rounded-lg bg-gray-50 text-sm w-full outline-none focus:border-indigo-500 font-medium"></div>
+                            <div class="space-y-1"><label class="text-[10px] font-bold text-gray-400 uppercase">Tópico</label><input v-model="newQ.topic" class="p-2.5 border rounded-lg bg-gray-50 text-sm w-full outline-none focus:border-indigo-500 font-medium"></div>
+                        </div>
+
+                        <div class="space-y-1 mb-4">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Enunciado</label>
+                            <textarea v-model="newQ.text" rows="4" class="w-full p-3 border rounded-xl bg-gray-50 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition resize-none" placeholder="Digite o texto da questão..."></textarea>
+                        </div>
+                        
+                        <!-- Image Upload for Question -->
+                        <div class="mb-4">
+                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Imagem de Apoio (Opcional)</label>
+                             <div class="flex items-center gap-3">
+                                 <label class="px-3 py-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-600 cursor-pointer hover:bg-gray-50 transition flex items-center gap-2">
+                                     <i class="fa-solid fa-image"></i> Escolher
+                                     <input type="file" @change="handleImageUpload" accept="image/*" class="hidden">
+                                 </label>
+                                 <div v-if="newQ.image" class="relative group h-10 w-10">
+                                     <img :src="newQ.image" class="h-full w-full rounded border object-cover">
+                                     <button @click="newQ.image=null" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] shadow"><i class="fa-solid fa-times"></i></button>
+                                 </div>
+                             </div>
+                        </div>
+
+                        <!-- Opções MC -->
+                        <div v-if="qType === 'mc'" class="space-y-3">
+                            <p class="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 p-2 rounded text-center">Selecione a alternativa correta</p>
+                            <div v-for="(opt, i) in newQ.options" :key="i" class="flex items-center gap-3">
+                                <button @click="newQ.correct = i" :class="newQ.correct === i ? 'bg-emerald-500 text-white shadow-md ring-2 ring-emerald-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'" class="w-10 h-10 rounded-lg text-sm font-bold flex-shrink-0 transition-all">{{ ['A','B','C','D','E'][i] }}</button>
+                                <input v-model="opt.text" class="flex-1 p-2.5 border rounded-lg text-xs bg-white focus:border-indigo-300 transition outline-none" :placeholder="`Alternativa ${['A','B','C','D','E'][i]}`">
+                            </div>
+                        </div>
+
+                        <!-- Opções CE -->
+                        <div v-if="qType === 'ce'" class="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
+                            <p class="text-sm font-bold text-blue-800 mb-3">Gabarito</p>
+                            <div class="flex gap-4 justify-center">
+                                <button @click="newQ.correct = 0" :class="newQ.correct === 0 ? 'bg-emerald-500 text-white scale-105 shadow-lg' : 'bg-white text-gray-400 border border-gray-200'" class="px-6 py-3 rounded-xl font-bold text-sm transition-all flex flex-col items-center min-w-[100px]"><i class="fa-solid fa-thumbs-up mb-1 text-xl"></i> CERTO</button>
+                                <button @click="newQ.correct = 1" :class="newQ.correct === 1 ? 'bg-red-500 text-white scale-105 shadow-lg' : 'bg-white text-gray-400 border border-gray-200'" class="px-6 py-3 rounded-xl font-bold text-sm transition-all flex flex-col items-center min-w-[100px]"><i class="fa-solid fa-thumbs-down mb-1 text-xl"></i> ERRADO</button>
+                            </div>
+                        </div>
+
+                        <!-- Opções V/F (NOVO) -->
+                        <div v-if="qType === 'vf'" class="space-y-3">
+                            <p class="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 p-2 rounded text-center">Defina as afirmações e a resposta</p>
+                            <div v-for="(opt, i) in newQ.options" :key="i" class="flex items-center gap-2">
+                                <button @click="opt.isTrue = !opt.isTrue" 
+                                    :class="opt.isTrue ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'" 
+                                    class="w-10 h-10 rounded-lg text-sm font-bold flex-shrink-0 transition-all shadow-sm">
+                                    {{ opt.isTrue ? 'V' : 'F' }}
+                                </button>
+                                <input v-model="opt.text" class="flex-1 p-2.5 border rounded-lg text-xs bg-white focus:border-indigo-300 transition outline-none" placeholder="Afirmação...">
+                                <button @click="newQ.options.splice(i, 1)" class="w-8 h-8 text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                            <button @click="newQ.options.push({text:'', isTrue:true})" class="w-full py-2 border-2 border-dashed border-gray-200 rounded-xl text-xs font-bold text-gray-400 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-500 transition">+ Adicionar Afirmação</button>
+                        </div>
+
+                        <!-- Opções Associação (NOVO) -->
+                        <div v-if="qType === 'assoc'" class="space-y-3">
+                            <p class="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 p-2 rounded text-center">Pares de Associação (Coluna A - Coluna B)</p>
+                            <div v-for="(opt, i) in newQ.options" :key="i" class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-gray-300">{{ i+1 }}</span>
+                                <input v-model="opt.text" class="flex-1 p-2.5 border rounded-lg text-xs bg-white focus:border-indigo-300 transition outline-none" placeholder="Item...">
+                                <i class="fa-solid fa-arrow-right text-gray-300 text-xs"></i>
+                                <input v-model="opt.match" class="flex-1 p-2.5 border rounded-lg text-xs bg-white focus:border-indigo-300 transition outline-none" placeholder="Correspondência...">
+                                <button @click="newQ.options.splice(i, 1)" class="w-8 h-8 text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                            <button @click="newQ.options.push({text:'', match:''})" class="w-full py-2 border-2 border-dashed border-gray-200 rounded-xl text-xs font-bold text-gray-400 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-500 transition">+ Adicionar Par</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+                    <button @click="saveQuestion(false)" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition">Salvar</button>
+                    <button v-if="!newQ.id" @click="saveQuestion(true)" class="flex-1 bg-gray-800 text-white py-3 rounded-xl font-bold hover:bg-black transition">Salvar + 1</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL BOLETIM ALUNO -->
+        <div v-if="showStudentModal" class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4">
+             <div class="bg-white w-full sm:rounded-2xl rounded-t-3xl shadow-2xl sm:max-w-lg h-[90vh] flex flex-col overflow-hidden animate-fade-in">
+                <div class="bg-indigo-600 p-5 text-white shadow-lg relative overflow-hidden shrink-0">
+                     <div class="absolute -right-6 -top-6 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+                     <div class="flex justify-between items-start relative z-10">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-xl font-bold border border-white/20">
+                                {{ studentDetails.name.charAt(0) }}
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg leading-tight">{{ studentDetails.name }}</h3>
+                                <p class="text-xs text-indigo-200">Boletim Individual</p>
+                            </div>
+                        </div>
+                        <button @click="showStudentModal=false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
+                     </div>
+                </div>
+                
+                <div class="flex border-b bg-gray-50">
+                    <button v-for="b in [1,2,3,4]" :key="b" @click="selectedBimester = b" 
+                        :class="selectedBimester === b ? 'text-indigo-600 border-indigo-600 bg-white' : 'text-gray-400 border-transparent'" 
+                        class="flex-1 py-3 text-xs font-bold border-b-2 transition">
+                        {{ b }}º BIM
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 bg-gray-50/50">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 flex justify-between items-center">
+                        <div>
+                            <p class="text-[10px] uppercase font-bold text-gray-400">Média Bimestre</p>
+                            <div class="text-3xl font-black text-indigo-700">{{ studentBimesterAverage }}</div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] uppercase font-bold text-gray-400">Ponto Extra na Média</p>
+                            <div class="text-xl font-bold text-emerald-600">+{{ studentTotalExtraPoints }}</div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h4 class="text-[10px] font-bold text-gray-400 uppercase ml-1">Avaliações</h4>
+                        <div v-if="studentExamsList.length === 0" class="text-center py-6 text-gray-400 text-xs italic bg-white rounded-xl border border-dashed border-gray-200">
+                            Nenhuma prova realizada.
+                        </div>
+                        <div v-for="ex in studentExamsList" :key="ex.id" class="bg-white p-3 rounded-xl border border-gray-100 flex justify-between items-center shadow-sm">
+                            <div class="flex-1">
+                                <div class="font-bold text-gray-800 text-sm">{{ ex.title }}</div>
+                                <div class="text-[10px] text-gray-400 flex gap-2 mt-0.5">
+                                    <span class="bg-gray-100 px-1.5 rounded">{{ ex.type || 'Geral' }}</span>
+                                    <span>Peso {{ ex.weight || 1 }}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- MANUAL EDIT GRADE -->
+                            <div v-if="editingResultId !== ex.id" class="flex items-center gap-1">
+                                <div class="font-bold text-lg mr-2" :class="parseFloat(ex.score) >= 6 ? 'text-emerald-600' : 'text-red-500'">{{ ex.score }}</div>
+                                <button @click="startEditingGrade(ex)" class="text-gray-300 hover:text-indigo-600 p-1.5 rounded hover:bg-gray-50 transition" title="Editar Nota"><i class="fa-solid fa-pencil text-xs"></i></button>
+                                <button @click="deleteStudentResult(ex.id)" class="text-gray-300 hover:text-red-500 p-1.5 rounded hover:bg-red-50 transition" title="Excluir Avaliação"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                            </div>
+                            <div v-else class="flex items-center gap-2">
+                                <div class="flex flex-col">
+                                    <input v-model="tempScore" type="number" step="0.1" placeholder="Nota" class="w-14 p-1 border rounded text-center text-xs font-bold outline-none border-indigo-300 text-indigo-700 bg-white mb-1">
+                                    <div class="flex items-center gap-1 text-[9px] text-gray-400">
+                                       <span class="font-bold">Bônus:</span>
+                                       <input v-model="tempBonus" type="number" step="0.1" class="w-8 p-0.5 border rounded text-center outline-none border-gray-200">
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <button @click="saveEditedGrade" class="text-emerald-500 hover:text-emerald-700 bg-emerald-50 p-1 rounded"><i class="fa-solid fa-check"></i></button>
+                                    <button @click="cancelEditingGrade" class="text-red-400 hover:text-red-600 bg-red-50 p-1 rounded"><i class="fa-solid fa-times"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <div class="flex justify-between items-end mb-2 px-1">
+                            <h4 class="text-[10px] font-bold text-gray-400 uppercase">Ponto Extra na Média</h4>
+                            <button @click="showExtraPointForm = !showExtraPointForm" class="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-0.5 rounded transition">+ Adicionar</button>
+                        </div>
+                        
+                        <transition name="fade">
+                            <div v-if="showExtraPointForm" class="bg-indigo-50 p-3 rounded-xl border border-indigo-100 mb-3">
+                                <div class="flex gap-2 mb-2">
+                                    <input v-model="newExtraPoint.val" type="number" step="0.1" placeholder="Pts" class="w-20 p-2 rounded-lg text-xs outline-none border border-indigo-200">
+                                    <input v-model="newExtraPoint.reason" placeholder="Motivo (ex: Participação)" class="flex-1 p-2 rounded-lg text-xs outline-none border border-indigo-200">
+                                </div>
+                                <button @click="addExtraPoint" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-xs font-bold shadow hover:bg-indigo-700">Salvar</button>
+                            </div>
+                        </transition>
+
+                        <div v-for="ep in studentExtraPointsList" :key="ep.id" class="bg-white p-2 px-3 rounded-lg border border-gray-100 mb-1 flex justify-between items-center group">
+                            <span class="text-xs text-gray-600 font-medium">{{ ep.reason }}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">+{{ ep.points }}</span>
+                                <button @click="deleteExtraPoint(ep.id)" class="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 px-1"><i class="fa-solid fa-times"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MODAL HISTÓRICO PROVAS -->
+        <div v-if="showHistory" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col animate-fade-in overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+                    <h3 class="font-bold text-gray-700">Histórico de Provas</h3>
+                    <div class="flex items-center gap-2 flex-1 mx-4">
+                         <div class="flex-1 bg-gray-50 rounded-xl flex items-center px-3 border border-transparent focus-within:border-indigo-300 focus-within:bg-white transition">
+                            <i class="fa-solid fa-search text-gray-400 text-xs mr-2"></i>
+                            <input v-model="examHistoryFilter" placeholder="Filtrar provas..." class="w-full bg-transparent text-sm py-2 outline-none font-bold text-gray-600 placeholder-gray-400">
+                        </div>
+                    </div>
+                    <button @click="showHistory=false" class="w-8 h-8 rounded-full bg-gray-200 text-gray-500 hover:bg-gray-300 transition flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="overflow-y-auto p-4 space-y-2 bg-gray-50/50 flex-1">
+                     <div v-if="exams.length === 0" class="text-center py-10 opacity-50">
+                        <p class="text-sm">Nenhuma prova gerada ainda.</p>
+                    </div>
+                    <div v-for="e in filteredHistoryExams" :key="e.id" class="bg-white border border-gray-100 rounded-xl p-4 flex justify-between items-center shadow-sm hover:shadow-md transition">
+                        <div>
+                            <div class="font-bold text-indigo-900 text-sm mb-1">{{ e.title }}</div>
+                            <div class="text-xs text-gray-400 flex gap-2 items-center">
+                                <span><i class="fa-regular fa-calendar mr-1"></i>{{ new Date(e.date).toLocaleDateString() }}</span>
+                                <span class="bg-gray-100 px-1.5 rounded text-[10px] font-bold uppercase">{{ e.bimester }}º Bim</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <!-- Botão de Editar Prova -->
+                            <button @click="openEditExam(e)" class="w-9 h-9 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition" title="Editar (Carregar Tudo)"><i class="fa-solid fa-pen"></i></button>
+                            
+                            <button @click="generateKeyPDF(e)" class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition" title="Baixar Gabarito"><i class="fa-solid fa-key"></i></button>
+                            <button @click="deleteExam(e.id)" class="w-9 h-9 rounded-full bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL EDITAR PROVA (NOVO) -->
+        <div v-if="showEditExamModal" class="fixed inset-0 z-[170] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fade-in border border-gray-100">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">Editar Prova</h3>
+                    <button @click="showEditExamModal = false" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
+                </div>
+                
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Título</label>
+                        <input v-model="editingExam.title" class="w-full p-2 bg-gray-50 rounded-lg text-sm border border-gray-200 outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Tipo</label>
+                        <select v-model="editingExam.type" class="w-full p-2 bg-gray-50 rounded-lg text-sm border border-gray-200 outline-none">
+                             <option value="Mensal">Mensal</option>
+                             <option value="Bimestral">Bimestral</option>
+                             <option value="Trabalho">Trabalho</option>
+                             <option value="Simulado">Simulado</option>
+                             <option value="Recuperação Paralela">Recuperação Paralela</option>
+                             <option value="Recuperação Final">Recuperação Final</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Bimestre</label>
+                            <select v-model="editingExam.bimester" class="w-full p-2 bg-gray-50 rounded-lg text-sm border border-gray-200 outline-none">
+                                <option :value="1">1º</option><option :value="2">2º</option><option :value="3">3º</option><option :value="4">4º</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Peso</label>
+                            <input v-model="editingExam.weight" type="number" step="0.1" class="w-full p-2 bg-gray-50 rounded-lg text-sm border border-gray-200 outline-none">
+                        </div>
+                    </div>
+                    <button @click="saveEditedExam" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow hover:bg-indigo-700 transition">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SCRIPT DA APLICAÇÃO -->
+    <script>
+        const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+        
+        // Banco de Dados Local
+        const db = new Dexie('NexusAppDB');
+        db.version(2).stores({ 
+            classes:'++id', 
+            students:'++id, classId', 
+            questions:'++id', 
+            exams:'++id', 
+            results:'++id', 
+            settings:'id', 
+            extraPoints: '++id, studentId, bimester'
+        });
+
+        createApp({
+            setup() {
+                // Estado da Aplicação
+                const currentView = ref('dashboard');
+                const tabs = [
+                    {id:'dashboard', label:'Painel', icon:'fa-solid fa-chart-pie'},
+                    {id:'classes', label:'Turmas', icon:'fa-solid fa-users'},
+                    {id:'questions', label:'Banco', icon:'fa-solid fa-database'},
+                    {id:'exams', label:'Provas', icon:'fa-solid fa-file-contract'},
+                    {id:'scanner', label:'Scanner', icon:'fa-solid fa-qrcode'}
+                ];
+
+                const classes = ref([]); 
+                const students = ref([]); 
+                const questions = ref([]); 
+                const exams = ref([]); 
+                const results = ref([]); 
+                const settings = ref({ schoolName:'', logo:null });
+                const extraPoints = ref([]);
+
+                const newClass = ref(''); 
+                const bulkStudents = ref({});
+
+                // Filtros de Pesquisa
+                const studentFilter = ref('');
+                const examHistoryFilter = ref('');
+                // NOVO: Filtro de aluno no dashboard
+                const dashboardStudentFilter = ref('');
+                
+                const filteredClasses = computed(() => {
+                    if (!studentFilter.value) return classes.value;
+                    const term = studentFilter.value.toLowerCase();
+                    return classes.value.filter(c => {
+                        return c.name.toLowerCase().includes(term) || 
+                               students.value.some(s => s.classId === c.id && s.name.toLowerCase().includes(term));
+                    });
+                });
+
+                const getFilteredStudents = (classId) => {
+                    const term = studentFilter.value.toLowerCase();
+                    const list = students.value.filter(s => s.classId === classId);
+                    
+                    if (!term) return list;
+                    
+                    const classObj = classes.value.find(c => c.id === classId);
+                    if (classObj && classObj.name.toLowerCase().includes(term)) {
+                        return list;
+                    }
+                    return list.filter(s => s.name.toLowerCase().includes(term));
+                };
+
+                // NOVO: Computada para filtrar alunos no dashboard
+                const filteredDashboardStudents = computed(() => {
+                    if (!selectedClassIdForReport.value || !dashboardStudentFilter.value) return [];
+                    const term = dashboardStudentFilter.value.toLowerCase();
+                    return students.value.filter(s => 
+                        s.classId === selectedClassIdForReport.value && 
+                        s.name.toLowerCase().includes(term)
+                    );
+                });
+
+                // NOVO: Função para obter a média geral do aluno
+                const getStudentOverallGrade = (studentId) => {
+                    const studentResults = results.value.filter(r => r.studentId === studentId);
+                    if (studentResults.length === 0) return '-';
+                    
+                    // Lógica simplificada: média de todas as provas realizadas
+                    // Pode ser melhorada para seguir a lógica do boletim (pesos, bimestres) se necessário
+                    const avg = studentResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / studentResults.length;
+                    return avg.toFixed(1);
+                };
+
+                const filteredHistoryExams = computed(() => {
+                    if (!examHistoryFilter.value) return exams.value;
+                    const term = examHistoryFilter.value.toLowerCase();
+                    return exams.value.filter(e => e.title.toLowerCase().includes(term));
+                });
+                
+                // Questões
+                const showQFormModal = ref(false); 
+                const formSource = ref(''); 
+                const qFilter = ref('');
+                const filterType = ref('');
+                const filterSubject = ref('');
+                const examFilter = ref('');
+                const examTab = ref('all'); 
+                const qType = ref('mc');
+                const newQ = ref({id: null, subject:'', topic:'', text:'', image:null, correct:0, options:[{text:''},{text:''},{text:''},{text:''},{text:''}]});
+                
+                // Configuração de Prova
+                const examConfig = ref({
+                    title:'', classId:'', teacher:'', 
+                    date: new Date().toISOString().split('T')[0],
+                    type: 'Mensal', weight: 1, bimester: 1,
+                    variationMode: 'standard'
+                }); 
+                
+                // CONFIGURAÇÃO DE IMPRESSÃO
+                const printConfig = ref({ 
+                    fontSize: '10', 
+                    spacing: 'normal', 
+                    layout: 'standard',
+                    logoSize: 50,
+                    qImageSize: 'medium'
+                });
+
+                const examCart = ref([]); 
+                const showHistory = ref(false);
+
+                // EDITAR PROVA NO HISTÓRICO
+                const showEditExamModal = ref(false);
+                const editingExam = ref({});
+                const editingExamId = ref(null); // Para edição completa na aba Provas
+
+                const openEditExam = (e) => {
+                    // Carrega todos os dados da prova para o formulário principal
+                    examConfig.value = {
+                        title: e.title,
+                        classId: e.classId,
+                        teacher: e.teacher || '', 
+                        date: new Date(e.date).toISOString().split('T')[0],
+                        type: e.type || 'Mensal',
+                        weight: e.weight || 1,
+                        bimester: e.bimester || 1,
+                        variationMode: e.variationMode || 'standard' 
+                    };
+                    
+                    // Restaura as questões selecionadas
+                    if (e.versions && e.versions[0]) {
+                        examCart.value = JSON.parse(JSON.stringify(e.versions[0].questions));
+                    } else if (e.questions) {
+                        examCart.value = JSON.parse(JSON.stringify(e.questions));
+                    }
+                    
+                    editingExamId.value = e.id;
+                    showHistory.value = false;
+                    currentView.value = 'exams'; // Muda para a aba de provas
+                    showToast('Prova carregada para edição', 'success');
+                };
+
+                const saveEditedExam = async () => {
+                    // Esta função é para o modal simples de edição (título, tipo, etc.)
+                    // Mantida para retrocompatibilidade ou uso futuro se quiser editar sem recarregar tudo
+                    // Mas o fluxo principal agora é pelo botão "Gerar Prova" (Atualizar)
+                    if(!editingExam.value.title) return showToast("Título obrigatório", "error");
+                    try {
+                        await db.exams.put(JSON.parse(JSON.stringify(editingExam.value)));
+                        showEditExamModal.value = false;
+                        load(); // Recarrega lista
+                        showToast("Prova atualizada!", "success");
+                    } catch(e) {
+                        showToast("Erro ao salvar", "error");
+                    }
+                };
+
+                // Scanner & Correção
+                const correctionMode = ref(false); 
+                const activeStudent = ref(null); 
+                const activeExam = ref(null); 
+                const activeVersion = ref(0); 
+                const studentAnswers = ref({}); 
+                const html5QrCode = ref(null);
+                const hasTorch = ref(false); 
+                const torchOn = ref(false);
+                const isProcessingOMR = ref(false); 
+                const omrMode = ref(false); 
+                let omrStream = null; 
+                let animationFrameId = null;
+
+                // Manual Input State
+                const showManualInputModal = ref(false);
+                const manualConfig = ref({ examId: '', studentId: '', version: 0 }); // Added version
+
+                const manualStudents = computed(() => {
+                    if (!manualConfig.value.examId) return [];
+                    const ex = exams.value.find(e => e.id === manualConfig.value.examId);
+                    if (!ex) return [];
+                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                });
+                
+                // Computed para pegar as versões da prova selecionada
+                const selectedExamVersions = computed(() => {
+                    if (!manualConfig.value.examId) return [];
+                    const e = exams.value.find(x => x.id === manualConfig.value.examId);
+                    // Garante que retorne um array mesmo se versões antigas não tiverem a estrutura nova
+                    return e && e.versions ? e.versions : [{id:0, label:'Padrão'}];
+                });
+
+                // Watcher inteligente: Quando seleciona o aluno, seleciona o tipo de prova dele automaticamente
+                watch(() => manualConfig.value.studentId, (newVal) => {
+                    if (!newVal || !manualConfig.value.examId) return;
+                    const e = exams.value.find(x => x.id === manualConfig.value.examId);
+                    if (e && e.studentMap && e.studentMap[newVal] !== undefined) {
+                        manualConfig.value.version = e.studentMap[newVal];
+                    } else {
+                         manualConfig.value.version = 0;
+                    }
+                });
+
+                const startManualEntry = () => {
+                    manualConfig.value = { examId: '', studentId: '', version: 0 };
+                    showManualInputModal.value = true;
+                };
+
+                const switchToManualCorrection = () => {
+                    stopOMR();
+                    omrMode.value = false;
+                    correctionMode.value = true;
+                    isProcessingOMR.value = false;
+                    // studentAnswers.value = {}; 
+                    showToast('Preencha as respostas na tela', 'info');
+                };
+
+                const confirmManualEntry = async () => {
+                    if (!manualConfig.value.examId || !manualConfig.value.studentId) return showToast('Selecione prova e aluno', 'error');
+                    
+                    const e = exams.value.find(x => x.id === manualConfig.value.examId);
+                    
+                    // FIX: Migration for old exams
+                    if(e && !e.versions) {
+                        e.versions = [{id:0, questions:e.questionsA || []}, {id:1, questions:e.questionsB || []}];
+                        if (!e.questionsA && e.questions) e.versions = [{id:0, questions:e.questions}];
+                    }
+
+                    const s = students.value.find(x => x.id === manualConfig.value.studentId);
+                    
+                    // Usa a versão selecionada manualmente pelo professor
+                    let verIdx = manualConfig.value.version;
+
+                    // Setup correction mode
+                    activeExam.value = e;
+                    activeStudent.value = s;
+                    activeVersion.value = verIdx;
+                    studentAnswers.value = {};
+                    
+                    showManualInputModal.value = false;
+                    await stopQR();
+                    stopOMR();
+                    
+                    correctionMode.value = true;
+                };
+                
+                // --- Edição de Notas no Boletim ---
+                const editingResultId = ref(null);
+                const tempScore = ref('');
+                const tempBonus = ref(0);
+
+                const startEditingGrade = (examResult) => {
+                    editingResultId.value = examResult.id;
+                    tempScore.value = examResult.score;
+                    tempBonus.value = examResult.bonus || 0;
+                };
+
+                const cancelEditingGrade = () => {
+                    editingResultId.value = null;
+                    tempScore.value = '';
+                };
+
+                const saveEditedGrade = async () => {
+                    if (tempScore.value === '' || isNaN(parseFloat(tempScore.value))) return showToast('Nota inválida', 'error');
+                    
+                    const resultToUpdate = results.value.find(r => r.id === editingResultId.value);
+                    if (resultToUpdate) {
+                        // Create a clone to update
+                        const updated = JSON.parse(JSON.stringify(resultToUpdate));
+                        const baseScore = parseFloat(tempScore.value);
+                        const bonus = parseFloat(tempBonus.value || 0);
+                        
+                        // Store the final score (base + bonus) but keep bonus recorded separately if needed in future
+                        updated.score = (baseScore + bonus).toFixed(1);
+                        updated.bonus = bonus; // Store bonus meta data
+                        
+                        await db.results.put(updated);
+                        results.value = await db.results.toArray(); // Refresh UI
+                        
+                        showToast('Nota atualizada!', 'success');
+                        editingResultId.value = null;
+                    }
+                };
+
+                // FUNÇÕES DE EXCLUSÃO
+                const deleteStudentResult = (resultId) => {
+                    triggerConfirm("Tem certeza que deseja apagar esta avaliação?", async () => {
+                        await db.results.delete(resultId);
+                        results.value = await db.results.toArray();
+                        showToast("Avaliação apagada com sucesso.", "success");
+                    });
+                };
+
+                const deleteExtraPoint = (epId) => {
+                    triggerConfirm("Apagar este ponto extra?", async () => {
+                        await db.extraPoints.delete(epId);
+                        extraPoints.value = await db.extraPoints.toArray();
+                        showToast("Ponto extra removido.", "success");
+                    });
+                };
+
+                // Relatórios e Modais
+                const selectedClassIdForReport = ref(null);
+                const showStudentModal = ref(false);
+                const studentDetails = ref({});
+                const selectedBimester = ref(1);
+                const showExtraPointForm = ref(false);
+                const newExtraPoint = ref({val:'', reason:''});
+                
+                // Variável de estado para o Ranking
+                const rankingOrder = ref('desc'); // 'desc' = Maiores, 'asc' = Menores
+
+                // UI
+                const toast = ref({ show: false, message: '', type: 'info' });
+                const confirmModal = ref({ show: false, message: '', onConfirm: null });
+
+                // Métodos Auxiliares
+                const showToast = (msg, type = 'info') => {
+                    toast.value = { show: true, message: msg, type };
+                    setTimeout(() => toast.value.show = false, 3000);
+                };
+
+                const triggerConfirm = (msg, action) => {
+                    confirmModal.value = { show: true, message: msg, onConfirm: action };
+                };
+
+                const handleConfirm = (result) => {
+                    confirmModal.value.show = false;
+                    if (result && confirmModal.value.onConfirm) confirmModal.value.onConfirm();
+                    confirmModal.value.onConfirm = null;
+                };
+
+                // Speech Synthesis
+                const speak = (text) => {
+                    if ('speechSynthesis' in window) {
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        utterance.lang = 'pt-BR';
+                        window.speechSynthesis.speak(utterance);
+                    }
+                };
+
+                // Inicialização
+                const load = async () => {
+                    const cls = await db.classes.toArray();
+                    // Inicializa a propriedade expanded para todos os objetos
+                    classes.value = cls.map(c => ({...c, expanded: false}));
+                    
+                    students.value = await db.students.toArray();
+                    questions.value = await db.questions.orderBy('id').reverse().toArray();
+                    exams.value = await db.exams.orderBy('id').reverse().toArray();
+                    results.value = await db.results.toArray();
+                    extraPoints.value = await db.extraPoints.toArray();
+                    const s = await db.settings.get('config');
+                    if(s) settings.value = s;
+                };
+                onMounted(load);
+
+                // --- Gerenciamento de Turmas ---
+                const addClass = async () => { 
+                    if(newClass.value){ 
+                        await db.classes.add({name:newClass.value}); 
+                        newClass.value=''; load(); showToast('Turma criada!', 'success');
+                    }
+                };
+                
+                const saveStudents = async (cid) => { 
+                    const t=bulkStudents.value[cid]; if(!t)return; 
+                    triggerConfirm("Salvar lista de alunos?", async () => {
+                        await db.students.bulkAdd(t.split('\n').filter(n=>n.trim()).map(n=>({classId:cid, name:n.trim()}))); 
+                        bulkStudents.value[cid]=''; load(); showToast('Alunos importados!', 'success');
+                    });
+                };
+                
+                const getStudentCount = cid => students.value.filter(s=>s.classId===cid).length;
+                const getStudents = cid => students.value.filter(s=>s.classId===cid);
+                const deleteStudent = async id => { triggerConfirm("Remover aluno?", async () => { await db.students.delete(id); load(); }); };
+
+                // --- Gerenciamento de Questões ---
+                const openQForm = (src) => { 
+                    formSource.value = src; 
+                    qType.value = 'mc'; 
+                    newQ.value = {id: null, subject:'', topic:'', text:'', image:null, correct:0, options:[{text:''},{text:''},{text:''},{text:''},{text:''}]}; 
+                    showQFormModal.value = true; 
+                };
+
+                // NOVA FUNÇÃO: Troca inteligente de tipo de questão
+                const changeQType = (type) => {
+                    qType.value = type;
+                    // Reset options based on type to provide correct UI structure
+                    if(type === 'vf') {
+                        newQ.value.options = [{text:'', isTrue:true}, {text:'', isTrue:false}];
+                    } else if(type === 'assoc') {
+                        newQ.value.options = [{text:'', match:''}, {text:'', match:''}];
+                    } else if(type === 'mc') {
+                        // Preserve if switching back, or reset
+                        if(!newQ.value.options || newQ.value.options.length === 0 || !newQ.value.options[0].text) {
+                             newQ.value.options = [{text:''},{text:''},{text:''},{text:''},{text:''}];
+                        }
+                    }
+                };
+
+                const editQuestion = (q) => { 
+                    formSource.value = 'bank'; 
+                    newQ.value = JSON.parse(JSON.stringify(q)); 
+                    qType.value = q.type || 'mc';
+                    showQFormModal.value = true; 
+                };
+                
+                const handleImageUpload = (e) => { 
+                    const f=e.target.files[0]; if(!f) return;
+                    if(f.size>800000) return showToast('Imagem muito grande (Max 800kb)', 'error'); 
+                    const r=new FileReader(); r.onload=evt=>newQ.value.image=evt.target.result; r.readAsDataURL(f); 
+                };
+
+                const saveQuestion = async (addAnother) => {
+                    if(!newQ.value.text) return showToast('Digite o enunciado', 'error');
+                    
+                    try {
+                        let txt=newQ.value.text, opts=newQ.value.options ? [...newQ.value.options] : [], cor=newQ.value.correct;
+                        if(qType.value === 'ce'){
+                            opts = [{text: 'Certo'}, {text: 'Errado'}];
+                        }
+                        
+                        const qData = { 
+                            subject:newQ.value.subject||'Geral', topic:newQ.value.topic||'', 
+                            text:txt, image:newQ.value.image, correct:cor, options:opts, 
+                            type:qType.value
+                        };
+                        
+                        const plainQData = JSON.parse(JSON.stringify(qData));
+                        if(newQ.value.id) await db.questions.put({ ...plainQData, id: newQ.value.id }); 
+                        else { 
+                            const qId = await db.questions.add(plainQData); 
+                            if(formSource.value === 'exam') { const savedQ = await db.questions.get(qId); examCart.value.push(savedQ); showToast('Adicionada à prova!', 'success'); } 
+                        }
+                        
+                        if(!addAnother) { showQFormModal.value=false; if(formSource.value !== 'exam') showToast('Salvo!', 'success'); } 
+                        else { 
+                            // Reset for next question but keep context
+                            newQ.value.id=null; 
+                            newQ.value.text=''; 
+                            newQ.value.image=null;
+                            // Reset options based on current type
+                            if(qType.value === 'vf') newQ.value.options = [{text:'', isTrue:true}, {text:'', isTrue:false}];
+                            else if(qType.value === 'assoc') newQ.value.options = [{text:'', match:''}, {text:'', match:''}];
+                            
+                            showToast('Questão salva. Próxima...', 'success'); 
+                        }
+                        load();
+                    } catch (e) { showToast('Erro ao salvar', 'error'); }
+                };
+                
+                const deleteQuestion = async id => { triggerConfirm('Excluir questão permanentemente?', async () => { await db.questions.delete(id); load(); }); };
+
+                // --- Filtros ---
+                const uniqueSubjects = computed(() => [...new Set(questions.value.map(q => q.subject))].sort());
+
+                const filteredQuestions = computed(() => {
+                    return questions.value.filter(q => {
+                        const matchesText = !qFilter.value || 
+                            q.text.toLowerCase().includes(qFilter.value.toLowerCase()) || 
+                            q.topic.toLowerCase().includes(qFilter.value.toLowerCase());
+                        
+                        const matchesType = !filterType.value || q.type === filterType.value;
+                        const matchesSubject = !filterSubject.value || q.subject === filterSubject.value;
+
+                        return matchesText && matchesType && matchesSubject;
+                    });
+                });
+                
+                const filteredExamQuestions = computed(() => {
+                    if(!examFilter.value) return questions.value; 
+                    const t = examFilter.value.toLowerCase(); 
+                    return questions.value.filter(q => q.text.toLowerCase().includes(t) || q.subject.toLowerCase().includes(t)); 
+                });
+
+                // --- Gestão de Provas ---
+                const toggleExamQ = q => { const i=examCart.value.findIndex(x=>x.id===q.id); i>-1?examCart.value.splice(i,1):examCart.value.push(q); };
+                const isQInExam = id => examCart.value.some(x=>x.id===id);
+                const deleteExam = async id => { triggerConfirm('Apagar prova do histórico?', async () => { await db.exams.delete(id); load(); }); };
+
+                // --- Geração de PDF ---
+                const generateGeneralReportPDF = async (classIdParam = null) => {
+                    // Determina o ID da turma: ou vem por parâmetro (aba Turmas) ou do seletor (Dashboard)
+                    // Verifica se classIdParam é um evento (clique) ou um ID válido
+                    const cid = (typeof classIdParam === 'number' || typeof classIdParam === 'string') ? classIdParam : selectedClassIdForReport.value;
+
+                    if (!cid) return showToast('Selecione uma turma', 'error');
+
+                    const classStudents = getStudents(cid).sort((a,b) => a.name.localeCompare(b.name));
+                    const cls = classes.value.find(c => c.id === cid);
+                    const className = cls ? cls.name : 'Turma';
+
+                    if (classStudents.length === 0) return showToast('Turma sem alunos!', 'error');
+
+                    const tableBody = [
+                        [
+                            { text: 'Aluno', bold: true, fillColor: '#eee', style: 'tableHeader' },
+                            { text: '1º Bim', bold: true, fillColor: '#eee', alignment: 'center', style: 'tableHeader' },
+                            { text: '2º Bim', bold: true, fillColor: '#eee', alignment: 'center', style: 'tableHeader' },
+                            { text: '3º Bim', bold: true, fillColor: '#eee', alignment: 'center', style: 'tableHeader' },
+                            { text: '4º Bim', bold: true, fillColor: '#eee', alignment: 'center', style: 'tableHeader' },
+                            { text: 'Final', bold: true, fillColor: '#4f46e5', color: 'white', alignment: 'center', style: 'tableHeader' }
+                        ]
+                    ];
+
+                    for (const s of classStudents) {
+                        const row = [{ text: s.name, fontSize: 10, alignment: 'left' }];
+                        let annualSum = 0;
+                        let annualCount = 0;
+
+                        for (let b = 1; b <= 4; b++) {
+                            // Calculate Average for Bimester b
+                            const bimResults = results.value.filter(r => r.studentId === s.id);
+                            const bimExams = bimResults.map(r => {
+                                const e = exams.value.find(ex => ex.id === r.examId);
+                                return e && parseInt(e.bimester) === b ? { ...r, weight: parseFloat(e.weight) || 1 } : null;
+                            }).filter(x => x);
+
+                            let weightedSum = 0;
+                            let weightSum = 0;
+
+                            bimExams.forEach(bx => {
+                                // Considera bonus da prova se existir
+                                const scoreVal = parseFloat(bx.score); // Já inclui bonus da edição manual se foi salvo
+                                weightedSum += scoreVal * bx.weight;
+                                weightSum += bx.weight;
+                            });
+
+                            const extraPts = extraPoints.value
+                                .filter(ep => ep.studentId === s.id && parseInt(ep.bimester) === b)
+                                .reduce((acc, ep) => acc + parseFloat(ep.points), 0);
+
+                            let bimAvg = weightSum > 0 ? (weightedSum / weightSum) : 0;
+                            bimAvg += extraPts;
+                            
+                            // LIMITE DE NOTA: 10
+                            if (bimAvg > 10) bimAvg = 10;
+
+                            // Add to annual calculation if there were exams or points
+                            if (weightSum > 0 || extraPts > 0) {
+                                annualSum += bimAvg;
+                                annualCount++;
+                                row.push({ text: bimAvg.toFixed(1), alignment: 'center', fontSize: 10 });
+                            } else {
+                                row.push({ text: '-', alignment: 'center', fontSize: 10, color: '#ccc' });
+                            }
+                        }
+
+                        // Média final simples dos bimestres com nota
+                        // Se quiser média /4 fixo, mude annualCount para 4.
+                        const finalAvg = annualCount > 0 ? (annualSum / annualCount).toFixed(1) : '-'; 
+                        row.push({ text: finalAvg, alignment: 'center', bold: true, fontSize: 10, fillColor: '#f5f7ff' });
+                        tableBody.push(row);
+                    }
+
+                    const doc = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 18, bold: true, alignment: 'center' },
+                            { text: `BOLETIM GERAL - ${className}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
+                            {
+                                table: {
+                                    headerRows: 1,
+                                    widths: ['*', 35, 35, 35, 35, 45],
+                                    body: tableBody
+                                },
+                                layout: {
+                                    hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 1 : 1,
+                                    vLineWidth: (i, node) => 0,
+                                    hLineColor: (i, node) => '#e5e7eb',
+                                    paddingLeft: (i) => 8,
+                                    paddingRight: (i) => 8,
+                                    paddingTop: (i) => 8,
+                                    paddingBottom: (i) => 8,
+                                }
+                            },
+                            { text: 'Gerado por Nexus Docente', style: 'footer', alignment: 'center', margin: [0, 20], color: 'gray', fontSize: 8 }
+                        ],
+                        styles: { 
+                            footer: { italics: true },
+                            tableHeader: { fontSize: 10, margin: [0, 2] }
+                        },
+                        defaultStyle: {
+                            font: 'Roboto'
+                        }
+                    };
+                    pdfMake.createPdf(doc).download(`Boletim_Geral_${className}.pdf`);
+                };
+
+                const generatePDF = async () => {
+                    const actionName = editingExamId.value ? "Atualizar Prova (PDF)?" : "Gerar e Baixar PDF da Prova?";
+                    triggerConfirm(actionName, async () => {
+                        try {
+                            const baseQ = JSON.parse(JSON.stringify(examCart.value));
+                            const classStudents = getStudents(examConfig.value.classId);
+                            if (classStudents.length === 0) return showToast('Turma sem alunos!', 'error');
+
+                            // Mostrar loading
+                            showToast(editingExamId.value ? 'Atualizando prova...' : 'Gerando arquivo da prova...', 'loading');
+
+                            // Configurações Dinâmicas de Estilo
+                            const userFontSize = parseInt(printConfig.value.fontSize);
+                            
+                            // Margens e Espaçamento com base na seleção
+                            const spacingConfig = {
+                                compact: { marginQ: [0, 2], marginOpt: [0, 0], marginStack: [5, 0, 0, 5], optLineHeight: 1 },
+                                normal: { marginQ: [0, 5], marginOpt: [0, 2], marginStack: [15, 0, 0, 10], optLineHeight: 1.1 },
+                                relaxed: { marginQ: [0, 10], marginOpt: [0, 5], marginStack: [15, 0, 0, 15], optLineHeight: 1.3 }
+                            };
+                            const currentSpacing = spacingConfig[printConfig.value.spacing];
+
+                            const imgSizes = { small: 80, medium: 150, large: 250 };
+                            const currentImgWidth = imgSizes[printConfig.value.qImageSize] || imgSizes.medium;
+
+                            const versions = [];
+                            const mode = examConfig.value.variationMode;
+                            let numVersions = 2; // Padrão
+
+                            if (mode === 'unique') numVersions = classStudents.length;
+                            else if (mode === '1_10') numVersions = Math.ceil(classStudents.length / 10);
+                            
+                            // Gerar Versões Embaralhadas
+                            for (let i = 0; i < numVersions; i++) {
+                                let qs = JSON.parse(JSON.stringify(baseQ)).map(q => ({...q, correctIndex: q.correct}));
+                                if (i > 0 || mode !== 'standard') { 
+                                    qs.sort(() => Math.random() - 0.5);
+                                    qs.forEach(q => {
+                                        if (q.type !== 'ce') { // Não embaralha C/E
+                                            let opts = q.options.map((o, idx) => ({...o, isCorrect: idx === q.correctIndex}));
+                                            opts.sort(() => Math.random() - 0.5);
+                                            q.options = opts;
+                                            q.correctIndex = opts.findIndex(o => o.isCorrect);
+                                        }
+                                    });
+                                }
+                                versions.push({ id: i, label: `Tipo ${i+1}`, questions: qs });
+                            }
+
+                            // Atribuir versão
+                            const studentVersionMap = {};
+                            classStudents.forEach((s, idx) => { studentVersionMap[s.id] = idx % numVersions; });
+
+                            const examData = { 
+                                title:examConfig.value.title, classId:examConfig.value.classId, 
+                                date:Date.now(), versions: versions, studentMap: studentVersionMap, 
+                                type: examConfig.value.type, weight: parseFloat(examConfig.value.weight), 
+                                bimester: parseInt(examConfig.value.bimester),
+                                teacher: examConfig.value.teacher,
+                                variationMode: examConfig.value.variationMode
+                            };
+                            
+                            const plainExamData = JSON.parse(JSON.stringify(examData));
+                            
+                            let examId;
+                            if (editingExamId.value) {
+                                // MODO ATUALIZAÇÃO
+                                examId = editingExamId.value;
+                                await db.exams.put({ ...plainExamData, id: examId });
+                                editingExamId.value = null; // Sair do modo de edição
+                            } else {
+                                // MODO CRIAÇÃO
+                                examId = await db.exams.add(plainExamData);
+                            }
+                            
+                            load();
+
+                            const cls = classes.value.find(c => c.id === examConfig.value.classId);
+                            const className = cls ? cls.name : '___';
+                            const dParts = examConfig.value.date.split('-');
+                            const fmtDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : '__/__/__';
+                            let content = [];
+                            
+                            // GERAÇÃO DE PROVA PERSONALIZADA PARA CADA ALUNO
+                            classStudents.forEach((s, i) => {
+                                const vIndex = studentVersionMap[s.id];
+                                const qr = JSON.stringify({e:examId, s:s.id, v:vIndex});
+                                const questionsForStudent = versions[vIndex].questions;
+                                
+                                // Geração do Gabarito (Tabela Compacta)
+                                let answerKeyRows = [];
+                                
+                                // Cabeçalho do Gabarito
+                                answerKeyRows.push([
+                                    { text: 'Questão', bold: true, fillColor: '#eee', alignment: 'center', fontSize: 9, margin:[0, 1] },
+                                    { text: 'RESPOSTA', bold: true, fillColor: '#eee', alignment: 'center', fontSize: 9, colSpan: 5, margin:[0, 1] },
+                                    {}, {}, {}, {} 
+                                ]);
+
+                                for(let k=0; k<questionsForStudent.length; k++) { 
+                                    const q = questionsForStudent[k];
+                                    const qType = q.type;
+                                    
+                                    let r = [{ text: k + 1, bold: true, alignment: 'center', fillColor: '#f8f9fa', fontSize: 9, margin:[0, 2] }];
+                                    
+                                    // AQUI ESTAVA O PROBLEMA: Lógica de labels para o Cartão Resposta no PDF
+                                    // Se for C/E, usa labels C, E.
+                                    // Se for Múltipla Escolha, V/F (transformado) ou Associação (transformado), usa A, B, C, D, E.
+                                    
+                                    let labels;
+                                    if (qType === 'ce') {
+                                        labels = ['C', 'E'];
+                                    } else {
+                                        // mc, vf, assoc (todos usam A-E agora pois V/F e Assoc são transformados em múltipla escolha)
+                                        labels = ['A', 'B', 'C', 'D', 'E'];
+                                    }
+                                    
+                                    for(let j=0; j<5; j++) {
+                                        if(j < labels.length) {
+                                            r.push({ 
+                                                stack: [
+                                                    { 
+                                                        canvas: [{ type: 'ellipse', x: 8, y: 8, r1: 6, r2: 6, lineWidth: 1, lineColor: '#9ca3af' }], 
+                                                        alignment: 'center' 
+                                                    },
+                                                    { text: labels[j], fontSize: 7, color:'#6b7280', alignment: 'center', relativePosition: {x:0, y:-10} }
+                                                ],
+                                                margin: [0, 1]
+                                            });
+                                        } else {
+                                            r.push({ text: '', border: [false, false, false, false] });
+                                        }
+                                    }
+                                    answerKeyRows.push(r); 
+                                }
+
+                                // Layout da Página Personalizada
+                                content.push({
+                                    stack: [
+                                        // 1. Box Definition (Absolute Positioned for current page)
+                                        {
+                                            canvas: [
+                                                {
+                                                    type: 'rect',
+                                                    x: 0,
+                                                    y: 0,
+                                                    w: 515,
+                                                    h: 110,
+                                                    r: 6,
+                                                    lineWidth: 1,
+                                                    lineColor: '#6b7280'
+                                                }
+                                            ],
+                                            absolutePosition: { x: 40, y: 40 }
+                                        },
+
+                                        // 2. Header Content (Inside Box)
+                                        {
+                                            columns: [
+                                                // Esquerda: Logo (Tamanho dinâmico)
+                                                (settings.value.logo && settings.value.logo.startsWith('data:image')) 
+                                                    ? { 
+                                                        image: settings.value.logo, 
+                                                        // Fit constrains bounding box. Limit height to 75 to allow padding inside 110px box.
+                                                        fit: [parseInt(printConfig.value.logoSize), 75], 
+                                                        width: parseInt(printConfig.value.logoSize) 
+                                                      } 
+                                                    : { text:'', width: parseInt(printConfig.value.logoSize) },
+                                                
+                                                // Centro: Informações
+                                                {
+                                                    stack: [
+                                                        { text: settings.value.schoolName.toUpperCase() || 'ESCOLA', fontSize: 14, bold: true, alignment: 'center' },
+                                                        { text: examConfig.value.title, fontSize: 11, bold: true, alignment: 'center', margin:[0,2] },
+                                                        { text: `Turma: ${className} | Data: ${fmtDate} | Tipo: ${vIndex + 1}`, fontSize: 9, alignment: 'center' },
+                                                        { text: `Aluno(a): ${s.name}`, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 0] }
+                                                    ],
+                                                    width: '*'
+                                                },
+
+                                                // Direita: QR Code
+                                                {
+                                                    qr: qr,
+                                                    fit: 80,
+                                                    alignment: 'right',
+                                                    width: 80
+                                                }
+                                            ],
+                                            columnGap: 10,
+                                            // Padding inside the box
+                                            margin: [10, 10, 10, 5] 
+                                        },
+
+                                        // 3. GABARITO (Logo abaixo do box, using spacer margin)
+                                        { text: 'CARTÃO RESPOSTA', fontSize: 10, bold: true, alignment: 'center', color: '#4b5563', margin: [0, 20, 0, 5] },
+                                        {
+                                            table: {
+                                                headerRows: 1,
+                                                widths: [35, 30, 30, 30, 30, 30],
+                                                body: answerKeyRows
+                                            },
+                                            layout: {
+                                                hLineWidth: (i, node) => 1,
+                                                vLineWidth: (i, node) => (i === 0 || i === 1) ? 1 : 0,
+                                                hLineColor: (i, node) => '#e5e7eb',
+                                                vLineColor: (i, node) => '#e5e7eb',
+                                            },
+                                            alignment: 'center',
+                                            margin: [0, 0, 0, 20]
+                                        },
+
+                                        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: '#e5e7eb', dash: {length: 5} }], margin: [0, 0, 0, 20] },
+
+                                        // 4. INÍCIO DAS QUESTÕES
+                                    ]
+                                });
+
+                                // FUNÇÃO AUXILIAR PARA CRIAR O BLOCO DE QUESTÃO (ATUALIZADA)
+                                const createQuestionBlock = (q, idx) => {
+                                    let qStack = [{text: `Questão ${idx+1}. ${q.text}`, bold: true, fontSize: userFontSize, margin: currentSpacing.marginQ, lineHeight: currentSpacing.optLineHeight }];
+                                    
+                                    if(q.image && typeof q.image === 'string' && q.image.startsWith('data:image')) {
+                                        qStack.push({image: q.image, width: currentImgWidth, margin: [0, 5]});
+                                    }
+                                    
+                                    // Lógica Diferenciada por Tipo de Questão
+                                    if (q.type === 'assoc') {
+                                        // Layout Associação: Coluna 1 (Itens) | Coluna 2 (Parênteses Embaralhados)
+                                        const colA = q.options.map((o, i) => ({ text: `${i+1}. ${o.text}`, fontSize: userFontSize-1, margin:[0,2] }));
+                                        
+                                        // Shuffle apenas para visualização
+                                        const matches = q.options.map(o => o.match).filter(m => m);
+                                        // Ordenação alfabética para consistência visual na questão
+                                        const shuffledMatches = [...matches].sort((a, b) => a.localeCompare(b)); 
+                                        
+                                        const colB = shuffledMatches.map(m => ({ text: `(   ) ${m}`, fontSize: userFontSize-1, margin:[0,2] }));
+                                        
+                                        qStack.push({
+                                            columns: [
+                                                { stack: colA, width: '48%' },
+                                                { text: '', width: '4%' }, // Espaço
+                                                { stack: colB, width: '48%' }
+                                            ],
+                                            margin: [0, 0, 0, 10]
+                                        });
+
+                                        // GERAÇÃO DAS ALTERNATIVAS (A, B, C, D, E)
+                                        // A alternativa correta será colocada na posição (q.id % 5)
+                                        const correctPos = (q.id || 0) % 5;
+                                        const correctSeq = q.options.map((o, i) => {
+                                            // A sequência correta deve ser, por exemplo: 1-B, 2-A, 3-C...
+                                            // Encontramos qual letra (posição em shuffledMatches) corresponde ao match original
+                                            const matchIndex = shuffledMatches.indexOf(o.match);
+                                            // Se encontrou, pega a letra correspondente (A, B, C...)
+                                            // Mas espere, shuffledMatches são apenas os textos.
+                                            // Vamos assumir que a segunda coluna tem parênteses vazios ( ) e o aluno deve colocar o número.
+                                            // OU, mais comum em V/F e Assoc transformada em MC:
+                                            // "A sequência correta é:"
+                                            // Vamos usar a notação: 1-B, 2-A... onde A, B são os itens da segunda coluna?
+                                            // Não, a segunda coluna não tem letras explícitas a não ser que adicionemos.
+                                            // Vamos simplificar: A resposta é a sequência de números que preenche os parênteses da segunda coluna.
+                                            // Ex: (3) - (1) - (2)
+                                            
+                                            // Vamos reformular: A segunda coluna deve ter ( ) e a resposta é a ordem dos números da primeira coluna.
+                                            return `${matchIndex !== -1 ? (matchIndex + 1) : '?'}`;
+                                            // Isso é confuso. Vamos voltar ao padrão mais robusto:
+                                            // Texto completo da associação correta. Ex: "1-Carro; 2-Moto"
+                                            // O usuário pediu "escritas nas alternativas de forma completa".
+                                            // Então: "1 associado a Carro; 2 associado a Moto".
+                                            // return `${i+1} - ${o.match}`;
+                                        }).join('; ');
+                                        // Espere, se a resposta correta é "1-Carro", é fácil demais.
+                                        // A questão de associação geralmente pede a sequência de números que preenche a segunda coluna de cima para baixo.
+                                        // Vamos adotar esse padrão que é o mais comum em concursos/vestibulares.
+                                        
+                                        // 1. Gera a sequência correta de números para a coluna da direita.
+                                        // Para cada item da direita (shuffledMatches), qual é o número da esquerda (q.options index + 1) que corresponde?
+                                        const correctNumbersSequence = shuffledMatches.map(matchText => {
+                                            const originalIndex = q.options.findIndex(opt => opt.match === matchText);
+                                            return originalIndex + 1;
+                                        });
+                                        const correctString = correctNumbersSequence.join(' - ');
+
+                                        const alternatives = [];
+                                        for(let k=0; k<5; k++) {
+                                            if(k === correctPos) {
+                                                alternatives.push(correctString);
+                                            } else {
+                                                // Gera sequência aleatória
+                                                const fakeSeq = [...correctNumbersSequence].sort(() => Math.random() - 0.5).join(' - ');
+                                                alternatives.push(fakeSeq);
+                                            }
+                                        }
+
+                                        const opts = alternatives.map((alt, x) => ({ 
+                                            text: `${['a','b','c','d','e'][x]}) ${alt}`, 
+                                            margin: currentSpacing.marginOpt, 
+                                            fontSize: userFontSize - 1, 
+                                            color: '#374151',
+                                            lineHeight: currentSpacing.optLineHeight
+                                        }));
+                                        
+                                        qStack.push({text: 'Assinale a alternativa que apresenta a sequência correta:', fontSize: userFontSize-1, margin:[0,5,0,2]});
+                                        qStack.push({stack: opts, margin: currentSpacing.marginStack });
+
+
+                                    } else if (q.type === 'vf' || (q.options && typeof q.options[0].isTrue !== 'undefined')) {
+                                        // Layout Verdadeiro ou Falso
+                                        const opts = q.options.map(o => ({ 
+                                            text: `(   ) ${o.text}`, // Parênteses vazios para marcar
+                                            margin: [0, 3], 
+                                            fontSize: userFontSize - 1, 
+                                            color: '#374151',
+                                            lineHeight: currentSpacing.optLineHeight
+                                        }));
+                                        qStack.push({stack: opts, margin: currentSpacing.marginStack });
+                                        
+                                        // TRANSFORMAÇÃO V/F EM MÚLTIPLA ESCOLHA
+                                        // Gera a sequência correta (ex: V - F - V)
+                                        const correctPos = (q.id || 0) % 5;
+                                        const correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F').join(' - ');
+                                        
+                                        const alternatives = [];
+                                        for(let k=0; k<5; k++) {
+                                            if(k === correctPos) {
+                                                alternatives.push(correctSeq);
+                                            } else {
+                                                // Gera distrator: sequência aleatória de V/F do mesmo tamanho
+                                                const fakeSeq = q.options.map(() => Math.random() > 0.5 ? 'V' : 'F').join(' - ');
+                                                alternatives.push(fakeSeq);
+                                            }
+                                        }
+                                        
+                                        const altStack = alternatives.map((alt, x) => ({ 
+                                            text: `${['a','b','c','d','e'][x]}) ${alt}`, 
+                                            margin: currentSpacing.marginOpt, 
+                                            fontSize: userFontSize - 1, 
+                                            color: '#374151',
+                                            lineHeight: currentSpacing.optLineHeight
+                                        }));
+                                        
+                                        qStack.push({text: 'Assinale a sequência correta:', fontSize: userFontSize-1, margin:[0,5,0,2]});
+                                        qStack.push({stack: altStack, margin: currentSpacing.marginStack });
+
+                                    } else {
+                                        // Layout Padrão (Múltipla Escolha / Certo e Errado)
+                                        // Se for C/E, não deve ter A-E options no corpo, apenas o enunciado.
+                                        if (q.type !== 'ce') {
+                                             const opts = q.options.map((o, x) => ({ 
+                                                text: `${['a','b','c','d','e'][x]}) ${o.text}`, 
+                                                margin: currentSpacing.marginOpt, 
+                                                fontSize: userFontSize - 1, 
+                                                color: '#374151',
+                                                lineHeight: currentSpacing.optLineHeight
+                                            }));
+                                            qStack.push({stack: opts, margin: currentSpacing.marginStack });
+                                        } else {
+                                            // Layout Certo/Errado no corpo da prova
+                                            // Geralmente é só o enunciado e ( ) Certo ( ) Errado ou similar, ou apenas o enunciado.
+                                            // Vamos colocar uma indicação visual simples.
+                                            qStack.push({
+                                                text: '(   ) CERTO   (   ) ERRADO',
+                                                bold: true,
+                                                fontSize: userFontSize - 1,
+                                                margin: [0, 10, 0, 5],
+                                                alignment: 'left',
+                                                color: '#4b5563'
+                                            });
+                                        }
+                                    }
+                                    
+                                    return { stack: qStack, unbreakable: true, margin: [0, 0, 0, 10] };
+                                };
+
+                                // LÓGICA DE LAYOUT (COLUNAS OU CORRIDO)
+                                if (printConfig.value.layout === 'columns') {
+                                    // Agrupa questões em pares para criar colunas
+                                    let pairs = [];
+                                    for(let k=0; k < questionsForStudent.length; k+=2) {
+                                        let pair = [];
+                                        pair.push(createQuestionBlock(questionsForStudent[k], k));
+                                        if (k+1 < questionsForStudent.length) {
+                                            pair.push(createQuestionBlock(questionsForStudent[k+1], k+1));
+                                        } else {
+                                            pair.push({text:''}); // Placeholder vazio se impar
+                                        }
+                                        pairs.push(pair);
+                                    }
+
+                                    // Adiciona ao PDF como tabela sem bordas para simular colunas lado a lado
+                                    content.push({
+                                        table: {
+                                            widths: ['*', '*'],
+                                            body: pairs
+                                        },
+                                        layout: 'noBorders'
+                                    });
+
+                                } else {
+                                    // Layout Padrão (Texto Corrido)
+                                    questionsForStudent.forEach((q, idx) => {
+                                        content.push(createQuestionBlock(q, idx));
+                                    });
+                                }
+
+                                // Quebra de página apenas se não for o último aluno
+                                if (i < classStudents.length - 1) {
+                                    content.push({ text: '', pageBreak: 'after' });
+                                }
+                            });
+                            
+                            // Geração segura do PDF
+                            const pdfDoc = pdfMake.createPdf({content, styles:{}});
+                            
+                            // ALTERAÇÃO: Usa o callback do .download() para garantir a ordem
+                            pdfDoc.download(`Prova_${examConfig.value.title}.pdf`, () => {
+                                setTimeout(() => {
+                                    showToast('Prova gerada com sucesso!', 'success');
+                                    triggerConfirm("Deseja baixar o Gabarito do Professor agora?", () => {
+                                        generateKeyPDF({ ...plainExamData, id: examId });
+                                    });
+                                }, 1500); 
+                            });
+
+                        } catch(e) { 
+                            showToast('Erro ao gerar PDF da Prova. Verifique imagens muito pesadas.', 'error'); 
+                            console.error(e); 
+                        }
+                    });
+                };
+
+                const generateKeyPDF = (exam) => {
+                    const keyBody = [[{text:'#', bold:true, fillColor:'#eee'}, ...exam.versions.map((v, i) => ({text: `TIPO ${i+1}`, bold: true, fillColor:'#eee'}))]];
+                    if (exam.versions[0].questions.length > 0) {
+                        for(let i=0; i<exam.versions[0].questions.length; i++) {
+                            let row = [{text: i+1, bold:true, alignment:'center'}];
+                            for(let v=0; v<exam.versions.length; v++) {
+                                const q = exam.versions[v].questions[i];
+                                let label = '-';
+                                if (q) {
+                                    if (q.type === 'ce') label = ['C', 'E'][q.correctIndex] || '?';
+                                    else if (q.type === 'vf' || q.type === 'assoc') {
+                                        // Agora que transformamos em Múltipla Escolha, a resposta correta no gabarito
+                                        // deve ser a LETRA da alternativa correta.
+                                        const correctPos = (q.id || 0) % 5;
+                                        label = ['A', 'B', 'C', 'D', 'E'][correctPos];
+                                    }
+                                    else {
+                                        // MC Padrão
+                                        label = ['A', 'B', 'C', 'D', 'E'][q.correctIndex] || '?';
+                                    }
+                                }
+                                row.push({text: label, alignment:'center', fontSize: 9}); // Fonte menor para caber textos longos
+                            }
+                            keyBody.push(row);
+                        }
+                    }
+                    pdfMake.createPdf({
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: `GABARITO - ${exam.title}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 10, 0, 20] },
+                            { table: { headerRows: 1, widths: ['auto', ...exam.versions.map(()=>'*')], body: keyBody }, layout: 'lightHorizontalLines' }
+                        ]
+                    }).download(`Gabarito_${exam.title}.pdf`);
+                };
+
+                // --- Scanner & OMR ---
+                watch(currentView, v => { if(v==='scanner') { if(!correctionMode.value && !omrMode.value) startQR(); } else { stopQR(); stopOMR(); } });
+
+                const startQR = () => { 
+                    if (html5QrCode.value) return; 
+                    setTimeout(() => {
+                        // Check if still in scanner view to prevent race condition
+                        if (currentView.value !== 'scanner') return;
+
+                        const element = document.getElementById("qr-reader");
+                        if (!element) return; 
+                        
+                        html5QrCode.value = new Html5Qrcode("qr-reader");
+                        const config = { 
+                            fps: 15, 
+                            qrbox: { width: window.innerWidth * 0.8, height: window.innerWidth * 0.8 }, 
+                            aspectRatio: 1.0,
+                            experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
+                        };
+                        
+                        html5QrCode.value.start({ facingMode: "environment" }, config, (decodedText) => { 
+                            try {
+                                const data = JSON.parse(decodedText);
+                                if(data.e !== undefined && data.s !== undefined && data.v !== undefined) {
+                                    startCorrection(data.e, data.s, data.v);
+                                    stopQR(); 
+                                }
+                            } catch(e) {}
+                        }, () => {})
+                        .catch(err => {
+                            // Only show error if we are still on the scanner screen
+                            if(currentView.value === 'scanner') showToast("Câmera bloqueada?", "info");
+                        })
+                        .then(() => { hasTorch.value = true; });
+                    }, 300); 
+                };
+                
+                const stopQR = async () => {
+                    if (html5QrCode.value) {
+                        const instance = html5QrCode.value;
+                        html5QrCode.value = null; // Detach immediately
+                        
+                        try {
+                            // Attempt to stop if running
+                            if(instance.getState() === 2 || instance.getState() === 3) { // SCANNING or PAUSED
+                                await instance.stop();
+                            }
+                            instance.clear();
+                        } catch (err) {
+                            // Suppress errors if stop is called on non-running instance
+                            console.warn("Scanner stop handled:", err);
+                            try { instance.clear(); } catch(e){}
+                        }
+                    }
+                };
+                const toggleTorch = () => { if(html5QrCode.value){ torchOn.value=!torchOn.value; html5QrCode.value.applyVideoConstraints({advanced:[{torch:torchOn.value}]}); } };
+                
+                const handleQRFile = (e) => {
+                    const f = e.target.files[0]; if (!f) return;
+                    if (!html5QrCode.value) html5QrCode.value = new Html5Qrcode("qr-reader");
+                    html5QrCode.value.scanFile(f, true).then(txt => {
+                        const data = JSON.parse(txt);
+                        if(data.e !== undefined) { showToast("QR Lido!", "success"); startCorrection(data.e, data.s, data.v); }
+                    }).catch(() => showToast("QR não encontrado", "error"));
+                };
+
+                const startCorrection = async (eid, sid, verIdx) => { 
+                    const e=await db.exams.get(Number(eid)); const s=await db.students.get(Number(sid)); 
+                    if(!e || !s) return showToast('Dados não encontrados', 'error');
+                    if(!e.versions) e.versions = [{id:0, questions:e.questionsA}, {id:1, questions:e.questionsB}]; 
+                    
+                    activeExam.value=e; activeStudent.value=s; activeVersion.value=verIdx; 
+                    studentAnswers.value={}; stopQR();
+                    
+                    // MODO HÍBRIDO ATIVADO: Pula direto para correção manual
+                    correctionMode.value = true;
+                };
+
+                // --- Lógica OMR (Visão Computacional em Tempo Real) ---
+                const startOMRCamera = async () => {
+                   // OMR DESATIVADO CONFORME PEDIDO
+                };
+                
+                const stopOMR = () => { 
+                    if(animationFrameId) cancelAnimationFrame(animationFrameId);
+                    if(omrStream) omrStream.getTracks().forEach(t => t.stop()); 
+                    omrStream = null; omrMode.value = false; 
+                };
+                const cancelOMR = () => { stopOMR(); correctionMode.value=false; startQR(); };
+
+                const handleOMRFile = (e) => {
+                    // DESATIVADO
+                };
+
+                const captureAndProcessOMR = () => {
+                    // DESATIVADO
+                };
+
+                // Loop de detecção contínua
+                const detectLoop = (timestamp) => {
+                    // DESATIVADO
+                };
+
+                const processSingleFrame = (imageSource, isAutoMode = false) => {
+                   // DESATIVADO
+                };
+
+                const activeExamQuestions = computed(() => {
+                    if(!activeExam.value) return [];
+                    // FIX: Safety check for undefined versions to prevent crash
+                    if (!activeExam.value.versions) return [];
+                    const v = activeExam.value.versions[activeVersion.value];
+                    if (!v) return [];
+                    
+                    // Map questions to handle the dynamic correct index for V/F and Assoc
+                    return v.questions.map(q => {
+                        let effectiveCorrectIndex = q.correctIndex;
+                        
+                        // If it's V/F or Assoc, the PDF generates it as Multiple Choice (A-E)
+                        // with the correct answer at (id % 5)
+                        if (q.type === 'vf' || q.type === 'assoc') {
+                            effectiveCorrectIndex = (q.id || 0) % 5;
+                        }
+                        
+                        return {
+                            ...q,
+                            correctIndex: effectiveCorrectIndex
+                        };
+                    });
+                });
+
+                const currentScore = computed(() => { 
+                    let h=0; 
+                    // FIX: Ensure activeExamQuestions.value exists
+                    if (!activeExamQuestions.value || !activeExamQuestions.value.length) return 0;
+                    activeExamQuestions.value.forEach((q,i)=>{ if(studentAnswers.value[i]===q.correctIndex)h++; }); 
+                    return ((h/activeExamQuestions.value.length)*10).toFixed(1); 
+                });
+                
+                const saveResult = async () => { 
+                    // Evita salvamento duplo se o usuário clicar freneticamente
+                    if (isProcessingOMR.value && correctionMode.value === false) return; 
+                    
+                    // 1. Verificar se já existe nota para este aluno nesta prova
+                    const allResults = await db.results.toArray();
+                    const existing = allResults.find(r => r.examId === activeExam.value.id && r.studentId === activeStudent.value.id);
+
+                    const resultData = { 
+                        examId:activeExam.value.id, 
+                        studentId:activeStudent.value.id, 
+                        studentName:activeStudent.value.name, 
+                        score:currentScore.value, 
+                        date:Date.now(), 
+                        answers:JSON.parse(JSON.stringify(studentAnswers.value)), 
+                        maxScore:activeExamQuestions.value.length, 
+                        version:activeVersion.value 
+                    };
+
+                    if (existing) {
+                        await db.results.put({ ...resultData, id: existing.id });
+                    } else {
+                        await db.results.add(JSON.parse(JSON.stringify(resultData))); 
+                    }
+                    
+                    results.value = await db.results.toArray();
+
+                    // --- FEEDBACK IMEDIATO ---
+                    // NÃO fecha a tela de correção imediatamente. Mantém a nota visível.
+                    showToast(`Nota Salva: ${currentScore.value}`, 'success');
+                    speak(`${activeStudent.value.name}, nota ${currentScore.value}`);
+                    
+                    // Bloqueia nova leitura por um momento
+                    isProcessingOMR.value = true; 
+
+                    // Aguarda 3 segundos mostrando a nota na tela antes de ir para o próximo
+                    setTimeout(() => {
+                        correctionMode.value = false; 
+                        omrMode.value = false; 
+                        isProcessingOMR.value = false;
+                        
+                        // Reinicia o scanner QR automaticamente para o próximo aluno
+                        if (currentView.value === 'scanner') {
+                            startQR();
+                        }
+                    }, 3000);
+                };
+                const cancelCorrection = () => { correctionMode.value=false; omrMode.value=false; startQR(); };
+
+                // --- Configurações & Dados ---
+                const handleLogoUpload = (e) => { 
+                    const f=e.target.files[0]; if(!f)return; 
+                    const r=new FileReader(); r.onload=evt=>{ settings.value.logo=evt.target.result; saveSettings(true); }; r.readAsDataURL(f); 
+                };
+                const saveSettings = async (silent) => { 
+                    try { await db.settings.put(JSON.parse(JSON.stringify({...settings.value, id:'config'}))); if(!silent) showToast('Configurações salvas!', 'success'); } catch(e){}
+                };
+                const importBackup = async (e) => {
+                    const f = e.target.files[0]; if (!f) return;
+                    triggerConfirm("Importar substituirá dados atuais. Continuar?", () => {
+                        const r = new FileReader();
+                        r.onload = async event => {
+                            try {
+                                const d = JSON.parse(event.target.result);
+                                if(d.c) await db.classes.bulkPut(d.c); if(d.s) await db.students.bulkPut(d.s);
+                                if(d.q) await db.questions.bulkPut(d.q); if(d.e) await db.exams.bulkPut(d.e);
+                                if(d.r) await db.results.bulkPut(d.r); if(d.cfg) await db.settings.put(d.cfg);
+                                showToast('Backup restaurado!', 'success'); load();
+                            } catch (err) { showToast('Arquivo inválido', 'error'); }
+                        };
+                        r.readAsText(f);
+                    });
+                };
+                const triggerImport = () => document.getElementById('importFile').click();
+                const backupData = async () => { 
+                    const d={c:classes.value, s:students.value, q:questions.value, e:exams.value, r:results.value, cfg:settings.value}; 
+                    const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="Nexus_Backup.json"; a.click(); 
+                };
+
+                // --- Relatórios Pedagógicos ---
+                const getClassAverage = (classId) => {
+                    const classResults = results.value.filter(r => { const exam = exams.value.find(e => e.id === r.examId); return exam && exam.classId === classId; });
+                    if (classResults.length === 0) return '-';
+                    return (classResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / classResults.length).toFixed(1);
+                };
+                const getEvaluatedStudentCount = (classId) => {
+                    const classResults = results.value.filter(r => { const exam = exams.value.find(e => e.id === r.examId); return exam && exam.classId === classId; });
+                    return new Set(classResults.map(r => r.studentId)).size;
+                };
+                const getClassRanking = (classId, order = 'desc') => {
+                    const classStudents = students.value.filter(s => s.classId === classId);
+                    const rankings = classStudents.map(student => {
+                        const studentResults = results.value.filter(r => r.studentId === student.id);
+                        if (studentResults.length === 0) return null;
+                        const avg = (studentResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / studentResults.length).toFixed(1);
+                        return { studentId: student.id, name: student.name, average: avg };
+                    }).filter(r => r !== null);
+                    
+                    return rankings.sort((a, b) => {
+                        return order === 'desc' ? 
+                            parseFloat(b.average) - parseFloat(a.average) : 
+                            parseFloat(a.average) - parseFloat(b.average);
+                    });
+                };
+
+                // NOVA FUNÇÃO: Distribuição por Extratos de Nota
+                const getClassGradeDistribution = (classId) => {
+                    // FIX: Ensure classId is valid
+                    if (!classId) return {};
+
+                    const studentsInClass = students.value.filter(s => s.classId === classId);
+                    const distribution = {
+                        '8-10': [],
+                        '6-8': [],
+                        '4-6': [],
+                        '2-4': [],
+                        '0-2': []
+                    };
+
+                    studentsInClass.forEach(student => {
+                        const studentResults = results.value.filter(r => r.studentId === student.id);
+                        if (studentResults.length === 0) return; // Não conta alunos sem avaliação ainda
+                        
+                        let avg = (studentResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / studentResults.length);
+                        // FIX: Handle NaN case if division by zero occurred (unlikely due to check above but safe)
+                        if (isNaN(avg)) avg = 0;
+                        avg = parseFloat(avg.toFixed(1));
+
+                        // Define os extratos
+                        if (avg >= 8) distribution['8-10'].push({name: student.name, avg, studentId: student.id});
+                        else if (avg >= 6) distribution['6-8'].push({name: student.name, avg, studentId: student.id});
+                        else if (avg >= 4) distribution['4-6'].push({name: student.name, avg, studentId: student.id});
+                        else if (avg >= 2) distribution['2-4'].push({name: student.name, avg, studentId: student.id});
+                        else distribution['0-2'].push({name: student.name, avg, studentId: student.id});
+                    });
+
+                    // Ordenar cada grupo por nota (decrescente)
+                    Object.keys(distribution).forEach(key => {
+                        distribution[key].sort((a,b) => b.avg - a.avg);
+                    });
+                    
+                    return distribution;
+                };
+                
+                const openStudentProfile = (studentId) => {
+                    const s = students.value.find(x => x.id === studentId); if(!s) return;
+                    studentDetails.value = s; selectedBimester.value = 1; showStudentModal.value = true;
+                };
+                const studentExamsList = computed(() => {
+                    if (!studentDetails.value.id) return [];
+                    const sId = studentDetails.value.id; const bim = selectedBimester.value;
+                    const myResults = results.value.filter(r => r.studentId === sId);
+                    return myResults.map(r => {
+                        const exam = exams.value.find(e => e.id === r.examId); if (!exam) return null;
+                        return { ...r, title: exam.title, type: exam.type, weight: exam.weight || 1, bimester: exam.bimester || 1 };
+                    }).filter(x => x && parseInt(x.bimester) === parseInt(bim));
+                });
+                const studentExtraPointsList = computed(() => {
+                    if (!studentDetails.value.id) return [];
+                    return extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && parseInt(ep.bimester) === parseInt(selectedBimester.value));
+                });
+                const studentTotalExtraPoints = computed(() => studentExtraPointsList.value.reduce((acc, ep) => acc + parseFloat(ep.points), 0).toFixed(1));
+                const studentBimesterAverage = computed(() => {
+                    const examsList = studentExamsList.value;
+                    if (examsList.length === 0) return '0.0';
+                    let weightedSum = 0; let weightSum = 0;
+                    examsList.forEach(ex => { const w = parseFloat(ex.weight) || 1; weightedSum += parseFloat(ex.score) * w; weightSum += w; });
+                    
+                    const avg = ((weightSum > 0 ? (weightedSum / weightSum) : 0) + parseFloat(studentTotalExtraPoints.value));
+                    
+                    // LIMITE DE NOTA: 10
+                    return (avg > 10 ? 10 : avg).toFixed(1);
+                });
+                const addExtraPoint = async () => {
+                    if (!newExtraPoint.value.val || !newExtraPoint.value.reason) return showToast('Preencha tudo', 'error');
+                    await db.extraPoints.add(JSON.parse(JSON.stringify({ studentId: studentDetails.value.id, bimester: parseInt(selectedBimester.value), points: parseFloat(newExtraPoint.value.val), reason: newExtraPoint.value.reason })));
+                    newExtraPoint.value = {val:'', reason:''}; showExtraPointForm.value = false; load();
+                };
+                
+                const generateClassReportPDF = () => {
+                    const cls = classes.value.find(c => c.id === selectedClassIdForReport.value); if(!cls) return;
+                    const ranking = getClassRanking(selectedClassIdForReport.value);
+                    const avg = getClassAverage(selectedClassIdForReport.value);
+                    const doc = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 18, bold: true, alignment: 'center' },
+                            { text: `RELATÓRIO - ${cls.name}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 10, 0, 20] },
+                            { table: { widths: ['*', '*'], body: [ [{ text: 'Média da Turma', bold: true, fillColor: '#eee' }, { text: avg, alignment: 'right' }], [{ text: 'Alunos Avaliados', bold: true, fillColor: '#eee' }, { text: ranking.length.toString(), alignment: 'right' }] ] }, margin: [0, 0, 0, 20] },
+                            { text: 'Ranking', fontSize: 12, bold: true, color: '#4f46e5' },
+                            { table: { headerRows: 1, widths: ['auto', '*', 'auto'], body: [ [{ text: '#', bold: true, fillColor: '#4f46e5', color: 'white' }, { text: 'Aluno', bold: true, fillColor: '#4f46e5', color: 'white' }, { text: 'Média', bold: true, fillColor: '#4f46e5', color: 'white' }], ...ranking.map((r, i) => [i + 1, r.name, r.average]) ] }, layout: 'lightHorizontalLines' }
+                        ]
+                    };
+                    pdfMake.createPdf(doc).download(`Relatorio_${cls.name}.pdf`);
+                };
+
+                return {
+                    currentView, tabs, classes, newClass, bulkStudents, addClass, saveStudents, getStudents, getStudentCount, deleteStudent,
+                    showQFormModal, openQForm, formSource, newQ, qFilter, filterType, filterSubject, filteredQuestions, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, 
+                    examConfig, examCart, toggleExamQ, isQInExam, generatePDF, exams, deleteExam, showHistory,
+                    correctionMode, activeStudent, activeVersion, currentScore, activeExamQuestions, studentAnswers, saveResult, cancelCorrection,
+                    settings, handleLogoUpload, saveSettings, backupData, toggleTorch, hasTorch,
+                    examFilter, filteredExamQuestions, examTab, qType, toast, confirmModal, handleConfirm, isProcessingOMR, omrMode, cancelOMR, captureAndProcessOMR,
+                    selectedClassIdForReport, getClassAverage, getEvaluatedStudentCount, getClassRanking, getClassGradeDistribution, generateClassReportPDF,
+                    showStudentModal, studentDetails, openStudentProfile, selectedBimester, studentExamsList, studentTotalExtraPoints, studentBimesterAverage,
+                    showExtraPointForm, newExtraPoint, addExtraPoint, studentExtraPointsList, importBackup, triggerImport, generateKeyPDF,
+                    startQR, handleQRFile, handleOMRFile, showManualInputModal, manualConfig, manualStudents, startManualEntry, confirmManualEntry,
+                    studentFilter, filteredClasses, getFilteredStudents, examHistoryFilter, filteredHistoryExams,
+                    switchToManualCorrection, editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
+                    generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, rankingOrder, uniqueSubjects,
+                    printConfig,
+                    editingExamId, openEditExam, 
+                    changeQType, // Nova função exposta
+                    filteredDashboardStudents, dashboardStudentFilter, getStudentOverallGrade, // Novas exportações para o painel
+                    forceCapture: () => {} // Stub
+                };
+            }
+        }).mount('#app');
+
+        // --- REGISTRO DO SERVICE WORKER (NOVO) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('SW registrado com sucesso:', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('Falha ao registrar SW:', err);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
