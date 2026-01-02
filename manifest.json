@@ -1,6 +1,6 @@
 {
   "name": "Nexus - Gestão Docente",
-  "short_name": "Nexus",
+  "short_name": "GestãodoDocente",
   "id": "nexus-gestao-docente-v1",
   "start_url": "./index.html",
   "display": "standalone",
@@ -39,3 +39,4 @@
   "categories": ["education", "productivity", "utilities"],
   "lang": "pt-BR"
 }
+
