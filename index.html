@@ -24,9 +24,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- Usado APENAS para decodificar o QR Code de arquivos de imagem estáticos -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    
-    <!-- Gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -48,8 +45,6 @@
         .bubble.wrong { background-color: #ef4444; color: white; border-color: #ef4444; }
         .bubble.ce-c.selected { background-color: #22c55e; border-color: #22c55e; }
         .bubble.ce-e.selected { background-color: #ef4444; border-color: #ef4444; }
-        
-        .invisible { visibility: hidden; pointer-events: none; }
         
         .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
         .fade-enter-from, .fade-leave-to { opacity: 0; }
@@ -915,6 +910,12 @@
                             <textarea v-model="newQ.text" rows="4" class="w-full p-3 border rounded-xl bg-gray-50 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition resize-none" placeholder="Digite o texto da questão..."></textarea>
                         </div>
                         
+                        <!-- NOVO: Campo de Comentário/Resolução -->
+                        <div class="space-y-1 mb-4">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Resolução / Comentário (Opcional)</label>
+                            <textarea v-model="newQ.comment" rows="2" class="w-full p-3 border rounded-xl bg-gray-50 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition resize-none" placeholder="Explicação da resposta correta (aparecerá no gabarito comentado)"></textarea>
+                        </div>
+
                         <!-- Image Upload for Question -->
                         <div class="mb-4">
                              <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Imagem de Apoio (Opcional)</label>
@@ -1123,7 +1124,10 @@
                             <!-- Botão de Editar Prova -->
                             <button @click="openEditExam(e)" class="w-9 h-9 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition" title="Editar (Carregar Tudo)"><i class="fa-solid fa-pen"></i></button>
                             
-                            <button @click="generateKeyPDF(e)" class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition" title="Baixar Gabarito"><i class="fa-solid fa-key"></i></button>
+                            <!-- NOVO BOTÃO: GABARITO COMENTADO -->
+                            <button @click="generateCommentedKeyPDF(e)" class="w-9 h-9 rounded-full bg-teal-50 text-teal-600 hover:bg-teal-100 flex items-center justify-center transition" title="Baixar Gabarito Comentado (Resoluções)"><i class="fa-solid fa-comment-dots"></i></button>
+
+                            <button @click="generateKeyPDF(e)" class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition" title="Baixar Gabarito Simples"><i class="fa-solid fa-key"></i></button>
                             <button @click="deleteExam(e.id)" class="w-9 h-9 rounded-full bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
                         </div>
                     </div>
@@ -1458,22 +1462,6 @@
                     return list.filter(s => s.name.toLowerCase().includes(term));
                 };
 
-                const filteredDashboardStudents = computed(() => {
-                    if (!selectedClassIdForReport.value || !dashboardStudentFilter.value) return [];
-                    const term = dashboardStudentFilter.value.toLowerCase();
-                    return students.value.filter(s => 
-                        s.classId === selectedClassIdForReport.value && 
-                        s.name.toLowerCase().includes(term)
-                    );
-                });
-
-                const getStudentOverallGrade = (studentId) => {
-                    const studentResults = results.value.filter(r => r.studentId === studentId);
-                    if (studentResults.length === 0) return '-';
-                    const avg = studentResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / studentResults.length;
-                    return avg.toFixed(1);
-                };
-
                 const filteredHistoryExams = computed(() => {
                     if (!examHistoryFilter.value) return exams.value;
                     const term = examHistoryFilter.value.toLowerCase();
@@ -1489,7 +1477,7 @@
                 const examFilter = ref('');
                 const examTab = ref('all'); 
                 const qType = ref('mc');
-                const newQ = ref({id: null, subject:'', topic:'', text:'', image:null, correct:0, options:[{text:''},{text:''},{text:''},{text:''},{text:''}]});
+                const newQ = ref({id: null, subject:'', topic:'', text:'', comment:'', image:null, correct:0, options:[{text:''},{text:''},{text:''},{text:''},{text:''}]});
                 
                 // Configuração de Prova
                 const examConfig = ref({
@@ -1972,8 +1960,6 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                 const selectedBimester = ref(1);
                 const showExtraPointForm = ref(false);
                 const newExtraPoint = ref({val:'', reason:''});
-                
-                const rankingOrder = ref('desc'); 
 
                 const toast = ref({ show: false, message: '', type: 'info' });
                 const confirmModal = ref({ show: false, message: '', onConfirm: null });
@@ -2072,7 +2058,7 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                 const openQForm = (src) => { 
                     formSource.value = src; 
                     qType.value = 'mc'; 
-                    newQ.value = {id: null, subject:'', topic:'', text:'', image:null, correct:0, options:[{text:''},{text:''},{text:''},{text:''},{text:''}]}; 
+                    newQ.value = {id: null, subject:'', topic:'', text:'', comment:'', image:null, correct:0, options:[{text:''},{text:''},{text:''},{text:''},{text:''}]}; 
                     showQFormModal.value = true; 
                 };
 
@@ -2134,10 +2120,10 @@ ${instructions}
 Regra estrita: Retorne APENAS um array JSON válido. Sem blocos markdown (\`\`\`json) e sem conversas adicionais.
 O formato base do JSON para cada tipo deve seguir exatamente esta estrutura:
 
-Caso seja "mc": {"subject":"...","topic":"...","text":"Enunciado...","type":"mc","correct":<numero_de_0_a_4>,"options":[{"text":"..."},{"text":"..."},{"text":"..."},{"text":"..."},{"text":"..."}]}
-Caso seja "ce": {"subject":"...","topic":"...","text":"Enunciado/Afirmação...","type":"ce","correct":<0_para_Certo_1_para_Errado>,"options":[{"text":"Certo"},{"text":"Errado"}]}
-Caso seja "vf": {"subject":"...","topic":"...","text":"Avalie se é V ou F:","type":"vf","correct":0,"options":[{"text":"afirmação 1","isTrue":true},{"text":"afirmação 2","isTrue":false}]}
-Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","type":"assoc","correct":0,"options":[{"text":"Item Coluna A","match":"Correspondência Coluna B"}]}
+Caso seja "mc": {"subject":"...","topic":"...","text":"Enunciado...","type":"mc","correct":<numero_de_0_a_4>,"options":[{"text":"..."}],"comment":"Explicação detalhada do porquê esta é a resposta correta."}
+Caso seja "ce": {"subject":"...","topic":"...","text":"Enunciado/Afirmação...","type":"ce","correct":<0_para_Certo_1_para_Errado>,"options":[{"text":"Certo"},{"text":"Errado"}],"comment":"Explicação da resposta."}
+Caso seja "vf": {"subject":"...","topic":"...","text":"Avalie se é V ou F:","type":"vf","correct":0,"options":[{"text":"afirmação 1","isTrue":true},{"text":"afirmação 2","isTrue":false}],"comment":"Explicação detalhada."}
+Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","type":"assoc","correct":0,"options":[{"text":"Item Coluna A","match":"Correspondência Coluna B"}],"comment":"Justificativa da associação correta."}
 `;
 
                         let retries = 3;
@@ -2226,7 +2212,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                         
                         const qData = { 
                             subject:newQ.value.subject||'Geral', topic:newQ.value.topic||'', 
-                            text:txt, image:newQ.value.image, correct:cor, options:opts, 
+                            text:txt, comment: newQ.value.comment||'', image:newQ.value.image, correct:cor, options:opts, 
                             type:qType.value
                         };
                         
@@ -2241,6 +2227,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                         else { 
                             newQ.value.id=null; 
                             newQ.value.text=''; 
+                            newQ.value.comment='';
                             newQ.value.image=null;
                             if(qType.value === 'vf') newQ.value.options = [{text:'', isTrue:true}, {text:'', isTrue:false}];
                             else if(qType.value === 'assoc') newQ.value.options = [{text:'', match:''}, {text:'', match:''}];
@@ -2528,7 +2515,13 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                                         { text: settings.value.schoolName.toUpperCase() || 'ESCOLA', fontSize: 14, bold: true, alignment: 'center' },
                                                         { text: examConfig.value.title, fontSize: 11, bold: true, alignment: 'center', margin:[0,2] },
                                                         { text: `Turma: ${className} | Data: ${fmtDate} | Tipo: ${vIndex + 1}`, fontSize: 9, alignment: 'center' },
-                                                        { text: `Aluno(a): ${s.name}`, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 0] }
+                                                        {
+                                                            columns: [
+                                                                { text: `Aluno(a): ${s.name}`, fontSize: 11, bold: true, alignment: 'left', width: '*' },
+                                                                { text: 'Assinatura: ___________________________________________', fontSize: 9, alignment: 'right', margin: [0, 2, 0, 0], width: 'auto' }
+                                                            ],
+                                                            margin: [0, 8, 0, 0]
+                                                        }
                                                     ],
                                                     width: '*'
                                                 },
@@ -2754,6 +2747,70 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                             { table: { headerRows: 1, widths: ['auto', ...exam.versions.map(()=>'*')], body: keyBody }, layout: 'lightHorizontalLines' }
                         ]
                     }).download(`Gabarito_${exam.title}.pdf`);
+                };
+
+                // --- NOVO: GERAR GABARITO COMENTADO ---
+                const generateCommentedKeyPDF = (exam) => {
+                    const content = [
+                        { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                        { text: `GABARITO COMENTADO - ${exam.title}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 10, 0, 20] }
+                    ];
+
+                    const baseVersion = exam.versions ? exam.versions[0] : { questions: exam.questions || [] };
+
+                    if (baseVersion.questions.length > 0) {
+                        baseVersion.questions.forEach((q, i) => {
+                            let correctAnswerText = '';
+                            
+                            // Formata a resposta correta baseado no tipo de questão
+                            if (q.type === 'ce') {
+                                correctAnswerText = ['Certo', 'Errado'][q.correctIndex] || '?';
+                            } else if (q.type === 'vf') {
+                                const correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F').join(' - ');
+                                const correctPos = (q.id || 0) % 5;
+                                correctAnswerText = `Alternativa ${['A', 'B', 'C', 'D', 'E'][correctPos]} (${correctSeq})`;
+                            } else if (q.type === 'assoc') {
+                                const matches = q.options.map(o => o.match).filter(m => m);
+                                const shuffledMatches = [...matches].sort((a, b) => a.localeCompare(b)); 
+                                const correctNumbersSequence = shuffledMatches.map(matchText => {
+                                    const originalIndex = q.options.findIndex(opt => opt.match === matchText);
+                                    return originalIndex + 1;
+                                });
+                                const correctSeq = correctNumbersSequence.join(' - ');
+                                const correctPos = (q.id || 0) % 5;
+                                correctAnswerText = `Alternativa ${['A', 'B', 'C', 'D', 'E'][correctPos]} (${correctSeq})`;
+                            } else {
+                                const opt = q.options[q.correctIndex];
+                                correctAnswerText = `Alternativa ${['A', 'B', 'C', 'D', 'E'][q.correctIndex]} (${opt ? opt.text : '?'})`;
+                            }
+
+                            content.push({ text: `Questão ${i + 1} - ${q.subject} (${q.topic})`, bold: true, fontSize: 11, margin: [0, 15, 0, 5], color: '#4f46e5' });
+                            content.push({ text: q.text, fontSize: 10, margin: [0, 0, 0, 5] });
+                            
+                            // Adiciona a imagem se houver
+                            if(q.image && typeof q.image === 'string' && q.image.startsWith('data:image')) {
+                                content.push({image: q.image, width: 150, margin: [0, 5, 0, 5]});
+                            }
+                            
+                            content.push({ text: `Resposta Correta: ${correctAnswerText}`, fontSize: 10, bold: true, color: '#059669', margin: [0, 5, 0, 5] });
+                            
+                            content.push({ text: `Resolução / Comentário:`, fontSize: 10, bold: true, margin: [0, 5, 0, 2] });
+                            content.push({ 
+                                text: q.comment || 'Nenhum comentário/resolução cadastrado para esta questão.', 
+                                fontSize: 10, 
+                                italics: !q.comment, 
+                                color: q.comment ? '#374151' : '#9ca3af', 
+                                margin: [0, 0, 0, 10] 
+                            });
+                            
+                            // Linha divisória
+                            content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e5e7eb' }], margin: [0, 5, 0, 5] });
+                        });
+                    } else {
+                        content.push({ text: 'Nenhuma questão encontrada para esta prova.', alignment: 'center', italics: true });
+                    }
+
+                    pdfMake.createPdf({ content, styles: {} }).download(`Gabarito_Comentado_${exam.title}.pdf`);
                 };
 
                 const activeExamQuestions = computed(() => {
@@ -2996,13 +3053,13 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     examFilter, filteredExamQuestions, examTab, qType, toast, confirmModal, handleConfirm, 
                     selectedClassIdForReport, getClassAverage, getEvaluatedStudentCount, getClassRanking, getClassGradeDistribution, generateClassReportPDF,
                     showStudentModal, studentDetails, openStudentProfile, selectedBimester, studentExamsList, studentTotalExtraPoints, studentBimesterAverage,
-                    showExtraPointForm, newExtraPoint, addExtraPoint, studentExtraPointsList, importBackup, triggerImport, generateKeyPDF,
+                    showExtraPointForm, newExtraPoint, addExtraPoint, studentExtraPointsList, importBackup, triggerImport, generateKeyPDF, generateCommentedKeyPDF,
                     showManualInputModal, manualConfig, manualStudents, startManualEntry, confirmManualEntry,
                     studentFilter, filteredClasses, getFilteredStudents, examHistoryFilter, filteredHistoryExams,
                     editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
-                    generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, rankingOrder, uniqueSubjects,
+                    generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, uniqueSubjects,
                     printConfig, editingExamId, openEditExam, changeQType,
-                    filteredDashboardStudents, dashboardStudentFilter, getStudentOverallGrade,
+                    dashboardStudentFilter,
                     appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, timeLeft, deleteClass, showLicenseModal, toggleExpand,
                     geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, aiCorrectionQueue, processAIQueue, hasPendingItems, isProcessingQueue,
                     showResultDetailsModal, selectedResultDetails, openResultDetails, getAlternativeLabel, showExamStatsModal, examStats, openExamStats,
