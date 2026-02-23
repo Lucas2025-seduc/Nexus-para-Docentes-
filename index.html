@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nexus - Gestão Docente</title>
     
-    <!-- PWA Meta Tags (Adicionado) -->
+    <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#4f46e5">
     <meta name="description" content="Ferramenta completa para gestão escolar, correção de provas e banco de questões.">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <!-- Fim PWA Meta Tags -->
 
     <!-- Bibliotecas -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,13 +22,11 @@
     <!-- PDF & QR Code -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <!-- Usado APENAS para decodificar o QR Code de arquivos de imagem estáticos -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <!-- Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- OpenCV para Visão Computacional -->
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="window.cvLoaded=true" type="text/javascript"></script>
 
     <style>
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -38,7 +35,7 @@
         ::-webkit-scrollbar-track { background: transparent; }
         
         .bubble { 
-            width: 38px; height: 38px; /* Maior para facilitar o toque */
+            width: 38px; height: 38px; 
             border-radius: 50%; 
             border: 2px solid #cbd5e1; 
             display: flex; align-items: center; justify-content: center; 
@@ -46,11 +43,9 @@
             user-select: none;
             background-color: white;
         }
-        /* Efeitos visuais melhores para seleção manual */
         .bubble.selected { background-color: #4f46e5; color: white; border-color: #4f46e5; transform: scale(1.1); box-shadow: 0 2px 5px rgba(79, 70, 229, 0.4); }
         .bubble.correct { background-color: #22c55e; color: white; border-color: #22c55e; }
         .bubble.wrong { background-color: #ef4444; color: white; border-color: #ef4444; }
-        /* Estilos específicos para Certo/Errado na correção */
         .bubble.ce-c.selected { background-color: #22c55e; border-color: #22c55e; }
         .bubble.ce-e.selected { background-color: #ef4444; border-color: #ef4444; }
         
@@ -62,13 +57,6 @@
         .animate-fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        .scan-line { 
-            position: absolute; width: 100%; height: 4px; 
-            background: #4f46e5; box-shadow: 0 0 15px #4f46e5; 
-            animation: scan 2s infinite linear; top: 0; z-index: 10; 
-        }
-        @keyframes scan { 0% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
-        
         .q-type-btn { @apply flex-1 py-3 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border border-transparent; }
         .q-type-btn.active { @apply bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm ring-1 ring-indigo-200; }
         .q-type-btn.inactive { @apply bg-white text-gray-400 border-gray-100 hover:bg-gray-50 hover:text-gray-600; }
@@ -78,11 +66,9 @@
 
     <div id="app" class="flex flex-col h-full relative">
 
-        <!-- [MODIFICADO] MODAL DE BLOQUEIO DE LICENÇA / ATIVAÇÃO MANUAL -->
+        <!-- MODAL DE BLOQUEIO DE LICENÇA / ATIVAÇÃO MANUAL -->
         <div v-if="appLocked || showLicenseModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900 text-white p-6 backdrop-blur-sm">
             <div class="max-w-md w-full text-center space-y-6 animate-fade-in relative">
-                
-                <!-- Botão de fechar (Aparece apenas se NÃO estiver bloqueado por tempo, ou seja, ativação manual) -->
                 <button v-if="!appLocked" @click="showLicenseModal = false" class="absolute -top-10 right-0 w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-white transition border border-gray-700">
                     <i class="fa-solid fa-times"></i>
                 </button>
@@ -124,7 +110,7 @@
 
         <!-- Notificações -->
         <transition name="fade">
-            <div v-if="toast.show" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-[150] px-6 py-3 rounded-full shadow-2xl font-bold text-sm flex items-center gap-3 transition-all text-center min-w-[320px] justify-center backdrop-blur-md border border-white/20"
+            <div v-if="toast.show" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-[9999] px-6 py-3 rounded-full shadow-2xl font-bold text-sm flex items-center gap-3 transition-all text-center min-w-[320px] justify-center backdrop-blur-md border border-white/20"
                 :class="toast.type === 'error' ? 'bg-red-500/90 text-white' : (toast.type === 'success' ? 'bg-emerald-600/90 text-white' : 'bg-gray-800/90 text-white')">
                 <i :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'loading' ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-check-circle')"></i>
                 {{ toast.message }}
@@ -133,7 +119,7 @@
 
         <!-- Modal Confirmação -->
         <transition name="fade">
-            <div v-if="confirmModal.show" class="fixed inset-0 z-[160] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div v-if="confirmModal.show" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                 <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-xs w-full animate-fade-in border border-gray-100">
                     <div class="text-center mb-4 text-indigo-600"><i class="fa-solid fa-circle-question text-4xl"></i></div>
                     <h3 class="text-lg font-bold text-center text-gray-800 mb-2">Confirmação</h3>
@@ -160,7 +146,6 @@
                     </div>
                 </div>
                 <div class="flex gap-1 text-gray-400 items-center">
-                    <!-- [NOVO] BOTÃO DE ATIVAÇÃO DE LICENÇA NO HEADER -->
                     <button v-if="!isLicensed" @click="showLicenseModal = true" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition flex items-center justify-center animate-pulse mr-1" title="Ativar Licença PRO">
                         <i class="fa-solid fa-key text-xs"></i>
                     </button>
@@ -196,7 +181,7 @@
                         </div>
                         <h2 class="text-xl font-bold">Relatórios & Desempenho</h2>
                         <p class="text-xs text-indigo-100 mt-1 font-medium opacity-80">Gestão Pedagógica Inteligente</p>
-                        <!-- [MODIFICADO] Exibição de Tempo Restante CLICÁVEL -->
+                        <!-- Exibição de Tempo Restante CLICÁVEL -->
                         <div v-if="!isLicensed" @click="showLicenseModal = true" class="mt-3 text-[10px] font-bold bg-black/20 inline-block px-3 py-1.5 rounded-full border border-white/10 text-white/90 cursor-pointer hover:bg-black/30 transition shadow-lg active:scale-95">
                             <i class="fa-regular fa-clock mr-1"></i> Teste: {{ timeLeft }} <span class="opacity-60 ml-1">| Toque para Ativar</span>
                         </div>
@@ -227,7 +212,6 @@
                         </div>
                     </div>
 
-                    <!-- BARRA DE PESQUISA ANTES DO RANKING -->
                     <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex gap-2">
                         <div class="flex-1 bg-gray-50 rounded-xl flex items-center px-3 border border-transparent focus-within:border-indigo-300 focus-within:bg-white transition">
                             <i class="fa-solid fa-search text-gray-400 text-xs mr-2"></i>
@@ -236,7 +220,6 @@
                         <button v-if="dashboardStudentFilter" @click="dashboardStudentFilter=''" class="text-gray-400 hover:text-red-500 px-2"><i class="fa-solid fa-times"></i></button>
                     </div>
 
-                    <!-- EXTRATOS DE MÉDIA (NOVO) -->
                     <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
                         <div class="bg-gray-50 p-4 font-bold text-gray-700 text-sm border-b border-gray-100 flex items-center gap-2">
                             <i class="fa-solid fa-layer-group text-indigo-600"></i> Distribuição por Notas
@@ -246,9 +229,7 @@
                             Sem dados de avaliação disponíveis.
                         </div>
                         <div v-else class="divide-y divide-gray-50">
-                            <!-- Loop pelos extratos -->
                             <div v-for="(group, range) in getClassGradeDistribution(selectedClassIdForReport)" :key="range">
-                                <!-- Abre automaticamente se estiver filtrando -->
                                 <details class="group open:bg-indigo-50/30 transition" :open="!!dashboardStudentFilter && group.length > 0">
                                     <summary class="flex justify-between items-center p-4 cursor-pointer list-none select-none hover:bg-gray-50">
                                         <div class="flex items-center gap-3">
@@ -349,7 +330,6 @@
                                 </button>
                             </div>
 
-                            <!-- ÁREA DE CADASTRO DE ALUNOS AJUSTADA -->
                             <div class="mt-4 mb-4">
                                 <label class="text-[10px] font-bold text-indigo-600 uppercase mb-2 block ml-1 flex items-center gap-2">
                                     <i class="fa-solid fa-user-plus"></i> Cadastrar Alunos (Um nome por linha)
@@ -386,6 +366,9 @@
                             <i class="fa-solid fa-search text-gray-400 text-xs mr-2"></i>
                             <input v-model="qFilter" placeholder="Buscar no enunciado ou tópico..." class="w-full bg-transparent text-sm py-2.5 outline-none font-medium text-gray-600">
                         </div>
+                        <!-- NOVO: BOTÃO GERADOR DE QUESTÕES IA -->
+                        <button @click="openAIGenerator" class="bg-purple-600 text-white w-12 h-10 rounded-xl shadow-lg hover:bg-purple-700 flex items-center justify-center transition active:scale-95" title="Gerar Questões com IA"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                        
                         <button @click="openQForm('bank')" class="bg-indigo-600 text-white w-12 h-10 rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center transition active:scale-95"><i class="fa-solid fa-plus"></i></button>
                     </div>
                     
@@ -439,7 +422,6 @@
             <!-- PROVAS -->
             <div v-if="currentView === 'exams'" class="space-y-4 h-full flex flex-col animate-fade-in">
                  <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                    <!-- Cabeçalho Prova -->
                     <div class="flex items-center gap-4 border-b border-gray-100 pb-4 mb-4">
                         <div class="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden relative group cursor-pointer hover:border-indigo-500 transition shrink-0">
                             <img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-cover">
@@ -482,7 +464,6 @@
                             </div>
                         </div>
 
-                        <!-- Configurações Avançadas -->
                         <div class="bg-gray-50/80 p-3 rounded-xl border border-gray-100 space-y-3">
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
@@ -516,7 +497,6 @@
                                 </div>
                             </div>
 
-                            <!-- Opções de Impressão (NOVO) -->
                             <div class="mt-3 border-t border-gray-200 pt-2">
                                 <p class="text-[9px] font-bold text-gray-400 uppercase mb-2 flex items-center gap-1"><i class="fa-solid fa-print"></i> Personalizar Impressão</p>
                                 
@@ -562,7 +542,6 @@
 
                                 <div>
                                     <label class="text-[9px] font-bold text-gray-500 block mb-1">Tamanho Logo Escola: {{ printConfig.logoSize }}px</label>
-                                    <!-- Alterado max de 100 para 80 para evitar sobreposição na borda -->
                                     <input type="range" v-model="printConfig.logoSize" min="30" max="80" step="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
                                 </div>
                             </div>
@@ -570,7 +549,6 @@
                     </div>
                 </div>
 
-                <!-- Seleção de Questões -->
                 <div class="flex-1 bg-white rounded-2xl shadow-sm flex flex-col overflow-hidden border border-gray-200 min-h-[300px]">
                     <div class="flex border-b border-gray-100">
                         <button @click="examTab = 'all'" :class="examTab === 'all' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">BANCO DE QUESTÕES</button>
@@ -623,37 +601,91 @@
                 </div>
             </div>
 
-            <!-- SCANNER -->
-            <div v-if="currentView === 'scanner'" class="max-w-md mx-auto space-y-4 animate-fade-in pb-20">
-                <!-- QR CODE SCANNER -->
-                <div v-if="!correctionMode && !omrMode" class="relative bg-black rounded-3xl overflow-hidden shadow-2xl aspect-[3/4] border-4 border-gray-900 flex flex-col">
-                    <div id="qr-reader" class="w-full h-full bg-black flex-1"></div>
-                    
-                    <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                        <div class="w-full h-full border-[30px] border-black/50 relative shadow-[0_0_0_9999px_rgba(0,0,0,0.8)]">
-                            <div class="absolute inset-4 border-2 border-indigo-500/50 rounded-2xl">
-                                 <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-xl -mt-1 -ml-1"></div>
-                                <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-xl -mt-1 -mr-1"></div>
-                                <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-xl -mb-1 -ml-1"></div>
-                                <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-xl -mb-1 -mr-1"></div>
-                            </div>
-                            <div class="scan-line top-4"></div>
-                        </div>
-                        <div class="absolute bottom-20 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full text-white text-xs font-bold border border-white/10 flex items-center gap-2 pointer-events-none">
-                            <i class="fa-solid fa-qrcode text-indigo-400"></i> Aponte para o Nome do Aluno (QR)
-                        </div>
-                    </div>
-                    
-                    <div class="absolute top-4 right-4 z-20 pointer-events-auto">
-                        <button @click="toggleTorch" v-if="hasTorch" class="w-10 h-10 rounded-full bg-white/10 backdrop-blur text-white flex items-center justify-center border border-white/20 hover:bg-white/20"><i class="fa-solid fa-lightbulb" :class="{'text-yellow-400': torchOn}"></i></button>
+            <!-- CORREÇÃO DE PROVAS (NOVO DESIGN SUBSTITUINDO O SCANNER ANTIGO) -->
+            <div v-if="currentView === 'correction'" class="max-w-xl mx-auto space-y-4 animate-fade-in pb-20">
+                
+                <template v-if="!correctionMode">
+                    <!-- Header Correção -->
+                    <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center relative overflow-hidden">
+                         <div class="relative z-10">
+                             <h2 class="text-2xl font-black mb-1">Correção de Provas</h2>
+                             <p class="text-xs text-indigo-200">Escolha o método de lançamento de notas</p>
+                         </div>
+                         <i class="fa-solid fa-check-double text-5xl text-white/20 absolute right-6"></i>
                     </div>
 
-                    <div class="absolute bottom-6 w-full flex justify-center pointer-events-auto z-20 px-6 gap-3">
-                        <button @click="startManualEntry" class="bg-white text-gray-900 px-4 py-3 rounded-2xl font-bold shadow-xl flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition text-sm flex-1 justify-center border border-gray-100">
-                            <i class="fa-solid fa-keyboard text-indigo-600"></i> Manual
+                    <!-- Botão Correção Manual -->
+                    <button @click="startManualEntry" class="w-full bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:border-indigo-400 hover:shadow-md transition flex items-center gap-4 text-left group cursor-pointer">
+                        <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition"><i class="fa-solid fa-hand-pointer"></i></div>
+                        <div>
+                            <h3 class="font-bold text-gray-800 text-lg">Lançamento Manual</h3>
+                            <p class="text-xs text-gray-500">Toque nas marcações na tela para registrar as respostas do aluno rapidamente.</p>
+                        </div>
+                    </button>
+
+                    <!-- Card IA -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-robot"></i></div>
+                            <div class="flex-1">
+                                <h3 class="font-bold text-gray-800 text-lg">Correção por IA (Visão)</h3>
+                                <p class="text-xs text-gray-500">Faça upload de fotos dos gabaritos para análise automática.</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 p-3 rounded-xl mb-4 border border-gray-200 space-y-2">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Chave de API Gemini (Google)</label>
+                            <div class="flex gap-2">
+                                <input type="password" v-model="geminiKey" placeholder="Sua AIzaSy..." class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-indigo-400">
+                                <button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-black transition whitespace-nowrap shadow-md active:scale-95"><i class="fa-solid fa-vial"></i> Testar</button>
+                            </div>
+                            <p class="text-[9px] text-gray-400 leading-tight">Esta chave garante o processamento visual e identificação inteligente das respostas marcadas na folha.</p>
+                        </div>
+
+                        <input type="file" multiple accept="image/*" id="aiUploadInput" class="hidden" @change="handleAIUpload">
+                        <button @click="triggerAIUpload" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition flex items-center justify-center gap-2 active:scale-95">
+                            <i class="fa-solid fa-camera"></i> Selecionar Fotos (Gabaritos)
                         </button>
+
+                        <!-- Fila de Processamento IA -->
+                        <div v-if="aiCorrectionQueue.length > 0" class="mt-6 border-t border-gray-100 pt-4 animate-fade-in">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-bold text-sm text-gray-700">Fila de Processamento</h4>
+                                <div class="flex gap-2">
+                                    <button v-if="aiCorrectionQueue.length > 0 && !isProcessingQueue" @click="aiCorrectionQueue=[]" class="text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i> Limpar</button>
+                                    <button v-if="!isProcessingQueue && hasPendingItems" @click="processAIQueue" class="text-xs bg-indigo-600 text-white px-4 py-1.5 rounded-lg font-bold shadow-md hover:bg-indigo-700 transition flex items-center gap-1"><i class="fa-solid fa-play"></i> Iniciar Análise</button>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                                <div v-for="(item, i) in aiCorrectionQueue" :key="item.id" class="p-3 bg-gray-50 rounded-xl border flex items-center gap-3 transition-colors" 
+                                    :class="{'border-emerald-200 bg-emerald-50': item.status==='success', 'border-red-200 bg-red-50': item.status==='error', 'border-indigo-200 bg-indigo-50': item.status==='processing', 'border-gray-200': item.status==='pending'}">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0" 
+                                        :class="{'bg-emerald-100 text-emerald-600': item.status==='success', 'bg-red-100 text-red-500': item.status==='error', 'bg-indigo-100 text-indigo-600': item.status==='processing', 'bg-gray-200 text-gray-400': item.status==='pending'}">
+                                        <i v-if="item.status==='pending'" class="fa-solid fa-clock"></i>
+                                        <i v-if="item.status==='processing'" class="fa-solid fa-circle-notch fa-spin"></i>
+                                        <i v-if="item.status==='success'" class="fa-solid fa-check"></i>
+                                        <i v-if="item.status==='error'" class="fa-solid fa-triangle-exclamation"></i>
+                                    </div>
+                                    <div class="flex-1 overflow-hidden">
+                                        <p class="text-xs font-bold text-gray-700 truncate">{{ item.name }}</p>
+                                        <p class="text-[10px] truncate" :class="item.status==='error'?'text-red-500':'text-gray-500'">{{ item.message }}</p>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <div v-if="item.score !== null" class="font-black text-lg text-emerald-600">{{ item.score }}</div>
+                                        
+                                        <!-- NOVO: Botão de visualização (olho) adicionado na fila -->
+                                        <button v-if="item.status === 'success' && item.resultData" @click="openResultDetails(item.resultData)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-500 hover:bg-blue-100 flex items-center justify-center transition" title="Ver Gabarito x Aluno">
+                                            <i class="fa-solid fa-eye text-xs"></i>
+                                        </button>
+
+                                        <button v-if="item.status==='pending' || item.status==='error'" @click="aiCorrectionQueue.splice(i, 1)" class="text-gray-400 hover:text-red-500 p-1 transition"><i class="fa-solid fa-times"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </template>
 
                 <!-- ESTADO 2: CORREÇÃO MANUAL (GABARITO DIGITAL INTELIGENTE) -->
                 <div v-if="correctionMode" class="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 animate-fade-in flex flex-col h-[75vh] relative z-30">
@@ -686,29 +718,26 @@
                                 
                                 <div class="flex gap-2">
                                     <!-- MODO DINÂMICO DE BOTÕES -->
-                                    
                                     <!-- CASO 1: CERTO / ERRADO -->
                                     <template v-if="q.type === 'ce'">
                                         <div v-for="(label, i) in ['C', 'E']" :key="i" @click="studentAnswers[idx] = i" 
                                              class="bubble" 
                                              :class="{
                                                 'selected': studentAnswers[idx] === i,
-                                                'ce-c': i === 0, /* Cor Certo */
-                                                'ce-e': i === 1  /* Cor Errado */
+                                                'ce-c': i === 0,
+                                                'ce-e': i === 1
                                              }">
                                             {{ label }}
                                         </div>
                                     </template>
-
-                                    <!-- CASO 2: VERDADEIRO / FALSO (Se implementado) -->
+                                    <!-- CASO 2: VERDADEIRO / FALSO -->
                                     <template v-else-if="q.type === 'vf'">
                                         <div v-for="(label, i) in ['A', 'B', 'C', 'D', 'E']" :key="i" @click="studentAnswers[idx] = i" 
                                              class="bubble" :class="{'selected': studentAnswers[idx] === i}">
                                             {{ label }}
                                         </div>
                                     </template>
-
-                                    <!-- CASO 3: PADRÃO (Múltipla Escolha / Associação) -->
+                                    <!-- CASO 3: PADRÃO -->
                                     <template v-else>
                                         <div v-for="(o, i) in 5" :key="i" @click="studentAnswers[idx] = i" 
                                              class="bubble" :class="{'selected': studentAnswers[idx] === i}">
@@ -731,11 +760,10 @@
 
         </main>
 
-        <!-- CANVAS GLOBAL (Para Processamento - Inativo nesta versão manual) -->
-        <canvas id="cv-canvas" class="hidden"></canvas>
+        <!-- Elemento Oculto necessário para a extração do QR Code nas Imagens Upadas -->
+        <div id="hidden-qr-reader" style="display:none;"></div>
 
-        <!-- MODAIS GLOBAIS (Editor de Questão, Histórico, Perfil Aluno) -->
-        
+        <!-- MODAIS GLOBAIS -->
         <!-- MODAL MANUAL INPUT -->
         <div v-if="showManualInputModal" class="fixed inset-0 z-[160] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fade-in border border-gray-100">
@@ -761,7 +789,6 @@
                         </select>
                     </div>
 
-                    <!-- NOVO CAMPO: SELETOR DE TIPO DE PROVA -->
                     <div v-if="manualConfig.studentId && selectedExamVersions.length > 0">
                          <label class="text-xs font-bold text-gray-500 uppercase">Tipo de Prova (Gabarito)</label>
                          <select v-model="manualConfig.version" class="w-full p-3 border rounded-xl bg-indigo-50 text-indigo-900 text-sm outline-none font-bold transition focus:border-indigo-500 border-indigo-100">
@@ -773,6 +800,89 @@
 
                     <button @click="confirmManualEntry" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2" :disabled="!manualConfig.examId || !manualConfig.studentId">
                         <i class="fa-solid fa-pen-to-square"></i> Iniciar Correção
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOVO MODAL: GERADOR IA -->
+        <div v-if="showAIGenModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col animate-fade-in overflow-hidden border border-gray-100 max-h-[90vh]">
+                <div class="p-4 border-b flex justify-between items-center bg-purple-600 text-white shrink-0 relative overflow-hidden">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+                    <div class="flex items-center gap-3 relative z-10">
+                        <i class="fa-solid fa-robot text-2xl text-purple-200"></i>
+                        <div>
+                            <h3 class="font-bold text-lg leading-tight">Gerador IA</h3>
+                            <p class="text-[10px] text-purple-200">Crie questões instantaneamente</p>
+                        </div>
+                    </div>
+                    <button @click="showAIGenModal = false" class="relative z-10 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
+                </div>
+                
+                <div class="p-5 flex-1 bg-gray-50 space-y-4 overflow-y-auto">
+                    <!-- Configuração de Chave IA -->
+                    <div class="bg-gray-200/50 p-3 rounded-xl border border-gray-200">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase">Chave de API Gemini</label>
+                        <div class="flex gap-2 mt-1">
+                            <input type="password" v-model="geminiKey" placeholder="AIzaSy..." class="flex-1 bg-white border border-gray-300 rounded-lg px-2 text-xs outline-none focus:border-purple-500 font-mono">
+                            <button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-black transition"><i class="fa-solid fa-vial"></i> Testar</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Disciplina</label>
+                            <input v-model="aiGenConfig.subject" placeholder="Ex: Biologia" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Nível</label>
+                            <select v-model="aiGenConfig.difficulty" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
+                                <option value="Ensino Fundamental">Fundamental</option>
+                                <option value="Ensino Médio">Médio</option>
+                                <option value="Ensino Superior">Superior</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Tópico / Conteúdo</label>
+                        <input v-model="aiGenConfig.topic" placeholder="Ex: Divisão Celular e Mitose" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
+                    </div>
+                    
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Quantidade por Tipo (Máx 15 no total)</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex items-center justify-between bg-white border border-gray-200 p-2 rounded-lg">
+                                <span class="text-[11px] font-medium text-gray-600">Múltipla Escolha</span>
+                                <input type="number" v-model="aiGenConfig.counts.mc" min="0" max="15" class="w-10 bg-gray-50 border border-gray-200 rounded text-center text-xs p-1 outline-none focus:border-purple-500 font-bold">
+                            </div>
+                            <div class="flex items-center justify-between bg-white border border-gray-200 p-2 rounded-lg">
+                                <span class="text-[11px] font-medium text-gray-600">Certo/Errado</span>
+                                <input type="number" v-model="aiGenConfig.counts.ce" min="0" max="15" class="w-10 bg-gray-50 border border-gray-200 rounded text-center text-xs p-1 outline-none focus:border-purple-500 font-bold">
+                            </div>
+                            <div class="flex items-center justify-between bg-white border border-gray-200 p-2 rounded-lg">
+                                <span class="text-[11px] font-medium text-gray-600">V / F</span>
+                                <input type="number" v-model="aiGenConfig.counts.vf" min="0" max="15" class="w-10 bg-gray-50 border border-gray-200 rounded text-center text-xs p-1 outline-none focus:border-purple-500 font-bold">
+                            </div>
+                            <div class="flex items-center justify-between bg-white border border-gray-200 p-2 rounded-lg">
+                                <span class="text-[11px] font-medium text-gray-600">Associação</span>
+                                <input type="number" v-model="aiGenConfig.counts.assoc" min="0" max="15" class="w-10 bg-gray-50 border border-gray-200 rounded text-center text-xs p-1 outline-none focus:border-purple-500 font-bold">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="aiGenConfig.counts.mc > 0" class="bg-purple-50 p-2 rounded-lg border border-purple-100 animate-fade-in">
+                         <label class="text-[10px] font-bold text-purple-700 uppercase">Estilo: Múltipla Escolha</label>
+                         <select v-model="aiGenConfig.mcMode" class="w-full mt-1 p-2 bg-white rounded border border-purple-200 text-xs outline-none text-gray-700 font-medium">
+                             <option value="correct">Pedir a alternativa CORRETA</option>
+                             <option value="incorrect">Pedir a alternativa INCORRETA (Exceto)</option>
+                         </select>
+                    </div>
+
+                    <button @click="generateQuestionsAI" :disabled="isGeneratingAI" class="w-full py-3.5 bg-purple-600 text-white rounded-xl font-bold shadow-lg shadow-purple-200 hover:bg-purple-700 transition flex items-center justify-center gap-2 mt-2 disabled:opacity-70 disabled:cursor-not-allowed">
+                        <i :class="isGeneratingAI ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-wand-magic-sparkles'"></i>
+                        {{ isGeneratingAI ? 'Processando IA...' : 'Gerar e Salvar Banco' }}
                     </button>
                 </div>
             </div>
@@ -838,7 +948,7 @@
                             </div>
                         </div>
 
-                        <!-- Opções V/F (NOVO) -->
+                        <!-- Opções V/F -->
                         <div v-if="qType === 'vf'" class="space-y-3">
                             <p class="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 p-2 rounded text-center">Defina as afirmações e a resposta</p>
                             <div v-for="(opt, i) in newQ.options" :key="i" class="flex items-center gap-2">
@@ -853,7 +963,7 @@
                             <button @click="newQ.options.push({text:'', isTrue:true})" class="w-full py-2 border-2 border-dashed border-gray-200 rounded-xl text-xs font-bold text-gray-400 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-500 transition">+ Adicionar Afirmação</button>
                         </div>
 
-                        <!-- Opções Associação (NOVO) -->
+                        <!-- Opções Associação -->
                         <div v-if="qType === 'assoc'" class="space-y-3">
                             <p class="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 p-2 rounded text-center">Pares de Associação (Coluna A - Coluna B)</p>
                             <div v-for="(opt, i) in newQ.options" :key="i" class="flex items-center gap-2">
@@ -931,6 +1041,9 @@
                             <!-- MANUAL EDIT GRADE -->
                             <div v-if="editingResultId !== ex.id" class="flex items-center gap-1">
                                 <div class="font-bold text-lg mr-2" :class="parseFloat(ex.score) >= 6 ? 'text-emerald-600' : 'text-red-500'">{{ ex.score }}</div>
+                                <!-- NOVO BOTÃO: DETALHES DA CORREÇÃO -->
+                                <button @click="openResultDetails(ex)" class="text-gray-400 hover:text-blue-500 p-1.5 rounded hover:bg-blue-50 transition" title="Ver Respostas (Gabarito x Aluno)"><i class="fa-solid fa-eye text-xs"></i></button>
+                                
                                 <button @click="startEditingGrade(ex)" class="text-gray-300 hover:text-indigo-600 p-1.5 rounded hover:bg-gray-50 transition" title="Editar Nota"><i class="fa-solid fa-pencil text-xs"></i></button>
                                 <button @click="deleteStudentResult(ex.id)" class="text-gray-300 hover:text-red-500 p-1.5 rounded hover:bg-red-50 transition" title="Excluir Avaliação"><i class="fa-solid fa-trash-can text-xs"></i></button>
                             </div>
@@ -1004,6 +1117,9 @@
                             </div>
                         </div>
                         <div class="flex gap-2">
+                            <!-- NOVO BOTÃO: ESTATÍSTICAS E RANKING -->
+                            <button @click="openExamStats(e)" class="w-9 h-9 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 flex items-center justify-center transition" title="Estatísticas, Ranking e Acertos"><i class="fa-solid fa-chart-pie"></i></button>
+
                             <!-- Botão de Editar Prova -->
                             <button @click="openEditExam(e)" class="w-9 h-9 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition" title="Editar (Carregar Tudo)"><i class="fa-solid fa-pen"></i></button>
                             
@@ -1015,7 +1131,7 @@
             </div>
         </div>
 
-        <!-- MODAL EDITAR PROVA (NOVO) -->
+        <!-- MODAL EDITAR PROVA -->
         <div v-if="showEditExamModal" class="fixed inset-0 z-[170] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fade-in border border-gray-100">
                 <div class="flex justify-between items-center mb-4">
@@ -1056,6 +1172,112 @@
             </div>
         </div>
 
+        <!-- NOVO MODAL: DETALHES DA CORREÇÃO (GABARITO X ALUNO) -->
+        <div v-if="showResultDetailsModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm h-[80vh] flex flex-col animate-fade-in overflow-hidden border border-gray-100">
+                <div class="p-4 border-b flex justify-between items-center bg-indigo-600 text-white shrink-0">
+                    <div>
+                        <h3 class="font-bold text-lg leading-tight">Análise de Respostas</h3>
+                        <p class="text-[10px] text-indigo-200">{{ selectedResultDetails?.studentName }}</p>
+                    </div>
+                    <button @click="showResultDetailsModal = false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-2">
+                    <div v-for="(q, idx) in selectedResultDetails?.questions" :key="idx" 
+                         class="bg-white p-3 rounded-xl border flex items-center justify-between shadow-sm transition"
+                         :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'border-emerald-200' : 'border-red-200'">
+                        <div class="flex items-center gap-4">
+                            <span class="font-bold text-gray-400 w-5">#{{ idx + 1 }}</span>
+                            <div class="flex flex-col">
+                                <span class="text-[9px] uppercase font-bold text-gray-400">Gabarito</span>
+                                <span class="font-black text-emerald-600">{{ getAlternativeLabel(q.type, q.correctIndex) }}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="flex flex-col items-end">
+                                <span class="text-[9px] uppercase font-bold text-gray-400">Aluno</span>
+                                <span class="font-black" :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'text-emerald-600' : 'text-red-500'">
+                                    {{ getAlternativeLabel(q.type, selectedResultDetails.answers[idx]) }}
+                                </span>
+                            </div>
+                            <div class="w-6 flex justify-end">
+                                <i v-if="selectedResultDetails.answers[idx] === q.correctIndex" class="fa-solid fa-check-circle text-emerald-500 text-lg shadow-sm rounded-full"></i>
+                                <i v-else class="fa-solid fa-circle-xmark text-red-500 text-lg shadow-sm rounded-full"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOVO MODAL: ESTATÍSTICAS DA PROVA E RANKING -->
+        <div v-if="showExamStatsModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg h-[85vh] flex flex-col animate-fade-in overflow-hidden border border-gray-100">
+                 <div class="p-5 border-b flex justify-between items-start bg-indigo-600 text-white shrink-0 relative overflow-hidden">
+                    <div class="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                    <div class="relative z-10">
+                        <h3 class="font-bold text-xl leading-tight">Estatísticas da Prova</h3>
+                        <p class="text-xs text-indigo-200 mt-1">{{ examStats?.title }}</p>
+                    </div>
+                    <button @click="showExamStatsModal = false" class="relative z-10 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-5" v-if="examStats">
+                    <!-- Resumo -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Média Geral</p>
+                            <p class="text-3xl font-black text-indigo-700">{{ examStats.average }}</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Avaliados</p>
+                            <p class="text-3xl font-black text-emerald-600">{{ examStats.total }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Ranking Top 5 -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="bg-gray-50 p-3 font-bold text-gray-700 text-xs border-b uppercase tracking-wide flex items-center gap-2">
+                            <i class="fa-solid fa-trophy text-yellow-500"></i> Top 5 - Maiores Notas
+                        </div>
+                        <div v-if="examStats.ranking.length === 0" class="p-4 text-center text-xs text-gray-400 italic">Sem notas cadastradas.</div>
+                        <div class="divide-y divide-gray-50">
+                            <div v-for="(r, i) in examStats.ranking.slice(0,5)" :key="i" class="p-3 flex justify-between items-center hover:bg-gray-50 transition">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" 
+                                          :class="i === 0 ? 'bg-yellow-100 text-yellow-600' : (i===1 ? 'bg-gray-200 text-gray-600' : (i===2 ? 'bg-orange-100 text-orange-600' : 'bg-indigo-50 text-indigo-600'))">
+                                          {{ i+1 }}
+                                    </span>
+                                    <span class="font-bold text-gray-700 text-sm">{{ r.studentName }}</span>
+                                </div>
+                                <span class="font-black text-indigo-600">{{ r.score }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Taxa de Acerto por Questão -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="bg-gray-50 p-3 font-bold text-gray-700 text-xs border-b uppercase tracking-wide flex items-center gap-2">
+                            <i class="fa-solid fa-bullseye text-blue-500"></i> Taxa de Acerto por Questão
+                        </div>
+                        <div class="p-4 space-y-4">
+                            <div v-for="(stat, idx) in examStats.questionStats" :key="idx">
+                                <div class="flex justify-between text-xs mb-1.5 items-end">
+                                    <span class="font-bold text-gray-600">Questão {{ idx + 1 }}</span>
+                                    <span :class="stat.hitRate >= 70 ? 'text-emerald-500' : (stat.hitRate <= 40 ? 'text-red-500' : 'text-yellow-600')" class="font-black text-sm">{{ stat.hitRate }}%</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-2.5 shadow-inner overflow-hidden">
+                                    <div class="h-full rounded-full transition-all duration-1000" 
+                                         :class="stat.hitRate >= 70 ? 'bg-emerald-500' : (stat.hitRate <= 40 ? 'bg-red-500' : 'bg-yellow-500')" 
+                                         :style="{ width: stat.hitRate + '%' }"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- SCRIPT DA APLICAÇÃO -->
@@ -1076,17 +1298,16 @@
 
         createApp({
             setup() {
-                // --- SISTEMA DE LICENÇA E BLOQUEIO (INSERIDO NO CÓDIGO ORIGINAL) ---
-                const TRIAL_DURATION = 3600000; // 1 Hora em ms
+                // --- SISTEMA DE LICENÇA E BLOQUEIO ---
+                const TRIAL_DURATION = 3600000; 
                 const SECRET_SALT = "NEXUS_SECURE_KEY_2025_PRO_V1"; 
                 const appLocked = ref(false);
                 const isLicensed = ref(false);
                 const deviceId = ref('');
                 const timeLeft = ref('');
                 const licenseInput = ref('');
-                const showLicenseModal = ref(false); // [NOVO] Controle manual do modal de licença
+                const showLicenseModal = ref(false); 
                 
-                // Gera um ID único se não existir
                 const initLicenseSystem = async () => {
                     let config = await db.settings.get('license_config');
                     if (!config) {
@@ -1101,22 +1322,19 @@
                     
                     deviceId.value = config.deviceId;
                     
-                    // Verifica se já tem chave válida
                     if (config.licenseKey) {
                         const isValid = await verifyKey(config.deviceId, config.licenseKey);
                         if (isValid) {
                             isLicensed.value = true;
-                            return; // App liberado
+                            return; 
                         }
                     }
 
-                    // Verifica tempo de uso
                     const elapsed = Date.now() - config.firstRun;
                     if (elapsed > TRIAL_DURATION) {
                         appLocked.value = true;
                         timeLeft.value = "Expirado";
                     } else {
-                        // Inicia contador
                         setInterval(() => {
                             const remaining = TRIAL_DURATION - (Date.now() - config.firstRun);
                             if (remaining <= 0) {
@@ -1126,7 +1344,7 @@
                                 const m = Math.floor(remaining / 60000);
                                 timeLeft.value = `${m} min`;
                             }
-                        }, 1000); // Check a cada segundo para ser preciso
+                        }, 1000); 
                     }
                 };
 
@@ -1135,7 +1353,6 @@
                     return key === expected;
                 };
 
-                // Função de hash
                 const generateHash = async (message) => {
                     const msgBuffer = new TextEncoder().encode(message);
                     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -1178,7 +1395,7 @@
                     {id:'classes', label:'Turmas', icon:'fa-solid fa-users'},
                     {id:'questions', label:'Banco', icon:'fa-solid fa-database'},
                     {id:'exams', label:'Provas', icon:'fa-solid fa-file-contract'},
-                    {id:'scanner', label:'Scanner', icon:'fa-solid fa-qrcode'}
+                    {id:'correction', label:'Correção', icon:'fa-solid fa-check-double'} // Alterado aba Scanner -> Correção
                 ];
 
                 const classes = ref([]); 
@@ -1189,13 +1406,34 @@
                 const settings = ref({ schoolName:'', logo:null });
                 const extraPoints = ref([]);
 
+                // INTEGRAÇÃO GEMINI IA
+                const geminiKey = ref('AIzaSyCIuS2uyBOLQ8zXf6kqTs0Cq3XQICaipNU');
+                const aiCorrectionQueue = ref([]);
+                const isProcessingQueue = ref(false);
+
+                // --- NOVAS VARIÁVEIS DE ESTADO (ANÁLISE E DETALHES) ---
+                const showResultDetailsModal = ref(false);
+                const selectedResultDetails = ref(null);
+                const showExamStatsModal = ref(false);
+                const examStats = ref(null);
+
+                // --- VARIÁVEIS DE ESTADO: GERADOR IA ---
+                const showAIGenModal = ref(false);
+                const isGeneratingAI = ref(false);
+                const aiGenConfig = ref({ 
+                    subject: '', 
+                    topic: '', 
+                    difficulty: 'Ensino Médio', 
+                    counts: { mc: 2, ce: 0, vf: 0, assoc: 0 },
+                    mcMode: 'correct'
+                });
+
                 const newClass = ref(''); 
                 const bulkStudents = ref({});
 
                 // Filtros de Pesquisa
                 const studentFilter = ref('');
                 const examHistoryFilter = ref('');
-                // NOVO: Filtro de aluno no dashboard
                 const dashboardStudentFilter = ref('');
                 
                 const filteredClasses = computed(() => {
@@ -1220,7 +1458,6 @@
                     return list.filter(s => s.name.toLowerCase().includes(term));
                 };
 
-                // NOVO: Computada para filtrar alunos no dashboard
                 const filteredDashboardStudents = computed(() => {
                     if (!selectedClassIdForReport.value || !dashboardStudentFilter.value) return [];
                     const term = dashboardStudentFilter.value.toLowerCase();
@@ -1230,13 +1467,9 @@
                     );
                 });
 
-                // NOVO: Função para obter a média geral do aluno
                 const getStudentOverallGrade = (studentId) => {
                     const studentResults = results.value.filter(r => r.studentId === studentId);
                     if (studentResults.length === 0) return '-';
-                    
-                    // Lógica simplificada: média de todas as provas realizadas
-                    // Pode ser melhorada para seguir a lógica do boletim (pesos, bimestres) se necessário
                     const avg = studentResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / studentResults.length;
                     return avg.toFixed(1);
                 };
@@ -1281,10 +1514,9 @@
                 // EDITAR PROVA NO HISTÓRICO
                 const showEditExamModal = ref(false);
                 const editingExam = ref({});
-                const editingExamId = ref(null); // Para edição completa na aba Provas
+                const editingExamId = ref(null); 
 
                 const openEditExam = (e) => {
-                    // Carrega todos os dados da prova para o formulário principal
                     examConfig.value = {
                         title: e.title,
                         classId: e.classId,
@@ -1296,7 +1528,6 @@
                         variationMode: e.variationMode || 'standard' 
                     };
                     
-                    // Restaura as questões selecionadas
                     if (e.versions && e.versions[0]) {
                         examCart.value = JSON.parse(JSON.stringify(e.versions[0].questions));
                     } else if (e.questions) {
@@ -1305,42 +1536,31 @@
                     
                     editingExamId.value = e.id;
                     showHistory.value = false;
-                    currentView.value = 'exams'; // Muda para a aba de provas
+                    currentView.value = 'exams'; 
                     showToast('Prova carregada para edição', 'success');
                 };
 
                 const saveEditedExam = async () => {
-                    // Esta função é para o modal simples de edição (título, tipo, etc.)
-                    // Mantida para retrocompatibilidade ou uso futuro se quiser editar sem recarregar tudo
-                    // Mas o fluxo principal agora é pelo botão "Gerar Prova" (Atualizar)
                     if(!editingExam.value.title) return showToast("Título obrigatório", "error");
                     try {
                         await db.exams.put(JSON.parse(JSON.stringify(editingExam.value)));
                         showEditExamModal.value = false;
-                        load(); // Recarrega lista
+                        load(); 
                         showToast("Prova atualizada!", "success");
                     } catch(e) {
                         showToast("Erro ao salvar", "error");
                     }
                 };
 
-                // Scanner & Correção
+                // Lançamento Manual State
                 const correctionMode = ref(false); 
                 const activeStudent = ref(null); 
                 const activeExam = ref(null); 
                 const activeVersion = ref(0); 
                 const studentAnswers = ref({}); 
-                const html5QrCode = ref(null);
-                const hasTorch = ref(false); 
-                const torchOn = ref(false);
-                const isProcessingOMR = ref(false); 
-                const omrMode = ref(false); 
-                let omrStream = null; 
-                let animationFrameId = null;
 
-                // Manual Input State
                 const showManualInputModal = ref(false);
-                const manualConfig = ref({ examId: '', studentId: '', version: 0 }); // Added version
+                const manualConfig = ref({ examId: '', studentId: '', version: 0 }); 
 
                 const manualStudents = computed(() => {
                     if (!manualConfig.value.examId) return [];
@@ -1349,15 +1569,12 @@
                     return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
                 });
                 
-                // Computed para pegar as versões da prova selecionada
                 const selectedExamVersions = computed(() => {
                     if (!manualConfig.value.examId) return [];
                     const e = exams.value.find(x => x.id === manualConfig.value.examId);
-                    // Garante que retorne um array mesmo se versões antigas não tiverem a estrutura nova
                     return e && e.versions ? e.versions : [{id:0, label:'Padrão'}];
                 });
 
-                // Watcher inteligente: Quando seleciona o aluno, seleciona o tipo de prova dele automaticamente
                 watch(() => manualConfig.value.studentId, (newVal) => {
                     if (!newVal || !manualConfig.value.examId) return;
                     const e = exams.value.find(x => x.id === manualConfig.value.examId);
@@ -1373,44 +1590,329 @@
                     showManualInputModal.value = true;
                 };
 
-                const switchToManualCorrection = () => {
-                    stopOMR();
-                    omrMode.value = false;
-                    correctionMode.value = true;
-                    isProcessingOMR.value = false;
-                    // studentAnswers.value = {}; 
-                    showToast('Preencha as respostas na tela', 'info');
-                };
-
                 const confirmManualEntry = async () => {
                     if (!manualConfig.value.examId || !manualConfig.value.studentId) return showToast('Selecione prova e aluno', 'error');
                     
                     const e = exams.value.find(x => x.id === manualConfig.value.examId);
                     
-                    // FIX: Migration for old exams
                     if(e && !e.versions) {
                         e.versions = [{id:0, questions:e.questionsA || []}, {id:1, questions:e.questionsB || []}];
                         if (!e.questionsA && e.questions) e.versions = [{id:0, questions:e.questions}];
                     }
 
                     const s = students.value.find(x => x.id === manualConfig.value.studentId);
-                    
-                    // Usa a versão selecionada manualmente pelo professor
                     let verIdx = manualConfig.value.version;
 
-                    // Setup correction mode
                     activeExam.value = e;
                     activeStudent.value = s;
                     activeVersion.value = verIdx;
                     studentAnswers.value = {};
                     
                     showManualInputModal.value = false;
-                    await stopQR();
-                    stopOMR();
-                    
                     correctionMode.value = true;
                 };
+
+                // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) ---
                 
+                const testGeminiKey = async () => {
+                    if(!geminiKey.value) return showToast("Insira a chave de API", "error");
+                    toast.value = {show: true, message: "Testando comunicação com IA...", type: "loading"};
+                    try {
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey.value}`;
+                        const res = await fetch(url);
+                        const data = await res.json();
+                        if(data.error) throw new Error(data.error.message);
+                        
+                        const models = data.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
+                        showToast(`Chave válida! Modelos ativos: ${models.slice(0, 2).join(', ')}`, "success");
+                        saveSettings(true); // Salva a chave no banco local
+                    } catch(e) {
+                        showToast("Falha na chave: " + e.message, "error");
+                    }
+                };
+
+                const triggerAIUpload = () => {
+                    if(!geminiKey.value) return showToast("Insira a chave da IA primeiro.", "error");
+                    document.getElementById('aiUploadInput').click();
+                };
+
+                const handleAIUpload = (e) => {
+                    const files = Array.from(e.target.files);
+                    if(!files.length) return;
+
+                    for(const f of files) {
+                        aiCorrectionQueue.value.push({
+                            id: crypto.randomUUID(),
+                            file: f,
+                            name: f.name,
+                            status: 'pending',
+                            message: 'Aguardando na fila...',
+                            score: null
+                        });
+                    }
+                    e.target.value = '';
+                };
+
+                const hasPendingItems = computed(() => {
+                    return aiCorrectionQueue.value.some(i => i.status === 'pending' || i.status === 'error');
+                });
+
+                const fileToBase64 = (file) => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+
+                const scanFileForQR = async (file) => {
+                    // html5QrCode só precisa existir para usar o método scanFile
+                    const tempQrScanner = new Html5Qrcode("hidden-qr-reader"); 
+                    try {
+                        const result = await tempQrScanner.scanFile(file, true);
+                        return result;
+                    } catch (err) {
+                        throw new Error("QR Code não legível ou não encontrado na imagem.");
+                    } finally {
+                        try { tempQrScanner.clear(); } catch(e){}
+                    }
+                };
+
+                const callGemini = async (base64Data, mimeType, questionsCount) => {
+                    const apiKey = geminiKey.value;
+                    // Utiliza o flash que é rápido, multimodal e mais barato na cota gratuita
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+                    // Prompt rigoroso para garantir saída controlada
+                    const prompt = `Atue como um corretor automático de cartões-resposta (gabaritos). 
+A imagem contém um cartão-resposta de um aluno. Esta prova possui exatamente ${questionsCount} questões marcadas.
+Sua única tarefa é retornar um array JSON puro representando o índice das marcações que o aluno fez, na ordem das questões.
+Para as alternativas A, B, C, D e E, utilize os números 0, 1, 2, 3 e 4, respectivamente.
+Se a questão for do tipo Certo/Errado e a marcação for C, utilize 0. Se for E, utilize 1.
+Se o aluno deixou a questão em branco, marcou mais de uma opção (rasurada) ou a marcação for ilegível, utilize o valor null.
+O tamanho final do array deve ser ${questionsCount}.
+Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retorne EXCLUSIVAMENTE o array. Exemplo válido: [0, 1, 3, null, 4]`;
+
+                    const payload = {
+                        contents: [{
+                            parts: [
+                                {text: prompt},
+                                {inline_data: { mime_type: mimeType, data: base64Data }}
+                            ]
+                        }],
+                        generationConfig: { response_mime_type: "application/json" }
+                    };
+
+                    // Implementa Exponential Backoff para proteger contra erro 429 (Rate Limit)
+                    let retries = 3;
+                    let delay = 3000; // Começa pausando 3s se der erro
+                    
+                    while(retries > 0) {
+                        try {
+                            const response = await fetch(url, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+                            const data = await response.json();
+                            
+                            if(data.error) {
+                                if (data.error.code === 429) throw { isRateLimit: true, msg: "Limite da API excedido" };
+                                throw new Error(data.error.message);
+                            }
+                            
+                            let text = data.candidates[0].content.parts[0].text;
+                            // Prevenção extra caso o modelo insista em colocar markdown
+                            const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                            return JSON.parse(cleanedText);
+                            
+                        } catch(e) {
+                            if(e.isRateLimit) {
+                                retries--;
+                                if(retries === 0) throw new Error("Chave bloqueada temporariamente (Muitos acessos). Tente em alguns minutos.");
+                                await new Promise(r => setTimeout(r, delay));
+                                delay *= 2; // Dobra o tempo de espera
+                            } else {
+                                throw e;
+                            }
+                        }
+                    }
+                };
+
+                const processAIQueue = async () => {
+                    if(isProcessingQueue.value) return;
+                    isProcessingQueue.value = true;
+
+                    for(const item of aiCorrectionQueue.value) {
+                        if(item.status !== 'pending' && item.status !== 'error') continue;
+
+                        item.status = 'processing';
+                        item.message = 'Lendo QR Code do aluno...';
+                        
+                        try {
+                            // 1. Extrai QR
+                            const qrText = await scanFileForQR(item.file);
+                            const qrData = JSON.parse(qrText);
+                            if(qrData.e === undefined || qrData.s === undefined) throw new Error("QR não pertence a este sistema");
+
+                            // 2. Busca dados
+                            const exam = exams.value.find(e => e.id === Number(qrData.e));
+                            const student = students.value.find(s => s.id === Number(qrData.s));
+                            if(!exam || !student) throw new Error("Prova/Aluno ausentes no banco local");
+
+                            if(!exam.versions) exam.versions = [{id:0, questions:exam.questionsA || exam.questions}, {id:1, questions:exam.questionsB || []}];
+                            const version = exam.versions[qrData.v] || exam.versions[0];
+                            const questions = version.questions;
+
+                            item.message = `IA analisando gabarito de ${student.name.split(' ')[0]}...`;
+
+                            // 3. Processamento IA
+                            const base64 = await fileToBase64(item.file);
+                            const aiAnswers = await callGemini(base64, item.file.type, questions.length);
+
+                            if(!Array.isArray(aiAnswers)) throw new Error("A IA não retornou um formato válido");
+
+                            // 4. Correção Lógica & Nota
+                            let hits = 0;
+                            const parsedAnswers = {};
+
+                            questions.forEach((q, idx) => {
+                                const studentAns = aiAnswers[idx];
+                                if(studentAns !== null && studentAns !== undefined) {
+                                    parsedAnswers[idx] = studentAns;
+
+                                    let correctIdx = q.correctIndex;
+                                    // Ajuste para formatos convertidos em Múltipla Escolha pelo PDF
+                                    if(q.type === 'vf' || q.type === 'assoc') correctIdx = (q.id || 0) % 5;
+
+                                    if(studentAns === correctIdx) hits++;
+                                }
+                            });
+
+                            const finalScore = ((hits / questions.length) * 10).toFixed(1);
+
+                            // 5. Salva no Banco Local
+                            const allResults = await db.results.toArray();
+                            const existing = allResults.find(r => r.examId === exam.id && r.studentId === student.id);
+
+                            const resultData = {
+                                examId: exam.id, studentId: student.id, studentName: student.name,
+                                score: finalScore, date: Date.now(), answers: parsedAnswers,
+                                maxScore: questions.length, version: qrData.v
+                            };
+
+                            if (existing) {
+                                await db.results.put({ ...resultData, id: existing.id });
+                            } else {
+                                await db.results.add(JSON.parse(JSON.stringify(resultData)));
+                            }
+                            results.value = await db.results.toArray();
+
+                            // 6. Atualiza Fila
+                            item.status = 'success';
+                            item.score = finalScore;
+                            item.message = `${student.name} concluído.`;
+                            
+                            // NOVO: Adicionamos os dados cruciais para que o "Olho" possa abrir o Modal
+                            item.resultData = {
+                                examId: exam.id,
+                                studentName: student.name,
+                                version: qrData.v,
+                                answers: parsedAnswers
+                            };
+                            
+                            // Feedback por voz (Opcional)
+                            speak(`${student.name}, nota ${finalScore}`);
+
+                        } catch(err) {
+                            item.status = 'error';
+                            item.message = err.message || "Erro desconhecido ao processar.";
+                        }
+
+                        // Proteção de Cota (Rate limit da conta gratuita: ~15 Requisições por Minuto)
+                        // Aguarda 4,2 segundos entre fotos garante 14 requisições/min.
+                        await new Promise(r => setTimeout(r, 4200));
+                    }
+
+                    isProcessingQueue.value = false;
+                };
+
+                // --- NOVAS FUNÇÕES: ANÁLISE DE RESULTADOS ---
+                const getAlternativeLabel = (type, index) => {
+                    if (index === null || index === undefined || index === '') return '-';
+                    const idx = parseInt(index);
+                    if (type === 'ce') return ['C', 'E'][idx] || '?';
+                    return ['A', 'B', 'C', 'D', 'E'][idx] || '?';
+                };
+
+                const openResultDetails = (examResult) => {
+                    const ex = exams.value.find(e => e.id === examResult.examId);
+                    if (!ex) return;
+                    
+                    const version = (ex.versions && ex.versions[examResult.version]) ? ex.versions[examResult.version] : (ex.versions ? ex.versions[0] : {questions: ex.questions || []});
+                    
+                    selectedResultDetails.value = {
+                        title: ex.title,
+                        studentName: examResult.studentName,
+                        answers: examResult.answers || {},
+                        questions: version.questions.map(q => {
+                            let correctIndex = q.correctIndex;
+                            if (q.type === 'vf' || q.type === 'assoc') correctIndex = (q.id || 0) % 5;
+                            return { ...q, correctIndex };
+                        })
+                    };
+                    showResultDetailsModal.value = true;
+                };
+
+                const openExamStats = (exam) => {
+                    const examResults = results.value.filter(r => r.examId === exam.id);
+                    if(examResults.length === 0) return showToast('Nenhuma prova corrigida ainda', 'info');
+
+                    const total = examResults.length;
+                    const avg = (examResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / total).toFixed(1);
+                    
+                    // Ranking
+                    const ranking = [...examResults].sort((a,b) => parseFloat(b.score) - parseFloat(a.score));
+
+                    // Mapeia acertos para as questões originais (usando ID da questão para cruzar embaralhamentos)
+                    const qStatsMap = {}; 
+                    
+                    examResults.forEach(r => {
+                        const version = (exam.versions && exam.versions[r.version]) ? exam.versions[r.version] : (exam.versions ? exam.versions[0] : {questions: exam.questions || []});
+                        
+                        version.questions.forEach((q, idx) => {
+                            if(!qStatsMap[q.id]) {
+                                qStatsMap[q.id] = { hits: 0, total: 0 };
+                            }
+                            qStatsMap[q.id].total++;
+                            
+                            let correctIdx = q.correctIndex;
+                            if (q.type === 'vf' || q.type === 'assoc') correctIdx = (q.id || 0) % 5;
+
+                            if (r.answers && parseInt(r.answers[idx]) === parseInt(correctIdx)) {
+                                qStatsMap[q.id].hits++;
+                            }
+                        });
+                    });
+
+                    // Retorna a ordem original baseada na versão 0
+                    const baseVersion = exam.versions ? exam.versions[0] : {questions: exam.questions || []};
+                    const questionStats = baseVersion.questions.map((q) => {
+                        const s = qStatsMap[q.id] || { hits: 0, total: 1 };
+                        const hitRate = s.total > 0 ? Math.round((s.hits / s.total) * 100) : 0;
+                        return { hitRate };
+                    });
+
+                    examStats.value = {
+                        title: exam.title,
+                        average: avg,
+                        total,
+                        ranking,
+                        questionStats
+                    };
+                    
+                    showExamStatsModal.value = true;
+                };
+
                 // --- Edição de Notas no Boletim ---
                 const editingResultId = ref(null);
                 const tempScore = ref('');
@@ -1432,24 +1934,21 @@
                     
                     const resultToUpdate = results.value.find(r => r.id === editingResultId.value);
                     if (resultToUpdate) {
-                        // Create a clone to update
                         const updated = JSON.parse(JSON.stringify(resultToUpdate));
                         const baseScore = parseFloat(tempScore.value);
                         const bonus = parseFloat(tempBonus.value || 0);
                         
-                        // Store the final score (base + bonus) but keep bonus recorded separately if needed in future
                         updated.score = (baseScore + bonus).toFixed(1);
-                        updated.bonus = bonus; // Store bonus meta data
+                        updated.bonus = bonus; 
                         
                         await db.results.put(updated);
-                        results.value = await db.results.toArray(); // Refresh UI
+                        results.value = await db.results.toArray(); 
                         
                         showToast('Nota atualizada!', 'success');
                         editingResultId.value = null;
                     }
                 };
 
-                // FUNÇÕES DE EXCLUSÃO
                 const deleteStudentResult = (resultId) => {
                     triggerConfirm("Tem certeza que deseja apagar esta avaliação?", async () => {
                         await db.results.delete(resultId);
@@ -1474,14 +1973,11 @@
                 const showExtraPointForm = ref(false);
                 const newExtraPoint = ref({val:'', reason:''});
                 
-                // Variável de estado para o Ranking
-                const rankingOrder = ref('desc'); // 'desc' = Maiores, 'asc' = Menores
+                const rankingOrder = ref('desc'); 
 
-                // UI
                 const toast = ref({ show: false, message: '', type: 'info' });
                 const confirmModal = ref({ show: false, message: '', onConfirm: null });
 
-                // Métodos Auxiliares
                 const showToast = (msg, type = 'info') => {
                     toast.value = { show: true, message: msg, type };
                     setTimeout(() => toast.value.show = false, 3000);
@@ -1497,7 +1993,6 @@
                     confirmModal.value.onConfirm = null;
                 };
 
-                // Speech Synthesis
                 const speak = (text) => {
                     if ('speechSynthesis' in window) {
                         const utterance = new SpeechSynthesisUtterance(text);
@@ -1506,16 +2001,13 @@
                     }
                 };
 
-                // Inicialização (ATUALIZADO PARA LICENÇA E MANTER EXPANSÃO)
                 const load = async () => {
-                    // Preserva o estado de expansão das turmas ao recarregar
                     const expandedIds = classes.value.filter(c => c.expanded).map(c => c.id);
 
                     const cls = await db.classes.toArray();
-                    // Inicializa a propriedade expanded, restaurando quem estava aberto
                     classes.value = cls.map(c => ({
                         ...c, 
-                        expanded: expandedIds.includes(c.id) // Mantém aberto se já estava
+                        expanded: expandedIds.includes(c.id) 
                     }));
                     
                     students.value = await db.students.toArray();
@@ -1524,15 +2016,17 @@
                     results.value = await db.results.toArray();
                     extraPoints.value = await db.extraPoints.toArray();
                     const s = await db.settings.get('config');
-                    if(s) settings.value = s;
+                    if(s) {
+                        settings.value = { schoolName: s.schoolName, logo: s.logo };
+                        if(s.geminiKey) geminiKey.value = s.geminiKey;
+                    }
                 };
                 
                 onMounted(() => {
-                    initLicenseSystem(); // Inicia sistema de licença
+                    initLicenseSystem(); 
                     load();
                 });
 
-                // --- Gerenciamento de Turmas ---
                 const addClass = async () => { 
                     if(newClass.value){ 
                         await db.classes.add({name:newClass.value}); 
@@ -1540,24 +2034,17 @@
                     }
                 };
                 
-                // [NOVO] Função para apagar turma inteira
                 const deleteClass = (classId) => {
                     triggerConfirm("ATENÇÃO: Isso apagará a turma e TODOS os alunos dela. Confirmar?", async () => {
-                        // Apaga alunos da turma
                         const classStudents = students.value.filter(s => s.classId === classId);
                         const studentIds = classStudents.map(s => s.id);
                         await db.students.bulkDelete(studentIds);
-                        
-                        // Apaga a turma
                         await db.classes.delete(classId);
-                        
-                        // Recarrega tudo
                         load();
                         showToast("Turma apagada com sucesso.", "success");
                     });
                 };
 
-                // [FIX] Função para abrir/fechar turmas
                 const toggleExpand = (c) => { 
                     c.expanded = !c.expanded; 
                 };
@@ -1573,19 +2060,15 @@
                 const getStudentCount = cid => students.value.filter(s=>s.classId===cid).length;
                 const getStudents = cid => students.value.filter(s=>s.classId===cid);
                 
-                // [NOVO] Modificado para não resetar a view (usa array local ou load otimizado)
                 const deleteStudent = async id => { 
                     triggerConfirm("Remover aluno?", async () => { 
                         await db.students.delete(id);
-                        // Atualização local para evitar reload completo que fecha o accordion
                         const idx = students.value.findIndex(s => s.id === id);
                         if (idx > -1) students.value.splice(idx, 1);
-                        // load(); // Opcional se quiser sincronia total, mas o splice já resolve visualmente
                         showToast("Aluno removido", "success");
                     }); 
                 };
 
-                // --- Gerenciamento de Questões ---
                 const openQForm = (src) => { 
                     formSource.value = src; 
                     qType.value = 'mc'; 
@@ -1593,19 +2076,129 @@
                     showQFormModal.value = true; 
                 };
 
-                // NOVA FUNÇÃO: Troca inteligente de tipo de questão
                 const changeQType = (type) => {
                     qType.value = type;
-                    // Reset options based on type to provide correct UI structure
                     if(type === 'vf') {
                         newQ.value.options = [{text:'', isTrue:true}, {text:'', isTrue:false}];
                     } else if(type === 'assoc') {
                         newQ.value.options = [{text:'', match:''}, {text:'', match:''}];
                     } else if(type === 'mc') {
-                        // Preserve if switching back, or reset
                         if(!newQ.value.options || newQ.value.options.length === 0 || !newQ.value.options[0].text) {
                              newQ.value.options = [{text:''},{text:''},{text:''},{text:''},{text:''}];
                         }
+                    }
+                };
+
+                // --- FUNÇÕES GERADOR IA DE QUESTÕES ---
+                const openAIGenerator = () => {
+                    showAIGenModal.value = true;
+                };
+
+                const generateQuestionsAI = async () => {
+                    if(!geminiKey.value) return showToast('Chave da IA ausente. Preencha o campo no topo.', 'error');
+                    if(!aiGenConfig.value.topic || !aiGenConfig.value.subject) return showToast('Preencha disciplina e tópico', 'error');
+                    
+                    const totalRequested = (aiGenConfig.value.counts.mc || 0) + (aiGenConfig.value.counts.ce || 0) + (aiGenConfig.value.counts.vf || 0) + (aiGenConfig.value.counts.assoc || 0);
+                    if(totalRequested < 1) return showToast('Selecione ao menos 1 questão de algum tipo', 'warning');
+                    if(totalRequested > 15) return showToast('Gere no máximo 15 questões por vez para evitar timeout', 'warning');
+                    
+                    isGeneratingAI.value = true;
+                    showToast(`Gerando ${totalRequested} questões... Aguarde.`, 'loading');
+
+                    try {
+                        let instructions = "";
+                        
+                        if (aiGenConfig.value.counts.mc > 0) {
+                            let mcRule = aiGenConfig.value.mcMode === 'incorrect' 
+                                ? 'O enunciado DEVE pedir para o aluno assinalar a alternativa INCORRETA. Forneça 4 alternativas factualmente corretas e 1 incorreta. O índice "correct" deve apontar para a incorreta.' 
+                                : 'O enunciado deve pedir a alternativa correta padrão.';
+                            instructions += `- ${aiGenConfig.value.counts.mc} questões do tipo "mc" (Múltipla Escolha, 5 alternativas exclusivas). ${mcRule}\n`;
+                        }
+                        if (aiGenConfig.value.counts.ce > 0) {
+                            instructions += `- ${aiGenConfig.value.counts.ce} questões do tipo "ce" (Certo ou Errado). Apenas 2 alternativas escritas exatamente como "Certo" e "Errado".\n`;
+                        }
+                        if (aiGenConfig.value.counts.vf > 0) {
+                            instructions += `- ${aiGenConfig.value.counts.vf} questões do tipo "vf" (Verdadeiro ou Falso). Cada questão deve ter 4 a 5 afirmações relacionadas.\n`;
+                        }
+                        if (aiGenConfig.value.counts.assoc > 0) {
+                            instructions += `- ${aiGenConfig.value.counts.assoc} questões do tipo "assoc" (Associação de colunas). Cada questão deve ter 4 a 5 pares.\n`;
+                        }
+
+                        const prompt = `Você é um professor acadêmico elaborador de provas.
+Sua missão é criar exatamente ${totalRequested} questões inéditas sobre o assunto "${aiGenConfig.value.topic}" para a disciplina "${aiGenConfig.value.subject}".
+O nível de complexidade exigido é: ${aiGenConfig.value.difficulty}.
+
+A distribuição dos tipos de questões deve ser rigorosamente esta:
+${instructions}
+
+Regra estrita: Retorne APENAS um array JSON válido. Sem blocos markdown (\`\`\`json) e sem conversas adicionais.
+O formato base do JSON para cada tipo deve seguir exatamente esta estrutura:
+
+Caso seja "mc": {"subject":"...","topic":"...","text":"Enunciado...","type":"mc","correct":<numero_de_0_a_4>,"options":[{"text":"..."},{"text":"..."},{"text":"..."},{"text":"..."},{"text":"..."}]}
+Caso seja "ce": {"subject":"...","topic":"...","text":"Enunciado/Afirmação...","type":"ce","correct":<0_para_Certo_1_para_Errado>,"options":[{"text":"Certo"},{"text":"Errado"}]}
+Caso seja "vf": {"subject":"...","topic":"...","text":"Avalie se é V ou F:","type":"vf","correct":0,"options":[{"text":"afirmação 1","isTrue":true},{"text":"afirmação 2","isTrue":false}]}
+Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","type":"assoc","correct":0,"options":[{"text":"Item Coluna A","match":"Correspondência Coluna B"}]}
+`;
+
+                        let retries = 3;
+                        let delay = 3000; // Começa com 3 segundos
+                        let generatedQuestions = [];
+
+                        while (retries > 0) {
+                            try {
+                                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey.value}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        contents: [{ parts: [{ text: prompt }] }],
+                                        generationConfig: { response_mime_type: "application/json" }
+                                    })
+                                });
+
+                                const data = await response.json();
+                                if (data.error) {
+                                    // Se for limite de taxa, joga erro para ser capturado e tentar de novo
+                                    if (data.error.code === 429) throw { isRateLimit: true, msg: "Rate limit" };
+                                    throw new Error(data.error.message);
+                                }
+
+                                let text = data.candidates[0].content.parts[0].text;
+                                const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                                generatedQuestions = JSON.parse(cleanedText);
+                                
+                                // Se funcionou, sai do loop
+                                break; 
+                                
+                            } catch (e) {
+                                if (e.isRateLimit) {
+                                    retries--;
+                                    if (retries === 0) throw new Error("Chave bloqueada por excesso temporário de requisições. Aguarde uns minutos.");
+                                    showToast('Aguardando liberação da API (Rate Limit)...', 'loading');
+                                    await new Promise(r => setTimeout(r, delay));
+                                    delay *= 2; // Exponential backoff (espera mais tempo na prox)
+                                } else {
+                                    // Erro normal (JSON mal formado, erro na net)
+                                    throw e;
+                                }
+                            }
+                        }
+
+                        if(!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
+                            throw new Error("A IA não retornou o JSON formatado corretamente.");
+                        }
+
+                        // Salva diretamente no banco de dados local
+                        await db.questions.bulkAdd(generatedQuestions);
+                        await load(); // Atualiza a lista visualmente
+
+                        showAIGenModal.value = false;
+                        showToast(`${generatedQuestions.length} questões inseridas no banco!`, 'success');
+
+                    } catch(e) {
+                        console.error(e);
+                        showToast("Falha na geração: " + (e.message || 'Verifique sua internet ou chave.'), 'error');
+                    } finally {
+                        isGeneratingAI.value = false;
                     }
                 };
 
@@ -1646,14 +2239,11 @@
                         
                         if(!addAnother) { showQFormModal.value=false; if(formSource.value !== 'exam') showToast('Salvo!', 'success'); } 
                         else { 
-                            // Reset for next question but keep context
                             newQ.value.id=null; 
                             newQ.value.text=''; 
                             newQ.value.image=null;
-                            // Reset options based on current type
                             if(qType.value === 'vf') newQ.value.options = [{text:'', isTrue:true}, {text:'', isTrue:false}];
                             else if(qType.value === 'assoc') newQ.value.options = [{text:'', match:''}, {text:'', match:''}];
-                            
                             showToast('Questão salva. Próxima...', 'success'); 
                         }
                         load();
@@ -1662,7 +2252,6 @@
                 
                 const deleteQuestion = async id => { triggerConfirm('Excluir questão permanentemente?', async () => { await db.questions.delete(id); load(); }); };
 
-                // --- Filtros ---
                 const uniqueSubjects = computed(() => [...new Set(questions.value.map(q => q.subject))].sort());
 
                 const filteredQuestions = computed(() => {
@@ -1684,15 +2273,11 @@
                     return questions.value.filter(q => q.text.toLowerCase().includes(t) || q.subject.toLowerCase().includes(t)); 
                 });
 
-                // --- Gestão de Provas ---
                 const toggleExamQ = q => { const i=examCart.value.findIndex(x=>x.id===q.id); i>-1?examCart.value.splice(i,1):examCart.value.push(q); };
                 const isQInExam = id => examCart.value.some(x=>x.id===id);
                 const deleteExam = async id => { triggerConfirm('Apagar prova do histórico?', async () => { await db.exams.delete(id); load(); }); };
 
-                // --- Geração de PDF ---
                 const generateGeneralReportPDF = async (classIdParam = null) => {
-                    // Determina o ID da turma: ou vem por parâmetro (aba Turmas) ou do seletor (Dashboard)
-                    // Verifica se classIdParam é um evento (clique) ou um ID válido
                     const cid = (typeof classIdParam === 'number' || typeof classIdParam === 'string') ? classIdParam : selectedClassIdForReport.value;
 
                     if (!cid) return showToast('Selecione uma turma', 'error');
@@ -1720,7 +2305,6 @@
                         let annualCount = 0;
 
                         for (let b = 1; b <= 4; b++) {
-                            // Calculate Average for Bimester b
                             const bimResults = results.value.filter(r => r.studentId === s.id);
                             const bimExams = bimResults.map(r => {
                                 const e = exams.value.find(ex => ex.id === r.examId);
@@ -1731,8 +2315,7 @@
                             let weightSum = 0;
 
                             bimExams.forEach(bx => {
-                                // Considera bonus da prova se existir
-                                const scoreVal = parseFloat(bx.score); // Já inclui bonus da edição manual se foi salvo
+                                const scoreVal = parseFloat(bx.score); 
                                 weightedSum += scoreVal * bx.weight;
                                 weightSum += bx.weight;
                             });
@@ -1744,10 +2327,8 @@
                             let bimAvg = weightSum > 0 ? (weightedSum / weightSum) : 0;
                             bimAvg += extraPts;
                             
-                            // LIMITE DE NOTA: 10
                             if (bimAvg > 10) bimAvg = 10;
 
-                            // Add to annual calculation if there were exams or points
                             if (weightSum > 0 || extraPts > 0) {
                                 annualSum += bimAvg;
                                 annualCount++;
@@ -1757,8 +2338,6 @@
                             }
                         }
 
-                        // Média final simples dos bimestres com nota
-                        // Se quiser média /4 fixo, mude annualCount para 4.
                         const finalAvg = annualCount > 0 ? (annualSum / annualCount).toFixed(1) : '-'; 
                         row.push({ text: finalAvg, alignment: 'center', bold: true, fontSize: 10, fillColor: '#f5f7ff' });
                         tableBody.push(row);
@@ -1805,13 +2384,10 @@
                             const classStudents = getStudents(examConfig.value.classId);
                             if (classStudents.length === 0) return showToast('Turma sem alunos!', 'error');
 
-                            // Mostrar loading
                             showToast(editingExamId.value ? 'Atualizando prova...' : 'Gerando arquivo da prova...', 'loading');
 
-                            // Configurações Dinâmicas de Estilo
                             const userFontSize = parseInt(printConfig.value.fontSize);
                             
-                            // Margens e Espaçamento com base na seleção
                             const spacingConfig = {
                                 compact: { marginQ: [0, 2], marginOpt: [0, 0], marginStack: [5, 0, 0, 5], optLineHeight: 1 },
                                 normal: { marginQ: [0, 5], marginOpt: [0, 2], marginStack: [15, 0, 0, 10], optLineHeight: 1.1 },
@@ -1824,18 +2400,17 @@
 
                             const versions = [];
                             const mode = examConfig.value.variationMode;
-                            let numVersions = 2; // Padrão
+                            let numVersions = 2; 
 
                             if (mode === 'unique') numVersions = classStudents.length;
                             else if (mode === '1_10') numVersions = Math.ceil(classStudents.length / 10);
                             
-                            // Gerar Versões Embaralhadas
                             for (let i = 0; i < numVersions; i++) {
                                 let qs = JSON.parse(JSON.stringify(baseQ)).map(q => ({...q, correctIndex: q.correct}));
                                 if (i > 0 || mode !== 'standard') { 
                                     qs.sort(() => Math.random() - 0.5);
                                     qs.forEach(q => {
-                                        if (q.type !== 'ce') { // Não embaralha C/E
+                                        if (q.type !== 'ce') { 
                                             let opts = q.options.map((o, idx) => ({...o, isCorrect: idx === q.correctIndex}));
                                             opts.sort(() => Math.random() - 0.5);
                                             q.options = opts;
@@ -1846,7 +2421,6 @@
                                 versions.push({ id: i, label: `Tipo ${i+1}`, questions: qs });
                             }
 
-                            // Atribuir versão
                             const studentVersionMap = {};
                             classStudents.forEach((s, idx) => { studentVersionMap[s.id] = idx % numVersions; });
 
@@ -1863,12 +2437,10 @@
                             
                             let examId;
                             if (editingExamId.value) {
-                                // MODO ATUALIZAÇÃO
                                 examId = editingExamId.value;
                                 await db.exams.put({ ...plainExamData, id: examId });
-                                editingExamId.value = null; // Sair do modo de edição
+                                editingExamId.value = null; 
                             } else {
-                                // MODO CRIAÇÃO
                                 examId = await db.exams.add(plainExamData);
                             }
                             
@@ -1880,16 +2452,13 @@
                             const fmtDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : '__/__/__';
                             let content = [];
                             
-                            // GERAÇÃO DE PROVA PERSONALIZADA PARA CADA ALUNO
                             classStudents.forEach((s, i) => {
                                 const vIndex = studentVersionMap[s.id];
                                 const qr = JSON.stringify({e:examId, s:s.id, v:vIndex});
                                 const questionsForStudent = versions[vIndex].questions;
                                 
-                                // Geração do Gabarito (Tabela Compacta)
                                 let answerKeyRows = [];
                                 
-                                // Cabeçalho do Gabarito
                                 answerKeyRows.push([
                                     { text: 'Questão', bold: true, fillColor: '#eee', alignment: 'center', fontSize: 9, margin:[0, 1] },
                                     { text: 'RESPOSTA', bold: true, fillColor: '#eee', alignment: 'center', fontSize: 9, colSpan: 5, margin:[0, 1] },
@@ -1902,15 +2471,10 @@
                                     
                                     let r = [{ text: k + 1, bold: true, alignment: 'center', fillColor: '#f8f9fa', fontSize: 9, margin:[0, 2] }];
                                     
-                                    // AQUI ESTAVA O PROBLEMA: Lógica de labels para o Cartão Resposta no PDF
-                                    // Se for C/E, usa labels C, E.
-                                    // Se for Múltipla Escolha, V/F (transformado) ou Associação (transformado), usa A, B, C, D, E.
-                                    
                                     let labels;
                                     if (qType === 'ce') {
                                         labels = ['C', 'E'];
                                     } else {
-                                        // mc, vf, assoc (todos usam A-E agora pois V/F e Assoc são transformados em múltipla escolha)
                                         labels = ['A', 'B', 'C', 'D', 'E'];
                                     }
                                     
@@ -1933,10 +2497,8 @@
                                     answerKeyRows.push(r); 
                                 }
 
-                                // Layout da Página Personalizada
                                 content.push({
                                     stack: [
-                                        // 1. Box Definition (Absolute Positioned for current page)
                                         {
                                             canvas: [
                                                 {
@@ -1952,21 +2514,15 @@
                                             ],
                                             absolutePosition: { x: 40, y: 40 }
                                         },
-
-                                        // 2. Header Content (Inside Box)
                                         {
                                             columns: [
-                                                // Esquerda: Logo (Tamanho dinâmico)
                                                 (settings.value.logo && settings.value.logo.startsWith('data:image')) 
                                                     ? { 
                                                         image: settings.value.logo, 
-                                                        // Fit constrains bounding box. Limit height to 75 to allow padding inside 110px box.
                                                         fit: [parseInt(printConfig.value.logoSize), 75], 
                                                         width: parseInt(printConfig.value.logoSize) 
                                                       } 
                                                     : { text:'', width: parseInt(printConfig.value.logoSize) },
-                                                
-                                                // Centro: Informações
                                                 {
                                                     stack: [
                                                         { text: settings.value.schoolName.toUpperCase() || 'ESCOLA', fontSize: 14, bold: true, alignment: 'center' },
@@ -1976,8 +2532,6 @@
                                                     ],
                                                     width: '*'
                                                 },
-
-                                                // Direita: QR Code
                                                 {
                                                     qr: qr,
                                                     fit: 80,
@@ -1986,11 +2540,9 @@
                                                 }
                                             ],
                                             columnGap: 10,
-                                            // Padding inside the box
                                             margin: [10, 10, 10, 5] 
                                         },
 
-                                        // 3. GABARITO (Logo abaixo do box, using spacer margin)
                                         { text: 'CARTÃO RESPOSTA', fontSize: 10, bold: true, alignment: 'center', color: '#4b5563', margin: [0, 20, 0, 5] },
                                         {
                                             table: {
@@ -2009,12 +2561,9 @@
                                         },
 
                                         { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: '#e5e7eb', dash: {length: 5} }], margin: [0, 0, 0, 20] },
-
-                                        // 4. INÍCIO DAS QUESTÕES
                                     ]
                                 });
 
-                                // FUNÇÃO AUXILIAR PARA CRIAR O BLOCO DE QUESTÃO (ATUALIZADA)
                                 const createQuestionBlock = (q, idx) => {
                                     let qStack = [{text: `Questão ${idx+1}. ${q.text}`, bold: true, fontSize: userFontSize, margin: currentSpacing.marginQ, lineHeight: currentSpacing.optLineHeight }];
                                     
@@ -2022,58 +2571,22 @@
                                         qStack.push({image: q.image, width: currentImgWidth, margin: [0, 5]});
                                     }
                                     
-                                    // Lógica Diferenciada por Tipo de Questão
                                     if (q.type === 'assoc') {
-                                        // Layout Associação: Coluna 1 (Itens) | Coluna 2 (Parênteses Embaralhados)
                                         const colA = q.options.map((o, i) => ({ text: `${i+1}. ${o.text}`, fontSize: userFontSize-1, margin:[0,2] }));
-                                        
-                                        // Shuffle apenas para visualização
                                         const matches = q.options.map(o => o.match).filter(m => m);
-                                        // Ordenação alfabética para consistência visual na questão
                                         const shuffledMatches = [...matches].sort((a, b) => a.localeCompare(b)); 
-                                        
                                         const colB = shuffledMatches.map(m => ({ text: `(   ) ${m}`, fontSize: userFontSize-1, margin:[0,2] }));
                                         
                                         qStack.push({
                                             columns: [
                                                 { stack: colA, width: '48%' },
-                                                { text: '', width: '4%' }, // Espaço
+                                                { text: '', width: '4%' }, 
                                                 { stack: colB, width: '48%' }
                                             ],
                                             margin: [0, 0, 0, 10]
                                         });
 
-                                        // GERAÇÃO DAS ALTERNATIVAS (A, B, C, D, E)
-                                        // A alternativa correta será colocada na posição (q.id % 5)
                                         const correctPos = (q.id || 0) % 5;
-                                        const correctSeq = q.options.map((o, i) => {
-                                            // A sequência correta deve ser, por exemplo: 1-B, 2-A, 3-C...
-                                            // Encontramos qual letra (posição em shuffledMatches) corresponde ao match original
-                                            const matchIndex = shuffledMatches.indexOf(o.match);
-                                            // Se encontrou, pega a letra correspondente (A, B, C...)
-                                            // Mas espere, shuffledMatches são apenas os textos.
-                                            // Vamos assumir que a segunda coluna tem parênteses vazios ( ) e o aluno deve colocar o número.
-                                            // OU, mais comum em V/F e Assoc transformada em MC:
-                                            // "A sequência correta é:"
-                                            // Vamos usar a notação: 1-B, 2-A... onde A, B são os itens da segunda coluna?
-                                            // Não, a segunda coluna não tem letras explícitas a não ser que adicionemos.
-                                            // Vamos simplificar: A resposta é a sequência de números que preenche os parênteses da segunda coluna.
-                                            // Ex: (3) - (1) - (2)
-                                            
-                                            // Vamos reformular: A segunda coluna deve ter ( ) e a resposta é a ordem dos números da primeira coluna.
-                                            return `${matchIndex !== -1 ? (matchIndex + 1) : '?'}`;
-                                            // Isso é confuso. Vamos voltar ao padrão mais robusto:
-                                            // Texto completo da associação correta. Ex: "1-Carro; 2-Moto"
-                                            // O usuário pediu "escritas nas alternativas de forma completa".
-                                            // Então: "1 associado a Carro; 2 associado a Moto".
-                                            // return `${i+1} - ${o.match}`;
-                                        }).join('; ');
-                                        // Espere, se a resposta correta é "1-Carro", é fácil demais.
-                                        // A questão de associação geralmente pede a sequência de números que preenche a segunda coluna de cima para baixo.
-                                        // Vamos adotar esse padrão que é o mais comum em concursos/vestibulares.
-                                        
-                                        // 1. Gera a sequência correta de números para a coluna da direita.
-                                        // Para cada item da direita (shuffledMatches), qual é o número da esquerda (q.options index + 1) que corresponde?
                                         const correctNumbersSequence = shuffledMatches.map(matchText => {
                                             const originalIndex = q.options.findIndex(opt => opt.match === matchText);
                                             return originalIndex + 1;
@@ -2085,7 +2598,6 @@
                                             if(k === correctPos) {
                                                 alternatives.push(correctString);
                                             } else {
-                                                // Gera sequência aleatória
                                                 const fakeSeq = [...correctNumbersSequence].sort(() => Math.random() - 0.5).join(' - ');
                                                 alternatives.push(fakeSeq);
                                             }
@@ -2104,9 +2616,8 @@
 
 
                                     } else if (q.type === 'vf' || (q.options && typeof q.options[0].isTrue !== 'undefined')) {
-                                        // Layout Verdadeiro ou Falso
                                         const opts = q.options.map(o => ({ 
-                                            text: `(   ) ${o.text}`, // Parênteses vazios para marcar
+                                            text: `(   ) ${o.text}`, 
                                             margin: [0, 3], 
                                             fontSize: userFontSize - 1, 
                                             color: '#374151',
@@ -2114,8 +2625,6 @@
                                         }));
                                         qStack.push({stack: opts, margin: currentSpacing.marginStack });
                                         
-                                        // TRANSFORMAÇÃO V/F EM MÚLTIPLA ESCOLHA
-                                        // Gera a sequência correta (ex: V - F - V)
                                         const correctPos = (q.id || 0) % 5;
                                         const correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F').join(' - ');
                                         
@@ -2124,7 +2633,6 @@
                                             if(k === correctPos) {
                                                 alternatives.push(correctSeq);
                                             } else {
-                                                // Gera distrator: sequência aleatória de V/F do mesmo tamanho
                                                 const fakeSeq = q.options.map(() => Math.random() > 0.5 ? 'V' : 'F').join(' - ');
                                                 alternatives.push(fakeSeq);
                                             }
@@ -2142,8 +2650,6 @@
                                         qStack.push({stack: altStack, margin: currentSpacing.marginStack });
 
                                     } else {
-                                        // Layout Padrão (Múltipla Escolha / Certo e Errado)
-                                        // Se for C/E, não deve ter A-E options no corpo, apenas o enunciado.
                                         if (q.type !== 'ce') {
                                              const opts = q.options.map((o, x) => ({ 
                                                 text: `${['a','b','c','d','e'][x]}) ${o.text}`, 
@@ -2154,9 +2660,6 @@
                                             }));
                                             qStack.push({stack: opts, margin: currentSpacing.marginStack });
                                         } else {
-                                            // Layout Certo/Errado no corpo da prova
-                                            // Geralmente é só o enunciado e ( ) Certo ( ) Errado ou similar, ou apenas o enunciado.
-                                            // Vamos colocar uma indicação visual simples.
                                             qStack.push({
                                                 text: '(   ) CERTO   (   ) ERRADO',
                                                 bold: true,
@@ -2171,9 +2674,7 @@
                                     return { stack: qStack, unbreakable: true, margin: [0, 0, 0, 10] };
                                 };
 
-                                // LÓGICA DE LAYOUT (COLUNAS OU CORRIDO)
                                 if (printConfig.value.layout === 'columns') {
-                                    // Agrupa questões em pares para criar colunas
                                     let pairs = [];
                                     for(let k=0; k < questionsForStudent.length; k+=2) {
                                         let pair = [];
@@ -2181,12 +2682,11 @@
                                         if (k+1 < questionsForStudent.length) {
                                             pair.push(createQuestionBlock(questionsForStudent[k+1], k+1));
                                         } else {
-                                            pair.push({text:''}); // Placeholder vazio se impar
+                                            pair.push({text:''}); 
                                         }
                                         pairs.push(pair);
                                     }
 
-                                    // Adiciona ao PDF como tabela sem bordas para simular colunas lado a lado
                                     content.push({
                                         table: {
                                             widths: ['*', '*'],
@@ -2196,22 +2696,18 @@
                                     });
 
                                 } else {
-                                    // Layout Padrão (Texto Corrido)
                                     questionsForStudent.forEach((q, idx) => {
                                         content.push(createQuestionBlock(q, idx));
                                     });
                                 }
 
-                                // Quebra de página apenas se não for o último aluno
                                 if (i < classStudents.length - 1) {
                                     content.push({ text: '', pageBreak: 'after' });
                                 }
                             });
                             
-                            // Geração segura do PDF
                             const pdfDoc = pdfMake.createPdf({content, styles:{}});
                             
-                            // ALTERAÇÃO: Usa o callback do .download() para garantir a ordem
                             pdfDoc.download(`Prova_${examConfig.value.title}.pdf`, () => {
                                 setTimeout(() => {
                                     showToast('Prova gerada com sucesso!', 'success');
@@ -2239,17 +2735,14 @@
                                 if (q) {
                                     if (q.type === 'ce') label = ['C', 'E'][q.correctIndex] || '?';
                                     else if (q.type === 'vf' || q.type === 'assoc') {
-                                        // Agora que transformamos em Múltipla Escolha, a resposta correta no gabarito
-                                        // deve ser a LETRA da alternativa correta.
                                         const correctPos = (q.id || 0) % 5;
                                         label = ['A', 'B', 'C', 'D', 'E'][correctPos];
                                     }
                                     else {
-                                        // MC Padrão
                                         label = ['A', 'B', 'C', 'D', 'E'][q.correctIndex] || '?';
                                     }
                                 }
-                                row.push({text: label, alignment:'center', fontSize: 9}); // Fonte menor para caber textos longos
+                                row.push({text: label, alignment:'center', fontSize: 9}); 
                             }
                             keyBody.push(row);
                         }
@@ -2263,126 +2756,15 @@
                     }).download(`Gabarito_${exam.title}.pdf`);
                 };
 
-                // --- Scanner & OMR ---
-                watch(currentView, v => { if(v==='scanner') { if(!correctionMode.value && !omrMode.value) startQR(); } else { stopQR(); stopOMR(); } });
-
-                const startQR = () => { 
-                    if (html5QrCode.value) return; 
-                    setTimeout(() => {
-                        // Check if still in scanner view to prevent race condition
-                        if (currentView.value !== 'scanner') return;
-
-                        const element = document.getElementById("qr-reader");
-                        if (!element) return; 
-                        
-                        html5QrCode.value = new Html5Qrcode("qr-reader");
-                        const config = { 
-                            fps: 15, 
-                            qrbox: { width: window.innerWidth * 0.8, height: window.innerWidth * 0.8 }, 
-                            aspectRatio: 1.0,
-                            experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
-                        };
-                        
-                        html5QrCode.value.start({ facingMode: "environment" }, config, (decodedText) => { 
-                            try {
-                                const data = JSON.parse(decodedText);
-                                if(data.e !== undefined && data.s !== undefined && data.v !== undefined) {
-                                    startCorrection(data.e, data.s, data.v);
-                                    stopQR(); 
-                                }
-                            } catch(e) {}
-                        }, () => {})
-                        .catch(err => {
-                            // Only show error if we are still on the scanner screen
-                            if(currentView.value === 'scanner') showToast("Câmera bloqueada?", "info");
-                        })
-                        .then(() => { hasTorch.value = true; });
-                    }, 300); 
-                };
-                
-                const stopQR = async () => {
-                    if (html5QrCode.value) {
-                        const instance = html5QrCode.value;
-                        html5QrCode.value = null; // Detach immediately
-                        
-                        try {
-                            // Attempt to stop if running
-                            if(instance.getState() === 2 || instance.getState() === 3) { // SCANNING or PAUSED
-                                await instance.stop();
-                            }
-                            instance.clear();
-                        } catch (err) {
-                            // Suppress errors if stop is called on non-running instance
-                            console.warn("Scanner stop handled:", err);
-                            try { instance.clear(); } catch(e){}
-                        }
-                    }
-                };
-                const toggleTorch = () => { if(html5QrCode.value){ torchOn.value=!torchOn.value; html5QrCode.value.applyVideoConstraints({advanced:[{torch:torchOn.value}]}); } };
-                
-                const handleQRFile = (e) => {
-                    const f = e.target.files[0]; if (!f) return;
-                    if (!html5QrCode.value) html5QrCode.value = new Html5Qrcode("qr-reader");
-                    html5QrCode.value.scanFile(f, true).then(txt => {
-                        const data = JSON.parse(txt);
-                        if(data.e !== undefined) { showToast("QR Lido!", "success"); startCorrection(data.e, data.s, data.v); }
-                    }).catch(() => showToast("QR não encontrado", "error"));
-                };
-
-                const startCorrection = async (eid, sid, verIdx) => { 
-                    const e=await db.exams.get(Number(eid)); const s=await db.students.get(Number(sid)); 
-                    if(!e || !s) return showToast('Dados não encontrados', 'error');
-                    if(!e.versions) e.versions = [{id:0, questions:e.questionsA}, {id:1, questions:e.questionsB}]; 
-                    
-                    activeExam.value=e; activeStudent.value=s; activeVersion.value=verIdx; 
-                    studentAnswers.value={}; stopQR();
-                    
-                    // MODO HÍBRIDO ATIVADO: Pula direto para correção manual
-                    correctionMode.value = true;
-                };
-
-                // --- Lógica OMR (Visão Computacional em Tempo Real) ---
-                const startOMRCamera = async () => {
-                   // OMR DESATIVADO CONFORME PEDIDO
-                };
-                
-                const stopOMR = () => { 
-                    if(animationFrameId) cancelAnimationFrame(animationFrameId);
-                    if(omrStream) omrStream.getTracks().forEach(t => t.stop()); 
-                    omrStream = null; omrMode.value = false; 
-                };
-                const cancelOMR = () => { stopOMR(); correctionMode.value=false; startQR(); };
-
-                const handleOMRFile = (e) => {
-                    // DESATIVADO
-                };
-
-                const captureAndProcessOMR = () => {
-                    // DESATIVADO
-                };
-
-                // Loop de detecção contínua
-                const detectLoop = (timestamp) => {
-                    // DESATIVADO
-                };
-
-                const processSingleFrame = (imageSource, isAutoMode = false) => {
-                   // DESATIVADO
-                };
-
                 const activeExamQuestions = computed(() => {
                     if(!activeExam.value) return [];
-                    // FIX: Safety check for undefined versions to prevent crash
                     if (!activeExam.value.versions) return [];
                     const v = activeExam.value.versions[activeVersion.value];
                     if (!v) return [];
                     
-                    // Map questions to handle the dynamic correct index for V/F and Assoc
                     return v.questions.map(q => {
                         let effectiveCorrectIndex = q.correctIndex;
                         
-                        // If it's V/F or Assoc, the PDF generates it as Multiple Choice (A-E)
-                        // with the correct answer at (id % 5)
                         if (q.type === 'vf' || q.type === 'assoc') {
                             effectiveCorrectIndex = (q.id || 0) % 5;
                         }
@@ -2396,17 +2778,12 @@
 
                 const currentScore = computed(() => { 
                     let h=0; 
-                    // FIX: Ensure activeExamQuestions.value exists
                     if (!activeExamQuestions.value || !activeExamQuestions.value.length) return 0;
                     activeExamQuestions.value.forEach((q,i)=>{ if(studentAnswers.value[i]===q.correctIndex)h++; }); 
                     return ((h/activeExamQuestions.value.length)*10).toFixed(1); 
                 });
                 
                 const saveResult = async () => { 
-                    // Evita salvamento duplo se o usuário clicar freneticamente
-                    if (isProcessingOMR.value && correctionMode.value === false) return; 
-                    
-                    // 1. Verificar se já existe nota para este aluno nesta prova
                     const allResults = await db.results.toArray();
                     const existing = allResults.find(r => r.examId === activeExam.value.id && r.studentId === activeStudent.value.id);
 
@@ -2429,36 +2806,28 @@
                     
                     results.value = await db.results.toArray();
 
-                    // --- FEEDBACK IMEDIATO ---
-                    // NÃO fecha a tela de correção imediatamente. Mantém a nota visível.
                     showToast(`Nota Salva: ${currentScore.value}`, 'success');
                     speak(`${activeStudent.value.name}, nota ${currentScore.value}`);
                     
-                    // Bloqueia nova leitura por um momento
-                    isProcessingOMR.value = true; 
-
-                    // Aguarda 3 segundos mostrando a nota na tela antes de ir para o próximo
                     setTimeout(() => {
                         correctionMode.value = false; 
-                        omrMode.value = false; 
-                        isProcessingOMR.value = false;
-                        
-                        // Reinicia o scanner QR automaticamente para o próximo aluno
-                        if (currentView.value === 'scanner') {
-                            startQR();
-                        }
-                    }, 3000);
+                    }, 2000);
                 };
-                const cancelCorrection = () => { correctionMode.value=false; omrMode.value=false; startQR(); };
+                
+                const cancelCorrection = () => { correctionMode.value=false; };
 
-                // --- Configurações & Dados ---
                 const handleLogoUpload = (e) => { 
                     const f=e.target.files[0]; if(!f)return; 
                     const r=new FileReader(); r.onload=evt=>{ settings.value.logo=evt.target.result; saveSettings(true); }; r.readAsDataURL(f); 
                 };
+
                 const saveSettings = async (silent) => { 
-                    try { await db.settings.put(JSON.parse(JSON.stringify({...settings.value, id:'config'}))); if(!silent) showToast('Configurações salvas!', 'success'); } catch(e){}
+                    try { 
+                        await db.settings.put(JSON.parse(JSON.stringify({...settings.value, id:'config', geminiKey: geminiKey.value}))); 
+                        if(!silent) showToast('Configurações salvas!', 'success'); 
+                    } catch(e){}
                 };
+
                 const importBackup = async (e) => {
                     const f = e.target.files[0]; if (!f) return;
                     triggerConfirm("Importar substituirá dados atuais. Continuar?", () => {
@@ -2468,29 +2837,56 @@
                                 const d = JSON.parse(event.target.result);
                                 if(d.c) await db.classes.bulkPut(d.c); if(d.s) await db.students.bulkPut(d.s);
                                 if(d.q) await db.questions.bulkPut(d.q); if(d.e) await db.exams.bulkPut(d.e);
-                                if(d.r) await db.results.bulkPut(d.r); if(d.cfg) await db.settings.put(d.cfg);
+                                if(d.r) await db.results.bulkPut(d.r); 
+                                if(d.cfg) {
+                                    await db.settings.put({ ...d.cfg, id: 'config' });
+                                }
+                                // NOVO: Restaura a licença e valida automaticamente
+                                if(d.license) {
+                                    await db.settings.put(d.license);
+                                    deviceId.value = d.license.deviceId;
+                                    if(d.license.licenseKey) {
+                                        const isValid = await verifyKey(d.license.deviceId, d.license.licenseKey);
+                                        isLicensed.value = isValid;
+                                        appLocked.value = !isValid;
+                                    }
+                                }
                                 showToast('Backup restaurado!', 'success'); load();
                             } catch (err) { showToast('Arquivo inválido', 'error'); }
                         };
                         r.readAsText(f);
                     });
                 };
+                
                 const triggerImport = () => document.getElementById('importFile').click();
+                
                 const backupData = async () => { 
-                    const d={c:classes.value, s:students.value, q:questions.value, e:exams.value, r:results.value, cfg:settings.value}; 
-                    const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="Nexus_Backup.json"; a.click(); 
+                    // NOVO: Puxa as configurações de licença para guardar no ficheiro
+                    const licenseConfig = await db.settings.get('license_config');
+                    const d={
+                        c:classes.value, 
+                        s:students.value, 
+                        q:questions.value, 
+                        e:exams.value, 
+                        r:results.value, 
+                        cfg: { ...settings.value, id: 'config', geminiKey: geminiKey.value },
+                        license: licenseConfig 
+                    }; 
+                    const b=new Blob([JSON.stringify(d)],{type:"application/json"}); 
+                    const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="Nexus_Backup.json"; a.click(); 
                 };
 
-                // --- Relatórios Pedagógicos ---
                 const getClassAverage = (classId) => {
                     const classResults = results.value.filter(r => { const exam = exams.value.find(e => e.id === r.examId); return exam && exam.classId === classId; });
                     if (classResults.length === 0) return '-';
                     return (classResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / classResults.length).toFixed(1);
                 };
+                
                 const getEvaluatedStudentCount = (classId) => {
                     const classResults = results.value.filter(r => { const exam = exams.value.find(e => e.id === r.examId); return exam && exam.classId === classId; });
                     return new Set(classResults.map(r => r.studentId)).size;
                 };
+
                 const getClassRanking = (classId, order = 'desc') => {
                     const classStudents = students.value.filter(s => s.classId === classId);
                     const rankings = classStudents.map(student => {
@@ -2507,30 +2903,22 @@
                     });
                 };
 
-                // NOVA FUNÇÃO: Distribuição por Extratos de Nota
                 const getClassGradeDistribution = (classId) => {
-                    // FIX: Ensure classId is valid
                     if (!classId) return {};
 
                     const studentsInClass = students.value.filter(s => s.classId === classId);
                     const distribution = {
-                        '8-10': [],
-                        '6-8': [],
-                        '4-6': [],
-                        '2-4': [],
-                        '0-2': []
+                        '8-10': [], '6-8': [], '4-6': [], '2-4': [], '0-2': []
                     };
 
                     studentsInClass.forEach(student => {
                         const studentResults = results.value.filter(r => r.studentId === student.id);
-                        if (studentResults.length === 0) return; // Não conta alunos sem avaliação ainda
+                        if (studentResults.length === 0) return; 
                         
                         let avg = (studentResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / studentResults.length);
-                        // FIX: Handle NaN case if division by zero occurred (unlikely due to check above but safe)
                         if (isNaN(avg)) avg = 0;
                         avg = parseFloat(avg.toFixed(1));
 
-                        // Define os extratos
                         if (avg >= 8) distribution['8-10'].push({name: student.name, avg, studentId: student.id});
                         else if (avg >= 6) distribution['6-8'].push({name: student.name, avg, studentId: student.id});
                         else if (avg >= 4) distribution['4-6'].push({name: student.name, avg, studentId: student.id});
@@ -2538,7 +2926,6 @@
                         else distribution['0-2'].push({name: student.name, avg, studentId: student.id});
                     });
 
-                    // Ordenar cada grupo por nota (decrescente)
                     Object.keys(distribution).forEach(key => {
                         distribution[key].sort((a,b) => b.avg - a.avg);
                     });
@@ -2550,6 +2937,7 @@
                     const s = students.value.find(x => x.id === studentId); if(!s) return;
                     studentDetails.value = s; selectedBimester.value = 1; showStudentModal.value = true;
                 };
+
                 const studentExamsList = computed(() => {
                     if (!studentDetails.value.id) return [];
                     const sId = studentDetails.value.id; const bim = selectedBimester.value;
@@ -2559,11 +2947,14 @@
                         return { ...r, title: exam.title, type: exam.type, weight: exam.weight || 1, bimester: exam.bimester || 1 };
                     }).filter(x => x && parseInt(x.bimester) === parseInt(bim));
                 });
+
                 const studentExtraPointsList = computed(() => {
                     if (!studentDetails.value.id) return [];
                     return extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && parseInt(ep.bimester) === parseInt(selectedBimester.value));
                 });
+
                 const studentTotalExtraPoints = computed(() => studentExtraPointsList.value.reduce((acc, ep) => acc + parseFloat(ep.points), 0).toFixed(1));
+
                 const studentBimesterAverage = computed(() => {
                     const examsList = studentExamsList.value;
                     if (examsList.length === 0) return '0.0';
@@ -2571,10 +2962,9 @@
                     examsList.forEach(ex => { const w = parseFloat(ex.weight) || 1; weightedSum += parseFloat(ex.score) * w; weightSum += w; });
                     
                     const avg = ((weightSum > 0 ? (weightedSum / weightSum) : 0) + parseFloat(studentTotalExtraPoints.value));
-                    
-                    // LIMITE DE NOTA: 10
                     return (avg > 10 ? 10 : avg).toFixed(1);
                 });
+
                 const addExtraPoint = async () => {
                     if (!newExtraPoint.value.val || !newExtraPoint.value.reason) return showToast('Preencha tudo', 'error');
                     await db.extraPoints.add(JSON.parse(JSON.stringify({ studentId: studentDetails.value.id, bimester: parseInt(selectedBimester.value), points: parseFloat(newExtraPoint.value.val), reason: newExtraPoint.value.reason })));
@@ -2602,27 +2992,26 @@
                     showQFormModal, openQForm, formSource, newQ, qFilter, filterType, filterSubject, filteredQuestions, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, 
                     examConfig, examCart, toggleExamQ, isQInExam, generatePDF, exams, deleteExam, showHistory,
                     correctionMode, activeStudent, activeVersion, currentScore, activeExamQuestions, studentAnswers, saveResult, cancelCorrection,
-                    settings, handleLogoUpload, saveSettings, backupData, toggleTorch, hasTorch,
-                    examFilter, filteredExamQuestions, examTab, qType, toast, confirmModal, handleConfirm, isProcessingOMR, omrMode, cancelOMR, captureAndProcessOMR,
+                    settings, handleLogoUpload, saveSettings, backupData, 
+                    examFilter, filteredExamQuestions, examTab, qType, toast, confirmModal, handleConfirm, 
                     selectedClassIdForReport, getClassAverage, getEvaluatedStudentCount, getClassRanking, getClassGradeDistribution, generateClassReportPDF,
                     showStudentModal, studentDetails, openStudentProfile, selectedBimester, studentExamsList, studentTotalExtraPoints, studentBimesterAverage,
                     showExtraPointForm, newExtraPoint, addExtraPoint, studentExtraPointsList, importBackup, triggerImport, generateKeyPDF,
-                    startQR, handleQRFile, handleOMRFile, showManualInputModal, manualConfig, manualStudents, startManualEntry, confirmManualEntry,
+                    showManualInputModal, manualConfig, manualStudents, startManualEntry, confirmManualEntry,
                     studentFilter, filteredClasses, getFilteredStudents, examHistoryFilter, filteredHistoryExams,
-                    switchToManualCorrection, editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
+                    editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
                     generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, rankingOrder, uniqueSubjects,
-                    printConfig,
-                    editingExamId, openEditExam, 
-                    changeQType,
+                    printConfig, editingExamId, openEditExam, changeQType,
                     filteredDashboardStudents, dashboardStudentFilter, getStudentOverallGrade,
-                    forceCapture: () => {},
-                    // [CORREÇÃO] toggleExpand adicionado ao retorno
-                    appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, timeLeft, deleteClass, showLicenseModal, toggleExpand
+                    appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, timeLeft, deleteClass, showLicenseModal, toggleExpand,
+                    geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, aiCorrectionQueue, processAIQueue, hasPendingItems, isProcessingQueue,
+                    showResultDetailsModal, selectedResultDetails, openResultDetails, getAlternativeLabel, showExamStatsModal, examStats, openExamStats,
+                    showAIGenModal, isGeneratingAI, aiGenConfig, openAIGenerator, generateQuestionsAI
                 };
             }
         }).mount('#app');
 
-        // --- REGISTRO DO SERVICE WORKER (NOVO) ---
+        // --- REGISTRO DO SERVICE WORKER ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
