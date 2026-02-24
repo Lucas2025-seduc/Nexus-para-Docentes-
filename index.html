@@ -22,7 +22,6 @@
     <!-- PDF & QR Code -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-    <!-- Usado APENAS para decodificar o QR Code de arquivos de imagem estáticos -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <style>
@@ -141,6 +140,10 @@
                     </div>
                 </div>
                 <div class="flex gap-1 text-gray-400 items-center">
+                    <button v-if="canInstall" @click="installPWA" class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition flex items-center justify-center animate-pulse mr-1" title="Instalar Aplicativo Nativo">
+                        <i class="fa-solid fa-download text-xs"></i>
+                    </button>
+
                     <button v-if="!isLicensed" @click="showLicenseModal = true" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition flex items-center justify-center animate-pulse mr-1" title="Ativar Licença PRO">
                         <i class="fa-solid fa-key text-xs"></i>
                     </button>
@@ -363,23 +366,26 @@
                             <i class="fa-solid fa-search text-gray-400 text-xs mr-2"></i>
                             <input v-model="qFilter" placeholder="Buscar no enunciado ou tópico..." class="w-full bg-transparent text-sm py-2.5 outline-none font-medium text-gray-600">
                         </div>
-                        <!-- NOVO: BOTÃO GERADOR DE QUESTÕES IA -->
                         <button @click="openAIGenerator" class="bg-purple-600 text-white w-12 h-10 rounded-xl shadow-lg hover:bg-purple-700 flex items-center justify-center transition active:scale-95" title="Gerar Questões com IA"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-                        
                         <button @click="openQForm('bank')" class="bg-indigo-600 text-white w-12 h-10 rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center transition active:scale-95"><i class="fa-solid fa-plus"></i></button>
                     </div>
                     
                     <!-- Filtros Avançados de Questão -->
-                    <div class="flex gap-2">
-                        <select v-model="filterType" class="flex-1 p-2 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 outline-none border border-transparent focus:bg-white focus:border-indigo-200 transition">
-                            <option value="">Todos os Tipos</option>
+                    <div class="grid grid-cols-3 gap-2">
+                        <select v-model="filterType" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 outline-none border border-transparent focus:bg-white focus:border-indigo-200 transition">
+                            <option value="">Todos Tipos</option>
                             <option value="mc">Multipla Escolha</option>
                             <option value="ce">Certo / Errado</option>
                             <option value="assoc">Associação</option>
                         </select>
-                        <select v-model="filterSubject" class="flex-1 p-2 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 outline-none border border-transparent focus:bg-white focus:border-indigo-200 transition">
-                            <option value="">Todas Disciplinas</option>
+                        <select v-model="filterSubject" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 outline-none border border-transparent focus:bg-white focus:border-indigo-200 transition">
+                            <option value="">Disciplinas</option>
                             <option v-for="sub in uniqueSubjects" :key="sub" :value="sub">{{ sub }}</option>
+                        </select>
+                        <!-- NOVO FILTRO: Tópico/Conteúdo -->
+                        <select v-model="filterTopic" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 outline-none border border-transparent focus:bg-white focus:border-indigo-200 transition">
+                            <option value="">Conteúdos</option>
+                            <option v-for="top in uniqueTopics" :key="top" :value="top">{{ top }}</option>
                         </select>
                     </div>
                 </div>
@@ -498,71 +504,65 @@
                                 <p class="text-[9px] font-bold text-gray-400 uppercase mb-2 flex items-center gap-1"><i class="fa-solid fa-print"></i> Personalizar Impressão</p>
                                 
                                 <div class="grid grid-cols-2 gap-3 mb-2">
-                                    <div>
-                                        <label class="text-[9px] font-bold text-gray-500 block mb-1">Tamanho da Fonte</label>
-                                        <select v-model="printConfig.fontSize" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
-                                            <option value="8">8 pt (Muito Pequena)</option>
-                                            <option value="9">9 pt (Pequena)</option>
-                                            <option value="10">10 pt (Padrão)</option>
-                                            <option value="11">11 pt (Média)</option>
-                                            <option value="12">12 pt (Grande)</option>
-                                            <option value="14">14 pt (Muito Grande)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="text-[9px] font-bold text-gray-500 block mb-1">Espaçamento (Linhas)</label>
-                                        <select v-model="printConfig.spacing" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
-                                            <option value="compact">Compacto (Economia)</option>
-                                            <option value="normal">Normal</option>
-                                            <option value="relaxed">Expandido</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-3 mb-2">
-                                    <div>
-                                        <label class="text-[9px] font-bold text-gray-500 block mb-1">Layout Questões</label>
-                                        <select v-model="printConfig.layout" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
-                                            <option value="standard">Texto Corrido (1 Col)</option>
-                                            <option value="columns">Em Colunas (2 Col)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="text-[9px] font-bold text-gray-500 block mb-1">Imagens das Questões</label>
-                                        <select v-model="printConfig.qImageSize" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
-                                            <option value="small">Pequena</option>
-                                            <option value="medium">Média</option>
-                                            <option value="large">Grande</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="text-[9px] font-bold text-gray-500 block mb-1">Tamanho Logo Escola: {{ printConfig.logoSize }}px</label>
-                                    <input type="range" v-model="printConfig.logoSize" min="30" max="80" step="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
-                                </div>
-                            </div>
+                        <div>
+                            <label class="text-[9px] font-bold text-gray-500 block mb-1">Layout Questões</label>
+                            <select v-model="printConfig.layout" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
+                                <option value="standard">Texto Corrido (1 Col)</option>
+                                <option value="columns">Em Colunas (2 Col)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-bold text-gray-500 block mb-1">Imagens das Questões</label>
+                            <select v-model="printConfig.qImageSize" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600">
+                                <option value="small">Pequena</option>
+                                <option value="medium">Média</option>
+                                <option value="large">Grande</option>
+                            </select>
                         </div>
                     </div>
+
+                    <div>
+                        <label class="text-[9px] font-bold text-gray-500 block mb-1">Tamanho Logo Escola: {{ printConfig.logoSize }}px</label>
+                        <input type="range" v-model="printConfig.logoSize" min="30" max="80" step="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    </div>
                 </div>
+            </div>
+        </div>
+    </div>
 
-                <div class="flex-1 bg-white rounded-2xl shadow-sm flex flex-col overflow-hidden border border-gray-200 min-h-[300px]">
-                    <div class="flex border-b border-gray-100">
-                        <button @click="examTab = 'all'" :class="examTab === 'all' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">BANCO DE QUESTÕES</button>
-                        <button @click="examTab = 'selected'" :class="examTab === 'selected' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">SELECIONADAS ({{ examCart.length }})</button>
-                    </div>
-                    
-                    <div class="p-2 border-b border-gray-100 bg-gray-50 flex gap-2 items-center">
-                        <input v-model="examFilter" placeholder="Filtrar questões..." class="flex-1 bg-white border border-gray-200 rounded-lg py-1.5 px-3 text-xs outline-none focus:border-indigo-300 transition">
-                        <button @click="openQForm('exam')" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow hover:bg-black transition flex items-center gap-1 shrink-0">
-                            <i class="fa-solid fa-bolt text-yellow-400"></i> Nova
-                        </button>
-                    </div>
+    <div class="flex-1 bg-white rounded-2xl shadow-sm flex flex-col overflow-hidden border border-gray-200 min-h-[300px]">
+        <div class="flex border-b border-gray-100">
+            <button @click="examTab = 'all'" :class="examTab === 'all' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">BANCO DE QUESTÕES</button>
+            <button @click="examTab = 'selected'" :class="examTab === 'selected' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">SELECIONADAS ({{ examCart.length }})</button>
+        </div>
+        
+        <!-- NOVO: Filtros por Disciplina e Conteúdo na criação de Provas -->
+        <div class="p-2 border-b border-gray-100 bg-gray-50 flex flex-col gap-2">
+            <div v-if="examTab === 'all'" class="flex gap-2">
+                <select v-model="examFilterSubject" class="flex-1 bg-white border border-gray-200 rounded-lg py-1.5 px-2 text-xs outline-none focus:border-indigo-300 transition text-gray-600 font-medium">
+                    <option value="">Todas Disciplinas</option>
+                    <option v-for="sub in uniqueSubjects" :key="sub" :value="sub">{{ sub }}</option>
+                </select>
+                <select v-model="examFilterTopic" class="flex-1 bg-white border border-gray-200 rounded-lg py-1.5 px-2 text-xs outline-none focus:border-indigo-300 transition text-gray-600 font-medium">
+                    <option value="">Todos Conteúdos</option>
+                    <option v-for="top in uniqueTopics" :key="top" :value="top">{{ top }}</option>
+                </select>
+            </div>
+            <div class="flex gap-2 items-center">
+                <input v-model="examFilter" placeholder="Buscar no enunciado..." class="flex-1 bg-white border border-gray-200 rounded-lg py-1.5 px-3 text-xs outline-none focus:border-indigo-300 transition">
+                <button @click="openQForm('exam')" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow hover:bg-black transition flex items-center gap-1 shrink-0">
+                    <i class="fa-solid fa-bolt text-yellow-400"></i> Nova
+                </button>
+            </div>
+        </div>
 
-                    <div class="flex-1 overflow-y-auto p-2 bg-gray-50/30">
-                        <div v-if="examTab === 'all'">
-                            <div v-for="q in filteredExamQuestions" :key="q.id" class="p-3 rounded-xl border mb-2 cursor-pointer transition flex gap-3 bg-white hover:border-indigo-300 group" @click="toggleExamQ(q)" :class="isQInExam(q.id) ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/30' : 'border-gray-100'">
-                                <div class="mt-0.5 text-lg">
+        <div class="flex-1 overflow-y-auto p-2 bg-gray-50/30">
+            <div v-if="examTab === 'all'">
+                <div v-if="filteredExamQuestions.length === 0" class="text-center py-6 text-gray-400 opacity-60 text-xs">
+                    Nenhuma questão encontrada com estes filtros.
+                </div>
+                <div v-for="q in filteredExamQuestions" :key="q.id" class="p-3 rounded-xl border mb-2 cursor-pointer transition flex gap-3 bg-white hover:border-indigo-300 group" @click="toggleExamQ(q)" :class="isQInExam(q.id) ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/30' : 'border-gray-100'">
+                    <div class="mt-0.5 text-lg">
                                     <i :class="isQInExam(q.id) ? 'fa-solid fa-check-square text-indigo-600' : 'fa-regular fa-square text-gray-300 group-hover:text-indigo-400'"></i>
                                 </div>
                                 <div class="flex-1">
@@ -598,11 +598,10 @@
                 </div>
             </div>
 
-            <!-- CORREÇÃO DE PROVAS (NOVO DESIGN SUBSTITUINDO O SCANNER ANTIGO) -->
+            <!-- CORREÇÃO DE PROVAS -->
             <div v-if="currentView === 'correction'" class="max-w-xl mx-auto space-y-4 animate-fade-in pb-20">
                 
                 <template v-if="!correctionMode">
-                    <!-- Header Correção -->
                     <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center relative overflow-hidden">
                          <div class="relative z-10">
                              <h2 class="text-2xl font-black mb-1">Correção de Provas</h2>
@@ -611,7 +610,6 @@
                          <i class="fa-solid fa-check-double text-5xl text-white/20 absolute right-6"></i>
                     </div>
 
-                    <!-- Botão Correção Manual -->
                     <button @click="startManualEntry" class="w-full bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:border-indigo-400 hover:shadow-md transition flex items-center gap-4 text-left group cursor-pointer">
                         <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition"><i class="fa-solid fa-hand-pointer"></i></div>
                         <div>
@@ -620,7 +618,6 @@
                         </div>
                     </button>
 
-                    <!-- Card IA -->
                     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
                         <div class="flex items-center gap-4 mb-4">
                             <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-robot"></i></div>
@@ -649,7 +646,6 @@
                             <i class="fa-solid fa-camera"></i> Selecionar Fotos (Gabaritos)
                         </button>
 
-                        <!-- Fila de Processamento IA -->
                         <div v-if="aiCorrectionQueue.length > 0" class="mt-6 border-t border-gray-100 pt-4 animate-fade-in">
                             <div class="flex justify-between items-center mb-3">
                                 <h4 class="font-bold text-sm text-gray-700">Fila de Processamento</h4>
@@ -675,12 +671,9 @@
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <div v-if="item.score !== null" class="font-black text-lg text-emerald-600">{{ item.score }}</div>
-                                        
-                                        <!-- NOVO: Botão de visualização (olho) adicionado na fila -->
                                         <button v-if="item.status === 'success' && item.resultData" @click="openResultDetails(item.resultData)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-500 hover:bg-blue-100 flex items-center justify-center transition" title="Ver Gabarito x Aluno">
                                             <i class="fa-solid fa-eye text-xs"></i>
                                         </button>
-
                                         <button v-if="item.status==='pending' || item.status==='error'" @click="aiCorrectionQueue.splice(i, 1)" class="text-gray-400 hover:text-red-500 p-1 transition"><i class="fa-solid fa-times"></i></button>
                                     </div>
                                 </div>
@@ -689,7 +682,6 @@
                     </div>
                 </template>
 
-                <!-- ESTADO 2: CORREÇÃO MANUAL (GABARITO DIGITAL INTELIGENTE) -->
                 <div v-if="correctionMode" class="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 animate-fade-in flex flex-col h-[75vh] relative z-30">
                     <div class="bg-indigo-600 p-6 pb-8 relative overflow-hidden">
                         <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
@@ -714,13 +706,10 @@
                             <div v-for="(q, idx) in activeExamQuestions" :key="idx" class="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <span class="font-bold text-gray-400 text-xs w-6">#{{ idx+1 }}</span>
-                                    <!-- Indicador Visual do Gabarito Oficial -->
                                     <div class="w-1.5 h-1.5 rounded-full" :class="studentAnswers[idx] === q.correctIndex ? 'bg-emerald-500' : (studentAnswers[idx] !== undefined ? 'bg-red-500' : 'bg-gray-200')"></div>
                                 </div>
                                 
                                 <div class="flex gap-2">
-                                    <!-- MODO DINÂMICO DE BOTÕES -->
-                                    <!-- CASO 1: CERTO / ERRADO -->
                                     <template v-if="q.type === 'ce'">
                                         <div v-for="(label, i) in ['C', 'E']" :key="i" @click="studentAnswers[idx] = i" 
                                              class="bubble" 
@@ -732,14 +721,12 @@
                                             {{ label }}
                                         </div>
                                     </template>
-                                    <!-- CASO 2: VERDADEIRO / FALSO -->
                                     <template v-else-if="q.type === 'vf'">
                                         <div v-for="(label, i) in ['A', 'B', 'C', 'D', 'E']" :key="i" @click="studentAnswers[idx] = i" 
                                              class="bubble" :class="{'selected': studentAnswers[idx] === i}">
                                             {{ label }}
                                         </div>
                                     </template>
-                                    <!-- CASO 3: PADRÃO -->
                                     <template v-else>
                                         <div v-for="(o, i) in 5" :key="i" @click="studentAnswers[idx] = i" 
                                              class="bubble" :class="{'selected': studentAnswers[idx] === i}">
@@ -762,11 +749,17 @@
 
         </main>
 
-        <!-- Elemento Oculto necessário para a extração do QR Code nas Imagens Upadas -->
         <div id="hidden-qr-reader" style="display:none;"></div>
 
+        <!-- Datalists Globais para Autocompletar Disciplinas e Tópicos -->
+        <datalist id="dl-subjects">
+            <option v-for="sub in uniqueSubjects" :key="sub" :value="sub"></option>
+        </datalist>
+        <datalist id="dl-topics">
+            <option v-for="top in uniqueTopics" :key="top" :value="top"></option>
+        </datalist>
+
         <!-- MODAIS GLOBAIS -->
-        <!-- MODAL MANUAL INPUT -->
         <div v-if="showManualInputModal" class="fixed inset-0 z-[160] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fade-in border border-gray-100">
                 <div class="flex justify-between items-center mb-4">
@@ -807,7 +800,7 @@
             </div>
         </div>
 
-        <!-- NOVO MODAL: GERADOR IA -->
+        <!-- NOVO MODAL: GERADOR IA MELHORADO -->
         <div v-if="showAIGenModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col animate-fade-in overflow-hidden border border-gray-100 max-h-[90vh]">
                 <div class="p-4 border-b flex justify-between items-center bg-purple-600 text-white shrink-0 relative overflow-hidden">
@@ -840,8 +833,18 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Disciplina</label>
-                            <input v-model="aiGenConfig.subject" placeholder="Ex: Biologia" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
+                            <!-- NOVO: Atributo list="dl-subjects" adicionado -->
+                            <input list="dl-subjects" v-model="aiGenConfig.subject" placeholder="Ex: Biologia" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
                         </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Tópico</label>
+                            <!-- NOVO: Atributo list="dl-topics" adicionado -->
+                            <input list="dl-topics" v-model="aiGenConfig.topic" placeholder="Ex: Divisão Celular" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
+                        </div>
+                    </div>
+                    
+                    <!-- Novas Opções de Personalização -->
+                    <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Nível</label>
                             <select v-model="aiGenConfig.difficulty" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
@@ -850,14 +853,32 @@
                                 <option value="Ensino Superior">Superior</option>
                             </select>
                         </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Estilo da Prova</label>
+                            <select v-model="aiGenConfig.style" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
+                                <option value="Padrão">Padrão Escolar</option>
+                                <option value="ENEM">ENEM</option>
+                                <option value="Vestibular Tradicional">Vestibular</option>
+                                <option value="Concurso Público">Concurso Público</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Tipo de Enunciado</label>
+                        <div class="flex bg-gray-200 p-1 rounded-lg">
+                            <button @click="aiGenConfig.promptType = 'Direto'" :class="aiGenConfig.promptType === 'Direto' ? 'bg-white shadow text-purple-700' : 'text-gray-500 hover:text-gray-700'" class="flex-1 py-1.5 text-xs font-bold rounded-md transition">Direto</button>
+                            <button @click="aiGenConfig.promptType = 'Normal'" :class="aiGenConfig.promptType === 'Normal' ? 'bg-white shadow text-purple-700' : 'text-gray-500 hover:text-gray-700'" class="flex-1 py-1.5 text-xs font-bold rounded-md transition">Normal</button>
+                            <button @click="aiGenConfig.promptType = 'Contextualizado Longo'" :class="aiGenConfig.promptType === 'Contextualizado Longo' ? 'bg-white shadow text-purple-700' : 'text-gray-500 hover:text-gray-700'" class="flex-1 py-1.5 text-xs font-bold rounded-md transition">Longo/Context.</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Observações (Opcional)</label>
+                        <textarea v-model="aiGenConfig.extraObservations" rows="2" placeholder="Ex: Focar em autores portugueses do séc. XIX..." class="w-full p-2 bg-white border border-gray-200 rounded-lg text-xs outline-none focus:border-purple-500 text-gray-700 resize-none"></textarea>
                     </div>
                     
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase">Tópico / Conteúdo</label>
-                        <input v-model="aiGenConfig.topic" placeholder="Ex: Divisão Celular e Mitose" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
-                    </div>
-                    
-                    <div>
+                    <div class="pt-2 border-t border-gray-200">
                         <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Quantidade por Tipo (Máx 15 no total)</label>
                         <div class="grid grid-cols-2 gap-2">
                             <div class="flex items-center justify-between bg-white border border-gray-200 p-2 rounded-lg">
@@ -913,8 +934,16 @@
                         </div>
 
                         <div class="grid grid-cols-2 gap-3 mb-3">
-                            <div class="space-y-1"><label class="text-[10px] font-bold text-gray-400 uppercase">Disciplina</label><input v-model="newQ.subject" class="p-2.5 border rounded-lg bg-gray-50 text-sm w-full outline-none focus:border-indigo-500 font-medium"></div>
-                            <div class="space-y-1"><label class="text-[10px] font-bold text-gray-400 uppercase">Tópico</label><input v-model="newQ.topic" class="p-2.5 border rounded-lg bg-gray-50 text-sm w-full outline-none focus:border-indigo-500 font-medium"></div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Disciplina</label>
+                                <!-- NOVO: Atributo list="dl-subjects" adicionado -->
+                                <input list="dl-subjects" v-model="newQ.subject" class="p-2.5 border rounded-lg bg-gray-50 text-sm w-full outline-none focus:border-indigo-500 font-medium">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Tópico</label>
+                                <!-- NOVO: Atributo list="dl-topics" adicionado -->
+                                <input list="dl-topics" v-model="newQ.topic" class="p-2.5 border rounded-lg bg-gray-50 text-sm w-full outline-none focus:border-indigo-500 font-medium">
+                            </div>
                         </div>
 
                         <div class="space-y-1 mb-4">
@@ -922,13 +951,11 @@
                             <textarea v-model="newQ.text" rows="4" class="w-full p-3 border rounded-xl bg-gray-50 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition resize-none" placeholder="Digite o texto da questão..."></textarea>
                         </div>
                         
-                        <!-- NOVO: Campo de Comentário/Resolução -->
                         <div class="space-y-1 mb-4">
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Resolução / Comentário (Opcional)</label>
                             <textarea v-model="newQ.comment" rows="2" class="w-full p-3 border rounded-xl bg-gray-50 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition resize-none" placeholder="Explicação da resposta correta (aparecerá no gabarito comentado)"></textarea>
                         </div>
 
-                        <!-- Image Upload for Question -->
                         <div class="mb-4">
                              <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Imagem de Apoio (Opcional)</label>
                              <div class="flex items-center gap-3">
@@ -943,7 +970,6 @@
                              </div>
                         </div>
 
-                        <!-- Opções MC -->
                         <div v-if="qType === 'mc'" class="space-y-3">
                             <p class="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 p-2 rounded text-center">Selecione a alternativa correta</p>
                             <div v-for="(opt, i) in newQ.options" :key="i" class="flex items-center gap-3">
@@ -952,7 +978,6 @@
                             </div>
                         </div>
 
-                        <!-- Opções CE -->
                         <div v-if="qType === 'ce'" class="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
                             <p class="text-sm font-bold text-blue-800 mb-3">Gabarito</p>
                             <div class="flex gap-4 justify-center">
@@ -961,7 +986,6 @@
                             </div>
                         </div>
 
-                        <!-- Opções V/F -->
                         <div v-if="qType === 'vf'" class="space-y-3">
                             <p class="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 p-2 rounded text-center">Defina as afirmações e a resposta</p>
                             <div v-for="(opt, i) in newQ.options" :key="i" class="flex items-center gap-2">
@@ -976,7 +1000,6 @@
                             <button @click="newQ.options.push({text:'', isTrue:true})" class="w-full py-2 border-2 border-dashed border-gray-200 rounded-xl text-xs font-bold text-gray-400 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-500 transition">+ Adicionar Afirmação</button>
                         </div>
 
-                        <!-- Opções Associação -->
                         <div v-if="qType === 'assoc'" class="space-y-3">
                             <p class="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 p-2 rounded text-center">Pares de Associação (Coluna A - Coluna B)</p>
                             <div v-for="(opt, i) in newQ.options" :key="i" class="flex items-center gap-2">
@@ -1314,17 +1337,38 @@
 
         createApp({
             setup() {
-                // --- SISTEMA DE LICENÇA E BLOQUEIO ---
+                // --- INSTALAÇÃO PWA ---
+                const deferredPrompt = ref(null);
+                const canInstall = ref(false);
+
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    deferredPrompt.value = e;
+                    canInstall.value = true;
+                });
+
+                const installPWA = async () => {
+                    if (!deferredPrompt.value) return;
+                    deferredPrompt.value.prompt();
+                    const { outcome } = await deferredPrompt.value.userChoice;
+                    if (outcome === 'accepted') {
+                        canInstall.value = false;
+                    }
+                    deferredPrompt.value = null;
+                };
+
+                // --- SISTEMA DE LICENÇA E BLOQUEIO (OFUSCADO) ---
                 const TRIAL_DURATION = 3600000; 
-                const SECRET_SALT = "NEXUS_SECURE_KEY_2025_PRO_V1"; 
                 const appLocked = ref(false);
                 const isLicensed = ref(false);
                 const deviceId = ref('');
                 const timeLeft = ref('');
                 const licenseInput = ref('');
                 const showLicenseModal = ref(false); 
-                const isTemporal = ref(false); // NOVO: Controla se a licença actual tem prazo
+                const isTemporal = ref(false); 
                 
+                const _0xabc123 = async function(_0x1,_0x2){const _0x3="\x4e\x45\x58\x55\x53\x5f\x53\x45\x43\x55\x52\x45\x5f\x4b\x45\x59\x5f\x32\x30\x32\x35\x5f\x50\x52\x4f\x5f\x56\x31";const _0x4=async(_0x5)=>{const _0x6=new TextEncoder().encode(_0x5);const _0x7=await crypto.subtle.digest("\x53\x48\x41\x2d\x32\x35\x36",_0x6);const _0x8=Array.from(new Uint8Array(_0x7));const _0x9=_0x8.map(_0xa=>_0xa.toString(16).padStart(2,'0')).join('').toUpperCase().substring(0,12);return `${_0x9.slice(0,4)}-${_0x9.slice(4,8)}-${_0x9.slice(8,12)}`;};const _0xb=_0x2.split('-');if(_0xb.length===3){const _0xc=await _0x4(_0x1+_0x3);if(_0x2===_0xc)return{valid:!0,type:'permanent'};}else if(_0xb.length===4){const _0xd=_0xb[0];const _0xe=_0xb.slice(1).join('-');const _0xf=await _0x4(_0x1+_0xd+_0x3);if(_0xe===_0xf){const _0x10=parseInt(_0xd,16);const _0x11=Math.floor(Date.now()/3600000);if(_0x11<=_0x10){return{valid:!0,type:'temporal',expireHours:_0x10};}else{return{valid:!1,expired:!0};}}}return{valid:!1};};
+
                 const initLicenseSystem = async () => {
                     let config = await db.settings.get('license_config');
                     if (!config) {
@@ -1340,12 +1384,11 @@
                     deviceId.value = config.deviceId;
                     
                     if (config.licenseKey) {
-                        const result = await verifyKey(config.deviceId, config.licenseKey);
+                        const result = await _0xabc123(config.deviceId, config.licenseKey);
                         if (result.valid) {
                             isLicensed.value = true;
                             if (result.type === 'temporal') {
                                 isTemporal.value = true;
-                                // Verifica a expiração a cada minuto
                                 setInterval(() => {
                                     const currentHours = Math.floor(Date.now() / 3600000);
                                     if (currentHours > result.expireHours) {
@@ -1362,7 +1405,6 @@
                             }
                             return; 
                         } else {
-                            // Chave expirada ou inválida, remove para forçar renovação
                             config.licenseKey = null;
                             await db.settings.put(config);
                         }
@@ -1374,7 +1416,7 @@
                         timeLeft.value = "Expirado";
                     } else {
                         setInterval(() => {
-                            if(isLicensed.value) return; // Pára de contar se estiver ativado
+                            if(isLicensed.value) return; 
                             const remaining = TRIAL_DURATION - (Date.now() - config.firstRun);
                             if (remaining <= 0) {
                                 appLocked.value = true;
@@ -1387,45 +1429,9 @@
                     }
                 };
 
-                const verifyKey = async (did, key) => {
-                    const parts = key.split('-');
-                    
-                    // Validação Chave Permanente (Antiga)
-                    if (parts.length === 3) {
-                        const expected = await generateHash(did + SECRET_SALT);
-                        if (key === expected) return { valid: true, type: 'permanent' };
-                    } 
-                    // Validação Chave Temporal (Nova)
-                    else if (parts.length === 4) {
-                        const expireHex = parts[0];
-                        const signature = parts.slice(1).join('-');
-                        const expected = await generateHash(did + expireHex + SECRET_SALT);
-                        
-                        if (signature === expected) {
-                            const expireHours = parseInt(expireHex, 16);
-                            const currentHours = Math.floor(Date.now() / 3600000);
-                            
-                            if (currentHours <= expireHours) {
-                                return { valid: true, type: 'temporal', expireHours };
-                            } else {
-                                return { valid: false, expired: true };
-                            }
-                        }
-                    }
-                    return { valid: false };
-                };
-
-                const generateHash = async (message) => {
-                    const msgBuffer = new TextEncoder().encode(message);
-                    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().substring(0, 12);
-                    return `${hashHex.slice(0,4)}-${hashHex.slice(4,8)}-${hashHex.slice(8,12)}`;
-                }
-
                 const validateLicense = async () => {
                     const input = licenseInput.value.trim().toUpperCase();
-                    const result = await verifyKey(deviceId.value, input);
+                    const result = await _0xabc123(deviceId.value, input);
                     
                     if (result.valid) {
                         const config = await db.settings.get('license_config');
@@ -1468,7 +1474,7 @@
                     {id:'classes', label:'Turmas', icon:'fa-solid fa-users'},
                     {id:'questions', label:'Banco', icon:'fa-solid fa-database'},
                     {id:'exams', label:'Provas', icon:'fa-solid fa-file-contract'},
-                    {id:'correction', label:'Correção', icon:'fa-solid fa-check-double'} // Alterado aba Scanner -> Correção
+                    {id:'correction', label:'Correção', icon:'fa-solid fa-check-double'} 
                 ];
 
                 const classes = ref([]); 
@@ -1480,11 +1486,11 @@
                 const extraPoints = ref([]);
 
                 // INTEGRAÇÃO GEMINI IA
-                const geminiKey = ref('AIzaSyCIuS2uyBOLQ8zXf6kqTs0Cq3XQICaipNU');
+                const geminiKey = ref('');
                 const aiCorrectionQueue = ref([]);
                 const isProcessingQueue = ref(false);
 
-                // --- NOVAS VARIÁVEIS DE ESTADO (ANÁLISE E DETALHES) ---
+                // --- VARIÁVEIS DE ESTADO (ANÁLISE E DETALHES) ---
                 const showResultDetailsModal = ref(false);
                 const selectedResultDetails = ref(null);
                 const showExamStatsModal = ref(false);
@@ -1496,7 +1502,10 @@
                 const aiGenConfig = ref({ 
                     subject: '', 
                     topic: '', 
-                    difficulty: 'Ensino Médio', 
+                    difficulty: 'Ensino Médio',
+                    style: 'Padrão', // NOVO: ENEM, Vestibular, Concurso
+                    promptType: 'Normal', // NOVO: Direto, Normal, Longo
+                    extraObservations: '', // NOVO: Observações extras
                     counts: { mc: 2, ce: 0, vf: 0, assoc: 0 },
                     mcMode: 'correct'
                 });
@@ -1508,6 +1517,11 @@
                 const studentFilter = ref('');
                 const examHistoryFilter = ref('');
                 const dashboardStudentFilter = ref('');
+                const filterTopic = ref(''); // Filtro por tópico no banco
+                
+                // NOVO: Variáveis para filtro de questões na aba de Provas
+                const examFilterSubject = ref('');
+                const examFilterTopic = ref('');
                 
                 const filteredClasses = computed(() => {
                     if (!studentFilter.value) return classes.value;
@@ -1682,7 +1696,7 @@
                         
                         const models = data.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
                         showToast(`Chave válida! Modelos ativos: ${models.slice(0, 2).join(', ')}`, "success");
-                        saveSettings(true); // Salva a chave no banco local
+                        saveSettings(true); 
                     } catch(e) {
                         showToast("Falha na chave: " + e.message, "error");
                     }
@@ -1722,7 +1736,6 @@
                 });
 
                 const scanFileForQR = async (file) => {
-                    // html5QrCode só precisa existir para usar o método scanFile
                     const tempQrScanner = new Html5Qrcode("hidden-qr-reader"); 
                     try {
                         const result = await tempQrScanner.scanFile(file, true);
@@ -1736,10 +1749,8 @@
 
                 const callGemini = async (base64Data, mimeType, questionsCount) => {
                     const apiKey = geminiKey.value;
-                    // Utiliza o flash que é rápido, multimodal e mais barato na cota gratuita
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-                    // Prompt rigoroso para garantir saída controlada
                     const prompt = `Atue como um corretor automático de cartões-resposta (gabaritos). 
 A imagem contém um cartão-resposta de um aluno. Esta prova possui exatamente ${questionsCount} questões marcadas.
 Sua única tarefa é retornar um array JSON puro representando o índice das marcações que o aluno fez, na ordem das questões.
@@ -1759,9 +1770,8 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                         generationConfig: { response_mime_type: "application/json" }
                     };
 
-                    // Implementa Exponential Backoff para proteger contra erro 429 (Rate Limit)
                     let retries = 3;
-                    let delay = 3000; // Começa pausando 3s se der erro
+                    let delay = 3000; 
                     
                     while(retries > 0) {
                         try {
@@ -1778,7 +1788,6 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                             }
                             
                             let text = data.candidates[0].content.parts[0].text;
-                            // Prevenção extra caso o modelo insista em colocar markdown
                             const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                             return JSON.parse(cleanedText);
                             
@@ -1787,7 +1796,7 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                                 retries--;
                                 if(retries === 0) throw new Error("Chave bloqueada temporariamente (Muitos acessos). Tente em alguns minutos.");
                                 await new Promise(r => setTimeout(r, delay));
-                                delay *= 2; // Dobra o tempo de espera
+                                delay *= 2; 
                             } else {
                                 throw e;
                             }
@@ -1806,12 +1815,10 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                         item.message = 'Lendo QR Code do aluno...';
                         
                         try {
-                            // 1. Extrai QR
                             const qrText = await scanFileForQR(item.file);
                             const qrData = JSON.parse(qrText);
                             if(qrData.e === undefined || qrData.s === undefined) throw new Error("QR não pertence a este sistema");
 
-                            // 2. Busca dados
                             const exam = exams.value.find(e => e.id === Number(qrData.e));
                             const student = students.value.find(s => s.id === Number(qrData.s));
                             if(!exam || !student) throw new Error("Prova/Aluno ausentes no banco local");
@@ -1822,13 +1829,11 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
 
                             item.message = `IA analisando gabarito de ${student.name.split(' ')[0]}...`;
 
-                            // 3. Processamento IA
                             const base64 = await fileToBase64(item.file);
                             const aiAnswers = await callGemini(base64, item.file.type, questions.length);
 
                             if(!Array.isArray(aiAnswers)) throw new Error("A IA não retornou um formato válido");
 
-                            // 4. Correção Lógica & Nota
                             let hits = 0;
                             const parsedAnswers = {};
 
@@ -1838,7 +1843,6 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                                     parsedAnswers[idx] = studentAns;
 
                                     let correctIdx = q.correctIndex;
-                                    // Ajuste para formatos convertidos em Múltipla Escolha pelo PDF
                                     if(q.type === 'vf' || q.type === 'assoc') correctIdx = (q.id || 0) % 5;
 
                                     if(studentAns === correctIdx) hits++;
@@ -1847,7 +1851,6 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
 
                             const finalScore = ((hits / questions.length) * 10).toFixed(1);
 
-                            // 5. Salva no Banco Local
                             const allResults = await db.results.toArray();
                             const existing = allResults.find(r => r.examId === exam.id && r.studentId === student.id);
 
@@ -1864,12 +1867,10 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                             }
                             results.value = await db.results.toArray();
 
-                            // 6. Atualiza Fila
                             item.status = 'success';
                             item.score = finalScore;
                             item.message = `${student.name} concluído.`;
                             
-                            // NOVO: Adicionamos os dados cruciais para que o "Olho" possa abrir o Modal
                             item.resultData = {
                                 examId: exam.id,
                                 studentName: student.name,
@@ -1877,7 +1878,6 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                                 answers: parsedAnswers
                             };
                             
-                            // Feedback por voz (Opcional)
                             speak(`${student.name}, nota ${finalScore}`);
 
                         } catch(err) {
@@ -1885,15 +1885,12 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                             item.message = err.message || "Erro desconhecido ao processar.";
                         }
 
-                        // Proteção de Cota (Rate limit da conta gratuita: ~15 Requisições por Minuto)
-                        // Aguarda 4,2 segundos entre fotos garante 14 requisições/min.
                         await new Promise(r => setTimeout(r, 4200));
                     }
 
                     isProcessingQueue.value = false;
                 };
 
-                // --- NOVAS FUNÇÕES: ANÁLISE DE RESULTADOS ---
                 const getAlternativeLabel = (type, index) => {
                     if (index === null || index === undefined || index === '') return '-';
                     const idx = parseInt(index);
@@ -1927,10 +1924,8 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                     const total = examResults.length;
                     const avg = (examResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / total).toFixed(1);
                     
-                    // Ranking
                     const ranking = [...examResults].sort((a,b) => parseFloat(b.score) - parseFloat(a.score));
 
-                    // Mapeia acertos para as questões originais (usando ID da questão para cruzar embaralhamentos)
                     const qStatsMap = {}; 
                     
                     examResults.forEach(r => {
@@ -1951,7 +1946,6 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                         });
                     });
 
-                    // Retorna a ordem original baseada na versão 0
                     const baseVersion = exam.versions ? exam.versions[0] : {questions: exam.questions || []};
                     const questionStats = baseVersion.questions.map((q) => {
                         const s = qStatsMap[q.id] || { hits: 0, total: 1 };
@@ -1970,7 +1964,6 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                     showExamStatsModal.value = true;
                 };
 
-                // --- Edição de Notas no Boletim ---
                 const editingResultId = ref(null);
                 const tempScore = ref('');
                 const tempBonus = ref(0);
@@ -2022,7 +2015,6 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                     });
                 };
 
-                // Relatórios e Modais
                 const selectedClassIdForReport = ref(null);
                 const showStudentModal = ref(false);
                 const studentDetails = ref({});
@@ -2144,7 +2136,6 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                     }
                 };
 
-                // --- FUNÇÕES GERADOR IA DE QUESTÕES ---
                 const openAIGenerator = () => {
                     showAIGenModal.value = true;
                 };
@@ -2181,7 +2172,10 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
 
                         const prompt = `Você é um professor acadêmico elaborador de provas.
 Sua missão é criar exatamente ${totalRequested} questões inéditas sobre o assunto "${aiGenConfig.value.topic}" para a disciplina "${aiGenConfig.value.subject}".
-O nível de complexidade exigido é: ${aiGenConfig.value.difficulty}.
+Nível de complexidade: ${aiGenConfig.value.difficulty}.
+Estilo da questão: ${aiGenConfig.value.style}.
+Tamanho e formato do Enunciado: ${aiGenConfig.value.promptType}.
+${aiGenConfig.value.extraObservations ? 'Observações adicionais a considerar obrigatoriamente: ' + aiGenConfig.value.extraObservations : ''}
 
 A distribuição dos tipos de questões deve ser rigorosamente esta:
 ${instructions}
@@ -2196,7 +2190,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
 `;
 
                         let retries = 3;
-                        let delay = 3000; // Começa com 3 segundos
+                        let delay = 3000; 
                         let generatedQuestions = [];
 
                         while (retries > 0) {
@@ -2212,7 +2206,6 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
 
                                 const data = await response.json();
                                 if (data.error) {
-                                    // Se for limite de taxa, joga erro para ser capturado e tentar de novo
                                     if (data.error.code === 429) throw { isRateLimit: true, msg: "Rate limit" };
                                     throw new Error(data.error.message);
                                 }
@@ -2221,7 +2214,6 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                 const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                                 generatedQuestions = JSON.parse(cleanedText);
                                 
-                                // Se funcionou, sai do loop
                                 break; 
                                 
                             } catch (e) {
@@ -2230,9 +2222,8 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                     if (retries === 0) throw new Error("Chave bloqueada por excesso temporário de requisições. Aguarde uns minutos.");
                                     showToast('Aguardando liberação da API (Rate Limit)...', 'loading');
                                     await new Promise(r => setTimeout(r, delay));
-                                    delay *= 2; // Exponential backoff (espera mais tempo na prox)
+                                    delay *= 2; 
                                 } else {
-                                    // Erro normal (JSON mal formado, erro na net)
                                     throw e;
                                 }
                             }
@@ -2242,9 +2233,8 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                             throw new Error("A IA não retornou o JSON formatado corretamente.");
                         }
 
-                        // Salva diretamente no banco de dados local
                         await db.questions.bulkAdd(generatedQuestions);
-                        await load(); // Atualiza a lista visualmente
+                        await load(); 
 
                         showAIGenModal.value = false;
                         showToast(`${generatedQuestions.length} questões inseridas no banco!`, 'success');
@@ -2308,7 +2298,8 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                 
                 const deleteQuestion = async id => { triggerConfirm('Excluir questão permanentemente?', async () => { await db.questions.delete(id); load(); }); };
 
-                const uniqueSubjects = computed(() => [...new Set(questions.value.map(q => q.subject))].sort());
+                const uniqueTopics = computed(() => [...new Set(questions.value.map(q => q.topic).filter(Boolean))].sort());
+                const uniqueSubjects = computed(() => [...new Set(questions.value.map(q => q.subject).filter(Boolean))].sort());
 
                 const filteredQuestions = computed(() => {
                     return questions.value.filter(q => {
@@ -2318,15 +2309,30 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                         
                         const matchesType = !filterType.value || q.type === filterType.value;
                         const matchesSubject = !filterSubject.value || q.subject === filterSubject.value;
+                        const matchesTopic = !filterTopic.value || q.topic === filterTopic.value; 
 
-                        return matchesText && matchesType && matchesSubject;
+                        return matchesText && matchesType && matchesSubject && matchesTopic;
                     });
                 });
                 
                 const filteredExamQuestions = computed(() => {
-                    if(!examFilter.value) return questions.value; 
-                    const t = examFilter.value.toLowerCase(); 
-                    return questions.value.filter(q => q.text.toLowerCase().includes(t) || q.subject.toLowerCase().includes(t)); 
+                    let filtered = questions.value;
+                    
+                    if (examFilterSubject.value) {
+                        filtered = filtered.filter(q => q.subject === examFilterSubject.value);
+                    }
+                    if (examFilterTopic.value) {
+                        filtered = filtered.filter(q => q.topic === examFilterTopic.value);
+                    }
+                    if (examFilter.value) {
+                        const t = examFilter.value.toLowerCase();
+                        filtered = filtered.filter(q => 
+                            q.text.toLowerCase().includes(t) || 
+                            q.subject.toLowerCase().includes(t) || 
+                            q.topic.toLowerCase().includes(t)
+                        );
+                    }
+                    return filtered;
                 });
 
                 const toggleExamQ = q => { const i=examCart.value.findIndex(x=>x.id===q.id); i>-1?examCart.value.splice(i,1):examCart.value.push(q); };
@@ -2967,12 +2973,11 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                 if(d.cfg) {
                                     await db.settings.put({ ...d.cfg, id: 'config' });
                                 }
-                                // NOVO: Restaura a licença e valida automaticamente
                                 if(d.license) {
                                     await db.settings.put(d.license);
                                     deviceId.value = d.license.deviceId;
                                     if(d.license.licenseKey) {
-                                        const result = await verifyKey(d.license.deviceId, d.license.licenseKey);
+                                        const result = await _0xabc123(d.license.deviceId, d.license.licenseKey);
                                         isLicensed.value = result.valid;
                                         appLocked.value = !result.valid;
                                         
@@ -2995,7 +3000,6 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                 const triggerImport = () => document.getElementById('importFile').click();
                 
                 const backupData = async () => { 
-                    // NOVO: Puxa as configurações de licença para guardar no ficheiro
                     const licenseConfig = await db.settings.get('license_config');
                     const d={
                         c:classes.value, 
@@ -3123,7 +3127,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
 
                 return {
                     currentView, tabs, classes, newClass, bulkStudents, addClass, saveStudents, getStudents, getStudentCount, deleteStudent,
-                    showQFormModal, openQForm, formSource, newQ, qFilter, filterType, filterSubject, filteredQuestions, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, 
+                    showQFormModal, openQForm, formSource, newQ, qFilter, filterType, filterSubject, filterTopic, uniqueTopics, filteredQuestions, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, 
                     examConfig, examCart, toggleExamQ, isQInExam, generatePDF, exams, deleteExam, showHistory,
                     correctionMode, activeStudent, activeVersion, currentScore, activeExamQuestions, studentAnswers, saveResult, cancelCorrection,
                     settings, handleLogoUpload, saveSettings, backupData, 
@@ -3137,10 +3141,12 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, uniqueSubjects,
                     printConfig, editingExamId, openEditExam, changeQType,
                     dashboardStudentFilter,
+                    examFilterSubject, examFilterTopic, // NOVO: Exportado para a UI
                     appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, isTemporal, timeLeft, deleteClass, showLicenseModal, toggleExpand,
                     geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, aiCorrectionQueue, processAIQueue, hasPendingItems, isProcessingQueue,
                     showResultDetailsModal, selectedResultDetails, openResultDetails, getAlternativeLabel, showExamStatsModal, examStats, openExamStats,
-                    showAIGenModal, isGeneratingAI, aiGenConfig, openAIGenerator, generateQuestionsAI
+                    showAIGenModal, isGeneratingAI, aiGenConfig, openAIGenerator, generateQuestionsAI,
+                    canInstall, installPWA
                 };
             }
         }).mount('#app');
