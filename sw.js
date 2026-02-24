@@ -1,6 +1,6 @@
-const CACHE_NAME = 'nexus-cache-v1';
+const CACHE_NAME = 'nexus-cache-v1.1'; // Atualizado para forçar os navegadores a limparem o cache antigo
 
-// Lista rigorosa de recursos CDN detectados no seu HTML.
+// Lista rigorosa de recursos CDN detectados no seu HTML atualizado.
 // O Service Worker irá pré-carregar tudo isso para garantir funcionamento offline.
 const PRECACHE_URLS = [
   './',
@@ -14,9 +14,7 @@ const PRECACHE_URLS = [
   'https://unpkg.com/dexie/dist/dexie.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js',
-  'https://unpkg.com/html5-qrcode',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://docs.opencv.org/4.8.0/opencv.js'
+  'https://unpkg.com/html5-qrcode'
 ];
 
 // Instalação: Cacheamento agressivo dos estáticos
@@ -60,6 +58,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
+  // Exceção importante: NÃO faça cache de requisições à API do Gemini!
+  if (url.hostname.includes('generativelanguage.googleapis.com')) {
+      return; 
+  }
+
   // ESTRATÉGIA 1: Stale-While-Revalidate para o próprio App (index.html, JS locais)
   // Isso garante que o usuário veja a versão em cache rápido, mas atualiza em background.
   if (url.origin === location.origin) {
@@ -85,7 +88,7 @@ self.addEventListener('fetch', (event) => {
       }
       return fetch(event.request).then((networkResponse) => {
         // Verifica se a resposta é válida antes de cachear
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && networkResponse.type !== 'cors') {
+        if (!networkResponse || networkResponse.status !== 200 || (networkResponse.type !== 'basic' && networkResponse.type !== 'cors')) {
           return networkResponse;
         }
         const responseToCache = networkResponse.clone();
