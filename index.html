@@ -40,8 +40,6 @@
             background-color: white;
         }
         .bubble.selected { background-color: #4f46e5; color: white; border-color: #4f46e5; transform: scale(1.1); box-shadow: 0 2px 5px rgba(79, 70, 229, 0.4); }
-        .bubble.correct { background-color: #22c55e; color: white; border-color: #22c55e; }
-        .bubble.wrong { background-color: #ef4444; color: white; border-color: #ef4444; }
         .bubble.ce-c.selected { background-color: #22c55e; border-color: #22c55e; }
         .bubble.ce-e.selected { background-color: #ef4444; border-color: #ef4444; }
         
@@ -130,9 +128,7 @@
         <header class="bg-white shadow-sm z-50 flex-none border-b border-gray-200 relative">
             <div class="px-4 py-3 flex justify-between items-center">
                 <div class="flex items-center gap-3 text-indigo-700 select-none">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                        <i class="fa-solid fa-layer-group text-lg"></i>
-                    </div>
+                    <img src="logo-principal.png" alt="Logo Nexus" class="w-10 h-10 rounded-xl object-cover shadow-md border border-gray-100">
                     <div>
                         <h1 class="font-black text-xl leading-none tracking-tight">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-0.5 bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1>
                         <p class="text-[9px] font-medium text-gray-400 leading-tight mt-0.5">Sistema de Gestão Escolar</p>
@@ -3126,7 +3122,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                 };
 
                 return {
-                    currentView, tabs, classes, newClass, bulkStudents, addClass, saveStudents, getStudents, getStudentCount, deleteStudent,
+                    currentView, tabs, classes, newClass, bulkStudents, addClass, saveStudents, getStudentCount, deleteStudent,
                     showQFormModal, openQForm, formSource, newQ, qFilter, filterType, filterSubject, filterTopic, uniqueTopics, filteredQuestions, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, 
                     examConfig, examCart, toggleExamQ, isQInExam, generatePDF, exams, deleteExam, showHistory,
                     correctionMode, activeStudent, activeVersion, currentScore, activeExamQuestions, studentAnswers, saveResult, cancelCorrection,
