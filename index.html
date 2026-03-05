@@ -128,7 +128,7 @@
         <header class="bg-white shadow-sm z-50 flex-none border-b border-gray-200 relative">
             <div class="px-4 py-3 flex justify-between items-center">
                 <div class="flex items-center gap-3 text-indigo-700 select-none">
-                    <img src="logo-principal.png" alt="Logo Nexus" class="w-20 h-20 rounded-xl object-cover shadow-md border border-gray-100">
+                    <img src="https://placehold.co/80x80/4f46e5/ffffff?text=NEXUS" alt="Logo Nexus" class="w-20 h-20 rounded-xl object-cover shadow-md border border-gray-100">
                     <div>
                         <h1 class="font-black text-xl leading-none tracking-tight">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-0.5 bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1>
                         <p class="text-[9px] font-medium text-gray-400 leading-tight mt-0.5">Sistema de Gestão Escolar</p>
@@ -514,6 +514,12 @@
                         <label class="text-[9px] font-bold text-gray-500 block mb-1">Tamanho Logo Escola: {{ printConfig.logoSize }}px</label>
                         <input type="range" v-model="printConfig.logoSize" min="30" max="80" step="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
                     </div>
+                    <div class="col-span-2 mt-1">
+                        <label class="flex items-center gap-2 cursor-pointer bg-white border border-gray-200 p-2 rounded-lg hover:border-indigo-300 transition shadow-sm">
+                            <input type="checkbox" v-model="printConfig.addBlankPage" class="w-4 h-4 text-indigo-600 rounded border-gray-300 cursor-pointer">
+                            <span class="text-[10px] font-bold text-gray-600">Adicionar página em branco entre as provas (Para Frente e Verso)</span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -549,11 +555,14 @@
                                     <i :class="isQInExam(q.id) ? 'fa-solid fa-check-square text-indigo-600' : 'fa-regular fa-square text-gray-300 group-hover:text-indigo-400'"></i>
                                 </div>
                                 <div class="flex-1">
-                                    <div class="flex gap-1 mb-1">
-                                        <span class="text-[9px] bg-gray-100 px-1.5 py-0.5 rounded font-bold text-gray-500 uppercase">{{ q.subject }}</span>
-                                        <span v-if="q.topic" class="text-[9px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded font-bold uppercase">{{ q.topic }}</span>
+                                    <div class="flex justify-between items-start mb-1">
+                                        <div class="flex gap-1">
+                                            <span class="text-[9px] bg-gray-100 px-1.5 py-0.5 rounded font-bold text-gray-500 uppercase">{{ q.subject }}</span>
+                                            <span v-if="q.topic" class="text-[9px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded font-bold uppercase">{{ q.topic }}</span>
+                                        </div>
+                                        <button @click.stop="editQuestion(q)" class="text-gray-400 hover:text-indigo-600 bg-white border border-gray-200 shadow-sm px-2 py-0.5 rounded text-[9px] font-bold transition flex items-center gap-1"><i class="fa-solid fa-pencil"></i> Editar</button>
                                     </div>
-                                    <p class="text-xs text-gray-700 line-clamp-2 leading-relaxed">{{ q.text }}</p>
+                                    <p class="text-xs text-gray-700 leading-relaxed">{{ q.text }}</p>
                                 </div>
                             </div>
                         </div>
@@ -564,8 +573,11 @@
                             </div>
                             <div v-for="(q, idx) in examCart" :key="q.id" class="p-3 rounded-xl border border-indigo-100 bg-white mb-2 flex gap-3 items-start shadow-sm">
                                 <span class="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">{{ idx + 1 }}</span>
-                                <div class="flex-1"><p class="text-xs text-gray-800 line-clamp-3">{{ q.text }}</p></div>
-                                <button @click="toggleExamQ(q)" class="text-red-300 hover:text-red-500 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                                <div class="flex-1"><p class="text-xs text-gray-800">{{ q.text }}</p></div>
+                                <div class="flex flex-col gap-1">
+                                    <button @click="editQuestion(q)" class="text-indigo-400 hover:text-indigo-600 p-1.5 rounded hover:bg-indigo-50 transition" title="Editar Questão"><i class="fa-solid fa-pencil"></i></button>
+                                    <button @click="toggleExamQ(q)" class="text-red-300 hover:text-red-500 p-1.5 rounded hover:bg-red-50 transition" title="Remover da Prova"><i class="fa-solid fa-trash-can"></i></button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1559,7 +1571,8 @@
                     spacing: 'normal', 
                     layout: 'standard',
                     logoSize: 50,
-                    qImageSize: 'medium'
+                    qImageSize: 'medium',
+                    addBlankPage: false
                 });
 
                 const examCart = ref([]); 
@@ -2259,7 +2272,12 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                         };
                         
                         const plainQData = JSON.parse(JSON.stringify(qData));
-                        if(newQ.value.id) await db.questions.put({ ...plainQData, id: newQ.value.id }); 
+                        if(newQ.value.id) {
+                            await db.questions.put({ ...plainQData, id: newQ.value.id }); 
+                            // NOVO: Sincroniza também as alterações para o carrinho caso a questão esteja lá
+                            const cartIdx = examCart.value.findIndex(x => x.id === newQ.value.id);
+                            if (cartIdx > -1) examCart.value[cartIdx] = { ...plainQData, id: newQ.value.id };
+                        }
                         else { 
                             const qId = await db.questions.add(plainQData); 
                             if(formSource.value === 'exam') { const savedQ = await db.questions.get(qId); examCart.value.push(savedQ); showToast('Adicionada à prova!', 'success'); } 
@@ -2752,6 +2770,14 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                     });
                                 }
 
+                                if (printConfig.value.addBlankPage) {
+                                    content.push({ text: '', pageBreak: 'after' });
+                                    content.push({ 
+                                        text: ' ', // Apenas um espaço em branco para forçar a criação da folha
+                                        margin: [0, 10]
+                                    });
+                                }
+
                                 if (i < classStudents.length - 1) {
                                     content.push({ text: '', pageBreak: 'after' });
                                 }
@@ -3149,5 +3175,3 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
     </script>
 </body>
 </html>
-
-
