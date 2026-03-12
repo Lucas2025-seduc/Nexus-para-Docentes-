@@ -460,7 +460,7 @@
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Variação (Embaralhar)</p>
-                                    <select v-model="examConfig.variationMode" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600 font-medium">
+                                    <select v-model="examConfig.variationMode" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600 font medium">
                                         <option value="standard">Padrão (Tipos A/B)</option>
                                         <option value="unique">Personalizada (1 por Aluno)</option>
                                         <option value="1_10">1 Versão a cada 10</option>
@@ -468,7 +468,7 @@
                                 </div>
                                 <div>
                                     <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Tipo</p>
-                                    <select v-model="examConfig.type" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600 font-medium">
+                                    <select v-model="examConfig.type" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border border-gray-200 text-gray-600 font medium">
                                         <option value="Mensal">Mensal</option>
                                         <option value="Bimestral">Bimestral</option>
                                         <option value="Trabalho">Trabalho</option>
@@ -1747,14 +1747,16 @@
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-                    const prompt = `Atue como um corretor automático de cartões-resposta (gabaritos). 
-A imagem contém um cartão-resposta de um aluno. Esta prova possui exatamente ${questionsCount} questões marcadas.
-Sua única tarefa é retornar um array JSON puro representando o índice das marcações que o aluno fez, na ordem das questões.
-Para as alternativas A, B, C, D e E, utilize os números 0, 1, 2, 3 e 4, respectivamente.
-Se a questão for do tipo Certo/Errado e a marcação for C, utilize 0. Se for E, utilize 1.
-Se o aluno deixou a questão em branco, marcou mais de uma opção (rasurada) ou a marcação for ilegível, utilize o valor null.
-O tamanho final do array deve ser ${questionsCount}.
-Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retorne EXCLUSIVAMENTE o array. Exemplo válido: [0, 1, 3, null, 4]`;
+                    const prompt = `Atue como um corretor rigoroso de cartões-resposta (gabaritos). 
+A imagem contém um cartão-resposta de um aluno com exatamente ${questionsCount} questões.
+Sua única tarefa é retornar um array JSON puro representando o índice das marcações que o aluno FEZ (pintou), na ordem das questões.
+REGRAS CRÍTICAS:
+1. Para alternativas A, B, C, D e E, use os números 0, 1, 2, 3 e 4.
+2. Para questões Certo/Errado, C=0 e E=1.
+3. Se a questão estiver EM BRANCO (apenas os círculos impressos sem preenchimento forte), rasurada (mais de uma marcação) ou ilegível, você DEVE OBRIGATORIAMENTE retornar o valor null.
+4. ATENÇÃO MÁXIMA: Círculos vazios (só o contorno) NÃO são respostas. Sombras e sujeiras não são respostas. Se a folha estiver limpa/em branco, retorne um array com ${questionsCount} valores null. NÃO adivinhe respostas.
+O tamanho final do array deve ser estritamente ${questionsCount}.
+Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retorne EXCLUSIVAMENTE o array. Exemplo válido: [0, 1, null, null, 4]`;
 
                     const payload = {
                         contents: [{
