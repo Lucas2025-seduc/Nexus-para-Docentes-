@@ -1869,32 +1869,24 @@
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
                     const prompt = `Você é um sistema especialista em correção de cartões-resposta (gabaritos).
-A imagem contém uma tabela onde a primeira coluna tem os números das questões (de 1 a ${questionsCount}) e as próximas colunas contêm as bolhas das alternativas (A, B, C, D, E), estritamente nessa ordem da esquerda para a direita.
+A imagem contém uma tabela de respostas. A primeira coluna tem os números das questões (de 1 a ${questionsCount}). As próximas colunas contêm as bolhas (A, B, C, D, E).
 
-Sua tarefa é retornar OBRIGATORIAMENTE um objeto JSON estruturado da seguinte forma:
+Retorne OBRIGATORIAMENTE um objeto JSON estrito com esta estrutura exata:
 {
   "analise": {
-    "1": "...",
-    "2": "..."
+    "1": "A(vazia) B(vazia) C(preta) D(vazia) E(vazia) -> Resposta: C",
+    "2": "A(vazia) B(preta) C(vazia) D(vazia) E(vazia) -> Resposta: B"
   },
-  "respostas": [2, 4, 0, ...]
+  "respostas": [2, 1, 0, null, 4]
 }
 
-REGRAS DE ANÁLISE RIGOROSA (PASSO A PASSO):
-Para CADA questão de 1 até ${questionsCount}, localize o número da questão na borda esquerda e deslize sua visão horizontalmente para a direita, avaliando bolha por bolha:
-- Posição 1 (A): Vazia ou Pintada (preta)?
-- Posição 2 (B): Vazia ou Pintada (preta)?
-- Posição 3 (C): Vazia ou Pintada (preta)?
-- Posição 4 (D): Vazia ou Pintada (preta)?
-- Posição 5 (E): Vazia ou Pintada (preta)?
-Na chave "analise", documente qual bolha está nitidamente preenchida de forma escura. Preste atenção redobrada ao alinhamento das colunas finais (D e E) para não as confundir com C.
-
-REGRAS PARA O ARRAY "respostas":
-Converta a letra identificada na análise para o respectivo número:
-A = 0, B = 1, C = 2, D = 3, E = 4.
-Se a linha não tiver nenhuma bolha pintada (em branco), use o valor null.
-Se a linha tiver mais de uma bolha pintada (rasura), use o valor null.
-O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), respeitando rigorosamente a ordem das questões de 1 a ${questionsCount}.`;
+REGRAS DE VISÃO COMPUTACIONAL EXTREMAMENTE RIGOROSAS:
+1. Para CADA questão de 1 a ${questionsCount}, alinhe sua visão horizontalmente com extremo cuidado.
+2. Avalie as 5 bolhas. Uma bolha SÓ É "preta" se tiver o interior fortemente pintado com caneta/lápis. Bolha com interior branco/claro/apenas contorno é "vazia". Ignore sombras ou sujeiras de impressão.
+3. Na chave "analise", ESCREVA O ESTADO EXATO DE CADA UMA DAS 5 BOLHAS como no exemplo. Isso evita que você confunda a coluna D com E, ou B com C.
+4. Na chave "respostas", converta a letra marcada em um número: A=0, B=1, C=2, D=3, E=4. (Para Certo/Errado: Certo=0, Errado=1).
+5. Se estiver TOTALMENTE em branco (0 pintadas) ou rasurada (2 ou mais pintadas na mesma linha), a resposta é nula, coloque null.
+6. O array "respostas" DEVE ter EXATAMENTE ${questionsCount} elementos, respeitando a ordem de 1 a ${questionsCount}.`;
 
                     const payload = {
                         contents: [{
@@ -1924,8 +1916,11 @@ O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), re
                             }
                             
                             let text = data.candidates[0].content.parts[0].text;
-                            const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                            const parsedObj = JSON.parse(cleanedText);
+                            // Extração extra-segura de JSON usando Regex para evitar textos soltos da IA
+                            const jsonMatch = text.match(/\{[\s\S]*\}/);
+                            if (!jsonMatch) throw new Error("A IA não retornou um JSON válido.");
+                            
+                            const parsedObj = JSON.parse(jsonMatch[0]);
                             
                             let parsedArray = parsedObj;
                             if (parsedObj.respostas && Array.isArray(parsedObj.respostas)) {
@@ -2095,22 +2090,21 @@ O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), re
                     freeCorrectionStatus.value = 'processing';
                     try {
                         const parts = [
-                            {text: `Você é um professor especialista em correção. As imagens a seguir contêm as páginas de uma prova inteira resolvida por um aluno.
-Sua Tarefa OBRIGATÓRIA passo a passo:
-1. Identifique o NOME DA PROVA (ou disciplina) no cabeçalho.
-2. Identifique o NOME DO ALUNO preenchido no cabeçalho.
-3. Observe APENAS O GABARITO (quadro de respostas) preenchido pelo aluno, geralmente localizado no INÍCIO da prova (primeira página). O gabarito é a fonte oficial das respostas marcadas pelo aluno.
-4. Leia o enunciado de cada questão nas páginas da prova para entender o assunto.
-5. Determine qual é a alternativa correta de cada questão usando o seu próprio conhecimento acadêmico.
-6. Compare a resposta que o aluno marcou no GABARITO INICIAL com a sua resolução correta.
-7. Calcule a nota final (de 0.0 a 10.0) de forma estritamente proporcional aos acertos totais.
+                            {text: `Você é um professor corretor super rigoroso e uma IA de visão avançada.
+As imagens a seguir contêm as páginas de uma prova inteira resolvida por um aluno.
 
-Retorne APENAS um objeto JSON válido neste exato formato, sem formatação markdown:
+Sua Tarefa OBRIGATÓRIA passo a passo:
+1. IDENTIFICAÇÃO: Localize o NOME DO ALUNO e o TÍTULO DA PROVA/DISCIPLINA no cabeçalho da primeira página.
+2. LEITURA DO GABARITO DO ALUNO: Na primeira página, procure um quadro de respostas (gabarito). Identifique com 100% de certeza qual alternativa o aluno pintou/marcou para cada questão. Liste isso mentalmente.
+3. RESOLUÇÃO CORRETA: Leia o enunciado de cada questão nas páginas da prova. Use o seu vasto conhecimento acadêmico para resolver a questão e descobrir qual é a alternativa correta real do teste.
+4. COMPARAÇÃO E CÁLCULO: Compare o gabarito pintado pelo aluno (Passo 2) com a resposta correta real que você encontrou (Passo 3). Calcule a nota final de 0.0 a 10.0 proporcionalmente ao número de acertos em relação ao total de questões.
+
+Retorne APENAS um objeto JSON válido, iniciando com { e terminando com }, sem blocos markdown:
 {
-  "nomeAluno": "Nome encontrado",
-  "nomeProva": "Título da prova detectado",
+  "nomeAluno": "Nome detectado na foto",
+  "nomeProva": "Título detectado na foto",
   "notaFinal": "8.5",
-  "analise": "Gabarito do aluno lido no quadro inicial: 1-A, 2-C...\\nResoluções corretas da IA: 1-B, 2-C...\\nConclusão: Errou a 1, Acertou a 2..."
+  "analise": "Questão 1:\\n- Aluno marcou: A (lido no gabarito)\\n- Resposta Correta: B (porque a mitocôndria...)\\n- Resultado: ERROU\\n\\nQuestão 2:\\n- Aluno marcou: C\\n- Resposta Correta: C\\n- Resultado: ACERTOU"
 }`}
                         ];
 
@@ -2135,8 +2129,11 @@ Retorne APENAS um objeto JSON válido neste exato formato, sem formatação mark
                         if(data.error) throw new Error(data.error.message);
 
                         let text = data.candidates[0].content.parts[0].text;
-                        const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                        const result = JSON.parse(cleanedText);
+                        // Extração extra-segura de JSON
+                        const jsonMatch = text.match(/\{[\s\S]*\}/);
+                        if (!jsonMatch) throw new Error("A IA não retornou um JSON legível.");
+                        
+                        const result = JSON.parse(jsonMatch[0]);
 
                         const matchedEId = findClosestExam(result.nomeProva);
                         const matchedSId = findClosestStudent(result.nomeAluno, matchedEId);
