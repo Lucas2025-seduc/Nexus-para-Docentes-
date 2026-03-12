@@ -664,7 +664,6 @@
                                         <p class="text-xs font-bold text-gray-700 truncate">{{ item.name }}</p>
                                         <p class="text-[10px] truncate" :class="item.status==='error'?'text-red-500':'text-gray-500'">{{ item.message }}</p>
                                         
-                                        <!-- NOVO: Feedback de qual prova foi detectada no QR Code -->
                                         <p v-if="item.detectedExam" class="text-[9px] text-indigo-500 font-bold mt-0.5">
                                             Lido: Prova #{{ item.detectedExam }} | Tipo {{ item.detectedVersion }}
                                         </p>
@@ -706,12 +705,12 @@
                             <div v-for="(q, idx) in activeExamQuestions" :key="idx" class="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <span class="font-bold text-gray-400 text-xs w-6">#{{ idx+1 }}</span>
-                                    <div class="w-1.5 h-1.5 rounded-full" :class="studentAnswers[idx] === q.correctIndex ? 'bg-emerald-500' : (studentAnswers[idx] !== undefined ? 'bg-red-500' : 'bg-gray-200')"></div>
+                                    <div class="w-1.5 h-1.5 rounded-full" :class="studentAnswers[idx] === q.correctIndex ? 'bg-emerald-500' : (studentAnswers[idx] !== null ? 'bg-red-500' : 'bg-gray-200')"></div>
                                 </div>
                                 
                                 <div class="flex gap-2">
                                     <template v-if="q.type === 'ce'">
-                                        <div v-for="(label, i) in ['C', 'E']" :key="i" @click="studentAnswers[idx] = i" 
+                                        <div v-for="(label, i) in ['C', 'E']" :key="i" @click="setStudentAnswer(idx, i)" 
                                              class="bubble" 
                                              :class="{
                                                 'selected': studentAnswers[idx] === i,
@@ -722,13 +721,13 @@
                                         </div>
                                     </template>
                                     <template v-else-if="q.type === 'vf'">
-                                        <div v-for="(label, i) in ['A', 'B', 'C', 'D', 'E']" :key="i" @click="studentAnswers[idx] = i" 
+                                        <div v-for="(label, i) in ['A', 'B', 'C', 'D', 'E']" :key="i" @click="setStudentAnswer(idx, i)" 
                                              class="bubble" :class="{'selected': studentAnswers[idx] === i}">
                                             {{ label }}
                                         </div>
                                     </template>
                                     <template v-else>
-                                        <div v-for="(o, i) in 5" :key="i" @click="studentAnswers[idx] = i" 
+                                        <div v-for="(o, i) in 5" :key="i" @click="setStudentAnswer(idx, i)" 
                                              class="bubble" :class="{'selected': studentAnswers[idx] === i}">
                                             {{ ['A','B','C','D','E'][i] }}
                                         </div>
@@ -1223,7 +1222,7 @@
                 <div class="p-4 border-b flex justify-between items-center bg-indigo-600 text-white shrink-0">
                     <div>
                         <h3 class="font-bold text-lg leading-tight">Análise de Respostas</h3>
-                        <p class="text-[10px] text-indigo-200">{{ selectedResultDetails?.studentName }}</p>
+                        <p class="text-[10px] text-indigo-200">{{ selectedResultDetails?.studentName }} | Tipo {{ selectedResultDetails?.version }}</p>
                     </div>
                     <button @click="showResultDetailsModal = false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
                 </div>
@@ -1683,11 +1682,22 @@
 
                     activeExam.value = e;
                     activeStudent.value = s;
-                    activeVersion.value = verIdx;
-                    studentAnswers.value = {};
+                    activeVersion.value = Number(verIdx);
+                    
+                    // INICIALIZADOR DE REATIVIDADE DO VUE
+                    const tempAnswers = {};
+                    const v = e.versions[activeVersion.value];
+                    if (v && v.questions) {
+                        v.questions.forEach((q, idx) => { tempAnswers[idx] = null; });
+                    }
+                    studentAnswers.value = tempAnswers;
                     
                     showManualInputModal.value = false;
                     correctionMode.value = true;
+                };
+
+                const setStudentAnswer = (idx, val) => {
+                    studentAnswers.value[idx] = val;
                 };
 
                 // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) ---
@@ -1726,8 +1736,8 @@
                             status: 'pending',
                             message: 'Aguardando na fila...',
                             score: null,
-                            detectedExam: null, // NOVO
-                            detectedVersion: null // NOVO
+                            detectedExam: null,
+                            detectedVersion: null 
                         });
                     }
                     e.target.value = '';
@@ -1824,11 +1834,9 @@ O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), re
                                 parsedArray = parsedObj.respostas;
                             }
                             
-                            // Validação extra de segurança para garantir o tamanho do array
                             if(Array.isArray(parsedArray) && parsedArray.length === questionsCount) {
                                 return parsedArray;
                             } else if (Array.isArray(parsedArray)) {
-                                // Força o preenchimento com null se a IA retornar um array menor/maior
                                 const fixedArray = Array(questionsCount).fill(null);
                                 parsedArray.forEach((val, idx) => { if(idx < questionsCount) fixedArray[idx] = val; });
                                 return fixedArray;
@@ -1867,7 +1875,6 @@ O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), re
                             const student = students.value.find(s => s.id === Number(qrData.s));
                             if(!exam || !student) throw new Error("Prova/Aluno ausentes no banco local");
 
-                            // Salva o ID da prova e a versão que o QR Code detectou para dar feedback visual ao professor
                             item.detectedExam = exam.id;
                             item.detectedVersion = (qrData.v !== undefined ? Number(qrData.v) + 1 : 1);
 
@@ -1955,6 +1962,7 @@ O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), re
                     selectedResultDetails.value = {
                         title: ex.title,
                         studentName: examResult.studentName,
+                        version: (examResult.version !== undefined ? Number(examResult.version) + 1 : 1),
                         answers: examResult.answers || {},
                         questions: version.questions.map(q => {
                             let correctIndex = q.correctIndex;
@@ -2331,7 +2339,6 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                         const plainQData = JSON.parse(JSON.stringify(qData));
                         if(newQ.value.id) {
                             await db.questions.put({ ...plainQData, id: newQ.value.id }); 
-                            // NOVO: Sincroniza também as alterações para o carrinho caso a questão esteja lá
                             const cartIdx = examCart.value.findIndex(x => x.id === newQ.value.id);
                             if (cartIdx > -1) examCart.value[cartIdx] = { ...plainQData, id: newQ.value.id };
                         }
@@ -2497,7 +2504,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                 };
 
                 const generatePDF = async () => {
-                    const actionName = editingExamId.value ? "Atualizar Prova (PDF)?" : "Gerar e Baixar PDF da Prova?";
+                    const actionName = editingExamId.value ? "ATENÇÃO: Atualizar a prova vai re-embaralhar as questões e invalidar os gabaritos das provas que você já imprimiu! Deseja continuar?" : "Gerar e Baixar PDF da Prova?";
                     triggerConfirm(actionName, async () => {
                         try {
                             const baseQ = JSON.parse(JSON.stringify(examCart.value));
@@ -3195,7 +3202,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     currentView, tabs, classes, newClass, bulkStudents, addClass, saveStudents, getStudentCount, deleteStudent,
                     showQFormModal, openQForm, formSource, newQ, qFilter, filterType, filterSubject, filterTopic, uniqueTopics, filteredQuestions, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, 
                     examConfig, examCart, toggleExamQ, isQInExam, generatePDF, exams, deleteExam, showHistory,
-                    correctionMode, activeStudent, activeVersion, currentScore, activeExamQuestions, studentAnswers, saveResult, cancelCorrection,
+                    correctionMode, activeStudent, activeVersion, currentScore, activeExamQuestions, studentAnswers, saveResult, cancelCorrection, setStudentAnswer, // NOVO
                     settings, handleLogoUpload, saveSettings, backupData, 
                     examFilter, filteredExamQuestions, examTab, qType, toast, confirmModal, handleConfirm, 
                     selectedClassIdForReport, getClassAverage, getEvaluatedStudentCount, getClassRanking, getClassGradeDistribution, generateClassReportPDF,
@@ -3206,7 +3213,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
                     generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, uniqueSubjects,
                     printConfig, editingExamId, openEditExam, changeQType,
-                    dashboardStudentFilter, getClassName, // <- NOVO: exportado para a tela
+                    dashboardStudentFilter, getClassName, 
                     examFilterSubject, examFilterTopic, 
                     appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, isTemporal, timeLeft, deleteClass, showLicenseModal, toggleExpand,
                     geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, aiCorrectionQueue, processAIQueue, hasPendingItems, isProcessingQueue,
