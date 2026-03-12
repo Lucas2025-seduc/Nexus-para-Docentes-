@@ -1760,29 +1760,24 @@
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-                    const prompt = `Você é um software de Leitura Óptica de Marcas (OMR) de altíssima precisão.
-Sua única função é analisar a imagem de um cartão-resposta e detectar o preenchimento de bolhas (círculos).
-A imagem pode estar rotacionada. Encontre o bloco de respostas com exatamente ${questionsCount} questões.
+                    const prompt = `Você é um sistema de visão computacional de altíssima precisão projetado para ler cartões-resposta (gabaritos).
+Analise a imagem fornecida, que contém uma tabela de respostas. A imagem pode estar deitada ou inclinada, ajuste sua leitura.
+Encontre a tabela numerada de 1 a ${questionsCount}. Para cada questão, há bolhas correspondentes às alternativas (A, B, C, D, E).
 
-TÓPICO 1: CRITÉRIO DE MARCAÇÃO (MUITO RESTRITO)
-- Uma bolha (círculo) VAZIA tem o fundo claro/branco, apresentando apenas uma borda fina. ISSO NÃO É UMA MARCAÇÃO.
-- Uma bolha MARCADA tem o seu interior fortemente preenchido com grafite ou tinta escura.
-- IGNORE COMPLETAMENTE: sombras de iluminação, reflexos da câmera, marcas de dobra do papel ou sujeiras. Foque APENAS no preenchimento intencional dentro dos círculos.
+Sua tarefa é retornar OBRIGATORIAMENTE um objeto JSON com duas chaves: "analise" e "respostas".
 
-TÓPICO 2: REGRAS DE SAÍDA (OUTPUT)
-Retorne EXCLUSIVAMENTE um array JSON contendo exatamente ${questionsCount} elementos. Sem texto extra, sem formatação markdown.
-Para cada questão (na ordem de 1 até ${questionsCount}):
-- Se a alternativa A (ou Certo) estiver pintada, retorne 0
-- Se a alternativa B (ou Errado) estiver pintada, retorne 1
-- Se a alternativa C estiver pintada, retorne 2
-- Se a alternativa D estiver pintada, retorne 3
-- Se a alternativa E estiver pintada, retorne 4
-- Se a questão estiver TOTALMENTE EM BRANCO (nenhuma bolha nitidamente preenchida), retorne OBRIGATORIAMENTE o valor null.
-- Se houver rasura (duas ou mais bolhas pintadas na mesma questão), retorne null.
+Passo a Passo:
+1. Em "analise", faça um raciocínio linha por linha: observe cuidadosamente a linha da questão e descreva qual letra você enxerga como pintada (fundo escuro/preenchido com caneta). Círculos com fundo branco estão vazios. Cuidado para não pular linhas ou confundir colunas.
+2. Em "respostas", forneça um array numérico com exatamente ${questionsCount} elementos baseado na sua análise.
+- Converta a letra pintada para um número: A=0, B=1, C=2, D=3, E=4. (Para questões de Certo/Errado: Certo=0, Errado=1).
+- Se a linha estiver totalmente sem marcação (todas as bolhas vazias), coloque null.
+- Se houver rasura (mais de uma bolha pintada na mesma linha), coloque null.
 
-ATENÇÃO: Se o aluno entregou a prova inteira em branco, você DEVE retornar um array apenas com valores null. 
-Exemplo válido para 5 questões em branco: [null, null, null, null, null].
-NÃO tente adivinhar respostas. Na dúvida se um pixel é sombra ou caneta, considere VAZIO (null).`;
+Exemplo de formato de saída exigido:
+{
+  "analise": "1: bolha C pintada. 2: bolha E pintada. 3: bolha A pintada...",
+  "respostas": [2, 4, 0, ...]
+}`;
 
                     const payload = {
                         contents: [{
@@ -1813,7 +1808,12 @@ NÃO tente adivinhar respostas. Na dúvida se um pixel é sombra ou caneta, cons
                             
                             let text = data.candidates[0].content.parts[0].text;
                             const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                            const parsedArray = JSON.parse(cleanedText);
+                            const parsedObj = JSON.parse(cleanedText);
+                            
+                            let parsedArray = parsedObj;
+                            if (parsedObj.respostas && Array.isArray(parsedObj.respostas)) {
+                                parsedArray = parsedObj.respostas;
+                            }
                             
                             // Validação extra de segurança para garantir o tamanho do array
                             if(Array.isArray(parsedArray) && parsedArray.length === questionsCount) {
