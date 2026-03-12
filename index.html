@@ -1760,24 +1760,33 @@
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-                    const prompt = `Você é um sistema de visão computacional de altíssima precisão projetado para ler cartões-resposta (gabaritos).
-Analise a imagem fornecida, que contém uma tabela de respostas. A imagem pode estar deitada ou inclinada, ajuste sua leitura.
-Encontre a tabela numerada de 1 a ${questionsCount}. Para cada questão, há bolhas correspondentes às alternativas (A, B, C, D, E).
+                    const prompt = `Você é um sistema especialista em correção de cartões-resposta (gabaritos).
+A imagem contém uma tabela onde a primeira coluna tem os números das questões (de 1 a ${questionsCount}) e as próximas colunas contêm as bolhas das alternativas (A, B, C, D, E), estritamente nessa ordem da esquerda para a direita.
 
-Sua tarefa é retornar OBRIGATORIAMENTE um objeto JSON com duas chaves: "analise" e "respostas".
-
-Passo a Passo:
-1. Em "analise", faça um raciocínio linha por linha: observe cuidadosamente a linha da questão e descreva qual letra você enxerga como pintada (fundo escuro/preenchido com caneta). Círculos com fundo branco estão vazios. Cuidado para não pular linhas ou confundir colunas.
-2. Em "respostas", forneça um array numérico com exatamente ${questionsCount} elementos baseado na sua análise.
-- Converta a letra pintada para um número: A=0, B=1, C=2, D=3, E=4. (Para questões de Certo/Errado: Certo=0, Errado=1).
-- Se a linha estiver totalmente sem marcação (todas as bolhas vazias), coloque null.
-- Se houver rasura (mais de uma bolha pintada na mesma linha), coloque null.
-
-Exemplo de formato de saída exigido:
+Sua tarefa é retornar OBRIGATORIAMENTE um objeto JSON estruturado da seguinte forma:
 {
-  "analise": "1: bolha C pintada. 2: bolha E pintada. 3: bolha A pintada...",
+  "analise": {
+    "1": "...",
+    "2": "..."
+  },
   "respostas": [2, 4, 0, ...]
-}`;
+}
+
+REGRAS DE ANÁLISE RIGOROSA (PASSO A PASSO):
+Para CADA questão de 1 até ${questionsCount}, localize o número da questão na borda esquerda e deslize sua visão horizontalmente para a direita, avaliando bolha por bolha:
+- Posição 1 (A): Vazia ou Pintada (preta)?
+- Posição 2 (B): Vazia ou Pintada (preta)?
+- Posição 3 (C): Vazia ou Pintada (preta)?
+- Posição 4 (D): Vazia ou Pintada (preta)?
+- Posição 5 (E): Vazia ou Pintada (preta)?
+Na chave "analise", documente qual bolha está nitidamente preenchida de forma escura. Preste atenção redobrada ao alinhamento das colunas finais (D e E) para não as confundir com C.
+
+REGRAS PARA O ARRAY "respostas":
+Converta a letra identificada na análise para o respectivo número:
+A = 0, B = 1, C = 2, D = 3, E = 4.
+Se a linha não tiver nenhuma bolha pintada (em branco), use o valor null.
+Se a linha tiver mais de uma bolha pintada (rasura), use o valor null.
+O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), respeitando rigorosamente a ordem das questões de 1 a ${questionsCount}.`;
 
                     const payload = {
                         contents: [{
