@@ -663,6 +663,11 @@
                                     <div class="flex-1 overflow-hidden">
                                         <p class="text-xs font-bold text-gray-700 truncate">{{ item.name }}</p>
                                         <p class="text-[10px] truncate" :class="item.status==='error'?'text-red-500':'text-gray-500'">{{ item.message }}</p>
+                                        
+                                        <!-- NOVO: Feedback de qual prova foi detectada no QR Code -->
+                                        <p v-if="item.detectedExam" class="text-[9px] text-indigo-500 font-bold mt-0.5">
+                                            Lido: Prova #{{ item.detectedExam }} | Tipo {{ item.detectedVersion }}
+                                        </p>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <div v-if="item.score !== null" class="font-black text-lg text-emerald-600">{{ item.score }}</div>
@@ -767,7 +772,7 @@
                         <label class="text-xs font-bold text-gray-500 uppercase">Selecione a Prova</label>
                         <select v-model="manualConfig.examId" class="w-full p-3 border rounded-xl bg-gray-50 text-sm outline-none font-bold text-gray-700 transition focus:border-indigo-500">
                             <option value="">Escolha...</option>
-                            <option v-for="e in exams" :key="e.id" :value="e.id">{{ e.title }}</option>
+                            <option v-for="e in exams" :key="e.id" :value="e.id">#{{ e.id }} - {{ e.title }}</option>
                         </select>
                     </div>
                     
@@ -1141,10 +1146,16 @@
                     </div>
                     <div v-for="e in filteredHistoryExams" :key="e.id" class="bg-white border border-gray-100 rounded-xl p-4 flex justify-between items-center shadow-sm hover:shadow-md transition">
                         <div>
-                            <div class="font-bold text-indigo-900 text-sm mb-1">{{ e.title }}</div>
+                            <div class="font-bold text-indigo-900 text-sm mb-1">
+                                <!-- NOVO: Mostra o ID da prova visualmente -->
+                                <span class="text-xs text-indigo-400 font-mono bg-indigo-50 px-1.5 py-0.5 rounded mr-1">#{{ e.id }}</span>
+                                {{ e.title }}
+                            </div>
                             <div class="text-xs text-gray-400 flex gap-2 items-center">
                                 <span><i class="fa-regular fa-calendar mr-1"></i>{{ new Date(e.date).toLocaleDateString() }}</span>
                                 <span class="bg-gray-100 px-1.5 rounded text-[10px] font-bold uppercase">{{ e.bimester }}º Bim</span>
+                                <!-- NOVO: Mostra o nome da turma para ajudar na identificação -->
+                                <span class="bg-gray-100 px-1.5 rounded text-[10px] font-bold truncate max-w-[100px]">{{ getClassName(e.classId) }}</span>
                             </div>
                         </div>
                         <div class="flex gap-2">
@@ -1714,7 +1725,9 @@
                             name: f.name,
                             status: 'pending',
                             message: 'Aguardando na fila...',
-                            score: null
+                            score: null,
+                            detectedExam: null, // NOVO
+                            detectedVersion: null // NOVO
                         });
                     }
                     e.target.value = '';
@@ -1844,6 +1857,10 @@ NÃO tente adivinhar respostas. Na dúvida se um pixel é sombra ou caneta, cons
                             const exam = exams.value.find(e => e.id === Number(qrData.e));
                             const student = students.value.find(s => s.id === Number(qrData.s));
                             if(!exam || !student) throw new Error("Prova/Aluno ausentes no banco local");
+
+                            // Salva o ID da prova e a versão que o QR Code detectou para dar feedback visual ao professor
+                            item.detectedExam = exam.id;
+                            item.detectedVersion = (qrData.v !== undefined ? Number(qrData.v) + 1 : 1);
 
                             if(!exam.versions) exam.versions = [{id:0, questions:exam.questionsA || exam.questions}, {id:1, questions:exam.questionsB || []}];
                             const version = exam.versions[qrData.v] || exam.versions[0];
@@ -2068,6 +2085,11 @@ NÃO tente adivinhar respostas. Na dúvida se um pixel é sombra ou caneta, cons
                         utterance.lang = 'pt-BR';
                         window.speechSynthesis.speak(utterance);
                     }
+                };
+
+                const getClassName = (classId) => {
+                    const c = classes.value.find(x => x.id === classId);
+                    return c ? c.name : 'Turma Apagada';
                 };
 
                 const load = async () => {
@@ -3175,8 +3197,8 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
                     generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, uniqueSubjects,
                     printConfig, editingExamId, openEditExam, changeQType,
-                    dashboardStudentFilter,
-                    examFilterSubject, examFilterTopic, // NOVO: Exportado para a UI
+                    dashboardStudentFilter, getClassName, // <- NOVO: exportado para a tela
+                    examFilterSubject, examFilterTopic, 
                     appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, isTemporal, timeLeft, deleteClass, showLicenseModal, toggleExpand,
                     geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, aiCorrectionQueue, processAIQueue, hasPendingItems, isProcessingQueue,
                     showResultDetailsModal, selectedResultDetails, openResultDetails, getAlternativeLabel, showExamStatsModal, examStats, openExamStats,
