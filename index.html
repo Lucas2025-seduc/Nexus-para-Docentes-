@@ -1747,14 +1747,20 @@
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
+                    // O prompt agora aborda especificamente a rotação da imagem e as sombras
                     const prompt = `Atue como um corretor rigoroso de cartões-resposta (gabaritos). 
 A imagem contém um cartão-resposta de um aluno com exatamente ${questionsCount} questões.
-Sua única tarefa é retornar um array JSON puro representando o índice das marcações que o aluno FEZ (pintou), na ordem das questões.
-REGRAS CRÍTICAS:
+A IMAGEM PODE ESTAR DEITADA/ROTACIONADA (horizontal). Ajuste sua leitura para a orientação correta baseando-se no texto, na ordem numérica das questões e na ordem alfabética das alternativas.
+
+Sua única tarefa é retornar um array JSON puro representando o índice das marcações que o aluno FEZ (pintou escuro), na ordem das questões.
+REGRAS CRÍTICAS E INFALÍVEIS:
 1. Para alternativas A, B, C, D e E, use os números 0, 1, 2, 3 e 4.
 2. Para questões Certo/Errado, C=0 e E=1.
-3. Se a questão estiver EM BRANCO (apenas os círculos impressos sem preenchimento forte), rasurada (mais de uma marcação) ou ilegível, você DEVE OBRIGATORIAMENTE retornar o valor null.
-4. ATENÇÃO MÁXIMA: Círculos vazios (só o contorno) NÃO são respostas. Sombras e sujeiras não são respostas. Se a folha estiver limpa/em branco, retorne um array com ${questionsCount} valores null. NÃO adivinhe respostas.
+3. CRITÉRIO VISUAL DE PREENCHIMENTO: Uma alternativa SÓ é considerada marcada se o círculo estiver nitidamente PINTADO/ESCURO por dentro com caneta/lápis. 
+4. CÍRCULOS VAZIOS: Círculos com o interior claro/branco (apenas com a borda preta impressa) NÃO SÃO RESPOSTAS. Eles estão EM BRANCO.
+5. SOMBRAS E ROTAÇÃO: Ignore sombras causadas pela inclinação da câmera, reflexos da mesa, marcas de dobra da folha ou o fato de a foto estar na horizontal. A IA não deve confundir sombra de iluminação com tinta de caneta.
+6. Se a questão estiver EM BRANCO (interior claro), rasurada (mais de uma marcação escura) ou ilegível, você DEVE OBRIGATORIAMENTE retornar o valor null para ela.
+7. Se a folha inteira estiver limpa (sem nenhuma bolinha preenchida), retorne um array APENAS com ${questionsCount} valores null. NÃO TENTE ADIVINHAR RESPOSTAS EM CÍRCULOS VAZIOS.
 O tamanho final do array deve ser estritamente ${questionsCount}.
 Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retorne EXCLUSIVAMENTE o array. Exemplo válido: [0, 1, null, null, 4]`;
 
