@@ -1866,27 +1866,37 @@
 
                 const callGemini = async (base64Data, mimeType, questionsCount) => {
                     const apiKey = geminiKey.value;
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+                    // ALTERAÇÃO CRÍTICA 1: Utilização forçada do modelo PRO para a leitura do gabarito também, maximizando o raciocínio espacial.
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 
-                    const prompt = `Você é um sistema especialista em correção de cartões-resposta (gabaritos).
-A imagem contém uma tabela de respostas. A primeira coluna tem os números das questões (de 1 a ${questionsCount}). As próximas colunas contêm as bolhas (A, B, C, D, E).
+                    // ALTERAÇÃO CRÍTICA 2: Método de Transcrição Visual rigorosa (Desenho da grelha).
+                    const prompt = `Você é um sistema de Leitura Óptica de Marcas (OMR) de precisão cirúrgica e absoluta.
+A imagem contém um cartão-resposta (gabarito) com EXATAMENTE ${questionsCount} questões numéricas.
 
-Retorne OBRIGATORIAMENTE um objeto JSON estrito com esta estrutura exata:
+MÉTODO DE TRANSCRIÇÃO VISUAL OBRIGATÓRIO PARA NÃO ERRAR O ALINHAMENTO:
+Para garantir precisão de 100%, você DEVE "desenhar" em texto o que vê linha por linha na chave "analiseVisual".
+Observe a linha inteira da esquerda para a direita. Use ( ) para bolhas VAZIAS (fundo claro/apenas contorno) e (X) para a bolha MARCADA (interior fortemente pintado de escuro).
+
+Exemplos de "analiseVisual":
+"1": "( ) ( ) (X) ( ) ( ) -> C"  (A terceira bolha está pintada)
+"2": "( ) (X) ( ) ( ) ( ) -> B"  (A segunda bolha está pintada)
+"3": "(X) (X) ( ) ( ) ( ) -> NULA" (Rasura/duas opções pintadas)
+"4": "( ) ( ) ( ) ( ) ( ) -> NULA" (Todas vazias)
+
+Sua saída deve ser ESTRITAMENTE um objeto JSON válido (SEM formatação markdown como \`\`\`json), neste formato exato:
 {
-  "analise": {
-    "1": "A(vazia) B(vazia) C(preta) D(vazia) E(vazia) -> Resposta: C",
-    "2": "A(vazia) B(preta) C(vazia) D(vazia) E(vazia) -> Resposta: B"
+  "analiseVisual": {
+    "1": "( ) (X) ( ) ( ) ( ) -> B",
+    "2": "( ) ( ) ( ) (X) ( ) -> D"
   },
-  "respostas": [2, 1, 0, null, 4]
+  "respostas": [1, 3, null, 4, 0]
 }
 
-REGRAS DE VISÃO COMPUTACIONAL EXTREMAMENTE RIGOROSAS:
-1. Para CADA questão de 1 a ${questionsCount}, alinhe sua visão horizontalmente com extremo cuidado.
-2. Avalie as 5 bolhas. Uma bolha SÓ É "preta" se tiver o interior fortemente pintado com caneta/lápis. Bolha com interior branco/claro/apenas contorno é "vazia". Ignore sombras ou sujeiras de impressão.
-3. Na chave "analise", ESCREVA O ESTADO EXATO DE CADA UMA DAS 5 BOLHAS como no exemplo. Isso evita que você confunda a coluna D com E, ou B com C.
-4. Na chave "respostas", converta a letra marcada em um número: A=0, B=1, C=2, D=3, E=4. (Para Certo/Errado: Certo=0, Errado=1).
-5. Se estiver TOTALMENTE em branco (0 pintadas) ou rasurada (2 ou mais pintadas na mesma linha), a resposta é nula, coloque null.
-6. O array "respostas" DEVE ter EXATAMENTE ${questionsCount} elementos, respeitando a ordem de 1 a ${questionsCount}.`;
+REGRAS RÍGIDAS PARA O ARRAY "respostas":
+- Converta a letra identificada na análise visual para NÚMERO exato: A=0, B=1, C=2, D=3, E=4.
+- Para questões de Certo/Errado aplique: Certo=0, Errado=1.
+- Se ocorreu rasura ou em branco (NULA), use estritamente null.
+- O array "respostas" DEVE ter exatos ${questionsCount} elementos, respeitando a ordem de 1 a ${questionsCount}.`;
 
                     const payload = {
                         contents: [{
@@ -1916,9 +1926,10 @@ REGRAS DE VISÃO COMPUTACIONAL EXTREMAMENTE RIGOROSAS:
                             }
                             
                             let text = data.candidates[0].content.parts[0].text;
-                            // Extração extra-segura de JSON usando Regex para evitar textos soltos da IA
+                            
+                            // Extração ultra-segura do JSON
                             const jsonMatch = text.match(/\{[\s\S]*\}/);
-                            if (!jsonMatch) throw new Error("A IA não retornou um JSON válido.");
+                            if (!jsonMatch) throw new Error("A IA não retornou um formato JSON extraível.");
                             
                             const parsedObj = JSON.parse(jsonMatch[0]);
                             
@@ -1934,7 +1945,7 @@ REGRAS DE VISÃO COMPUTACIONAL EXTREMAMENTE RIGOROSAS:
                                 parsedArray.forEach((val, idx) => { if(idx < questionsCount) fixedArray[idx] = val; });
                                 return fixedArray;
                             }
-                            throw new Error("Formato JSON inválido retornado pela IA.");
+                            throw new Error("Tamanho do array de respostas incorreto retornado pela IA.");
                             
                         } catch(e) {
                             if(e.isRateLimit) {
