@@ -779,56 +779,72 @@
                 <div class="flex justify-between items-center mb-4 shrink-0">
                     <div>
                         <h3 class="text-lg font-bold text-purple-700 leading-tight">Correção Livre</h3>
-                        <p class="text-[10px] text-gray-400">Leitura direta das páginas da prova</p>
+                        <p class="text-[10px] text-gray-400">Identificação automática e leitura do gabarito</p>
                     </div>
                     <button @click="showFreeCorrectionModal = false" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
                 </div>
 
                 <div class="overflow-y-auto pr-1 space-y-4 custom-scrollbar">
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Vincular a qual Prova?</label>
-                        <select v-model="freeCorrectionData.examId" class="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm outline-none font-bold text-gray-700 transition focus:border-purple-500">
-                            <option value="">Selecione...</option>
-                            <option v-for="e in exams" :key="e.id" :value="e.id">#{{ e.id }} - {{ e.title }}</option>
-                        </select>
-                    </div>
-
-                    <div v-if="freeCorrectionData.examId">
-                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Aluno(a)</label>
-                        <select v-model="freeCorrectionData.studentId" class="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm outline-none font-bold text-gray-700 transition focus:border-purple-500">
-                            <option value="">Selecione...</option>
-                            <option v-for="s in freeCorrectionStudents" :key="s.id" :value="s.id">{{ s.name }}</option>
-                        </select>
-                    </div>
-
-                    <div v-if="freeCorrectionData.studentId" class="pt-2 border-t border-gray-100">
+                    <div v-if="freeCorrectionStatus === 'idle'">
+                        <p class="text-xs text-gray-500 mb-3 bg-purple-50 p-2 rounded-lg border border-purple-100">
+                            📸 <b>Dica:</b> Tire fotos de todas as páginas da prova em sequência. A IA vai identificar o <b>Aluno</b>, a <b>Prova</b> e ler as respostas marcadas no <b>Gabarito Inicial</b> para dar a nota.
+                        </p>
                         <label class="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Fotos das Páginas (Legíveis)</label>
                         <input type="file" multiple accept="image/*" id="freeAIUpload" class="hidden" @change="handleFreeAIUpload">
-                        <button @click="triggerFreeAIUpload" class="w-full bg-gray-100 border border-dashed border-gray-300 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center gap-2 text-sm">
-                            <i class="fa-solid fa-images"></i> Selecionar Imagens
+                        <button @click="triggerFreeAIUpload" class="w-full bg-gray-100 border border-dashed border-gray-300 text-purple-600 py-4 rounded-xl font-bold hover:bg-gray-200 transition flex flex-col items-center justify-center gap-2 text-sm shadow-sm">
+                            <i class="fa-solid fa-camera text-2xl"></i> Selecionar Imagens
                         </button>
-                        <p v-if="freeCorrectionData.files.length > 0" class="text-xs text-emerald-600 font-bold mt-2 text-center">{{ freeCorrectionData.files.length }} imagem(ns) selecionada(s)</p>
+                        <p v-if="freeCorrectionData.files.length > 0" class="text-xs text-emerald-600 font-bold mt-3 text-center bg-emerald-50 py-1.5 rounded-lg border border-emerald-100">
+                            <i class="fa-solid fa-check"></i> {{ freeCorrectionData.files.length }} imagem(ns) selecionada(s)
+                        </p>
                     </div>
 
-                    <div v-if="freeCorrectionStatus === 'processing'" class="py-4 text-center text-purple-600 flex flex-col items-center">
-                        <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-2"></i>
-                        <p class="text-xs font-bold mt-2">A IA está lendo toda a prova... (Isto pode demorar alguns segundos)</p>
+                    <div v-if="freeCorrectionStatus === 'processing'" class="py-6 text-center text-purple-600 flex flex-col items-center">
+                        <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-3"></i>
+                        <p class="text-sm font-bold mt-2">A analisar as páginas...</p>
+                        <p class="text-[10px] text-gray-500 mt-1">Identificando aluno, lendo gabarito e corrigindo.</p>
                     </div>
 
-                    <div v-if="freeCorrectionStatus === 'success' && freeCorrectionResult" class="bg-purple-50 p-4 rounded-xl border border-purple-200 mt-2 animate-fade-in">
-                        <div class="text-center mb-3">
-                            <span class="text-[10px] uppercase font-bold text-purple-400 block">Nota Sugerida pela IA</span>
-                            <span class="text-4xl font-black text-purple-700">{{ freeCorrectionResult.notaFinal }}</span>
+                    <div v-if="freeCorrectionStatus === 'success' && freeCorrectionResult" class="animate-fade-in space-y-3">
+                        
+                        <!-- Confirmação de Vínculo -->
+                        <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                            <p class="text-[10px] font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><i class="fa-solid fa-link"></i> Vincular Resultado</p>
+                            <div class="space-y-2">
+                                <div>
+                                    <label class="text-[9px] text-gray-500">Prova Detectada: <span class="text-purple-600 font-bold">{{freeCorrectionResult.nomeProva}}</span></label>
+                                    <select v-model="freeCorrectionResult.matchedExamId" class="w-full p-2 border border-gray-200 rounded-lg text-xs outline-none bg-white font-bold text-gray-700">
+                                        <option value="">Selecione manualmente...</option>
+                                        <option v-for="e in exams" :key="e.id" :value="e.id">#{{ e.id }} - {{ e.title }}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-gray-500">Aluno Detectado: <span class="text-purple-600 font-bold">{{freeCorrectionResult.nomeAluno}}</span></label>
+                                    <select v-model="freeCorrectionResult.matchedStudentId" class="w-full p-2 border border-gray-200 rounded-lg text-xs outline-none bg-white font-bold text-gray-700">
+                                        <option value="">Selecione manualmente...</option>
+                                        <option v-for="s in freeCorrectionStudentsList" :key="s.id" :value="s.id">{{ s.name }}</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <p class="text-[10px] text-gray-600 whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto p-2 bg-white rounded border border-purple-100">{{ freeCorrectionResult.analise }}</p>
+
+                        <div class="bg-purple-50 p-4 rounded-xl border border-purple-200 shadow-inner">
+                            <div class="text-center mb-3">
+                                <span class="text-[10px] uppercase font-bold text-purple-400 block">Nota Calculada</span>
+                                <span class="text-4xl font-black text-purple-700">{{ freeCorrectionResult.notaFinal }}</span>
+                            </div>
+                            <div class="max-h-40 overflow-y-auto custom-scrollbar p-2 bg-white rounded border border-purple-100">
+                                <p class="text-[10px] text-gray-700 whitespace-pre-wrap leading-relaxed">{{ freeCorrectionResult.analise }}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="mt-4 pt-3 border-t border-gray-100 shrink-0">
-                    <button v-if="freeCorrectionStatus !== 'success'" @click="processFreeCorrection" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-purple-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!freeCorrectionData.examId || !freeCorrectionData.studentId || freeCorrectionData.files.length === 0 || freeCorrectionStatus === 'processing'">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> Iniciar Correção Visual
+                    <button v-if="freeCorrectionStatus === 'idle'" @click="processFreeCorrection" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-purple-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" :disabled="freeCorrectionData.files.length === 0">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Iniciar Leitura Inteligente
                     </button>
-                    <button v-if="freeCorrectionStatus === 'success'" @click="saveFreeCorrection" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-600 transition flex items-center justify-center gap-2">
+                    <button v-if="freeCorrectionStatus === 'success'" @click="saveFreeCorrection" :disabled="!freeCorrectionResult.matchedExamId || !freeCorrectionResult.matchedStudentId" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-600 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                         <i class="fa-solid fa-check"></i> Salvar Nota no Boletim
                     </button>
                 </div>
@@ -1595,7 +1611,7 @@
 
                 // --- VARIÁVEIS DE ESTADO: CORREÇÃO LIVRE (SEM GABARITO) ---
                 const showFreeCorrectionModal = ref(false);
-                const freeCorrectionData = ref({ examId: '', studentId: '', files: [] });
+                const freeCorrectionData = ref({ files: [] });
                 const freeCorrectionStatus = ref('idle'); 
                 const freeCorrectionResult = ref(null);
 
@@ -2029,16 +2045,16 @@ O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), re
                 };
 
                 // --- MÓDULO: CORREÇÃO LIVRE DE PÁGINAS (SEM GABARITO E SEM QR CODE) ---
-                const freeCorrectionStudents = computed(() => {
-                    if (!freeCorrectionData.value.examId) return [];
-                    const ex = exams.value.find(e => e.id == freeCorrectionData.value.examId);
-                    if (!ex) return [];
-                    return students.value.filter(s => s.classId == ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                const freeCorrectionStudentsList = computed(() => {
+                    if (!freeCorrectionResult.value || !freeCorrectionResult.value.matchedExamId) return students.value;
+                    const ex = exams.value.find(e => e.id === freeCorrectionResult.value.matchedExamId);
+                    if (!ex) return students.value;
+                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
                 });
 
                 const startFreeCorrection = () => {
                     if(!geminiKey.value) return showToast("Insira a chave da IA primeiro no campo acima.", "error");
-                    freeCorrectionData.value = { examId: '', studentId: '', files: [] };
+                    freeCorrectionData.value = { files: [] };
                     freeCorrectionStatus.value = 'idle';
                     freeCorrectionResult.value = null;
                     showFreeCorrectionModal.value = true;
@@ -2052,25 +2068,49 @@ O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), re
                     freeCorrectionData.value.files = Array.from(e.target.files);
                 };
 
+                const findClosestExam = (name) => {
+                    if (!name) return '';
+                    const term = name.toLowerCase().trim();
+                    const match = exams.value.find(e => e.title.toLowerCase().includes(term) || term.includes(e.title.toLowerCase()));
+                    return match ? match.id : '';
+                };
+
+                const findClosestStudent = (name, examId) => {
+                    if (!name) return '';
+                    const term = name.toLowerCase().trim().split(' ')[0]; 
+                    
+                    let possibleStudents = students.value;
+                    if (examId) {
+                        const ex = exams.value.find(e => e.id === examId);
+                        if (ex) possibleStudents = students.value.filter(s => s.classId === ex.classId);
+                    }
+
+                    const match = possibleStudents.find(s => s.name.toLowerCase().includes(term) || term.includes(s.name.toLowerCase().split(' ')[0]));
+                    return match ? match.id : '';
+                };
+
                 const processFreeCorrection = async () => {
-                    if (!freeCorrectionData.value.examId || !freeCorrectionData.value.studentId) return showToast("Selecione prova e aluno.", "warning");
                     if (freeCorrectionData.value.files.length === 0) return showToast("Selecione as fotos da prova.", "warning");
 
                     freeCorrectionStatus.value = 'processing';
                     try {
                         const parts = [
-                            {text: `Você é um professor especialista. A(s) imagem(ns) a seguir contêm as páginas de uma prova inteira resolvida por um aluno.
-Tarefa:
-1. Leia o enunciado de cada questão para entender o assunto.
-2. Determine qual é a alternativa correta ou a resposta correta usando o seu próprio conhecimento acadêmico.
-3. Localize qual alternativa o aluno marcou com caneta/lápis na folha da prova.
-4. Avalie se o aluno acertou ou errou cada questão comparando a marcação dele com a sua resolução.
-5. Calcule a nota final (de 0.0 a 10.0) de forma estritamente proporcional aos acertos totais.
+                            {text: `Você é um professor especialista em correção. As imagens a seguir contêm as páginas de uma prova inteira resolvida por um aluno.
+Sua Tarefa OBRIGATÓRIA passo a passo:
+1. Identifique o NOME DA PROVA (ou disciplina) no cabeçalho.
+2. Identifique o NOME DO ALUNO preenchido no cabeçalho.
+3. Observe APENAS O GABARITO (quadro de respostas) preenchido pelo aluno, geralmente localizado no INÍCIO da prova (primeira página). O gabarito é a fonte oficial das respostas marcadas pelo aluno.
+4. Leia o enunciado de cada questão nas páginas da prova para entender o assunto.
+5. Determine qual é a alternativa correta de cada questão usando o seu próprio conhecimento acadêmico.
+6. Compare a resposta que o aluno marcou no GABARITO INICIAL com a sua resolução correta.
+7. Calcule a nota final (de 0.0 a 10.0) de forma estritamente proporcional aos acertos totais.
 
-Retorne APENAS um objeto JSON válido, sem nenhum texto adicional fora do JSON, neste exato formato:
+Retorne APENAS um objeto JSON válido neste exato formato, sem formatação markdown:
 {
+  "nomeAluno": "Nome encontrado",
+  "nomeProva": "Título da prova detectado",
   "notaFinal": "8.5",
-  "analise": "Questão 1: A resposta certa é B, aluno marcou B (Acertou).\\nQuestão 2: A certa é C, aluno marcou A (Errou)..."
+  "analise": "Gabarito do aluno lido no quadro inicial: 1-A, 2-C...\\nResoluções corretas da IA: 1-B, 2-C...\\nConclusão: Errou a 1, Acertou a 2..."
 }`}
                         ];
 
@@ -2097,9 +2137,17 @@ Retorne APENAS um objeto JSON válido, sem nenhum texto adicional fora do JSON, 
                         const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                         const result = JSON.parse(cleanedText);
 
-                        freeCorrectionResult.value = result;
+                        const matchedEId = findClosestExam(result.nomeProva);
+                        const matchedSId = findClosestStudent(result.nomeAluno, matchedEId);
+
+                        freeCorrectionResult.value = { 
+                            ...result, 
+                            matchedExamId: matchedEId, 
+                            matchedStudentId: matchedSId 
+                        };
+                        
                         freeCorrectionStatus.value = 'success';
-                        speak(`Correção concluída. Nota sugerida: ${result.notaFinal}`);
+                        speak(`Correção concluída. Aluno ${result.nomeAluno}, nota ${result.notaFinal}`);
 
                     } catch (err) {
                         console.error(err);
@@ -2109,8 +2157,10 @@ Retorne APENAS um objeto JSON válido, sem nenhum texto adicional fora do JSON, 
                 };
 
                 const saveFreeCorrection = async () => {
-                    const examId = Number(freeCorrectionData.value.examId);
-                    const studentId = Number(freeCorrectionData.value.studentId);
+                    const examId = freeCorrectionResult.value.matchedExamId;
+                    const studentId = freeCorrectionResult.value.matchedStudentId;
+                    if(!examId || !studentId) return showToast("Selecione a Prova e o Aluno nas opções para vincular.", "error");
+
                     const finalScore = parseFloat(freeCorrectionResult.value.notaFinal).toFixed(1);
 
                     const exam = exams.value.find(e => e.id === examId);
@@ -2121,7 +2171,7 @@ Retorne APENAS um objeto JSON válido, sem nenhum texto adicional fora do JSON, 
 
                     const resultObj = {
                         examId: examId, studentId: studentId, studentName: student.name,
-                        score: finalScore, date: Date.now(), answers: {}, // Array vazio pois não há gabarito padronizado mapeado
+                        score: finalScore, date: Date.now(), answers: {}, // Array vazio pois a IA não mapou os índices neste modo
                         maxScore: 10, version: 0,
                         freeTextAnalysis: freeCorrectionResult.value.analise
                     };
@@ -2133,7 +2183,7 @@ Retorne APENAS um objeto JSON válido, sem nenhum texto adicional fora do JSON, 
                     }
                     results.value = await db.results.toArray();
 
-                    showToast(`Nota ${finalScore} Salva no Boletim!`, 'success');
+                    showToast(`Nota ${finalScore} salva para ${student.name}!`, 'success');
                     showFreeCorrectionModal.value = false;
                 };
 
@@ -3425,7 +3475,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     showResultDetailsModal, selectedResultDetails, openResultDetails, getAlternativeLabel, showExamStatsModal, examStats, openExamStats,
                     showAIGenModal, isGeneratingAI, aiGenConfig, openAIGenerator, generateQuestionsAI,
                     canInstall, installPWA,
-                    showFreeCorrectionModal, freeCorrectionData, freeCorrectionStatus, freeCorrectionResult, freeCorrectionStudents, startFreeCorrection, triggerFreeAIUpload, handleFreeAIUpload, processFreeCorrection, saveFreeCorrection
+                    showFreeCorrectionModal, freeCorrectionData, freeCorrectionStatus, freeCorrectionResult, freeCorrectionStudentsList, startFreeCorrection, triggerFreeAIUpload, handleFreeAIUpload, processFreeCorrection, saveFreeCorrection
                 };
             }
         }).mount('#app');
