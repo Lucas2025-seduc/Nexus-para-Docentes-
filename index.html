@@ -1747,22 +1747,29 @@
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-                    // El prompt ahora aborda específicamente la rotación de la imagen y las sombras
-                    const prompt = `Atue como um corretor rigoroso de cartões-resposta (gabaritos). 
-A imagem contém um cartão-resposta de um aluno com exatamente ${questionsCount} questões.
-A IMAGEM PODE ESTAR DEITADA/ROTACIONADA (horizontal). Ajuste sua leitura para a orientação correta baseando-se no texto, na ordem numérica das questões e na ordem alfabética das alternativas.
+                    const prompt = `Você é um software de Leitura Óptica de Marcas (OMR) de altíssima precisão.
+Sua única função é analisar a imagem de um cartão-resposta e detectar o preenchimento de bolhas (círculos).
+A imagem pode estar rotacionada. Encontre o bloco de respostas com exatamente ${questionsCount} questões.
 
-Sua única tarefa é retornar um array JSON puro representando o índice das marcações que o aluno FEZ (pintou escuro), na ordem das questões.
-REGRAS CRÍTICAS E INFALÍVEIS:
-1. Para alternativas A, B, C, D e E, use os números 0, 1, 2, 3 e 4.
-2. Para questões Certo/Errado, C=0 e E=1.
-3. CRITÉRIO VISUAL DE PREENCHIMENTO: Uma alternativa SÓ é considerada marcada se o círculo estiver nitidamente PINTADO/ESCURO por dentro com caneta/lápis. 
-4. CÍRCULOS VAZIOS: Círculos com o interior claro/branco (apenas com a borda preta impressa) NÃO SÃO RESPOSTAS. Eles estão EM BRANCO.
-5. SOMBRAS E ROTAÇÃO: Ignore sombras causadas pela inclinação da câmera, reflexos da mesa, marcas de dobra da folha ou o fato de a foto estar na horizontal. A IA não deve confundir sombra de iluminação com tinta de caneta.
-6. Se a questão estiver EM BRANCO (interior claro), rasurada (mais de uma marcação escura) ou ilegível, você DEVE OBRIGATORIAMENTE retornar o valor null para ela.
-7. Se a folha inteira estiver limpa (sem nenhuma bolinha preenchida), retorne um array APENAS com ${questionsCount} valores null. NÃO TENTE ADIVINHAR RESPOSTAS EM CÍRCULOS VAZIOS.
-O tamanho final do array deve ser estritamente ${questionsCount}.
-Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retorne EXCLUSIVAMENTE o array. Exemplo válido: [0, 1, null, null, 4]`;
+TÓPICO 1: CRITÉRIO DE MARCAÇÃO (MUITO RESTRITO)
+- Uma bolha (círculo) VAZIA tem o fundo claro/branco, apresentando apenas uma borda fina. ISSO NÃO É UMA MARCAÇÃO.
+- Uma bolha MARCADA tem o seu interior fortemente preenchido com grafite ou tinta escura.
+- IGNORE COMPLETAMENTE: sombras de iluminação, reflexos da câmera, marcas de dobra do papel ou sujeiras. Foque APENAS no preenchimento intencional dentro dos círculos.
+
+TÓPICO 2: REGRAS DE SAÍDA (OUTPUT)
+Retorne EXCLUSIVAMENTE um array JSON contendo exatamente ${questionsCount} elementos. Sem texto extra, sem formatação markdown.
+Para cada questão (na ordem de 1 até ${questionsCount}):
+- Se a alternativa A (ou Certo) estiver pintada, retorne 0
+- Se a alternativa B (ou Errado) estiver pintada, retorne 1
+- Se a alternativa C estiver pintada, retorne 2
+- Se a alternativa D estiver pintada, retorne 3
+- Se a alternativa E estiver pintada, retorne 4
+- Se a questão estiver TOTALMENTE EM BRANCO (nenhuma bolha nitidamente preenchida), retorne OBRIGATORIAMENTE o valor null.
+- Se houver rasura (duas ou mais bolhas pintadas na mesma questão), retorne null.
+
+ATENÇÃO: Se o aluno entregou a prova inteira em branco, você DEVE retornar um array apenas com valores null. 
+Exemplo válido para 5 questões em branco: [null, null, null, null, null].
+NÃO tente adivinhar respostas. Na dúvida se um pixel é sombra ou caneta, considere VAZIO (null).`;
 
                     const payload = {
                         contents: [{
@@ -1793,7 +1800,18 @@ Não retorne blocos de código (como \`\`\`json), nem textos explicativos. Retor
                             
                             let text = data.candidates[0].content.parts[0].text;
                             const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                            return JSON.parse(cleanedText);
+                            const parsedArray = JSON.parse(cleanedText);
+                            
+                            // Validação extra de segurança para garantir o tamanho do array
+                            if(Array.isArray(parsedArray) && parsedArray.length === questionsCount) {
+                                return parsedArray;
+                            } else if (Array.isArray(parsedArray)) {
+                                // Força o preenchimento com null se a IA retornar um array menor/maior
+                                const fixedArray = Array(questionsCount).fill(null);
+                                parsedArray.forEach((val, idx) => { if(idx < questionsCount) fixedArray[idx] = val; });
+                                return fixedArray;
+                            }
+                            throw new Error("Formato JSON inválido retornado pela IA.");
                             
                         } catch(e) {
                             if(e.isRateLimit) {
