@@ -679,6 +679,20 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- NOVO MÓDULO: CORREÇÃO LIVRE (IA LENDO A PROVA COMPLETA) -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 mt-4">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-14 h-14 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-brain"></i></div>
+                            <div class="flex-1">
+                                <h3 class="font-bold text-gray-800 text-lg">Correção IA (Sem Gabarito)</h3>
+                                <p class="text-xs text-gray-500">Fotografe as páginas da prova. A IA lê as questões e as marcações, julgando o que está correto com o próprio conhecimento.</p>
+                            </div>
+                        </div>
+                        <button @click="startFreeCorrection" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-purple-200 hover:bg-purple-700 transition flex items-center justify-center gap-2 active:scale-95">
+                            <i class="fa-solid fa-camera"></i> Nova Correção Livre
+                        </button>
+                    </div>
                 </template>
 
                 <div v-if="correctionMode" class="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 animate-fade-in flex flex-col h-[75vh] relative z-30">
@@ -686,9 +700,9 @@
                         <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
                         <div class="relative z-10 flex justify-between items-start">
                             <div>
-                                <h2 class="text-2xl font-black leading-none text-white">{{ activeStudent.name }}</h2>
+                                <h2 class="text-2xl font-black leading-none text-white">{{ activeStudent?.name || 'Aluno' }}</h2>
                                 <div class="flex items-center gap-2 mt-2">
-                                    <span class="text-xs bg-white/20 px-2 py-0.5 rounded text-white font-medium border border-white/10">Tipo {{ activeVersion + 1 }}</span>
+                                    <span class="text-xs bg-white/20 px-2 py-0.5 rounded text-white font-medium border border-white/10">Tipo {{ (activeVersion || 0) + 1 }}</span>
                                     <span class="text-xs text-indigo-200">{{ new Date().toLocaleDateString() }}</span>
                                 </div>
                             </div>
@@ -705,7 +719,8 @@
                             <div v-for="(q, idx) in activeExamQuestions" :key="idx" class="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <span class="font-bold text-gray-400 text-xs w-6">#{{ idx+1 }}</span>
-                                    <div class="w-1.5 h-1.5 rounded-full" :class="studentAnswers[idx] === q.correctIndex ? 'bg-emerald-500' : (studentAnswers[idx] !== null ? 'bg-red-500' : 'bg-gray-200')"></div>
+                                    <!-- Correção da checagem visual para nulos -->
+                                    <div class="w-1.5 h-1.5 rounded-full" :class="studentAnswers[idx] === q.correctIndex ? 'bg-emerald-500' : ((studentAnswers[idx] !== null && studentAnswers[idx] !== undefined) ? 'bg-red-500' : 'bg-gray-200')"></div>
                                 </div>
                                 
                                 <div class="flex gap-2">
@@ -758,7 +773,69 @@
             <option v-for="top in uniqueTopics" :key="top" :value="top"></option>
         </datalist>
 
-        <!-- MODAIS GLOBAIS -->
+        <!-- MODAL CORREÇÃO LIVRE (IA SEM GABARITO) -->
+        <div v-if="showFreeCorrectionModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fade-in border border-gray-100 max-h-[90vh] flex flex-col">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                    <div>
+                        <h3 class="text-lg font-bold text-purple-700 leading-tight">Correção Livre</h3>
+                        <p class="text-[10px] text-gray-400">Leitura direta das páginas da prova</p>
+                    </div>
+                    <button @click="showFreeCorrectionModal = false" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
+                </div>
+
+                <div class="overflow-y-auto pr-1 space-y-4 custom-scrollbar">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Vincular a qual Prova?</label>
+                        <select v-model="freeCorrectionData.examId" class="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm outline-none font-bold text-gray-700 transition focus:border-purple-500">
+                            <option value="">Selecione...</option>
+                            <option v-for="e in exams" :key="e.id" :value="e.id">#{{ e.id }} - {{ e.title }}</option>
+                        </select>
+                    </div>
+
+                    <div v-if="freeCorrectionData.examId">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Aluno(a)</label>
+                        <select v-model="freeCorrectionData.studentId" class="w-full p-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm outline-none font-bold text-gray-700 transition focus:border-purple-500">
+                            <option value="">Selecione...</option>
+                            <option v-for="s in freeCorrectionStudents" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        </select>
+                    </div>
+
+                    <div v-if="freeCorrectionData.studentId" class="pt-2 border-t border-gray-100">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Fotos das Páginas (Legíveis)</label>
+                        <input type="file" multiple accept="image/*" id="freeAIUpload" class="hidden" @change="handleFreeAIUpload">
+                        <button @click="triggerFreeAIUpload" class="w-full bg-gray-100 border border-dashed border-gray-300 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center gap-2 text-sm">
+                            <i class="fa-solid fa-images"></i> Selecionar Imagens
+                        </button>
+                        <p v-if="freeCorrectionData.files.length > 0" class="text-xs text-emerald-600 font-bold mt-2 text-center">{{ freeCorrectionData.files.length }} imagem(ns) selecionada(s)</p>
+                    </div>
+
+                    <div v-if="freeCorrectionStatus === 'processing'" class="py-4 text-center text-purple-600 flex flex-col items-center">
+                        <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-2"></i>
+                        <p class="text-xs font-bold mt-2">A IA está lendo toda a prova... (Isto pode demorar alguns segundos)</p>
+                    </div>
+
+                    <div v-if="freeCorrectionStatus === 'success' && freeCorrectionResult" class="bg-purple-50 p-4 rounded-xl border border-purple-200 mt-2 animate-fade-in">
+                        <div class="text-center mb-3">
+                            <span class="text-[10px] uppercase font-bold text-purple-400 block">Nota Sugerida pela IA</span>
+                            <span class="text-4xl font-black text-purple-700">{{ freeCorrectionResult.notaFinal }}</span>
+                        </div>
+                        <p class="text-[10px] text-gray-600 whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto p-2 bg-white rounded border border-purple-100">{{ freeCorrectionResult.analise }}</p>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-gray-100 shrink-0">
+                    <button v-if="freeCorrectionStatus !== 'success'" @click="processFreeCorrection" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-purple-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" :disabled="!freeCorrectionData.examId || !freeCorrectionData.studentId || freeCorrectionData.files.length === 0 || freeCorrectionStatus === 'processing'">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Iniciar Correção Visual
+                    </button>
+                    <button v-if="freeCorrectionStatus === 'success'" @click="saveFreeCorrection" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-600 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-check"></i> Salvar Nota no Boletim
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAIS GLOBAIS DE LANÇAMENTO MANUAL -->
         <div v-if="showManualInputModal" class="fixed inset-0 z-[160] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fade-in border border-gray-100">
                 <div class="flex justify-between items-center mb-4">
@@ -832,17 +909,14 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Disciplina</label>
-                            <!-- NOVO: Atributo list="dl-subjects" adicionado -->
                             <input list="dl-subjects" v-model="aiGenConfig.subject" placeholder="Ex: Biologia" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
                         </div>
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Tópico</label>
-                            <!-- NOVO: Atributo list="dl-topics" adicionado -->
                             <input list="dl-topics" v-model="aiGenConfig.topic" placeholder="Ex: Divisão Celular" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
                         </div>
                     </div>
                     
-                    <!-- Novas Opções de Personalização -->
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Nível</label>
@@ -935,12 +1009,10 @@
                         <div class="grid grid-cols-2 gap-3 mb-3">
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase">Disciplina</label>
-                                <!-- NOVO: Atributo list="dl-subjects" adicionado -->
                                 <input list="dl-subjects" v-model="newQ.subject" class="p-2.5 border rounded-lg bg-gray-50 text-sm w-full outline-none focus:border-indigo-500 font-medium">
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase">Tópico</label>
-                                <!-- NOVO: Atributo list="dl-topics" adicionado -->
                                 <input list="dl-topics" v-model="newQ.topic" class="p-2.5 border rounded-lg bg-gray-50 text-sm w-full outline-none focus:border-indigo-500 font-medium">
                             </div>
                         </div>
@@ -1146,14 +1218,12 @@
                     <div v-for="e in filteredHistoryExams" :key="e.id" class="bg-white border border-gray-100 rounded-xl p-4 flex justify-between items-center shadow-sm hover:shadow-md transition">
                         <div>
                             <div class="font-bold text-indigo-900 text-sm mb-1">
-                                <!-- NOVO: Mostra o ID da prova visualmente -->
                                 <span class="text-xs text-indigo-400 font-mono bg-indigo-50 px-1.5 py-0.5 rounded mr-1">#{{ e.id }}</span>
                                 {{ e.title }}
                             </div>
                             <div class="text-xs text-gray-400 flex gap-2 items-center">
                                 <span><i class="fa-regular fa-calendar mr-1"></i>{{ new Date(e.date).toLocaleDateString() }}</span>
                                 <span class="bg-gray-100 px-1.5 rounded text-[10px] font-bold uppercase">{{ e.bimester }}º Bim</span>
-                                <!-- NOVO: Mostra o nome da turma para ajudar na identificação -->
                                 <span class="bg-gray-100 px-1.5 rounded text-[10px] font-bold truncate max-w-[100px]">{{ getClassName(e.classId) }}</span>
                             </div>
                         </div>
@@ -1227,29 +1297,37 @@
                     <button @click="showResultDetailsModal = false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
                 </div>
                 <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-2">
-                    <div v-for="(q, idx) in selectedResultDetails?.questions" :key="idx" 
-                         class="bg-white p-3 rounded-xl border flex items-center justify-between shadow-sm transition"
-                         :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'border-emerald-200' : 'border-red-200'">
-                        <div class="flex items-center gap-4">
-                            <span class="font-bold text-gray-400 w-5">#{{ idx + 1 }}</span>
-                            <div class="flex flex-col">
-                                <span class="text-[9px] uppercase font-bold text-gray-400">Gabarito</span>
-                                <span class="font-black text-emerald-600">{{ getAlternativeLabel(q.type, q.correctIndex) }}</span>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <div class="flex flex-col items-end">
-                                <span class="text-[9px] uppercase font-bold text-gray-400">Aluno</span>
-                                <span class="font-black" :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'text-emerald-600' : 'text-red-500'">
-                                    {{ getAlternativeLabel(q.type, selectedResultDetails.answers[idx]) }}
-                                </span>
-                            </div>
-                            <div class="w-6 flex justify-end">
-                                <i v-if="selectedResultDetails.answers[idx] === q.correctIndex" class="fa-solid fa-check-circle text-emerald-500 text-lg shadow-sm rounded-full"></i>
-                                <i v-else class="fa-solid fa-circle-xmark text-red-500 text-lg shadow-sm rounded-full"></i>
-                            </div>
-                        </div>
+                    
+                    <div v-if="selectedResultDetails?.isFreeCorrection" class="bg-white p-4 rounded-xl shadow-sm">
+                         <p class="text-sm font-bold text-purple-700 mb-3 border-b border-purple-100 pb-2">Análise da Correção Livre (Nota: {{ selectedResultDetails.score }})</p>
+                         <p class="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{{ selectedResultDetails.analysis }}</p>
                     </div>
+                    
+                    <template v-else>
+                        <div v-for="(q, idx) in selectedResultDetails?.questions" :key="idx" 
+                             class="bg-white p-3 rounded-xl border flex items-center justify-between shadow-sm transition"
+                             :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'border-emerald-200' : 'border-red-200'">
+                            <div class="flex items-center gap-4">
+                                <span class="font-bold text-gray-400 w-5">#{{ idx + 1 }}</span>
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] uppercase font-bold text-gray-400">Gabarito</span>
+                                    <span class="font-black text-emerald-600">{{ getAlternativeLabel(q.type, q.correctIndex) }}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="flex flex-col items-end">
+                                    <span class="text-[9px] uppercase font-bold text-gray-400">Aluno</span>
+                                    <span class="font-black" :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'text-emerald-600' : 'text-red-500'">
+                                        {{ getAlternativeLabel(q.type, selectedResultDetails.answers[idx]) }}
+                                    </span>
+                                </div>
+                                <div class="w-6 flex justify-end">
+                                    <i v-if="selectedResultDetails.answers[idx] === q.correctIndex" class="fa-solid fa-check-circle text-emerald-500 text-lg shadow-sm rounded-full"></i>
+                                    <i v-else class="fa-solid fa-circle-xmark text-red-500 text-lg shadow-sm rounded-full"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>
@@ -1508,12 +1586,18 @@
                     subject: '', 
                     topic: '', 
                     difficulty: 'Ensino Médio',
-                    style: 'Padrão', // NOVO: ENEM, Vestibular, Concurso
-                    promptType: 'Normal', // NOVO: Direto, Normal, Longo
-                    extraObservations: '', // NOVO: Observações extras
+                    style: 'Padrão',
+                    promptType: 'Normal',
+                    extraObservations: '',
                     counts: { mc: 2, ce: 0, vf: 0, assoc: 0 },
                     mcMode: 'correct'
                 });
+
+                // --- VARIÁVEIS DE ESTADO: CORREÇÃO LIVRE (SEM GABARITO) ---
+                const showFreeCorrectionModal = ref(false);
+                const freeCorrectionData = ref({ examId: '', studentId: '', files: [] });
+                const freeCorrectionStatus = ref('idle'); 
+                const freeCorrectionResult = ref(null);
 
                 const newClass = ref(''); 
                 const bulkStudents = ref({});
@@ -1522,9 +1606,7 @@
                 const studentFilter = ref('');
                 const examHistoryFilter = ref('');
                 const dashboardStudentFilter = ref('');
-                const filterTopic = ref(''); // Filtro por tópico no banco
-                
-                // NOVO: Variáveis para filtro de questões na aba de Provas
+                const filterTopic = ref(''); 
                 const examFilterSubject = ref('');
                 const examFilterTopic = ref('');
                 
@@ -1641,20 +1723,20 @@
 
                 const manualStudents = computed(() => {
                     if (!manualConfig.value.examId) return [];
-                    const ex = exams.value.find(e => e.id === manualConfig.value.examId);
+                    const ex = exams.value.find(e => e.id == manualConfig.value.examId);
                     if (!ex) return [];
-                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                    return students.value.filter(s => s.classId == ex.classId).sort((a,b) => a.name.localeCompare(b.name));
                 });
                 
                 const selectedExamVersions = computed(() => {
                     if (!manualConfig.value.examId) return [];
-                    const e = exams.value.find(x => x.id === manualConfig.value.examId);
+                    const e = exams.value.find(x => x.id == manualConfig.value.examId);
                     return e && e.versions ? e.versions : [{id:0, label:'Padrão'}];
                 });
 
                 watch(() => manualConfig.value.studentId, (newVal) => {
                     if (!newVal || !manualConfig.value.examId) return;
-                    const e = exams.value.find(x => x.id === manualConfig.value.examId);
+                    const e = exams.value.find(x => x.id == manualConfig.value.examId);
                     if (e && e.studentMap && e.studentMap[newVal] !== undefined) {
                         manualConfig.value.version = e.studentMap[newVal];
                     } else {
@@ -1670,21 +1752,21 @@
                 const confirmManualEntry = async () => {
                     if (!manualConfig.value.examId || !manualConfig.value.studentId) return showToast('Selecione prova e aluno', 'error');
                     
-                    const e = exams.value.find(x => x.id === manualConfig.value.examId);
+                    // Uso de '==' para evitar bugs de tipagem (String/Number) do HTML Select
+                    const e = exams.value.find(x => x.id == manualConfig.value.examId);
                     
                     if(e && !e.versions) {
                         e.versions = [{id:0, questions:e.questionsA || []}, {id:1, questions:e.questionsB || []}];
                         if (!e.questionsA && e.questions) e.versions = [{id:0, questions:e.questions}];
                     }
 
-                    const s = students.value.find(x => x.id === manualConfig.value.studentId);
-                    let verIdx = manualConfig.value.version;
+                    const s = students.value.find(x => x.id == manualConfig.value.studentId);
+                    let verIdx = manualConfig.value.version || 0;
 
                     activeExam.value = e;
                     activeStudent.value = s;
                     activeVersion.value = Number(verIdx);
                     
-                    // INICIALIZADOR DE REATIVIDADE DO VUE
                     const tempAnswers = {};
                     const v = e.versions[activeVersion.value];
                     if (v && v.questions) {
@@ -1946,6 +2028,115 @@ O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), re
                     isProcessingQueue.value = false;
                 };
 
+                // --- MÓDULO: CORREÇÃO LIVRE DE PÁGINAS (SEM GABARITO E SEM QR CODE) ---
+                const freeCorrectionStudents = computed(() => {
+                    if (!freeCorrectionData.value.examId) return [];
+                    const ex = exams.value.find(e => e.id == freeCorrectionData.value.examId);
+                    if (!ex) return [];
+                    return students.value.filter(s => s.classId == ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                });
+
+                const startFreeCorrection = () => {
+                    if(!geminiKey.value) return showToast("Insira a chave da IA primeiro no campo acima.", "error");
+                    freeCorrectionData.value = { examId: '', studentId: '', files: [] };
+                    freeCorrectionStatus.value = 'idle';
+                    freeCorrectionResult.value = null;
+                    showFreeCorrectionModal.value = true;
+                };
+
+                const triggerFreeAIUpload = () => {
+                    document.getElementById('freeAIUpload').click();
+                };
+
+                const handleFreeAIUpload = (e) => {
+                    freeCorrectionData.value.files = Array.from(e.target.files);
+                };
+
+                const processFreeCorrection = async () => {
+                    if (!freeCorrectionData.value.examId || !freeCorrectionData.value.studentId) return showToast("Selecione prova e aluno.", "warning");
+                    if (freeCorrectionData.value.files.length === 0) return showToast("Selecione as fotos da prova.", "warning");
+
+                    freeCorrectionStatus.value = 'processing';
+                    try {
+                        const parts = [
+                            {text: `Você é um professor especialista. A(s) imagem(ns) a seguir contêm as páginas de uma prova inteira resolvida por um aluno.
+Tarefa:
+1. Leia o enunciado de cada questão para entender o assunto.
+2. Determine qual é a alternativa correta ou a resposta correta usando o seu próprio conhecimento acadêmico.
+3. Localize qual alternativa o aluno marcou com caneta/lápis na folha da prova.
+4. Avalie se o aluno acertou ou errou cada questão comparando a marcação dele com a sua resolução.
+5. Calcule a nota final (de 0.0 a 10.0) de forma estritamente proporcional aos acertos totais.
+
+Retorne APENAS um objeto JSON válido, sem nenhum texto adicional fora do JSON, neste exato formato:
+{
+  "notaFinal": "8.5",
+  "analise": "Questão 1: A resposta certa é B, aluno marcou B (Acertou).\\nQuestão 2: A certa é C, aluno marcou A (Errou)..."
+}`}
+                        ];
+
+                        for (let file of freeCorrectionData.value.files) {
+                            const base64 = await fileToBase64(file);
+                            parts.push({
+                                inline_data: { mime_type: file.type, data: base64 }
+                            });
+                        }
+
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey.value}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: parts }],
+                                generationConfig: { response_mime_type: "application/json" }
+                            })
+                        });
+
+                        const data = await response.json();
+                        if(data.error) throw new Error(data.error.message);
+
+                        let text = data.candidates[0].content.parts[0].text;
+                        const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                        const result = JSON.parse(cleanedText);
+
+                        freeCorrectionResult.value = result;
+                        freeCorrectionStatus.value = 'success';
+                        speak(`Correção concluída. Nota sugerida: ${result.notaFinal}`);
+
+                    } catch (err) {
+                        console.error(err);
+                        freeCorrectionStatus.value = 'error';
+                        showToast("Erro ao ler as páginas: " + err.message, "error");
+                    }
+                };
+
+                const saveFreeCorrection = async () => {
+                    const examId = Number(freeCorrectionData.value.examId);
+                    const studentId = Number(freeCorrectionData.value.studentId);
+                    const finalScore = parseFloat(freeCorrectionResult.value.notaFinal).toFixed(1);
+
+                    const exam = exams.value.find(e => e.id === examId);
+                    const student = students.value.find(s => s.id === studentId);
+
+                    const allResults = await db.results.toArray();
+                    const existing = allResults.find(r => r.examId === examId && r.studentId === studentId);
+
+                    const resultObj = {
+                        examId: examId, studentId: studentId, studentName: student.name,
+                        score: finalScore, date: Date.now(), answers: {}, // Array vazio pois não há gabarito padronizado mapeado
+                        maxScore: 10, version: 0,
+                        freeTextAnalysis: freeCorrectionResult.value.analise
+                    };
+
+                    if (existing) {
+                        await db.results.put({ ...resultObj, id: existing.id });
+                    } else {
+                        await db.results.add(JSON.parse(JSON.stringify(resultObj)));
+                    }
+                    results.value = await db.results.toArray();
+
+                    showToast(`Nota ${finalScore} Salva no Boletim!`, 'success');
+                    showFreeCorrectionModal.value = false;
+                };
+
                 const getAlternativeLabel = (type, index) => {
                     if (index === null || index === undefined || index === '') return '-';
                     const idx = parseInt(index);
@@ -1957,6 +2148,20 @@ O array deve ter EXATAMENTE ${questionsCount} elementos numéricos (ou null), re
                     const ex = exams.value.find(e => e.id === examResult.examId);
                     if (!ex) return;
                     
+                    // Verifica se a prova foi corrigida pelo novo modo "Correção Livre"
+                    if (examResult.freeTextAnalysis) {
+                        selectedResultDetails.value = {
+                            title: ex.title,
+                            studentName: examResult.studentName,
+                            version: 'Livre',
+                            isFreeCorrection: true,
+                            analysis: examResult.freeTextAnalysis,
+                            score: examResult.score
+                        };
+                        showResultDetailsModal.value = true;
+                        return;
+                    }
+
                     const version = (ex.versions && ex.versions[examResult.version]) ? ex.versions[examResult.version] : (ex.versions ? ex.versions[0] : {questions: ex.questions || []});
                     
                     selectedResultDetails.value = {
@@ -3219,7 +3424,8 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, aiCorrectionQueue, processAIQueue, hasPendingItems, isProcessingQueue,
                     showResultDetailsModal, selectedResultDetails, openResultDetails, getAlternativeLabel, showExamStatsModal, examStats, openExamStats,
                     showAIGenModal, isGeneratingAI, aiGenConfig, openAIGenerator, generateQuestionsAI,
-                    canInstall, installPWA
+                    canInstall, installPWA,
+                    showFreeCorrectionModal, freeCorrectionData, freeCorrectionStatus, freeCorrectionResult, freeCorrectionStudents, startFreeCorrection, triggerFreeAIUpload, handleFreeAIUpload, processFreeCorrection, saveFreeCorrection
                 };
             }
         }).mount('#app');
