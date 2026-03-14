@@ -1775,30 +1775,32 @@
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 
-                    // NOVO PROMPT: Forçando a técnica "Visual Chain-of-Thought" (Rastreio Linear) sugerida.
+                    // NOVO PROMPT: Resolução do problema de "Desvio Espacial" (Attention Drift) nas questões mais abaixo.
                     const prompt = `Atue como um scanner físico OMR mecânico.
 Analise a imagem deste cartão-resposta escolar. A grelha possui EXATAMENTE ${questionsCount} questões.
 
-MÉTODO DE RASTREIO OBRIGATÓRIO (Faça exatamente nesta ordem):
-1. Foque na linha da Questão 1.
-2. Mova sua visão estritamente na HORIZONTAL, em linha reta, avaliando as colunas da esquerda para a direita (A, B, C, D, E).
-3. Registe mentalmente a intensidade de preenchimento de cada círculo nessa linha exata.
-4. Aplique as regras de rasura (se houver um borrão forte e uma marcação limpa ao lado, a limpa vence). Duas marcações iguais = null. Vazio = null.
-5. Desça para a linha de baixo (Questão 2) e repita a varredura horizontal. Faça isso rigorosamente até a Questão ${questionsCount}, sem nunca pular linhas.
+O GRANDE DESAFIO (CUIDADO COM O DESVIO DE LINHA):
+A partir da questão 5 ou 6, é comum a visão da IA "escorregar" para a linha de cima ou de baixo ou confundir as colunas devido à distância do cabeçalho e à perspetiva fotográfica. Para evitar isso, você DEVE usar uma ÂNCORA VISUAL.
 
-MAPEAMENTO: A = 0 | B = 1 | C = 2 | D = 3 | E = 4 | Certo = 0 | Errado = 1
+MÉTODO DE RASTREIO OBRIGATÓRIO:
+Para CADA UMA das ${questionsCount} questões, faça exatamente isto na sua mente:
+1. ÂNCORA VISUAL: Localize fisicamente o NÚMERO impresso da questão (ex: "6") na margem esquerda da tabela.
+2. RASTREIO ALINHADO: A partir desse número exato, mova a visão em linha reta horizontal estritamente para a direita.
+3. MAPEAMENTO DE COLUNAS: A 1ª bolinha imediatamente após o número é SEMPRE A(0), a 2ª é B(1), a 3ª é C(2), a 4ª é D(3), a 5ª é E(4).
+4. AVALIAÇÃO: Registe a intensidade. Regra da rasura: borrão caótico + marcação limpa = vence a limpa. Duas marcações com a mesma força = null. Linha vazia = null.
 
 SAÍDA JSON ESTRITAMENTE OBRIGATÓRIA:
-Para garantir que você não pula linhas, você DEVE retornar um objeto JSON com duas chaves:
+Para garantir que não pula linhas nem sofre desvio de perspetiva, a sua chave "analise_linha_a_linha" deve seguir este formato descritivo rigoroso:
 {
   "analise_linha_a_linha": [
-    "Questão 1: A vazio, B vazio, C marcação forte, D vazio, E rasura. -> 2",
-    "Questão 2: Todas vazias. -> null"
+    "Vi o número 1. Bolinhas: A(vazio), B(vazio), C(forte), D(vazio), E(vazio) -> 2",
+    "Vi o número 2. Bolinhas: A(forte), B(rasura), C(vazio), D(vazio), E(vazio) -> 0",
+    "Vi o número 3. Bolinhas: Todas vazias -> null"
   ],
-  "respostas": [2, null]
+  "respostas": [2, 0, null]
 }
 
-A chave "respostas" deve conter APENAS o array final numérico com exatamente ${questionsCount} elementos. Retorne APENAS o JSON puro, sem crases (\`\`\`) e sem texto solto.`;
+A chave "respostas" deve conter APENAS o array final numérico com exatamente ${questionsCount} elementos. Retorne APENAS o JSON puro, sem blocos de formatação (\`\`\`).`;
 
                     const payload = {
                         contents: [{
