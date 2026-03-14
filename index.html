@@ -30,6 +30,19 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         
+        .bubble { 
+            width: 38px; height: 38px; 
+            border-radius: 50%; 
+            border: 2px solid #cbd5e1; 
+            display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; cursor: pointer; transition: all 0.15s; font-size: 14px; 
+            user-select: none;
+            background-color: white;
+        }
+        .bubble.selected { background-color: #4f46e5; color: white; border-color: #4f46e5; transform: scale(1.1); box-shadow: 0 2px 5px rgba(79, 70, 229, 0.4); }
+        .bubble.ce-c.selected { background-color: #22c55e; border-color: #22c55e; }
+        .bubble.ce-e.selected { background-color: #ef4444; border-color: #ef4444; }
+        
         .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
         .fade-enter-from, .fade-leave-to { opacity: 0; }
         
@@ -509,7 +522,7 @@
                     <div class="col-span-2 mt-1">
                         <label class="flex items-center gap-2 cursor-pointer bg-white border border-gray-200 p-2 rounded-lg hover:border-indigo-300 transition shadow-sm">
                             <input type="checkbox" v-model="printConfig.addBlankPage" class="w-4 h-4 text-indigo-600 rounded border-gray-300 cursor-pointer">
-                            <span class="text-[10px] font-bold text-gray-600">Adicionar página em branco entre as provas (Frente/Verso)</span>
+                            <span class="text-[10px] font-bold text-gray-600">Adicionar página em branco entre as provas (Para Frente e Verso)</span>
                         </label>
                     </div>
                 </div>
@@ -523,6 +536,7 @@
             <button @click="examTab = 'selected'" :class="examTab === 'selected' ? 'text-indigo-600 border-indigo-600 bg-indigo-50/50' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">SELECIONADAS ({{ examCart.length }})</button>
         </div>
         
+        <!-- NOVO: Filtros por Disciplina e Conteúdo na criação de Provas -->
         <div class="p-2 border-b border-gray-100 bg-gray-50 flex flex-col gap-2">
             <div v-if="examTab === 'all'" class="flex gap-2">
                 <input list="dl-subjects" v-model="examFilterSubject" placeholder="Buscar Disciplina..." class="flex-1 bg-white border border-gray-200 rounded-lg py-1.5 px-2 text-xs outline-none focus:border-indigo-300 transition text-gray-600 font-medium">
@@ -704,14 +718,17 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Disciplina</label>
+                            <!-- NOVO: Atributo list="dl-subjects" adicionado -->
                             <input list="dl-subjects" v-model="aiGenConfig.subject" placeholder="Ex: Biologia" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
                         </div>
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Tópico</label>
+                            <!-- NOVO: Atributo list="dl-topics" adicionado -->
                             <input list="dl-topics" v-model="aiGenConfig.topic" placeholder="Ex: Divisão Celular" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
                         </div>
                     </div>
                     
+                    <!-- Novas Opções de Personalização -->
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Nível</label>
@@ -1017,6 +1034,10 @@
                         </div>
                         <div class="flex gap-2">
                             <button @click="openExamStats(e)" class="w-9 h-9 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 flex items-center justify-center transition" title="Estatísticas, Ranking e Acertos"><i class="fa-solid fa-chart-pie"></i></button>
+                            
+                            <!-- NOVO BOTÃO: CORRIGIR GABARITO (SEM EMBARALHAR) -->
+                            <button @click="openFixKey(e)" class="w-9 h-9 rounded-full bg-orange-50 text-orange-600 hover:bg-orange-100 flex items-center justify-center transition" title="Corrigir Gabarito Oficial (Não afeta impressões)"><i class="fa-solid fa-list-check"></i></button>
+                            
                             <button @click="openEditExam(e)" class="w-9 h-9 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition" title="Editar (Carregar Tudo)"><i class="fa-solid fa-pen"></i></button>
                             <button @click="generateCommentedKeyPDF(e)" class="w-9 h-9 rounded-full bg-teal-50 text-teal-600 hover:bg-teal-100 flex items-center justify-center transition" title="Baixar Gabarito Comentado (Resoluções)"><i class="fa-solid fa-comment-dots"></i></button>
                             <button @click="generateKeyPDF(e)" class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition" title="Baixar Gabarito Simples"><i class="fa-solid fa-key"></i></button>
@@ -1064,6 +1085,50 @@
                         </div>
                     </div>
                     <button @click="saveEditedExam" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow hover:bg-indigo-700 transition">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOVO MODAL: ALTERAR GABARITO (PÓS-IMPRESSÃO) -->
+        <div v-if="showFixKeyModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md h-[80vh] flex flex-col animate-fade-in overflow-hidden border border-gray-100">
+                <div class="p-4 border-b flex justify-between items-center bg-orange-500 text-white shrink-0">
+                    <div>
+                        <h3 class="font-bold text-lg leading-tight">Corrigir Gabarito</h3>
+                        <p class="text-[10px] text-orange-100">{{ fixKeyExam?.title }}</p>
+                    </div>
+                    <button @click="showFixKeyModal = false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="p-3 bg-orange-50 text-[10px] text-orange-800 border-b border-orange-100 text-center leading-tight shadow-sm">
+                    <strong>Atenção:</strong> Alterar o gabarito aqui mudará as respostas certas em todas as variações (Tipos A, B, etc.) e <strong>recalculará as notas</strong> dos alunos já corrigidos automaticamente. A prova impressa continua válida.
+                </div>
+                <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-3">
+                    <div v-for="(q, idx) in fixKeyQuestions" :key="q.id" class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm transition hover:border-orange-300">
+                        <p class="text-xs font-bold text-gray-700 mb-2 leading-relaxed"><span class="text-orange-500 mr-1">#{{ idx + 1 }}</span> {{ q.text.substring(0, 100) }}{{ q.text.length > 100 ? '...' : '' }}</p>
+                        
+                        <div class="flex items-center gap-2">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase">Resposta Correta:</label>
+                            <select v-model="q.newCorrectIndex" :disabled="q.type === 'vf' || q.type === 'assoc'" class="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-orange-700 outline-none focus:border-orange-500 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                <template v-if="q.type === 'ce'">
+                                    <option :value="0">Certo</option>
+                                    <option :value="1">Errado</option>
+                                </template>
+                                <template v-else-if="q.type === 'vf' || q.type === 'assoc'">
+                                    <option :value="q.correctIndex">Múltiplos Itens (Não Editável Aqui)</option>
+                                </template>
+                                <template v-else>
+                                    <option v-for="(opt, oIdx) in q.options" :key="oIdx" :value="oIdx">
+                                        {{ ['A', 'B', 'C', 'D', 'E'][oIdx] }} - {{ opt.text }}
+                                    </option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 bg-white border-t border-gray-100 shrink-0">
+                    <button @click="saveFixedKey" class="w-full bg-orange-500 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-orange-600 transition flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-calculator"></i> Salvar e Recalcular Notas
+                    </button>
                 </div>
             </div>
         </div>
@@ -1138,6 +1203,7 @@
                 </div>
                 
                 <div class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-5" v-if="examStats">
+                    <!-- Resumo -->
                     <div class="grid grid-cols-2 gap-3">
                         <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
                             <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Média Geral</p>
@@ -1149,6 +1215,7 @@
                         </div>
                     </div>
 
+                    <!-- Ranking Top 5 -->
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="bg-gray-50 p-3 font-bold text-gray-700 text-xs border-b uppercase tracking-wide flex items-center gap-2">
                             <i class="fa-solid fa-trophy text-yellow-500"></i> Top 5 - Maiores Notas
@@ -1168,6 +1235,7 @@
                         </div>
                     </div>
 
+                    <!-- Taxa de Acerto por Questão -->
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="bg-gray-50 p-3 font-bold text-gray-700 text-xs border-b uppercase tracking-wide flex items-center gap-2">
                             <i class="fa-solid fa-bullseye text-blue-500"></i> Taxa de Acerto por Questão
@@ -1196,6 +1264,7 @@
     <script>
         const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
         
+        // Banco de Dados Local
         const db = new Dexie('NexusAppDB');
         db.version(2).stores({ 
             classes:'++id', 
@@ -1223,11 +1292,13 @@
                     if (!deferredPrompt.value) return;
                     deferredPrompt.value.prompt();
                     const { outcome } = await deferredPrompt.value.userChoice;
-                    if (outcome === 'accepted') { canInstall.value = false; }
+                    if (outcome === 'accepted') {
+                        canInstall.value = false;
+                    }
                     deferredPrompt.value = null;
                 };
 
-                // --- SISTEMA DE LICENÇA (OFUSCADO) ---
+                // --- SISTEMA DE LICENÇA E BLOQUEIO (OFUSCADO) ---
                 const TRIAL_DURATION = 3600000; 
                 const appLocked = ref(false);
                 const isLicensed = ref(false);
@@ -1242,7 +1313,12 @@
                 const initLicenseSystem = async () => {
                     let config = await db.settings.get('license_config');
                     if (!config) {
-                        config = { id: 'license_config', deviceId: crypto.randomUUID(), firstRun: Date.now(), licenseKey: null };
+                        config = { 
+                            id: 'license_config',
+                            deviceId: crypto.randomUUID(),
+                            firstRun: Date.now(),
+                            licenseKey: null
+                        };
                         await db.settings.put(config);
                     }
                     
@@ -1257,7 +1333,10 @@
                                 setInterval(() => {
                                     const currentHours = Math.floor(Date.now() / 3600000);
                                     if (currentHours > result.expireHours) {
-                                        isLicensed.value = false; appLocked.value = true; isTemporal.value = false; timeLeft.value = "Expirado";
+                                        isLicensed.value = false;
+                                        appLocked.value = true;
+                                        isTemporal.value = false;
+                                        timeLeft.value = "Expirado";
                                     } else {
                                         timeLeft.value = `${result.expireHours - currentHours}h`;
                                     }
@@ -1267,21 +1346,25 @@
                             }
                             return; 
                         } else {
-                            config.licenseKey = null; await db.settings.put(config);
+                            config.licenseKey = null;
+                            await db.settings.put(config);
                         }
                     }
 
                     const elapsed = Date.now() - config.firstRun;
                     if (elapsed > TRIAL_DURATION) {
-                        appLocked.value = true; timeLeft.value = "Expirado";
+                        appLocked.value = true;
+                        timeLeft.value = "Expirado";
                     } else {
                         setInterval(() => {
                             if(isLicensed.value) return; 
                             const remaining = TRIAL_DURATION - (Date.now() - config.firstRun);
                             if (remaining <= 0) {
-                                appLocked.value = true; timeLeft.value = "Expirado";
+                                appLocked.value = true;
+                                timeLeft.value = "Expirado";
                             } else {
-                                const m = Math.floor(remaining / 60000); timeLeft.value = `${m} min`;
+                                const m = Math.floor(remaining / 60000);
+                                timeLeft.value = `${m} min`;
                             }
                         }, 1000); 
                     }
@@ -1295,7 +1378,9 @@
                         const config = await db.settings.get('license_config');
                         config.licenseKey = input;
                         await db.settings.put(config);
-                        appLocked.value = false; showLicenseModal.value = false; isLicensed.value = true;
+                        appLocked.value = false;
+                        showLicenseModal.value = false;
+                        isLicensed.value = true;
                         
                         if (result.type === 'temporal') {
                             isTemporal.value = true;
@@ -1304,6 +1389,7 @@
                         } else {
                             isTemporal.value = false;
                         }
+                        
                         showToast("Licença Ativada com Sucesso!", "success");
                     } else if (result.expired) {
                         showToast("Esta chave já expirou.", "error");
@@ -1340,31 +1426,41 @@
                 const settings = ref({ schoolName:'', logo:null });
                 const extraPoints = ref([]);
 
+                // INTEGRAÇÃO GEMINI IA
                 const geminiKey = ref('');
                 const aiCorrectionQueue = ref([]);
                 const isProcessingQueue = ref(false);
 
+                // --- VARIÁVEIS DE ESTADO (ANÁLISE E DETALHES) ---
                 const showResultDetailsModal = ref(false);
                 const selectedResultDetails = ref(null);
                 const showExamStatsModal = ref(false);
                 const examStats = ref(null);
 
+                // --- VARIÁVEIS DE ESTADO: GERADOR IA ---
                 const showAIGenModal = ref(false);
                 const isGeneratingAI = ref(false);
                 const aiGenConfig = ref({ 
-                    subject: '', topic: '', difficulty: 'Ensino Médio', style: 'Padrão',
-                    promptType: 'Normal', extraObservations: '',
-                    counts: { mc: 2, ce: 0, vf: 0, assoc: 0 }, mcMode: 'correct'
+                    subject: '', 
+                    topic: '', 
+                    difficulty: 'Ensino Médio',
+                    style: 'Padrão', // NOVO: ENEM, Vestibular, Concurso
+                    promptType: 'Normal', // NOVO: Direto, Normal, Longo
+                    extraObservations: '', // NOVO: Observações extras
+                    counts: { mc: 2, ce: 0, vf: 0, assoc: 0 },
+                    mcMode: 'correct'
                 });
 
                 const newClass = ref(''); 
                 const bulkStudents = ref({});
 
+                // Filtros de Pesquisa
                 const studentFilter = ref('');
                 const examHistoryFilter = ref('');
                 const dashboardStudentFilter = ref('');
-                const filterTopic = ref(''); 
+                const filterTopic = ref(''); // Filtro por tópico no banco
                 
+                // NOVO: Variáveis para filtro de questões na aba de Provas
                 const examFilterSubject = ref('');
                 const examFilterTopic = ref('');
                 
@@ -1382,8 +1478,11 @@
                     const list = students.value.filter(s => s.classId === classId);
                     
                     if (!term) return list;
+                    
                     const classObj = classes.value.find(c => c.id === classId);
-                    if (classObj && classObj.name.toLowerCase().includes(term)) return list;
+                    if (classObj && classObj.name.toLowerCase().includes(term)) {
+                        return list;
+                    }
                     return list.filter(s => s.name.toLowerCase().includes(term));
                 };
 
@@ -1393,6 +1492,7 @@
                     return exams.value.filter(e => e.title.toLowerCase().includes(term));
                 });
                 
+                // Questões
                 const showQFormModal = ref(false); 
                 const formSource = ref(''); 
                 const qFilter = ref('');
@@ -1403,28 +1503,119 @@
                 const qType = ref('mc');
                 const newQ = ref({id: null, subject:'', topic:'', text:'', comment:'', image:null, correct:0, options:[{text:''},{text:''},{text:''},{text:''},{text:''}]});
                 
+                // Configuração de Prova
                 const examConfig = ref({
-                    title:'', classId:'', teacher:'', date: new Date().toISOString().split('T')[0],
-                    type: 'Mensal', weight: 1, bimester: 1, variationMode: 'standard'
+                    title:'', classId:'', teacher:'', 
+                    date: new Date().toISOString().split('T')[0],
+                    type: 'Mensal', weight: 1, bimester: 1,
+                    variationMode: 'standard'
                 }); 
                 
+                // CONFIGURAÇÃO DE IMPRESSÃO
                 const printConfig = ref({ 
-                    fontSize: '10', spacing: 'normal', layout: 'standard',
-                    logoSize: 50, qImageSize: 'medium', addBlankPage: false
+                    fontSize: '10', 
+                    spacing: 'normal', 
+                    layout: 'standard',
+                    logoSize: 50,
+                    qImageSize: 'medium',
+                    addBlankPage: false
                 });
 
                 const examCart = ref([]); 
                 const showHistory = ref(false);
 
+                // EDITAR PROVA NO HISTÓRICO
                 const showEditExamModal = ref(false);
                 const editingExam = ref({});
                 const editingExamId = ref(null); 
 
+                // --- ESTADO E LÓGICA DO NOVO "CORRIGIR GABARITO" ---
+                const showFixKeyModal = ref(false);
+                const fixKeyExam = ref(null);
+                const fixKeyQuestions = ref([]);
+
+                const openFixKey = (exam) => {
+                    fixKeyExam.value = exam;
+                    // Pega a versão Base (Tipo 1) para o professor editar
+                    const baseVersion = exam.versions ? exam.versions[0] : { questions: exam.questions || [] };
+                    
+                    fixKeyQuestions.value = JSON.parse(JSON.stringify(baseVersion.questions)).map(q => {
+                        return { ...q, newCorrectIndex: q.correctIndex };
+                    });
+                    
+                    showFixKeyModal.value = true;
+                };
+
+                const saveFixedKey = async () => {
+                    const examToUpdate = exams.value.find(e => e.id === fixKeyExam.value.id);
+                    if (!examToUpdate) return;
+                    
+                    const updatedExam = JSON.parse(JSON.stringify(examToUpdate));
+
+                    // Atualiza a resposta em todas as versões (Tipos A, B, C...) mapeando pelo texto
+                    fixKeyQuestions.value.forEach(baseQ => {
+                        const newBaseCorrectIdx = baseQ.newCorrectIndex;
+                        let targetOptText = null;
+                        
+                        if (baseQ.type !== 'ce' && baseQ.type !== 'vf' && baseQ.type !== 'assoc') {
+                            targetOptText = baseQ.options[newBaseCorrectIdx].text;
+                        }
+
+                        if (updatedExam.versions) {
+                            updatedExam.versions.forEach(v => {
+                                const vq = v.questions.find(q => q.id === baseQ.id);
+                                if (vq) {
+                                    if (baseQ.type === 'ce') {
+                                        vq.correctIndex = newBaseCorrectIdx;
+                                    } else if (baseQ.type !== 'vf' && baseQ.type !== 'assoc') {
+                                        const newIdx = vq.options.findIndex(o => o.text === targetOptText);
+                                        if (newIdx !== -1) vq.correctIndex = newIdx;
+                                    }
+                                }
+                            });
+                        } else if (updatedExam.questions) {
+                            const vq = updatedExam.questions.find(q => q.id === baseQ.id);
+                            if (vq) vq.correctIndex = newBaseCorrectIdx;
+                        }
+                    });
+
+                    // Guarda a prova atualizada
+                    await db.exams.put(updatedExam);
+
+                    // RECALCULAR TODAS AS NOTAS JÁ AVALIADAS PARA ESTA PROVA
+                    const allResults = await db.results.toArray();
+                    const examResultsToUpdate = allResults.filter(r => r.examId === updatedExam.id);
+                    
+                    for (let r of examResultsToUpdate) {
+                        let hits = 0;
+                        const version = (updatedExam.versions && updatedExam.versions[r.version]) ? updatedExam.versions[r.version] : (updatedExam.versions ? updatedExam.versions[0] : { questions: updatedExam.questions || []});
+                        
+                        version.questions.forEach((q, idx) => {
+                            let cIdx = q.correctIndex;
+                            if (q.type === 'vf' || q.type === 'assoc') cIdx = (q.id || 0) % 5;
+                            if (r.answers && r.answers[idx] === cIdx) hits++;
+                        });
+                        
+                        const newBaseScore = ((hits / version.questions.length) * 10).toFixed(1);
+                        r.score = (parseFloat(newBaseScore) + parseFloat(r.bonus || 0)).toFixed(1);
+                        await db.results.put(r); // Atualiza nota do aluno no banco
+                    }
+
+                    showFixKeyModal.value = false;
+                    load();
+                    showToast(`Gabarito salvo e ${examResultsToUpdate.length} notas recalculadas!`, "success");
+                };
+
                 const openEditExam = (e) => {
                     examConfig.value = {
-                        title: e.title, classId: e.classId, teacher: e.teacher || '', 
+                        title: e.title,
+                        classId: e.classId,
+                        teacher: e.teacher || '', 
                         date: new Date(e.date).toISOString().split('T')[0],
-                        type: e.type || 'Mensal', weight: e.weight || 1, bimester: e.bimester || 1, variationMode: e.variationMode || 'standard' 
+                        type: e.type || 'Mensal',
+                        weight: e.weight || 1,
+                        bimester: e.bimester || 1,
+                        variationMode: e.variationMode || 'standard' 
                     };
                     
                     if (e.versions && e.versions[0]) {
@@ -1433,7 +1624,9 @@
                         examCart.value = JSON.parse(JSON.stringify(e.questions));
                     }
                     
-                    editingExamId.value = e.id; showHistory.value = false; currentView.value = 'exams'; 
+                    editingExamId.value = e.id;
+                    showHistory.value = false;
+                    currentView.value = 'exams'; 
                     showToast('Prova carregada para edição', 'success');
                 };
 
@@ -1441,13 +1634,75 @@
                     if(!editingExam.value.title) return showToast("Título obrigatório", "error");
                     try {
                         await db.exams.put(JSON.parse(JSON.stringify(editingExam.value)));
-                        showEditExamModal.value = false; load(); showToast("Prova atualizada!", "success");
+                        showEditExamModal.value = false;
+                        load(); 
+                        showToast("Prova atualizada!", "success");
                     } catch(e) {
                         showToast("Erro ao salvar", "error");
                     }
                 };
 
-                // --- INTELIGÊNCIA ARTIFICIAL (GEMINI OMR APERFEIÇOADO) ---
+                // Lançamento Manual State
+                const correctionMode = ref(false); 
+                const activeStudent = ref(null); 
+                const activeExam = ref(null); 
+                const activeVersion = ref(0); 
+                const studentAnswers = ref({}); 
+
+                const showManualInputModal = ref(false);
+                const manualConfig = ref({ examId: '', studentId: '', version: 0 }); 
+
+                const manualStudents = computed(() => {
+                    if (!manualConfig.value.examId) return [];
+                    const ex = exams.value.find(e => e.id === manualConfig.value.examId);
+                    if (!ex) return [];
+                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                });
+                
+                const selectedExamVersions = computed(() => {
+                    if (!manualConfig.value.examId) return [];
+                    const e = exams.value.find(x => x.id === manualConfig.value.examId);
+                    return e && e.versions ? e.versions : [{id:0, label:'Padrão'}];
+                });
+
+                watch(() => manualConfig.value.studentId, (newVal) => {
+                    if (!newVal || !manualConfig.value.examId) return;
+                    const e = exams.value.find(x => x.id === manualConfig.value.examId);
+                    if (e && e.studentMap && e.studentMap[newVal] !== undefined) {
+                        manualConfig.value.version = e.studentMap[newVal];
+                    } else {
+                         manualConfig.value.version = 0;
+                    }
+                });
+
+                const startManualEntry = () => {
+                    manualConfig.value = { examId: '', studentId: '', version: 0 };
+                    showManualInputModal.value = true;
+                };
+
+                const confirmManualEntry = async () => {
+                    if (!manualConfig.value.examId || !manualConfig.value.studentId) return showToast('Selecione prova e aluno', 'error');
+                    
+                    const e = exams.value.find(x => x.id === manualConfig.value.examId);
+                    
+                    if(e && !e.versions) {
+                        e.versions = [{id:0, questions:e.questionsA || []}, {id:1, questions:e.questionsB || []}];
+                        if (!e.questionsA && e.questions) e.versions = [{id:0, questions:e.questions}];
+                    }
+
+                    const s = students.value.find(x => x.id === manualConfig.value.studentId);
+                    let verIdx = manualConfig.value.version;
+
+                    activeExam.value = e;
+                    activeStudent.value = s;
+                    activeVersion.value = verIdx;
+                    studentAnswers.value = {};
+                    
+                    showManualInputModal.value = false;
+                    correctionMode.value = true;
+                };
+
+                // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) ---
                 
                 const testGeminiKey = async () => {
                     if(!geminiKey.value) return showToast("Insira a chave de API", "error");
@@ -1477,14 +1732,20 @@
 
                     for(const f of files) {
                         aiCorrectionQueue.value.push({
-                            id: crypto.randomUUID(), file: f, name: f.name,
-                            status: 'pending', message: 'Aguardando na fila...', score: null
+                            id: crypto.randomUUID(),
+                            file: f,
+                            name: f.name,
+                            status: 'pending',
+                            message: 'Aguardando na fila...',
+                            score: null
                         });
                     }
                     e.target.value = '';
                 };
 
-                const hasPendingItems = computed(() => aiCorrectionQueue.value.some(i => i.status === 'pending' || i.status === 'error'));
+                const hasPendingItems = computed(() => {
+                    return aiCorrectionQueue.value.some(i => i.status === 'pending' || i.status === 'error');
+                });
 
                 const fileToBase64 = (file) => new Promise((resolve, reject) => {
                     const reader = new FileReader();
@@ -1507,30 +1768,28 @@
 
                 const callGemini = async (base64Data, mimeType, questionsCount) => {
                     const apiKey = geminiKey.value;
-                    // ATUALIZAÇÃO: Mudança para gemini-2.5-pro para precisão visual extrema
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 
-                    // ATUALIZAÇÃO: Prompt altamente otimizado para lidar com as nuances humanas dos gabaritos
-                    const prompt = `Atue como um sistema OMR (Optical Mark Recognition) de precisão absoluta (nível perito humano).
-O usuário enviará a foto de um cartão-resposta. A prova possui EXATAMENTE ${questionsCount} questões enumeradas nas linhas.
-Seu objetivo é extrair as respostas do aluno com a máxima precisão possível, lidando com imperfeições do mundo real.
+                    const prompt = `Atue como um sistema OMR (Optical Mark Recognition) avançado.
+Analise a imagem deste cartão-resposta escolar. A grelha possui ${questionsCount} linhas (questões) e 5 colunas de alternativas (A, B, C, D, E).
 
-Mapeamento de alternativas para índices:
-A = 0 | B = 1 | C = 2 | D = 3 | E = 4
-Certo/Errado: C = 0 | E = 1
+MAPEAMENTO:
+A = 0, B = 1, C = 2, D = 3, E = 4
 
-REGRAS DE ANÁLISE RIGOROSAS (Siga à risca):
-1. TIPOS DE MARCAÇÃO VÁLIDA: O aluno não precisa necessariamente ter pintado a bolinha perfeitamente. Um "X" forte, um "check" (✓), um círculo feito à mão ao redor da alternativa, ou uma pintura parcial densa são marcações válidas.
-2. RASURAS E CORREÇÕES (CRÍTICO): É muito comum o aluno errar, fazer um rabisco caótico/borrão agressivo numa alternativa para anulá-la, E marcar outra alternativa de forma mais limpa (pintada ou com um "X"). Se identificar este padrão, IGNORE a rasura e valide apenas a marcação limpa.
-3. DUPLA MARCAÇÃO (ANULAÇÃO): Se houver duas ou mais marcações com INTENSIDADE SEMELHANTE na mesma linha, e não for claro que uma delas é um rabisco de anulação, a questão está anulada. Retorne o valor null.
-4. QUESTÃO EM BRANCO: Se a linha inteira não tiver nenhuma marcação intencional de caneta/lápis, retorne null.
-5. OBSTÁCULOS VISUAIS: Ignore solenemente sombras na foto, dobras, papel amassado, reflexos do flash da câmera, manchas de sujeira aleatórias ou vazamento de tinta do verso da folha. Analise apenas os pixels intencionais de grafite/tinta sobre as letras A, B, C, D e E.
-6. ALINHAMENTO: Avalie as alternativas estritamente de forma horizontal, respeitando a linha numérica correspondente (1, 2, 3...).
+INSTRUÇÕES DE ANÁLISE VISUAL (PASSO A PASSO):
+1. Localize a tabela central com cabeçalho "Questão" e "RESPOSTA". Ignore as listras cinzas e brancas de fundo. Ignore textos, assinaturas e QR Codes nas laterais.
+2. Analise a linha 1 até a linha ${questionsCount} horizontalmente.
+3. MARCAÇÃO ÚNICA: Se houver apenas uma bolinha marcada na linha (seja perfeitamente pintada, com um "X", um círculo em volta, ou até mesmo um rabisco forte), retorne o índice dela.
+4. CORREÇÕES E RASURAS (MUITO IMPORTANTE):
+   - Se houver DUAS marcações na mesma linha com intensidades MUITO diferentes (ex: um pontinho fraco numa letra e uma pintura muito forte noutra), a marcação FORTE é a escolha válida.
+   - Se uma bolinha estiver completamente borrada/rabiscada de forma caótica (anulada pelo aluno) e outra tiver uma marcação mais limpa (ex: um "X" ou pintura regular), a LIMPA é a escolha válida.
+5. DUPLA MARCAÇÃO REJEITADA: Se duas bolinhas estiverem preenchidas com a mesma intensidade, força e clareza, a questão está anulada. Retorne o valor null.
+6. EM BRANCO: Se nenhuma bolinha tiver marcas visíveis de caneta/lápis, retorne null.
+7. FALSOS POSITIVOS: Ignore rigorosamente sombras da luz, dobras do papel, ou manchas minúsculas acidentais.
 
-SAÍDA OBRIGATÓRIA:
-O seu retorno DEVE SER EXCLUSIVAMENTE um array JSON válido contendo os índices extraídos (números de 0 a 4) ou null. O tamanho exato do array tem de ser ${questionsCount}.
-Exemplo de formato para 5 questões: [0, 3, null, 1, 4]
-NÃO adicione blocos de código (como \`\`\`json), nem textos explicativos ou caracteres fora do array.`;
+SAÍDA ESTRITAMENTE OBRIGATÓRIA:
+O seu retorno TEM DE SER APENAS E EXCLUSIVAMENTE um array JSON com ${questionsCount} elementos numéricos (0 a 4) ou null. Não forneça nenhuma formatação adicional.
+Exemplo: [0, 1, 2, null, 4]`;
 
                     const payload = {
                         contents: [{
@@ -1541,7 +1800,7 @@ NÃO adicione blocos de código (como \`\`\`json), nem textos explicativos ou ca
                         }],
                         generationConfig: { 
                             response_mime_type: "application/json",
-                            temperature: 0.0, // Força a IA a ser totalmente determinística, fria e analítica (sem alucinações)
+                            temperature: 0.0,
                             topK: 1
                         }
                     };
@@ -1617,8 +1876,10 @@ NÃO adicione blocos de código (como \`\`\`json), nem textos explicativos ou ca
                                 const studentAns = aiAnswers[idx];
                                 if(studentAns !== null && studentAns !== undefined) {
                                     parsedAnswers[idx] = studentAns;
+
                                     let correctIdx = q.correctIndex;
                                     if(q.type === 'vf' || q.type === 'assoc') correctIdx = (q.id || 0) % 5;
+
                                     if(studentAns === correctIdx) hits++;
                                 }
                             });
@@ -2643,6 +2904,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                         baseVersion.questions.forEach((q, i) => {
                             let correctAnswerText = '';
                             
+                            // Formata a resposta correta baseado no tipo de questão
                             if (q.type === 'ce') {
                                 correctAnswerText = ['Certo', 'Errado'][q.correctIndex] || '?';
                             } else if (q.type === 'vf') {
@@ -2667,6 +2929,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                             content.push({ text: `Questão ${i + 1} - ${q.subject} (${q.topic})`, bold: true, fontSize: 11, margin: [0, 15, 0, 5], color: '#4f46e5' });
                             content.push({ text: q.text, fontSize: 10, margin: [0, 0, 0, 5] });
                             
+                            // Adiciona a imagem se houver
                             if(q.image && typeof q.image === 'string' && q.image.startsWith('data:image')) {
                                 content.push({image: q.image, width: 150, margin: [0, 5, 0, 5]});
                             }
@@ -2682,6 +2945,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                 margin: [0, 0, 0, 10] 
                             });
                             
+                            // Linha divisória
                             content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e5e7eb' }], margin: [0, 5, 0, 5] });
                         });
                     } else {
@@ -2882,8 +3146,9 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
                     generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, uniqueSubjects,
                     printConfig, editingExamId, openEditExam, changeQType,
+                    showFixKeyModal, fixKeyExam, fixKeyQuestions, openFixKey, saveFixedKey, // NOVO: Exportado
                     dashboardStudentFilter,
-                    examFilterSubject, examFilterTopic,
+                    examFilterSubject, examFilterTopic, 
                     appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, isTemporal, timeLeft, deleteClass, showLicenseModal, toggleExpand,
                     geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, aiCorrectionQueue, processAIQueue, hasPendingItems, isProcessingQueue,
                     showResultDetailsModal, selectedResultDetails, openResultDetails, saveUpdatedAnswers, getAlternativeLabel, showExamStatsModal, examStats, openExamStats,
@@ -2893,9 +3158,16 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
             }
         }).mount('#app');
 
+        // --- REGISTRO DO SERVICE WORKER ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => {});
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('SW registrado com sucesso:', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('Falha ao registrar SW:', err);
+                    });
             });
         }
     </script>
