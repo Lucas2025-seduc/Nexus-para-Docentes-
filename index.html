@@ -1507,27 +1507,30 @@
 
                 const callGemini = async (base64Data, mimeType, questionsCount) => {
                     const apiKey = geminiKey.value;
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+                    // ATUALIZAÇÃO: Mudança para gemini-2.5-pro para precisão visual extrema
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 
-                    const prompt = `Atue como um sistema OMR (Optical Mark Recognition) de altíssima precisão.
-O usuário enviará a foto de um cartão-resposta. A prova possui EXATAMENTE ${questionsCount} questões.
-Para cada linha enumerada, identifique a bolinha (círculo) que foi preenchida pelo aluno com caneta/lápis.
+                    // ATUALIZAÇÃO: Prompt altamente otimizado para lidar com as nuances humanas dos gabaritos
+                    const prompt = `Atue como um sistema OMR (Optical Mark Recognition) de precisão absoluta (nível perito humano).
+O usuário enviará a foto de um cartão-resposta. A prova possui EXATAMENTE ${questionsCount} questões enumeradas nas linhas.
+Seu objetivo é extrair as respostas do aluno com a máxima precisão possível, lidando com imperfeições do mundo real.
 
 Mapeamento de alternativas para índices:
 A = 0 | B = 1 | C = 2 | D = 3 | E = 4
-Para questões Certo/Errado: Certo (C) = 0 | Errado (E) = 1
+Certo/Errado: C = 0 | E = 1
 
-Regras ESTRITAS de avaliação visual:
-1. Avalie a imagem rigorosamente linha por linha (da questão 1 até a ${questionsCount}).
-2. MARCAÇÃO VÁLIDA: Retorne o índice (0 a 4) da bolinha que está preenchida.
-3. RASURAS E CORREÇÕES (MUITO IMPORTANTE): É comum o aluno errar, fazer um rabisco agressivo/borrão irregular numa bolinha para anulá-la e pintar outra bolinha de forma mais limpa. Se identificar isso, VALIDE a bolinha pintada de forma mais limpa/circular e desconsidere o rabisco.
-4. DUPLA MARCAÇÃO REAL: Se a linha tiver duas ou mais bolinhas perfeitamente preenchidas e escuras (sem intenção clara de que uma é rasura), a questão está anulada. Retorne null.
-5. EM BRANCO: Se não houver nenhuma marcação forte na linha, retorne null.
-6. IGNORE sombras da foto, vazamentos de tinta do verso, marcas de dobra do papel ou sujeiras.
+REGRAS DE ANÁLISE RIGOROSAS (Siga à risca):
+1. TIPOS DE MARCAÇÃO VÁLIDA: O aluno não precisa necessariamente ter pintado a bolinha perfeitamente. Um "X" forte, um "check" (✓), um círculo feito à mão ao redor da alternativa, ou uma pintura parcial densa são marcações válidas.
+2. RASURAS E CORREÇÕES (CRÍTICO): É muito comum o aluno errar, fazer um rabisco caótico/borrão agressivo numa alternativa para anulá-la, E marcar outra alternativa de forma mais limpa (pintada ou com um "X"). Se identificar este padrão, IGNORE a rasura e valide apenas a marcação limpa.
+3. DUPLA MARCAÇÃO (ANULAÇÃO): Se houver duas ou mais marcações com INTENSIDADE SEMELHANTE na mesma linha, e não for claro que uma delas é um rabisco de anulação, a questão está anulada. Retorne o valor null.
+4. QUESTÃO EM BRANCO: Se a linha inteira não tiver nenhuma marcação intencional de caneta/lápis, retorne null.
+5. OBSTÁCULOS VISUAIS: Ignore solenemente sombras na foto, dobras, papel amassado, reflexos do flash da câmera, manchas de sujeira aleatórias ou vazamento de tinta do verso da folha. Analise apenas os pixels intencionais de grafite/tinta sobre as letras A, B, C, D e E.
+6. ALINHAMENTO: Avalie as alternativas estritamente de forma horizontal, respeitando a linha numérica correspondente (1, 2, 3...).
 
-O seu retorno DEVE SER EXCLUSIVAMENTE um array JSON válido com o tamanho exato de ${questionsCount} elementos. 
+SAÍDA OBRIGATÓRIA:
+O seu retorno DEVE SER EXCLUSIVAMENTE um array JSON válido contendo os índices extraídos (números de 0 a 4) ou null. O tamanho exato do array tem de ser ${questionsCount}.
 Exemplo de formato para 5 questões: [0, 3, null, 1, 4]
-NÃO adicione \`\`\`json, textos explicativos ou qualquer outro caractere fora do array.`;
+NÃO adicione blocos de código (como \`\`\`json), nem textos explicativos ou caracteres fora do array.`;
 
                     const payload = {
                         contents: [{
@@ -1538,7 +1541,7 @@ NÃO adicione \`\`\`json, textos explicativos ou qualquer outro caractere fora d
                         }],
                         generationConfig: { 
                             response_mime_type: "application/json",
-                            temperature: 0.0, // Força a IA a ser determinística e precisa
+                            temperature: 0.0, // Força a IA a ser totalmente determinística, fria e analítica (sem alucinações)
                             topK: 1
                         }
                     };
