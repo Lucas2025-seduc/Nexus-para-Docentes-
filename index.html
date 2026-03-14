@@ -1027,9 +1027,14 @@
                     <div v-for="e in filteredHistoryExams" :key="e.id" class="bg-white border border-gray-100 rounded-xl p-4 flex justify-between items-center shadow-sm hover:shadow-md transition">
                         <div>
                             <div class="font-bold text-indigo-900 text-sm mb-1">{{ e.title }}</div>
-                            <div class="text-xs text-gray-400 flex gap-2 items-center">
-                                <span><i class="fa-regular fa-calendar mr-1"></i>{{ new Date(e.date).toLocaleDateString() }}</span>
-                                <span class="bg-gray-100 px-1.5 rounded text-[10px] font-bold uppercase">{{ e.bimester }}º Bim</span>
+                            <div class="text-[10px] text-gray-500 flex flex-wrap gap-1.5 items-center mt-1">
+                                <span class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold flex items-center gap-1 border border-indigo-100">
+                                    <i class="fa-solid fa-users"></i> {{ getClassName(e.classId) }}
+                                </span>
+                                <span class="bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded flex items-center gap-1 border border-gray-200 font-medium">
+                                    <i class="fa-regular fa-clock"></i> {{ new Date(e.date).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit'}) }}
+                                </span>
+                                <span class="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase border border-gray-200">{{ e.bimester }}º Bim</span>
                             </div>
                         </div>
                         <div class="flex gap-2">
@@ -1770,26 +1775,30 @@
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 
-                    const prompt = `Atue como um sistema OMR (Optical Mark Recognition) avançado.
-Analise a imagem deste cartão-resposta escolar. A grelha possui ${questionsCount} linhas (questões) e 5 colunas de alternativas (A, B, C, D, E).
+                    // NOVO PROMPT: Forçando a técnica "Visual Chain-of-Thought" (Rastreio Linear) sugerida.
+                    const prompt = `Atue como um scanner físico OMR mecânico.
+Analise a imagem deste cartão-resposta escolar. A grelha possui EXATAMENTE ${questionsCount} questões.
 
-MAPEAMENTO:
-A = 0, B = 1, C = 2, D = 3, E = 4
+MÉTODO DE RASTREIO OBRIGATÓRIO (Faça exatamente nesta ordem):
+1. Foque na linha da Questão 1.
+2. Mova sua visão estritamente na HORIZONTAL, em linha reta, avaliando as colunas da esquerda para a direita (A, B, C, D, E).
+3. Registe mentalmente a intensidade de preenchimento de cada círculo nessa linha exata.
+4. Aplique as regras de rasura (se houver um borrão forte e uma marcação limpa ao lado, a limpa vence). Duas marcações iguais = null. Vazio = null.
+5. Desça para a linha de baixo (Questão 2) e repita a varredura horizontal. Faça isso rigorosamente até a Questão ${questionsCount}, sem nunca pular linhas.
 
-INSTRUÇÕES DE ANÁLISE VISUAL (PASSO A PASSO):
-1. Localize a tabela central com cabeçalho "Questão" e "RESPOSTA". Ignore as listras cinzas e brancas de fundo. Ignore textos, assinaturas e QR Codes nas laterais.
-2. Analise a linha 1 até a linha ${questionsCount} horizontalmente.
-3. MARCAÇÃO ÚNICA: Se houver apenas uma bolinha marcada na linha (seja perfeitamente pintada, com um "X", um círculo em volta, ou até mesmo um rabisco forte), retorne o índice dela.
-4. CORREÇÕES E RASURAS (MUITO IMPORTANTE):
-   - Se houver DUAS marcações na mesma linha com intensidades MUITO diferentes (ex: um pontinho fraco numa letra e uma pintura muito forte noutra), a marcação FORTE é a escolha válida.
-   - Se uma bolinha estiver completamente borrada/rabiscada de forma caótica (anulada pelo aluno) e outra tiver uma marcação mais limpa (ex: um "X" ou pintura regular), a LIMPA é a escolha válida.
-5. DUPLA MARCAÇÃO REJEITADA: Se duas bolinhas estiverem preenchidas com a mesma intensidade, força e clareza, a questão está anulada. Retorne o valor null.
-6. EM BRANCO: Se nenhuma bolinha tiver marcas visíveis de caneta/lápis, retorne null.
-7. FALSOS POSITIVOS: Ignore rigorosamente sombras da luz, dobras do papel, ou manchas minúsculas acidentais.
+MAPEAMENTO: A = 0 | B = 1 | C = 2 | D = 3 | E = 4 | Certo = 0 | Errado = 1
 
-SAÍDA ESTRITAMENTE OBRIGATÓRIA:
-O seu retorno TEM DE SER APENAS E EXCLUSIVAMENTE um array JSON com ${questionsCount} elementos numéricos (0 a 4) ou null. Não forneça nenhuma formatação adicional.
-Exemplo: [0, 1, 2, null, 4]`;
+SAÍDA JSON ESTRITAMENTE OBRIGATÓRIA:
+Para garantir que você não pula linhas, você DEVE retornar um objeto JSON com duas chaves:
+{
+  "analise_linha_a_linha": [
+    "Questão 1: A vazio, B vazio, C marcação forte, D vazio, E rasura. -> 2",
+    "Questão 2: Todas vazias. -> null"
+  ],
+  "respostas": [2, null]
+}
+
+A chave "respostas" deve conter APENAS o array final numérico com exatamente ${questionsCount} elementos. Retorne APENAS o JSON puro, sem crases (\`\`\`) e sem texto solto.`;
 
                     const payload = {
                         contents: [{
@@ -1800,7 +1809,7 @@ Exemplo: [0, 1, 2, null, 4]`;
                         }],
                         generationConfig: { 
                             response_mime_type: "application/json",
-                            temperature: 0.0,
+                            temperature: 0.0, // Matemática pura, sem criatividade
                             topK: 1
                         }
                     };
@@ -1824,7 +1833,14 @@ Exemplo: [0, 1, 2, null, 4]`;
                             
                             let text = data.candidates[0].content.parts[0].text;
                             const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                            return JSON.parse(cleanedText);
+                            
+                            // EXTRAÇÃO: Agora pegamos apenas a chave "respostas" do JSON complexo
+                            const parsedObj = JSON.parse(cleanedText);
+                            if (parsedObj.respostas && Array.isArray(parsedObj.respostas)) {
+                                return parsedObj.respostas;
+                            } else {
+                                throw new Error("A IA não retornou o array de respostas no formato esperado.");
+                            }
                             
                         } catch(e) {
                             if(e.isRateLimit) {
@@ -2151,6 +2167,11 @@ Exemplo: [0, 1, 2, null, 4]`;
 
                 const toggleExpand = (c) => { 
                     c.expanded = !c.expanded; 
+                };
+
+                const getClassName = (classId) => {
+                    const c = classes.value.find(cls => cls.id === classId);
+                    return c ? c.name : 'Turma Desconhecida';
                 };
                 
                 const saveStudents = async (cid) => { 
@@ -3134,7 +3155,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                 };
 
                 return {
-                    currentView, tabs, classes, newClass, bulkStudents, addClass, saveStudents, getStudentCount, deleteStudent,
+                    currentView, tabs, classes, newClass, bulkStudents, addClass, saveStudents, getStudentCount, deleteStudent, getClassName,
                     showQFormModal, openQForm, formSource, newQ, qFilter, filterType, filterSubject, filterTopic, uniqueTopics, filteredQuestions, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, 
                     examConfig, examCart, toggleExamQ, isQInExam, generatePDF, exams, deleteExam, showHistory,
                     settings, handleLogoUpload, saveSettings, backupData, 
