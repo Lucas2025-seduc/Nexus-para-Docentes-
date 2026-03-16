@@ -52,6 +52,9 @@
         .q-type-btn { @apply flex-1 py-3 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border border-transparent; }
         .q-type-btn.active { @apply bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm ring-1 ring-indigo-200; }
         .q-type-btn.inactive { @apply bg-white text-gray-400 border-gray-100 hover:bg-gray-50 hover:text-gray-600; }
+
+        /* Estilos do Canvas OMR */
+        #omrCanvas { touch-action: none; cursor: crosshair; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden select-none">
@@ -598,56 +601,46 @@
                 </div>
             </div>
 
-            <!-- CORREÇÃO DE PROVAS PELA IA -->
+            <!-- NOVA ABA CORREÇÃO COM OMR LOCAL -->
             <div v-if="currentView === 'correction'" class="max-w-xl mx-auto space-y-4 animate-fade-in pb-20">
                 
-                <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center relative overflow-hidden">
+                <div class="bg-gray-900 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center relative overflow-hidden">
                      <div class="relative z-10">
-                         <h2 class="text-2xl font-black mb-1">Correção por IA</h2>
-                         <p class="text-xs text-indigo-200">Processamento visual de alta precisão</p>
+                         <h2 class="text-2xl font-black mb-1 text-emerald-400">Motor OMR Local</h2>
+                         <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                             <i class="fa-solid fa-shield-check text-emerald-500"></i> 100% Determinístico & Offline
+                         </p>
                      </div>
-                     <i class="fa-solid fa-robot text-5xl text-white/20 absolute right-6"></i>
+                     <i class="fa-solid fa-scanner-touchscreen text-6xl text-white/10 absolute right-6"></i>
                 </div>
 
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div>
-                        <div class="flex-1">
-                            <h3 class="font-bold text-gray-800 text-lg">Gabaritos (Visão)</h3>
-                            <p class="text-xs text-gray-500">Faça upload de fotos dos cartões para extração inteligente.</p>
-                        </div>
+                    
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 mb-5">
+                        <h3 class="font-bold text-emerald-800 text-sm mb-2 flex items-center gap-2"><i class="fa-solid fa-circle-info"></i> Nova Correção de Alta Precisão</h3>
+                        <p class="text-xs text-emerald-700 leading-relaxed mb-2">
+                            A Inteligência Artificial visual foi substituída pela <strong>Máscara de Interpolação Geométrica</strong>.
+                            Você fará o upload, alinhará os 4 cantos da tabela do gabarito e o sistema fará a leitura exata (matemática) dos pixels, garantindo zero desvio de linha.
+                        </p>
                     </div>
 
-                    <div class="bg-gray-50 p-3 rounded-xl mb-4 border border-gray-200 space-y-2">
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase">Chave de API Gemini (Google)</label>
-                            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[9px] text-indigo-500 hover:text-indigo-700 font-bold flex items-center gap-1 transition">
-                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Criar Chave Grátis
-                            </a>
-                        </div>
-                        <div class="flex gap-2">
-                            <input type="password" v-model="geminiKey" placeholder="Cole sua chave AIzaSy..." class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-indigo-400">
-                            <button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-black transition whitespace-nowrap shadow-md active:scale-95"><i class="fa-solid fa-vial"></i> Testar</button>
-                        </div>
-                        <p class="text-[9px] text-gray-400 leading-tight">Esta chave garante o processamento visual e identificação inteligente das respostas marcadas na folha.</p>
-                    </div>
-
-                    <input type="file" multiple accept="image/*" id="aiUploadInput" class="hidden" @change="handleAIUpload">
-                    <button @click="triggerAIUpload" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition flex items-center justify-center gap-2 active:scale-95">
-                        <i class="fa-solid fa-camera"></i> Selecionar Fotos (Gabaritos)
+                    <input type="file" multiple accept="image/*" id="omrUploadInput" class="hidden" @change="handleOMRUpload">
+                    <button @click="triggerOMRUpload" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition flex items-center justify-center gap-2 active:scale-95 text-lg">
+                        <i class="fa-solid fa-camera"></i> Carregar Fotos de Provas
                     </button>
 
-                    <div v-if="aiCorrectionQueue.length > 0" class="mt-6 border-t border-gray-100 pt-4 animate-fade-in">
+                    <!-- Fila OMR -->
+                    <div v-if="omrQueue.length > 0" class="mt-6 border-t border-gray-100 pt-4 animate-fade-in">
                         <div class="flex justify-between items-center mb-3">
-                            <h4 class="font-bold text-sm text-gray-700">Fila de Processamento</h4>
+                            <h4 class="font-bold text-sm text-gray-700">Fila Escaneada ({{ omrQueue.filter(i => i.status === 'success').length }}/{{ omrQueue.length }})</h4>
                             <div class="flex gap-2">
-                                <button v-if="aiCorrectionQueue.length > 0 && !isProcessingQueue" @click="aiCorrectionQueue=[]" class="text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i> Limpar</button>
-                                <button v-if="!isProcessingQueue && hasPendingItems" @click="processAIQueue" class="text-xs bg-indigo-600 text-white px-4 py-1.5 rounded-lg font-bold shadow-md hover:bg-indigo-700 transition flex items-center gap-1"><i class="fa-solid fa-play"></i> Iniciar Análise</button>
+                                <button v-if="omrQueue.length > 0" @click="omrQueue=[]" class="text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i></button>
+                                <button v-if="hasPendingOMR" @click="startOMRProcess" class="text-xs bg-emerald-500 text-white px-4 py-1.5 rounded-lg font-bold shadow-md hover:bg-emerald-600 transition flex items-center gap-1"><i class="fa-solid fa-crosshairs"></i> Iniciar Leitura</button>
                             </div>
                         </div>
 
                         <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                            <div v-for="(item, i) in aiCorrectionQueue" :key="item.id" class="p-3 bg-gray-50 rounded-xl border flex items-center gap-3 transition-colors" 
+                            <div v-for="(item, i) in omrQueue" :key="item.id" class="p-3 bg-gray-50 rounded-xl border flex items-center gap-3 transition-colors" 
                                 :class="{'border-emerald-200 bg-emerald-50': item.status==='success', 'border-red-200 bg-red-50': item.status==='error', 'border-indigo-200 bg-indigo-50': item.status==='processing', 'border-gray-200': item.status==='pending'}">
                                 <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0" 
                                     :class="{'bg-emerald-100 text-emerald-600': item.status==='success', 'bg-red-100 text-red-500': item.status==='error', 'bg-indigo-100 text-indigo-600': item.status==='processing', 'bg-gray-200 text-gray-400': item.status==='pending'}">
@@ -665,7 +658,7 @@
                                     <button v-if="item.status === 'success' && item.resultData" @click="openResultDetails(item.resultData)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-500 hover:bg-blue-100 flex items-center justify-center transition" title="Ver Gabarito x Aluno">
                                         <i class="fa-solid fa-eye text-xs"></i>
                                     </button>
-                                    <button v-if="item.status==='pending' || item.status==='error'" @click="aiCorrectionQueue.splice(i, 1)" class="text-gray-400 hover:text-red-500 p-1 transition"><i class="fa-solid fa-times"></i></button>
+                                    <button v-if="item.status==='pending' || item.status==='error'" @click="omrQueue.splice(i, 1)" class="text-gray-400 hover:text-red-500 p-1 transition"><i class="fa-solid fa-times"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -685,7 +678,7 @@
             <option v-for="top in uniqueTopics" :key="top" :value="top"></option>
         </datalist>
 
-        <!-- NOVO MODAL: GERADOR IA MELHORADO -->
+        <!-- NOVO MODAL: GERADOR IA MELHORADO (A IA CONTINUA AQUI APENAS PARA GERAR QUESTÕES) -->
         <div v-if="showAIGenModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col animate-fade-in overflow-hidden border border-gray-100 max-h-[90vh]">
                 <div class="p-4 border-b flex justify-between items-center bg-purple-600 text-white shrink-0 relative overflow-hidden">
@@ -1263,6 +1256,38 @@
             </div>
         </div>
 
+        <!-- MODAL DO SCANNER OMR INTERATIVO (NOVO!) -->
+        <div v-show="omrModal.show" class="fixed inset-0 z-[300] bg-black flex flex-col items-center justify-center overflow-hidden touch-none select-none">
+            
+            <div class="absolute top-0 w-full bg-gradient-to-b from-black/80 to-transparent p-4 flex justify-between items-start z-10">
+                <div class="text-white">
+                    <h3 class="font-bold text-lg">Alinhamento Geométrico</h3>
+                    <p class="text-xs text-gray-300">Arraste os pontos para as 4 bordas da tabela.</p>
+                    <p v-if="omrModal.studentName" class="text-[10px] uppercase font-bold text-emerald-400 mt-1">Aluno(a): {{ omrModal.studentName }}</p>
+                </div>
+                <button @click="closeOMRModal" class="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white backdrop-blur transition"><i class="fa-solid fa-times"></i></button>
+            </div>
+
+            <!-- Canvas de Interação -->
+            <canvas id="omrCanvas" ref="omrCanvasRef" 
+                @touchstart.prevent="omrTouchStart" 
+                @touchmove.prevent="omrTouchMove" 
+                @touchend.prevent="omrTouchEnd"
+                @mousedown="omrMouseStart"
+                @mousemove="omrMouseMove"
+                @mouseup="omrMouseEnd"
+                class="w-full h-full object-contain"></canvas>
+
+            <div class="absolute bottom-6 w-full px-6 flex justify-between items-center z-10 gap-4 max-w-lg mx-auto">
+                <button @click="rotateOMR" class="w-14 h-14 rounded-full bg-white/20 backdrop-blur text-white flex items-center justify-center text-xl shadow-lg hover:bg-white/30 active:scale-95 transition">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+                <button @click="processOMRAnalysis" class="flex-1 bg-emerald-500 text-white py-4 rounded-xl font-black text-lg shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check-double"></i> Confirmar e Ler
+                </button>
+            </div>
+        </div>
+
     </div>
 
     <!-- SCRIPT DA APLICAÇÃO -->
@@ -1431,10 +1456,7 @@
                 const settings = ref({ schoolName:'', logo:null });
                 const extraPoints = ref([]);
 
-                // INTEGRAÇÃO GEMINI IA
                 const geminiKey = ref('');
-                const aiCorrectionQueue = ref([]);
-                const isProcessingQueue = ref(false);
 
                 // --- VARIÁVEIS DE ESTADO (ANÁLISE E DETALHES) ---
                 const showResultDetailsModal = ref(false);
@@ -1449,9 +1471,9 @@
                     subject: '', 
                     topic: '', 
                     difficulty: 'Ensino Médio',
-                    style: 'Padrão', // NOVO: ENEM, Vestibular, Concurso
-                    promptType: 'Normal', // NOVO: Direto, Normal, Longo
-                    extraObservations: '', // NOVO: Observações extras
+                    style: 'Padrão',
+                    promptType: 'Normal',
+                    extraObservations: '',
                     counts: { mc: 2, ce: 0, vf: 0, assoc: 0 },
                     mcMode: 'correct'
                 });
@@ -1463,9 +1485,8 @@
                 const studentFilter = ref('');
                 const examHistoryFilter = ref('');
                 const dashboardStudentFilter = ref('');
-                const filterTopic = ref(''); // Filtro por tópico no banco
+                const filterTopic = ref(''); 
                 
-                // NOVO: Variáveis para filtro de questões na aba de Provas
                 const examFilterSubject = ref('');
                 const examFilterTopic = ref('');
                 
@@ -1534,14 +1555,12 @@
                 const editingExam = ref({});
                 const editingExamId = ref(null); 
 
-                // --- ESTADO E LÓGICA DO NOVO "CORRIGIR GABARITO" ---
                 const showFixKeyModal = ref(false);
                 const fixKeyExam = ref(null);
                 const fixKeyQuestions = ref([]);
 
                 const openFixKey = (exam) => {
                     fixKeyExam.value = exam;
-                    // Pega a versão Base (Tipo 1) para o professor editar
                     const baseVersion = exam.versions ? exam.versions[0] : { questions: exam.questions || [] };
                     
                     fixKeyQuestions.value = JSON.parse(JSON.stringify(baseVersion.questions)).map(q => {
@@ -1557,7 +1576,6 @@
                     
                     const updatedExam = JSON.parse(JSON.stringify(examToUpdate));
 
-                    // Atualiza a resposta em todas as versões (Tipos A, B, C...) mapeando pelo texto
                     fixKeyQuestions.value.forEach(baseQ => {
                         const newBaseCorrectIdx = baseQ.newCorrectIndex;
                         let targetOptText = null;
@@ -1584,10 +1602,8 @@
                         }
                     });
 
-                    // Guarda a prova atualizada
                     await db.exams.put(updatedExam);
 
-                    // RECALCULAR TODAS AS NOTAS JÁ AVALIADAS PARA ESTA PROVA
                     const allResults = await db.results.toArray();
                     const examResultsToUpdate = allResults.filter(r => r.examId === updatedExam.id);
                     
@@ -1603,7 +1619,7 @@
                         
                         const newBaseScore = ((hits / version.questions.length) * 10).toFixed(1);
                         r.score = (parseFloat(newBaseScore) + parseFloat(r.bonus || 0)).toFixed(1);
-                        await db.results.put(r); // Atualiza nota do aluno no banco
+                        await db.results.put(r); 
                     }
 
                     showFixKeyModal.value = false;
@@ -1647,7 +1663,6 @@
                     }
                 };
 
-                // Lançamento Manual State
                 const correctionMode = ref(false); 
                 const activeStudent = ref(null); 
                 const activeExam = ref(null); 
@@ -1707,8 +1722,320 @@
                     correctionMode.value = true;
                 };
 
-                // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) ---
+
+                // =============== NOVO MOTOR OMR LOCAL (DETERMINÍSTICO) ===============
                 
+                const omrQueue = ref([]);
+                const omrModal = ref({
+                    show: false,
+                    currentIndex: -1,
+                    image: null,
+                    exam: null,
+                    studentName: '',
+                    versionData: null,
+                    points: [], 
+                    activePointIndex: -1,
+                    scale: 1,
+                    rotation: 0,
+                    drawConfig: {}
+                });
+
+                const omrCanvasRef = ref(null);
+                const offscreenCanvas = document.createElement('canvas');
+
+                const handleOMRUpload = (e) => {
+                    const files = Array.from(e.target.files);
+                    if(!files.length) return;
+                    for(const f of files) {
+                        omrQueue.value.push({
+                            id: crypto.randomUUID(), file: f, name: f.name, status: 'pending', message: 'Aguardando início...'
+                        });
+                    }
+                    e.target.value = '';
+                };
+
+                const triggerOMRUpload = () => document.getElementById('omrUploadInput').click();
+
+                const hasPendingOMR = computed(() => omrQueue.value.some(i => i.status === 'pending' || i.status === 'error'));
+
+                const scanFileForQR = async (file) => {
+                    const tempQrScanner = new Html5Qrcode("hidden-qr-reader"); 
+                    try {
+                        return await tempQrScanner.scanFile(file, true);
+                    } catch (err) {
+                        throw new Error("QR Code não encontrado.");
+                    } finally {
+                        try { tempQrScanner.clear(); } catch(e){}
+                    }
+                };
+
+                const startOMRProcess = async () => {
+                    const nextIndex = omrQueue.value.findIndex(i => i.status === 'pending' || i.status === 'error');
+                    if (nextIndex === -1) return showToast("Fila vazia", "info");
+                    
+                    const item = omrQueue.value[nextIndex];
+                    item.status = 'processing';
+                    item.message = 'Lendo QR Code...';
+                    
+                    try {
+                        const qrText = await scanFileForQR(item.file);
+                        const qrData = JSON.parse(qrText);
+                        
+                        const exam = exams.value.find(e => e.id === Number(qrData.e));
+                        const student = students.value.find(s => s.id === Number(qrData.s));
+                        if(!exam || !student) throw new Error("Prova ou aluno não localizados no BD local.");
+                        
+                        const version = (exam.versions && exam.versions[qrData.v]) ? exam.versions[qrData.v] : (exam.versions ? exam.versions[0] : { questions: exam.questions || [] });
+
+                        const img = new Image();
+                        img.onload = () => {
+                            omrModal.value.currentIndex = nextIndex;
+                            omrModal.value.image = img;
+                            omrModal.value.exam = exam;
+                            omrModal.value.studentName = student.name;
+                            omrModal.value.versionData = { ...qrData, questionsCount: version.questions.length, questions: version.questions };
+                            omrModal.value.rotation = 0;
+                            
+                            updateOffscreenCanvas();
+
+                            if (omrModal.value.points.length !== 4) {
+                                initDefaultPoints();
+                            }
+                            
+                            omrModal.value.show = true;
+                            item.message = 'Aguardando alinhamento.';
+                            
+                            nextTick(() => drawOMRCanvas());
+                        };
+                        img.src = URL.createObjectURL(item.file);
+                        
+                    } catch(err) {
+                        item.status = 'error';
+                        item.message = err.message || "Erro na leitura";
+                        showToast(item.message, "error");
+                    }
+                };
+
+                const initDefaultPoints = () => {
+                    const margin = Math.min(window.innerWidth, window.innerHeight) * 0.15;
+                    const W = window.innerWidth;
+                    const H = window.innerHeight;
+                    omrModal.value.points = [
+                        {x: margin, y: margin},             
+                        {x: W - margin, y: margin},         
+                        {x: W - margin, y: H - margin},     
+                        {x: margin, y: H - margin}          
+                    ];
+                };
+
+                const rotateOMR = () => {
+                    omrModal.value.rotation = (omrModal.value.rotation + 90) % 360;
+                    updateOffscreenCanvas();
+                    drawOMRCanvas();
+                };
+
+                const updateOffscreenCanvas = () => {
+                    const img = omrModal.value.image;
+                    const rot = omrModal.value.rotation;
+                    const ctx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+                    
+                    if (rot === 90 || rot === 270) {
+                        offscreenCanvas.width = img.height;
+                        offscreenCanvas.height = img.width;
+                    } else {
+                        offscreenCanvas.width = img.width;
+                        offscreenCanvas.height = img.height;
+                    }
+
+                    ctx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+                    ctx.save();
+                    ctx.translate(offscreenCanvas.width/2, offscreenCanvas.height/2);
+                    ctx.rotate((rot * Math.PI) / 180);
+                    ctx.drawImage(img, -img.width/2, -img.height/2);
+                    ctx.restore();
+                };
+
+                const drawOMRCanvas = () => {
+                    const canvas = omrCanvasRef.value;
+                    if(!canvas) return;
+                    
+                    const W = window.innerWidth;
+                    const H = window.innerHeight;
+                    canvas.width = W;
+                    canvas.height = H;
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0,0,W,H);
+
+                    const scX = W / offscreenCanvas.width;
+                    const scY = H / offscreenCanvas.height;
+                    const scale = Math.min(scX, scY) * 0.95; 
+                    omrModal.value.scale = scale;
+
+                    const drawW = offscreenCanvas.width * scale;
+                    const drawH = offscreenCanvas.height * scale;
+                    const offsetX = (W - drawW) / 2;
+                    const offsetY = (H - drawH) / 2;
+
+                    omrModal.value.drawConfig = { drawW, drawH, offsetX, offsetY, scale };
+
+                    ctx.drawImage(offscreenCanvas, offsetX, offsetY, drawW, drawH);
+
+                    const pts = omrModal.value.points;
+                    
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+                    ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(pts[3].x, pts[3].y); ctx.lineTo(pts[2].x, pts[2].y); ctx.lineTo(pts[1].x, pts[1].y); ctx.closePath();
+                    ctx.fill("evenodd");
+
+                    ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(pts[1].x, pts[1].y); ctx.lineTo(pts[2].x, pts[2].y); ctx.lineTo(pts[3].x, pts[3].y); ctx.closePath(); ctx.stroke();
+
+                    const N = omrModal.value.versionData.questionsCount;
+                    ctx.fillStyle = '#10b981'; 
+                    
+                    for(let r=0; r<N; r++) {
+                        for(let c=0; c<5; c++) {
+                            const u = (35 + 30 * c + 15) / 185;
+                            const v = (1 + r + 0.5) / (N + 1);
+
+                            const px = (1-u)*(1-v)*pts[0].x + u*(1-v)*pts[1].x + u*v*pts[2].x + (1-u)*v*pts[3].x;
+                            const py = (1-u)*(1-v)*pts[0].y + u*(1-v)*pts[1].y + u*v*pts[2].y + (1-u)*v*pts[3].y;
+                            
+                            ctx.beginPath(); ctx.arc(px, py, 4, 0, 2*Math.PI); ctx.fill();
+                        }
+                    }
+
+                    pts.forEach((p, idx) => {
+                        ctx.fillStyle = omrModal.value.activePointIndex === idx ? '#facc15' : '#ef4444';
+                        ctx.beginPath(); ctx.arc(p.x, p.y, 20, 0, 2*Math.PI); ctx.fill();
+                        ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.stroke();
+                    });
+                };
+
+                const getEvtPos = (evt) => {
+                    const rect = omrCanvasRef.value.getBoundingClientRect();
+                    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+                    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+                    return { x: clientX - rect.left, y: clientY - rect.top };
+                };
+
+                const startDrag = (pos) => {
+                    const pts = omrModal.value.points;
+                    omrModal.value.activePointIndex = pts.findIndex(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 40);
+                    if (omrModal.value.activePointIndex > -1) drawOMRCanvas();
+                };
+                
+                const moveDrag = (pos) => {
+                    if (omrModal.value.activePointIndex > -1) {
+                        omrModal.value.points[omrModal.value.activePointIndex] = pos;
+                        drawOMRCanvas();
+                    }
+                };
+
+                const omrTouchStart = (e) => startDrag(getEvtPos(e));
+                const omrTouchMove = (e) => moveDrag(getEvtPos(e));
+                const omrTouchEnd = () => { omrModal.value.activePointIndex = -1; drawOMRCanvas(); };
+                
+                const omrMouseStart = (e) => startDrag(getEvtPos(e));
+                const omrMouseMove = (e) => moveDrag(getEvtPos(e));
+                const omrMouseEnd = () => { omrModal.value.activePointIndex = -1; drawOMRCanvas(); };
+
+                const processOMRAnalysis = async () => {
+                    const cfg = omrModal.value.drawConfig;
+                    const pts = omrModal.value.points;
+                    const N = omrModal.value.versionData.questionsCount;
+
+                    const origPts = pts.map(p => ({
+                        x: (p.x - cfg.offsetX) / cfg.scale,
+                        y: (p.y - cfg.offsetY) / cfg.scale
+                    }));
+
+                    const ctx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+                    const imgData = ctx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+                    
+                    const answers = {};
+                    let hits = 0;
+                    
+                    const radius = Math.max(2, Math.floor(8 / cfg.scale));
+
+                    for(let r=0; r<N; r++) {
+                        const rowOptionsDarkness = [];
+                        
+                        for(let c=0; c<5; c++) {
+                            const u = (35 + 30 * c + 15) / 185;
+                            const v = (1 + r + 0.5) / (N + 1);
+
+                            const px = (1-u)*(1-v)*origPts[0].x + u*(1-v)*origPts[1].x + u*v*origPts[2].x + (1-u)*v*origPts[3].x;
+                            const py = (1-u)*(1-v)*origPts[0].y + u*(1-v)*origPts[1].y + u*v*origPts[2].y + (1-u)*v*origPts[3].y;
+
+                            let darkSum = 0; let count = 0;
+                            for(let dx = -radius; dx <= radius; dx++) {
+                                for(let dy = -radius; dy <= radius; dy++) {
+                                    const sx = Math.floor(px + dx);
+                                    const sy = Math.floor(py + dy);
+                                    if(sx >= 0 && sx < offscreenCanvas.width && sy >= 0 && sy < offscreenCanvas.height) {
+                                        const idx = (sy * offscreenCanvas.width + sx) * 4;
+                                        const lum = 0.299 * imgData.data[idx] + 0.587 * imgData.data[idx+1] + 0.114 * imgData.data[idx+2];
+                                        darkSum += (255 - lum); count++;
+                                    }
+                                }
+                            }
+                            rowOptionsDarkness.push(count > 0 ? darkSum / count : 0);
+                        }
+
+                        const maxVal = Math.max(...rowOptionsDarkness);
+                        const minVal = Math.min(...rowOptionsDarkness);
+                        
+                        if (maxVal - minVal > 30) { 
+                            const markedIdx = rowOptionsDarkness.indexOf(maxVal);
+                            answers[r] = markedIdx;
+                            
+                            const qData = omrModal.value.versionData.questions[r];
+                            let cIdx = qData.correctIndex;
+                            if (qData.type === 'vf' || qData.type === 'assoc') cIdx = (qData.id || 0) % 5;
+                            if (markedIdx === cIdx) hits++;
+                        } else {
+                            answers[r] = null; 
+                        }
+                    }
+
+                    const finalScore = ((hits / N) * 10).toFixed(1);
+
+                    const qData = omrModal.value.versionData;
+                    const allResults = await db.results.toArray();
+                    const existing = allResults.find(r => r.examId === Number(qData.e) && r.studentId === Number(qData.s));
+
+                    const resultToSave = {
+                        examId: Number(qData.e), studentId: Number(qData.s), studentName: omrModal.value.studentName,
+                        score: finalScore, date: Date.now(), answers: answers, maxScore: N, version: qData.v
+                    };
+
+                    let savedId;
+                    if (existing) {
+                        savedId = existing.id;
+                        await db.results.put({ ...resultToSave, id: savedId });
+                    } else {
+                        savedId = await db.results.add(resultToSave);
+                    }
+                    results.value = await db.results.toArray();
+
+                    const queueItem = omrQueue.value[omrModal.value.currentIndex];
+                    queueItem.status = 'success';
+                    queueItem.score = finalScore;
+                    queueItem.message = "Processamento Perfeito Local.";
+                    queueItem.resultData = results.value.find(r => r.id === savedId);
+                    
+                    speak(`Corrigido. Nota ${finalScore}`);
+                    
+                    closeOMRModal();
+                    
+                    setTimeout(() => startOMRProcess(), 300);
+                };
+
+                const closeOMRModal = () => { omrModal.value.show = false; };
+
+                // --- GEMINI APENAS PARA GERAÇÃO ---
                 const testGeminiKey = async () => {
                     if(!geminiKey.value) return showToast("Insira a chave de API", "error");
                     toast.value = {show: true, message: "Testando comunicação com IA...", type: "loading"};
@@ -1717,228 +2044,11 @@
                         const res = await fetch(url);
                         const data = await res.json();
                         if(data.error) throw new Error(data.error.message);
-                        
-                        const models = data.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
-                        showToast(`Chave válida! Modelos ativos: ${models.slice(0, 2).join(', ')}`, "success");
+                        showToast(`Chave válida! IA pronta para criar questões.`, "success");
                         saveSettings(true); 
                     } catch(e) {
                         showToast("Falha na chave: " + e.message, "error");
                     }
-                };
-
-                const triggerAIUpload = () => {
-                    if(!geminiKey.value) return showToast("Insira a chave da IA primeiro.", "error");
-                    document.getElementById('aiUploadInput').click();
-                };
-
-                const handleAIUpload = (e) => {
-                    const files = Array.from(e.target.files);
-                    if(!files.length) return;
-
-                    for(const f of files) {
-                        aiCorrectionQueue.value.push({
-                            id: crypto.randomUUID(),
-                            file: f,
-                            name: f.name,
-                            status: 'pending',
-                            message: 'Aguardando na fila...',
-                            score: null
-                        });
-                    }
-                    e.target.value = '';
-                };
-
-                const hasPendingItems = computed(() => {
-                    return aiCorrectionQueue.value.some(i => i.status === 'pending' || i.status === 'error');
-                });
-
-                const fileToBase64 = (file) => new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.onerror = error => reject(error);
-                });
-
-                const scanFileForQR = async (file) => {
-                    const tempQrScanner = new Html5Qrcode("hidden-qr-reader"); 
-                    try {
-                        const result = await tempQrScanner.scanFile(file, true);
-                        return result;
-                    } catch (err) {
-                        throw new Error("QR Code não legível ou não encontrado na imagem.");
-                    } finally {
-                        try { tempQrScanner.clear(); } catch(e){}
-                    }
-                };
-
-                const callGemini = async (base64Data, mimeType, questionsCount) => {
-                    const apiKey = geminiKey.value;
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
-
-                    // NOVO PROMPT: Resolução do problema de "Desvio Espacial" (Attention Drift) nas questões mais abaixo.
-                    const prompt = `Atue como um scanner físico OMR mecânico.
-Analise a imagem deste cartão-resposta escolar. A grelha possui EXATAMENTE ${questionsCount} questões.
-
-O GRANDE DESAFIO (CUIDADO COM O DESVIO DE LINHA):
-A partir da questão 5 ou 6, é comum a visão da IA "escorregar" para a linha de cima ou de baixo ou confundir as colunas devido à distância do cabeçalho e à perspetiva fotográfica. Para evitar isso, você DEVE usar uma ÂNCORA VISUAL.
-
-MÉTODO DE RASTREIO OBRIGATÓRIO:
-Para CADA UMA das ${questionsCount} questões, faça exatamente isto na sua mente:
-1. ÂNCORA VISUAL: Localize fisicamente o NÚMERO impresso da questão (ex: "6") na margem esquerda da tabela.
-2. RASTREIO ALINHADO: A partir desse número exato, mova a visão em linha reta horizontal estritamente para a direita.
-3. MAPEAMENTO DE COLUNAS: A 1ª bolinha imediatamente após o número é SEMPRE A(0), a 2ª é B(1), a 3ª é C(2), a 4ª é D(3), a 5ª é E(4).
-4. AVALIAÇÃO: Registe a intensidade. Regra da rasura: borrão caótico + marcação limpa = vence a limpa. Duas marcações com a mesma força = null. Linha vazia = null.
-
-SAÍDA JSON ESTRITAMENTE OBRIGATÓRIA:
-Para garantir que não pula linhas nem sofre desvio de perspetiva, a sua chave "analise_linha_a_linha" deve seguir este formato descritivo rigoroso:
-{
-  "analise_linha_a_linha": [
-    "Vi o número 1. Bolinhas: A(vazio), B(vazio), C(forte), D(vazio), E(vazio) -> 2",
-    "Vi o número 2. Bolinhas: A(forte), B(rasura), C(vazio), D(vazio), E(vazio) -> 0",
-    "Vi o número 3. Bolinhas: Todas vazias -> null"
-  ],
-  "respostas": [2, 0, null]
-}
-
-A chave "respostas" deve conter APENAS o array final numérico com exatamente ${questionsCount} elementos. Retorne APENAS o JSON puro, sem blocos de formatação (\`\`\`).`;
-
-                    const payload = {
-                        contents: [{
-                            parts: [
-                                {text: prompt},
-                                {inline_data: { mime_type: mimeType, data: base64Data }}
-                            ]
-                        }],
-                        generationConfig: { 
-                            response_mime_type: "application/json",
-                            temperature: 0.0, // Matemática pura, sem criatividade
-                            topK: 1
-                        }
-                    };
-
-                    let retries = 3;
-                    let delay = 3000; 
-                    
-                    while(retries > 0) {
-                        try {
-                            const response = await fetch(url, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
-                            });
-                            const data = await response.json();
-                            
-                            if(data.error) {
-                                if (data.error.code === 429) throw { isRateLimit: true, msg: "Limite da API excedido" };
-                                throw new Error(data.error.message);
-                            }
-                            
-                            let text = data.candidates[0].content.parts[0].text;
-                            const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                            
-                            // EXTRAÇÃO: Agora pegamos apenas a chave "respostas" do JSON complexo
-                            const parsedObj = JSON.parse(cleanedText);
-                            if (parsedObj.respostas && Array.isArray(parsedObj.respostas)) {
-                                return parsedObj.respostas;
-                            } else {
-                                throw new Error("A IA não retornou o array de respostas no formato esperado.");
-                            }
-                            
-                        } catch(e) {
-                            if(e.isRateLimit) {
-                                retries--;
-                                if(retries === 0) throw new Error("Chave bloqueada temporariamente (Muitos acessos). Tente em alguns minutos.");
-                                await new Promise(r => setTimeout(r, delay));
-                                delay *= 2; 
-                            } else {
-                                throw e;
-                            }
-                        }
-                    }
-                };
-
-                const processAIQueue = async () => {
-                    if(isProcessingQueue.value) return;
-                    isProcessingQueue.value = true;
-
-                    for(const item of aiCorrectionQueue.value) {
-                        if(item.status !== 'pending' && item.status !== 'error') continue;
-
-                        item.status = 'processing';
-                        item.message = 'Lendo QR Code do aluno...';
-                        
-                        try {
-                            const qrText = await scanFileForQR(item.file);
-                            const qrData = JSON.parse(qrText);
-                            if(qrData.e === undefined || qrData.s === undefined) throw new Error("QR não pertence a este sistema");
-
-                            const exam = exams.value.find(e => e.id === Number(qrData.e));
-                            const student = students.value.find(s => s.id === Number(qrData.s));
-                            if(!exam || !student) throw new Error("Prova/Aluno ausentes no banco local");
-
-                            if(!exam.versions) exam.versions = [{id:0, questions:exam.questionsA || exam.questions}, {id:1, questions:exam.questionsB || []}];
-                            const version = exam.versions[qrData.v] || exam.versions[0];
-                            const questions = version.questions;
-
-                            item.message = `IA analisando gabarito de ${student.name.split(' ')[0]}...`;
-
-                            const base64 = await fileToBase64(item.file);
-                            const aiAnswers = await callGemini(base64, item.file.type, questions.length);
-
-                            if(!Array.isArray(aiAnswers)) throw new Error("A IA não retornou um formato válido");
-
-                            let hits = 0;
-                            const parsedAnswers = {};
-
-                            questions.forEach((q, idx) => {
-                                const studentAns = aiAnswers[idx];
-                                if(studentAns !== null && studentAns !== undefined) {
-                                    parsedAnswers[idx] = studentAns;
-
-                                    let correctIdx = q.correctIndex;
-                                    if(q.type === 'vf' || q.type === 'assoc') correctIdx = (q.id || 0) % 5;
-
-                                    if(studentAns === correctIdx) hits++;
-                                }
-                            });
-
-                            const finalScore = ((hits / questions.length) * 10).toFixed(1);
-
-                            const allResults = await db.results.toArray();
-                            const existing = allResults.find(r => r.examId === exam.id && r.studentId === student.id);
-
-                            const resultData = {
-                                examId: exam.id, studentId: student.id, studentName: student.name,
-                                score: finalScore, date: Date.now(), answers: parsedAnswers,
-                                maxScore: questions.length, version: qrData.v
-                            };
-
-                            let savedId;
-                            if (existing) {
-                                savedId = existing.id;
-                                await db.results.put({ ...resultData, id: savedId });
-                            } else {
-                                savedId = await db.results.add(JSON.parse(JSON.stringify(resultData)));
-                            }
-                            results.value = await db.results.toArray();
-
-                            item.status = 'success';
-                            item.score = finalScore;
-                            item.message = `${student.name} concluído.`;
-                            
-                            item.resultData = results.value.find(r => r.id === savedId);
-                            
-                            speak(`${student.name}, nota ${finalScore}`);
-
-                        } catch(err) {
-                            item.status = 'error';
-                            item.message = err.message || "Erro desconhecido ao processar.";
-                        }
-
-                        await new Promise(r => setTimeout(r, 4200));
-                    }
-
-                    isProcessingQueue.value = false;
                 };
 
                 const getAlternativeLabel = (type, index) => {
@@ -1996,7 +2106,7 @@ A chave "respostas" deve conter APENAS o array final numérico com exatamente ${
                         
                         selectedResultDetails.value.score = updated.score;
                         
-                        const queueItem = aiCorrectionQueue.value.find(i => i.resultData && i.resultData.id === resultId);
+                        const queueItem = omrQueue.value.find(i => i.resultData && i.resultData.id === resultId);
                         if (queueItem) queueItem.score = updated.score;
 
                         showToast('Gabarito e nota atualizados!', 'success');
@@ -3169,11 +3279,17 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
                     generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, uniqueSubjects,
                     printConfig, editingExamId, openEditExam, changeQType,
-                    showFixKeyModal, fixKeyExam, fixKeyQuestions, openFixKey, saveFixedKey, // NOVO: Exportado
+                    showFixKeyModal, fixKeyExam, fixKeyQuestions, openFixKey, saveFixedKey,
                     dashboardStudentFilter,
                     examFilterSubject, examFilterTopic, 
                     appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, isTemporal, timeLeft, deleteClass, showLicenseModal, toggleExpand,
-                    geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, aiCorrectionQueue, processAIQueue, hasPendingItems, isProcessingQueue,
+                    
+                    // Exposição das Novas Variáveis OMR em vez da Fila da IA para Correção
+                    geminiKey, testGeminiKey, 
+                    omrQueue, handleOMRUpload, triggerOMRUpload, startOMRProcess, hasPendingOMR,
+                    omrModal, omrCanvasRef, closeOMRModal, processOMRAnalysis, rotateOMR,
+                    omrTouchStart, omrTouchMove, omrTouchEnd, omrMouseStart, omrMouseMove, omrMouseEnd,
+
                     showResultDetailsModal, selectedResultDetails, openResultDetails, saveUpdatedAnswers, getAlternativeLabel, showExamStatsModal, examStats, openExamStats,
                     showAIGenModal, isGeneratingAI, aiGenConfig, openAIGenerator, generateQuestionsAI,
                     canInstall, installPWA
