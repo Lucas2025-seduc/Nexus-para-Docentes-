@@ -604,8 +604,8 @@
                 
                 <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center relative overflow-hidden">
                      <div class="relative z-10">
-                         <h2 class="text-2xl font-black mb-1">Correção OMR</h2>
-                         <p class="text-xs text-indigo-200">Processamento OpenCV - Sem Internet</p>
+                         <h2 class="text-2xl font-black mb-1">Correção com IA</h2>
+                         <p class="text-xs text-indigo-200">Enquadramento Geométrico Profissional</p>
                      </div>
                      <i class="fa-solid fa-qrcode text-5xl text-white/20 absolute right-6"></i>
                 </div>
@@ -614,14 +614,14 @@
                     <div class="flex items-center gap-4 mb-4">
                         <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div>
                         <div class="flex-1">
-                            <h3 class="font-bold text-gray-800 text-lg">Scanner OMR (Visão Computacional)</h3>
+                            <h3 class="font-bold text-gray-800 text-lg">Scanner IA (Geometric Framing)</h3>
                             <p class="text-xs text-gray-500">Faça upload de fotografias dos cartões para leitura 100% precisa.</p>
                         </div>
                     </div>
 
                     <div class="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-xl mb-4 text-[10px] leading-relaxed shadow-sm">
                         <strong class="font-black text-xs block mb-1"><i class="fa-solid fa-circle-info"></i> Modo Profissional Ativado</strong>
-                        O sistema agora analisa a matriz matemática da folha ignorando sombras e calculando matematicamente o diferencial de "rasuras" para uma confiança de nível industrial.
+                        O sistema usa agora a IA para realizar o <strong>enquadramento geométrico inicial</strong> da folha, ignorando fundos e distorções, antes de aplicar a análise anti-rasuras.
                     </div>
 
                     <input type="file" multiple accept="image/*" id="aiUploadInput" class="hidden" @change="handleAIUpload">
@@ -1753,148 +1753,114 @@
                     }
                 };
 
-                // OMR VIA OPENCV (Visão Computacional Nativa 100% Offline)
-                const processWithOpenCV = async (imageFile, numQuestions) => {
-                    return new Promise((resolve, reject) => {
-                        if (!isCvReady.value) return reject(new Error("Motor OMR OpenCV a carregar. Aguarde um momento."));
+                // PRÉ-PROCESSAMENTO (Garante que a IA recebe a imagem direita e sem cor)
+                const preprocessImage = (file) => new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        let width = img.width;
+                        let height = img.height;
                         
-                        const img = new Image();
-                        img.onload = () => {
-                            let src, gray, blurred, edged, contours, hierarchy, docContour, srcTri, dstTri, M, warped, thresh, kernel;
-                            try {
-                                const canvas = document.createElement('canvas');
-                                // Redimensionar imagem para não estourar memória do navegador
-                                const MAX_DIM = 1200; 
-                                let scale = Math.min(MAX_DIM / img.width, MAX_DIM / img.height);
-                                canvas.width = img.width * scale;
-                                canvas.height = img.height * scale;
-                                const ctx = canvas.getContext('2d');
-                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        if (height > width) {
+                            canvas.width = height;
+                            canvas.height = width;
+                            ctx.translate(height / 2, width / 2);
+                            ctx.rotate(-90 * Math.PI / 180);
+                            ctx.drawImage(img, -width / 2, -height / 2, width, height);
+                        } else {
+                            canvas.width = width;
+                            canvas.height = height;
+                            ctx.drawImage(img, 0, 0, width, height);
+                        }
 
-                                src = cv.imread(canvas);
-                                gray = new cv.Mat();
-                                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                                
-                                blurred = new cv.Mat();
-                                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+                        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const data = imgData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const gray = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
+                            data[i] = gray; data[i+1] = gray; data[i+2] = gray;
+                        }
+                        ctx.putImageData(imgData, 0, 0);
 
-                                edged = new cv.Mat();
-                                cv.Canny(blurred, edged, 50, 150);
-                                
-                                // Engrossar as linhas para ajudar na deteção de bordas fracas
-                                kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-                                cv.dilate(edged, edged, kernel, new cv.Point(-1, -1), 1);
+                        resolve({ 
+                            base64: canvas.toDataURL('image/jpeg', 0.85).split(',')[1], 
+                            mimeType: 'image/jpeg' 
+                        });
+                    };
+                    img.onerror = reject;
+                    img.src = URL.createObjectURL(file);
+                });
 
-                                contours = new cv.MatVector();
-                                hierarchy = new cv.Mat();
-                                cv.findContours(edged, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                // CHAMADA À IA COM INSTRUÇÃO DE ENQUADRAMENTO GEOMÉTRICO
+                const callGeminiOMR = async (base64Data, mimeType, questionsCount) => {
+                    const apiKey = geminiKey.value;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
-                                let maxArea = 0;
-                                for (let i = 0; i < contours.size(); ++i) {
-                                    let cnt = contours.get(i);
-                                    let area = cv.contourArea(cnt);
-                                    if (area > 15000) { 
-                                        let peri = cv.arcLength(cnt, true);
-                                        let approx = new cv.Mat();
-                                        cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-                                        // Verificar se tem 4 cantos e é a maior área
-                                        if (approx.rows === 4 && area > maxArea) {
-                                            maxArea = area;
-                                            if (docContour) docContour.delete();
-                                            docContour = approx.clone();
-                                        }
-                                        approx.delete();
+                    const prompt = `Aja como um motor de correção OMR de nível profissional.
+Para garantir precisão máxima, siga estritamente estas duas fases:
+
+FASE 1: ENQUADRAMENTO GEOMÉTRICO INICIAL
+- Isole visualmente a grelha de respostas (tabela com as bolinhas).
+- Ignore fundos, mesas, dedos ou distorções.
+- Alinhe e "achate" mentalmente a perspetiva da grelha de modo a que as linhas e colunas fiquem perfeitamente ortogonais. É este enquadramento geométrico inicial que torna a correção fiável.
+
+FASE 2: EXTRAÇÃO DE RESPOSTAS
+- Percorra as exatas ${questionsCount} questões da grelha.
+- Em cada linha, identifique a alternativa (0=A, 1=B, 2=C, 3=D, 4=E) que contém a maior densidade de marcação a caneta.
+- Rasuras inteligentes: Se uma alternativa estiver apenas rasurada/rabiscada, mas outra estiver claramente pintada e preenchida, considere a pintada.
+- Retorne null se a linha estiver vazia ou tiver duas marcações de força idêntica.`;
+
+                    const payload = {
+                        contents: [{
+                            parts: [
+                                {text: prompt},
+                                {inline_data: { mime_type: mimeType, data: base64Data }}
+                            ]
+                        }],
+                        generationConfig: { 
+                            temperature: 0.0,
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    respostas: {
+                                        type: "ARRAY",
+                                        items: { type: "INTEGER", nullable: true }
                                     }
-                                }
-
-                                if (!docContour) throw new Error("Grelha de respostas não detetada. Foque no cartão de respostas com bordas visíveis.");
-
-                                // Ordenar pontos para transformar a perspetiva
-                                let pts = [];
-                                for (let i=0; i<4; i++) pts.push({x: docContour.data32S[i*2], y: docContour.data32S[i*2+1]});
-                                pts.sort((a,b) => a.y - b.y); // separar topo de baixo
-                                let top = pts.slice(0,2).sort((a,b) => a.x - b.x); // Esq-Topo, Dir-Topo
-                                let bottom = pts.slice(2,4).sort((a,b) => a.x - b.x); // Esq-Fundo, Dir-Fundo
-                                let tl = top[0], tr = top[1], bl = bottom[0], br = bottom[1];
-
-                                let widthA = Math.hypot(br.x - bl.x, br.y - bl.y);
-                                let widthB = Math.hypot(tr.x - tl.x, tr.y - tl.y);
-                                let maxWidth = Math.max(Math.floor(widthA), Math.floor(widthB));
-
-                                let heightA = Math.hypot(tr.x - br.x, tr.y - br.y);
-                                let heightB = Math.hypot(tl.x - bl.x, tl.y - bl.y);
-                                let maxHeight = Math.max(Math.floor(heightA), Math.floor(heightB));
-
-                                srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
-                                dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1]);
-
-                                M = cv.getPerspectiveTransform(srcTri, dstTri);
-                                warped = new cv.Mat();
-                                cv.warpPerspective(gray, warped, M, new cv.Size(maxWidth, maxHeight));
-
-                                // Binarização Matemática (Preto e Branco puro, anulando iluminação falha)
-                                thresh = new cv.Mat();
-                                cv.threshold(warped, thresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
-
-                                // Mapeamento Geométrico Estático
-                                let numRows = numQuestions + 1; // +1 pelo cabeçalho
-                                let numCols = 6; // Coluna 0: Numero, 1 a 5: A a E
-                                let cellH = maxHeight / numRows;
-                                let cellW = maxWidth / numCols;
-                                let answers = [];
-
-                                for (let i = 1; i < numRows; i++) {
-                                    let rowScores = [];
-                                    for (let j = 1; j < numCols; j++) {
-                                        let x = Math.floor(j * cellW);
-                                        let y = Math.floor(i * cellH);
-                                        let w = Math.floor(cellW);
-                                        let h = Math.floor(cellH);
-                                        
-                                        // Cortar 30% das margens do retângulo para não capturar a grelha de separação
-                                        let mX = Math.floor(w * 0.30);
-                                        let mY = Math.floor(h * 0.30);
-                                        
-                                        let rect = new cv.Rect(x + mX, y + mY, w - 2*mX, h - 2*mY);
-                                        let cell = thresh.roi(rect);
-                                        
-                                        // Contagem de píxeis escuros na alternativa
-                                        let count = cv.countNonZero(cell);
-                                        let total = rect.width * rect.height;
-                                        rowScores.push({ index: j - 1, score: count / total });
-                                        cell.delete();
-                                    }
-                                    
-                                    rowScores.sort((a,b) => b.score - a.score);
-                                    let best = rowScores[0];
-                                    let second = rowScores[1];
-                                    
-                                    // CÁLCULO ANTI-RASURA INDUSTRIAL
-                                    if (best.score > 0.25) { // A alternativa tem de estar pelo menos 25% pintada 
-                                        if ((best.score - second.score) > 0.12) { // Diferença de intensidade de 12% para a rasura mais próxima
-                                            answers.push(best.index);
-                                        } else {
-                                            answers.push(null); // Dupla marcação ou rasura ambígua
-                                        }
-                                    } else {
-                                        answers.push(null); // Linha em branco
-                                    }
-                                }
-                                resolve(answers);
-                            } catch (e) {
-                                reject(new Error("A foto necessita de estar focada no retângulo de respostas inteiro."));
-                            } finally {
-                                // Limpeza obrigatória de memória para impedir falhas WebAssembly
-                                if(src) src.delete(); if(gray) gray.delete(); if(blurred) blurred.delete();
-                                if(edged) edged.delete(); if(kernel) kernel.delete(); if(contours) contours.delete();
-                                if(hierarchy) hierarchy.delete(); if(docContour) docContour.delete();
-                                if(srcTri) srcTri.delete(); if(dstTri) dstTri.delete(); if(M) M.delete();
-                                if(warped) warped.delete(); if(thresh) thresh.delete();
+                                },
+                                required: ["respostas"]
                             }
-                        };
-                        img.onerror = () => reject(new Error("Falha na leitura do ficheiro de imagem."));
-                        img.src = URL.createObjectURL(imageFile);
-                    });
+                        }
+                    };
+
+                    let retries = 3;
+                    let delay = 2000; 
+                    
+                    while(retries > 0) {
+                        try {
+                            const response = await fetch(url, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+                            const data = await response.json();
+                            
+                            if(data.error) throw new Error(data.error.message);
+                            
+                            const parsedObj = JSON.parse(data.candidates[0].content.parts[0].text);
+                            if (parsedObj.respostas && Array.isArray(parsedObj.respostas)) {
+                                let respostas = parsedObj.respostas;
+                                while (respostas.length < questionsCount) respostas.push(null);
+                                return respostas.slice(0, questionsCount);
+                            }
+                            throw new Error("Formato estruturado falhou.");
+                        } catch(e) {
+                            retries--;
+                            if(retries === 0) throw new Error("Falha na API da IA após várias tentativas.");
+                            await new Promise(r => setTimeout(r, delay));
+                            delay *= 2; 
+                        }
+                    }
                 };
 
                 const processOMRQueue = async () => {
@@ -1920,10 +1886,11 @@
                             const version = exam.versions[qrData.v] || exam.versions[0];
                             const questions = version.questions;
 
-                            item.message = `Digitalizando métricas para ${student.name.split(' ')[0]}...`;
+                            item.message = `IA a enquadrar e ler ${student.name.split(' ')[0]}...`;
 
-                            // Motor Matemático OMR OpenCV nativo da Máquina local
-                            const omrAnswers = await processWithOpenCV(item.file, questions.length);
+                            // Pré-processamento e Enquadramento Geométrico por IA
+                            const processedImg = await preprocessImage(item.file);
+                            const omrAnswers = await callGeminiOMR(processedImg.base64, processedImg.mimeType, questions.length);
 
                             let hits = 0;
                             const parsedAnswers = {};
