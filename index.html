@@ -19,10 +19,11 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     
-    <!-- PDF & QR Code -->
+    <!-- PDF, QR Code e OpenCV.js para OMR Nativo -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="window.dispatchEvent(new Event('opencv-ready'));"></script>
 
     <style>
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -52,28 +53,6 @@
         .q-type-btn { @apply flex-1 py-3 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border border-transparent; }
         .q-type-btn.active { @apply bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm ring-1 ring-indigo-200; }
         .q-type-btn.inactive { @apply bg-white text-gray-400 border-gray-100 hover:bg-gray-50 hover:text-gray-600; }
-
-        /* Estilos do Scanner OMR */
-        #omr-video-container { position: relative; width: 100%; height: 100%; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-        #omr-video { width: 100%; height: 100%; object-fit: cover; }
-        .omr-overlay-mask { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.6); pointer-events: none;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        .omr-guide-box {
-            position: relative;
-            border: 2px solid #22c55e;
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.6); /* Cria a máscara escura ao redor */
-            background: transparent;
-            z-index: 10;
-        }
-        .omr-guide-box::before, .omr-guide-box::after {
-            content: ''; position: absolute; width: 100%; height: 2px; background: rgba(34, 197, 94, 0.3); top: 50%; transform: translateY(-50%);
-        }
-        .omr-guide-box::after {
-            width: 2px; height: 100%; top: 0; left: 50%; transform: translateX(-50%);
-        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden select-none">
@@ -455,8 +434,8 @@
                         </div>
                         
                         <div v-if="editingExamId" class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl mb-2 text-[10px] leading-relaxed shadow-sm">
-                            <p><strong class="font-black text-xs"><i class="fa-solid fa-triangle-exclamation mr-1"></i> AVISO CRÍTICO:</strong> Se já imprimiu ou entregou esta prova aos alunos, <strong>NÃO</strong> a atualize aqui. Isto irá gerar novos QR Codes e baralhar as questões novamente, invalidando a correção por IA dos papéis antigos.</p>
-                            <p class="mt-1 opacity-80"><em>Para corrigir apenas o gabarito (sem afetar as impressões), edite a questão na aba "Banco de Questões".</em></p>
+                            <p><strong class="font-black text-xs"><i class="fa-solid fa-triangle-exclamation mr-1"></i> AVISO CRÍTICO:</strong> Se já imprimiu ou entregou esta prova aos alunos, <strong>NÃO</strong> a atualize aqui. Isto irá gerar novos QR Codes e baralhar as questões novamente, invalidando a correção OMR dos papéis antigos.</p>
+                            <p class="mt-1 opacity-80"><em>Para corrigir apenas o gabarito (sem afetar as impressões), edite a prova no Histórico utilizando a função "Corrigir Gabarito Oficial".</em></p>
                         </div>
 
                         <div>
@@ -620,136 +599,73 @@
                 </div>
             </div>
 
-            <!-- ========================================== -->
-            <!-- NOVA CORREÇÃO OMR (ÓPTICA/MATEMÁTICA)      -->
-            <!-- ========================================== -->
+            <!-- CORREÇÃO DE PROVAS OMR (OpenCV) -->
             <div v-if="currentView === 'correction'" class="max-w-xl mx-auto space-y-4 animate-fade-in pb-20">
                 
-                <div class="bg-emerald-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center relative overflow-hidden">
+                <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center relative overflow-hidden">
                      <div class="relative z-10">
                          <h2 class="text-2xl font-black mb-1">Correção OMR</h2>
-                         <p class="text-xs text-emerald-200">Reconhecimento Óptico de Marcas 100% Exato</p>
+                         <p class="text-xs text-indigo-200">Processamento OpenCV - Sem Internet</p>
                      </div>
-                     <i class="fa-solid fa-crosshairs text-5xl text-white/20 absolute right-6"></i>
+                     <i class="fa-solid fa-qrcode text-5xl text-white/20 absolute right-6"></i>
                 </div>
 
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 text-center">
-                    <i class="fa-solid fa-qrcode text-4xl text-gray-300 mb-3"></i>
-                    <h3 class="font-bold text-gray-800 text-lg mb-2">Iniciar Escaneamento</h3>
-                    <p class="text-xs text-gray-500 mb-6">O processo consiste em ler o QR Code primeiro e depois fotografar a grade de respostas marcadas.</p>
-                    
-                    <button @click="startOMRFlow" class="w-full bg-gray-900 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-black transition flex items-center justify-center gap-2 active:scale-95 text-lg">
-                        <i class="fa-solid fa-expand"></i> Abrir Scanner Câmera
-                    </button>
-                </div>
-
-                <!-- Histórico de Resultados da Sessão -->
-                <div v-if="sessionResults.length > 0" class="mt-6 border-t border-gray-100 pt-4 animate-fade-in">
-                    <div class="flex justify-between items-center mb-3">
-                        <h4 class="font-bold text-sm text-gray-700">Corrigidas nesta sessão</h4>
-                        <button @click="sessionResults=[]" class="text-xs text-red-500 font-bold hover:underline px-2">Limpar</button>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-gray-800 text-lg">Scanner OMR (Visão Computacional)</h3>
+                            <p class="text-xs text-gray-500">Faça upload de fotografias dos cartões para leitura 100% precisa.</p>
+                        </div>
                     </div>
-                    <div class="space-y-2">
-                        <div v-for="item in sessionResults" :key="item.id" class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
-                            <div>
-                                <p class="text-xs font-bold text-gray-800">{{ item.studentName }}</p>
-                                <p class="text-[10px] text-gray-500">{{ item.examTitle }}</p>
+
+                    <div class="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-xl mb-4 text-[10px] leading-relaxed shadow-sm">
+                        <strong class="font-black text-xs block mb-1"><i class="fa-solid fa-circle-info"></i> Modo Profissional Ativado</strong>
+                        O sistema agora analisa a matriz matemática da folha ignorando sombras e calculando matematicamente o diferencial de "rasuras" para uma confiança de nível industrial.
+                    </div>
+
+                    <input type="file" multiple accept="image/*" id="aiUploadInput" class="hidden" @change="handleAIUpload">
+                    <button @click="triggerAIUpload" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition flex items-center justify-center gap-2 active:scale-95">
+                        <i class="fa-solid fa-camera"></i> Selecionar Fotos (Cartões)
+                    </button>
+
+                    <div v-if="omrCorrectionQueue.length > 0" class="mt-6 border-t border-gray-100 pt-4 animate-fade-in">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="font-bold text-sm text-gray-700">Fila de Processamento</h4>
+                            <div class="flex gap-2">
+                                <button v-if="omrCorrectionQueue.length > 0 && !isProcessingQueue" @click="omrCorrectionQueue=[]" class="text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i> Limpar</button>
+                                <button v-if="!isProcessingQueue && hasPendingItems" @click="processOMRQueue" class="text-xs bg-indigo-600 text-white px-4 py-1.5 rounded-lg font-bold shadow-md hover:bg-indigo-700 transition flex items-center gap-1"><i class="fa-solid fa-play"></i> Iniciar Análise</button>
                             </div>
-                            <div class="font-black text-xl text-emerald-600">{{ item.score }}</div>
+                        </div>
+
+                        <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                            <div v-for="(item, i) in omrCorrectionQueue" :key="item.id" class="p-3 bg-gray-50 rounded-xl border flex items-center gap-3 transition-colors" 
+                                :class="{'border-emerald-200 bg-emerald-50': item.status==='success', 'border-red-200 bg-red-50': item.status==='error', 'border-indigo-200 bg-indigo-50': item.status==='processing', 'border-gray-200': item.status==='pending'}">
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0" 
+                                    :class="{'bg-emerald-100 text-emerald-600': item.status==='success', 'bg-red-100 text-red-500': item.status==='error', 'bg-indigo-100 text-indigo-600': item.status==='processing', 'bg-gray-200 text-gray-400': item.status==='pending'}">
+                                    <i v-if="item.status==='pending'" class="fa-solid fa-clock"></i>
+                                    <i v-if="item.status==='processing'" class="fa-solid fa-circle-notch fa-spin"></i>
+                                    <i v-if="item.status==='success'" class="fa-solid fa-check"></i>
+                                    <i v-if="item.status==='error'" class="fa-solid fa-triangle-exclamation"></i>
+                                </div>
+                                <div class="flex-1 overflow-hidden">
+                                    <p class="text-xs font-bold text-gray-700 truncate">{{ item.name }}</p>
+                                    <p class="text-[10px] truncate" :class="item.status==='error'?'text-red-500':'text-gray-500'">{{ item.message }}</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div v-if="item.score !== null" class="font-black text-lg text-emerald-600">{{ item.score }}</div>
+                                    <button v-if="item.status === 'success' && item.resultData" @click="openResultDetails(item.resultData)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-500 hover:bg-blue-100 flex items-center justify-center transition" title="Ver Gabarito x Aluno">
+                                        <i class="fa-solid fa-eye text-xs"></i>
+                                    </button>
+                                    <button v-if="item.status==='pending' || item.status==='error'" @click="omrCorrectionQueue.splice(i, 1)" class="text-gray-400 hover:text-red-500 p-1 transition"><i class="fa-solid fa-times"></i></button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
         </main>
-
-        <!-- ========================================== -->
-        <!-- MODAL OMR FULLSCREEN (CÂMERA E LÓGICA)     -->
-        <!-- ========================================== -->
-        <div v-show="omrState !== 'idle'" class="fixed inset-0 z-[300] bg-black flex flex-col animate-fade-in">
-            
-            <!-- Header Modal -->
-            <div class="bg-gray-900 text-white p-4 flex justify-between items-center z-50 shadow-md border-b border-gray-800">
-                <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full animate-pulse" :class="omrState === 'qr' ? 'bg-blue-500' : 'bg-emerald-500'"></div>
-                    <span class="font-bold text-sm uppercase tracking-wider">
-                        {{ omrState === 'qr' ? '1. Lendo QR Code...' : (omrState === 'camera' ? '2. Alinhamento OMR' : '3. Auditoria') }}
-                    </span>
-                </div>
-                <button @click="closeOMRFlow" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition">
-                    <i class="fa-solid fa-times"></i>
-                </button>
-            </div>
-
-            <!-- FASE 1: QR CODE SCANNER -->
-            <div v-show="omrState === 'qr'" class="flex-1 flex flex-col">
-                <div id="omr-qr-reader" class="flex-1 w-full bg-black"></div>
-                <div class="p-6 bg-gray-900 text-center text-gray-400 text-sm">
-                    Posicione o <strong class="text-white">QR Code</strong> impresso no canto da folha dentro do leitor para identificar o aluno e o gabarito.
-                </div>
-            </div>
-
-            <!-- FASE 2 e 3: CÂMERA OMR E REVISÃO -->
-            <div v-show="omrState === 'camera' || omrState === 'review'" class="flex-1 flex flex-col relative bg-black">
-                
-                <!-- Viewfinder da Câmera -->
-                <div id="omr-video-container">
-                    <video id="omr-video" autoplay playsinline muted></video>
-                    
-                    <!-- Canvas escondido para captura em alta resolução -->
-                    <canvas id="omr-canvas" class="hidden"></canvas>
-                    
-                    <!-- Canvas visível apenas na revisão -->
-                    <canvas id="omr-review-canvas" v-show="omrState === 'review'" class="absolute inset-0 w-full h-full object-contain bg-black z-20"></canvas>
-
-                    <!-- Máscara de Enquadramento (Apenas estado Câmera) -->
-                    <div v-show="omrState === 'camera'" class="omr-overlay-mask" style="box-shadow: 0 0 0 9999px rgba(0,0,0,0.8);">
-                        <p class="text-white font-bold mb-4 bg-black/60 px-5 py-3 rounded-xl backdrop-blur-md text-center text-sm border border-white/20">
-                            Enquadre APENAS o bloco de <br><span class="text-emerald-400">bolinhas de marcação</span> aqui dentro.<br>
-                            <span class="text-[10px] font-normal opacity-80">(Não inclua os números das questões)</span>
-                        </p>
-                        <!-- O retângulo verde define a ROI (Region of Interest) -->
-                        <div id="omr-guide-rect" class="omr-guide-box w-[75%] aspect-[1/2] max-w-[280px] max-h-[500px]"></div>
-                    </div>
-                </div>
-
-                <!-- Painel de Controle Inferior -->
-                <div class="bg-gray-900 p-5 z-30 flex flex-col gap-3">
-                    
-                    <!-- Info da Prova Identificada via QR -->
-                    <div v-if="currentScanData" class="bg-gray-800 p-3 rounded-xl border border-gray-700 flex justify-between items-center shadow-inner">
-                        <div>
-                            <p class="text-[10px] text-gray-400 uppercase font-bold">Aluno</p>
-                            <p class="text-sm font-bold text-white truncate max-w-[180px]">{{ currentScanData.studentName }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] text-gray-400 uppercase font-bold">Prova</p>
-                            <p class="text-sm font-bold text-emerald-400">Tipo {{ currentScanData.version + 1 }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Botão Capturar -->
-                    <button v-if="omrState === 'camera'" @click="captureAndAnalyzeOMR" class="w-full py-5 rounded-xl bg-emerald-500 text-white font-black text-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition flex justify-center items-center gap-3">
-                        <i class="fa-solid fa-camera"></i> CAPTURAR MATRIZ
-                    </button>
-
-                    <!-- Botões de Revisão -->
-                    <div v-if="omrState === 'review'" class="flex gap-3">
-                        <button @click="retryOMR" class="w-16 h-14 rounded-xl bg-gray-700 text-white font-bold shadow hover:bg-gray-600 transition flex items-center justify-center shrink-0">
-                            <i class="fa-solid fa-rotate-left"></i>
-                        </button>
-                        <button @click="confirmAndSaveOMR" class="flex-1 py-0 px-6 rounded-xl bg-emerald-500 text-white font-black shadow-lg hover:bg-emerald-600 transition flex justify-between items-center">
-                            <span>SALVAR</span>
-                            <span class="text-3xl tracking-tighter">{{ calculatedScore }}</span> 
-                        </button>
-                    </div>
-                    
-                    <p v-if="omrState === 'review'" class="text-[10px] text-gray-400 text-center leading-tight">
-                        <strong class="text-white">Auditoria:</strong> O sistema marcou os acertos em <span class="text-emerald-400">verde</span> e erros em <span class="text-red-400">vermelho</span>. Se a foto ficou torta e a leitura falhou, <strong>toque na bolinha certa na imagem</strong> para corrigir a nota.
-                    </p>
-                </div>
-            </div>
-        </div>
 
         <div id="hidden-qr-reader" style="display:none;"></div>
 
@@ -1359,6 +1275,9 @@
 
         createApp({
             setup() {
+                // --- CONTROLO DO OPENCV.JS ---
+                const isCvReady = ref(false);
+                
                 // --- INSTALAÇÃO PWA ---
                 const deferredPrompt = ref(null);
                 const canInstall = ref(false);
@@ -1507,22 +1426,9 @@
                 const settings = ref({ schoolName:'', logo:null });
                 const extraPoints = ref([]);
 
-                // --- VARIÁVEIS OMR (OPTICAL MARK RECOGNITION) ---
-                const omrState = ref('idle'); // 'idle', 'qr', 'camera', 'review'
-                const sessionResults = ref([]);
-                const currentScanData = ref(null); 
-                const calculatedScore = ref('0.0');
-                
-                let qrScannerObj = null;
-                let videoStream = null;
-                let mathAnalyzedAnswers = []; // Respostas lidas [0, 1, null, 3...]
-                let expectedAnswersCount = 10;
-                let correctKeyArray = []; // Gabarito real para pintar a tela
-                let croppedImageData = null; // Imagem recortada para a tela de revisão
-
-                // INTEGRAÇÃO GEMINI IA
+                // INTEGRAÇÃO GEMINI IA E OPENCV OMR
                 const geminiKey = ref('');
-                const aiCorrectionQueue = ref([]);
+                const omrCorrectionQueue = ref([]);
                 const isProcessingQueue = ref(false);
 
                 // --- VARIÁVEIS DE ESTADO (ANÁLISE E DETALHES) ---
@@ -1538,9 +1444,9 @@
                     subject: '', 
                     topic: '', 
                     difficulty: 'Ensino Médio',
-                    style: 'Padrão', // NOVO: ENEM, Vestibular, Concurso
-                    promptType: 'Normal', // NOVO: Direto, Normal, Longo
-                    extraObservations: '', // NOVO: Observações extras
+                    style: 'Padrão',
+                    promptType: 'Normal',
+                    extraObservations: '',
                     counts: { mc: 2, ce: 0, vf: 0, assoc: 0 },
                     mcMode: 'correct'
                 });
@@ -1554,7 +1460,7 @@
                 const dashboardStudentFilter = ref('');
                 const filterTopic = ref(''); // Filtro por tópico no banco
                 
-                // NOVO: Variáveis para filtro de questões na aba de Provas
+                // Variáveis para filtro de questões na aba de Provas
                 const examFilterSubject = ref('');
                 const examFilterTopic = ref('');
                 
@@ -1630,7 +1536,6 @@
 
                 const openFixKey = (exam) => {
                     fixKeyExam.value = exam;
-                    // Pega a versão Base (Tipo 1) para o professor editar
                     const baseVersion = exam.versions ? exam.versions[0] : { questions: exam.questions || [] };
                     
                     fixKeyQuestions.value = JSON.parse(JSON.stringify(baseVersion.questions)).map(q => {
@@ -1646,7 +1551,6 @@
                     
                     const updatedExam = JSON.parse(JSON.stringify(examToUpdate));
 
-                    // Atualiza a resposta em todas as versões (Tipos A, B, C...) mapeando pelo texto
                     fixKeyQuestions.value.forEach(baseQ => {
                         const newBaseCorrectIdx = baseQ.newCorrectIndex;
                         let targetOptText = null;
@@ -1673,10 +1577,8 @@
                         }
                     });
 
-                    // Guarda a prova atualizada
                     await db.exams.put(updatedExam);
 
-                    // RECALCULAR TODAS AS NOTAS JÁ AVALIADAS PARA ESTA PROVA
                     const allResults = await db.results.toArray();
                     const examResultsToUpdate = allResults.filter(r => r.examId === updatedExam.id);
                     
@@ -1692,7 +1594,7 @@
                         
                         const newBaseScore = ((hits / version.questions.length) * 10).toFixed(1);
                         r.score = (parseFloat(newBaseScore) + parseFloat(r.bonus || 0)).toFixed(1);
-                        await db.results.put(r); // Atualiza nota do aluno no banco
+                        await db.results.put(r); 
                     }
 
                     showFixKeyModal.value = false;
@@ -1796,352 +1698,7 @@
                     correctionMode.value = true;
                 };
 
-                // ==========================================
-                // LÓGICA DO SCANNER OMR MATEMÁTICO (PIXELS)
-                // ==========================================
-
-                const startOMRFlow = () => {
-                    if(exams.value.length === 0) return showToast("Crie uma prova primeiro.", "error");
-                    currentScanData.value = null;
-                    mathAnalyzedAnswers = [];
-                    omrState.value = 'qr';
-                    
-                    nextTick(() => {
-                        startQRScanner();
-                    });
-                };
-
-                const closeOMRFlow = () => {
-                    stopQRScanner();
-                    stopVideoStream();
-                    omrState.value = 'idle';
-                };
-
-                const startQRScanner = () => {
-                    qrScannerObj = new Html5Qrcode("omr-qr-reader");
-                    const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-                    
-                    qrScannerObj.start({ facingMode: "environment" }, config, onQRSuccess, (err)=>{})
-                    .catch(err => {
-                        showToast("Erro ao abrir câmera. Verifique as permissões.", "error");
-                        omrState.value = 'idle';
-                    });
-                };
-
-                const stopQRScanner = () => {
-                    if (qrScannerObj && qrScannerObj.isScanning) {
-                        qrScannerObj.stop().then(() => { qrScannerObj.clear(); }).catch(e => console.log(e));
-                    }
-                };
-
-                const onQRSuccess = async (decodedText) => {
-                    stopQRScanner();
-                    
-                    try {
-                        const qrData = JSON.parse(decodedText);
-                        if(qrData.e === undefined || qrData.s === undefined || qrData.v === undefined) throw new Error("QR inválido.");
-
-                        const exam = exams.value.find(e => e.id === Number(qrData.e));
-                        const student = students.value.find(s => s.id === Number(qrData.s));
-                        if(!exam || !student) throw new Error("Prova/Aluno não encontrados neste dispositivo.");
-
-                        if(!exam.versions) exam.versions = [{id:0, questions:exam.questionsA || exam.questions}, {id:1, questions:exam.questionsB || []}];
-                        const versionData = exam.versions[qrData.v] || exam.versions[0];
-                        
-                        expectedAnswersCount = versionData.questions.length;
-                        correctKeyArray = versionData.questions.map(q => {
-                            if(q.type === 'vf' || q.type === 'assoc') return (q.id || 0) % 5;
-                            return q.correctIndex;
-                        });
-
-                        currentScanData.value = {
-                            examId: exam.id,
-                            examTitle: exam.title,
-                            studentId: student.id,
-                            studentName: student.name,
-                            version: qrData.v,
-                            questionsLength: expectedAnswersCount
-                        };
-
-                        // Passa para fase da Câmera OMR
-                        showToast("QR Lido! Enquadre o gabarito.", "success");
-                        omrState.value = 'camera';
-                        nextTick(() => { startCameraForOMR(); });
-
-                    } catch (e) {
-                        showToast(e.message, "error");
-                        setTimeout(() => startOMRFlow(), 2000);
-                    }
-                };
-
-                const startCameraForOMR = async () => {
-                    const video = document.getElementById('omr-video');
-                    try {
-                        // Tenta resolução alta para melhor captura de pixel
-                        videoStream = await navigator.mediaDevices.getUserMedia({ 
-                            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } 
-                        });
-                        video.srcObject = videoStream;
-                    } catch (err) {
-                        showToast("Erro ao acessar câmera.", "error");
-                        closeOMRFlow();
-                    }
-                };
-
-                const stopVideoStream = () => {
-                    if(videoStream) {
-                        videoStream.getTracks().forEach(track => track.stop());
-                        videoStream = null;
-                    }
-                };
-
-                const captureAndAnalyzeOMR = () => {
-                    const video = document.getElementById('omr-video');
-                    const canvas = document.getElementById('omr-canvas');
-                    const guideBox = document.getElementById('omr-guide-rect');
-                    
-                    if (!video.videoWidth) return showToast("Aguarde a câmera iniciar", "warning");
-
-                    // 1. Extração da Área de Interesse (ROI)
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                    const videoRect = video.getBoundingClientRect();
-                    const guideRect = guideBox.getBoundingClientRect();
-
-                    const scaleX = video.videoWidth / videoRect.width;
-                    const scaleY = video.videoHeight / videoRect.height;
-
-                    const roiX = (guideRect.left - videoRect.left) * scaleX;
-                    const roiY = (guideRect.top - videoRect.top) * scaleY;
-                    const roiW = guideRect.width * scaleX;
-                    const roiH = guideRect.height * scaleY;
-
-                    croppedImageData = ctx.getImageData(roiX, roiY, roiW, roiH);
-                    const data = croppedImageData.data;
-
-                    // 2. Converter para Matriz de Intensidade (Cinza/Brilho)
-                    const width = croppedImageData.width;
-                    const height = croppedImageData.height;
-                    const brightnessData = new Float32Array(width * height);
-                    
-                    for (let i = 0; i < data.length; i += 4) {
-                        // Luminância (Y = 0.299R + 0.587G + 0.114B). Menor = mais escuro.
-                        brightnessData[i/4] = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
-                    }
-
-                    // 3. Grid Matemático
-                    const rows = expectedAnswersCount;
-                    const cols = 5; // A, B, C, D, E
-                    const cellW = width / cols;
-                    const cellH = height / rows;
-
-                    mathAnalyzedAnswers = [];
-
-                    // 4. Análise e Limiarização Local (Linha por Linha)
-                    for (let r = 0; r < rows; r++) {
-                        let rowCellDarkness = []; // Quão escura é cada célula da linha
-                        
-                        for (let c = 0; c < cols; c++) {
-                            // Definir núcleo da célula (ignora 30% das bordas para evitar linhas de tabela)
-                            const padX = cellW * 0.3; 
-                            const padY = cellH * 0.3;
-                            const startX = Math.floor(c * cellW + padX);
-                            const endX = Math.floor((c + 1) * cellW - padX);
-                            const startY = Math.floor(r * cellH + padY);
-                            const endY = Math.floor((r + 1) * cellH - padY);
-
-                            let cellDarknessSum = 0;
-                            let pixelsCounted = 0;
-
-                            for (let y = startY; y < endY; y++) {
-                                for (let x = startX; x < endX; x++) {
-                                    // Inverter brilho para que tinta (escuro) seja valor alto
-                                    const invertedBrightness = 255 - brightnessData[y * width + x];
-                                    cellDarknessSum += invertedBrightness;
-                                    pixelsCounted++;
-                                }
-                            }
-                            
-                            // Escuridão média do núcleo desta bolinha específica
-                            const avgDarkness = pixelsCounted > 0 ? (cellDarknessSum / pixelsCounted) : 0;
-                            rowCellDarkness.push(avgDarkness);
-                        }
-
-                        // 5. Lógica de Decisão (Qual bolinha foi marcada?)
-                        let maxDarkness = -1;
-                        let maxIndex = -1;
-                        let secondMaxDarkness = -1;
-                        
-                        // Encontra a primeira e segunda bolinhas mais escuras
-                        rowCellDarkness.forEach((darkness, idx) => {
-                            if (darkness > maxDarkness) {
-                                secondMaxDarkness = maxDarkness;
-                                maxDarkness = darkness;
-                                maxIndex = idx;
-                            } else if (darkness > secondMaxDarkness) {
-                                secondMaxDarkness = darkness;
-                            }
-                        });
-
-                        // Calcula a média das outras bolinhas (fundo de papel)
-                        let backgroundAvg = 0;
-                        rowCellDarkness.forEach((d, i) => { if(i !== maxIndex) backgroundAvg += d; });
-                        backgroundAvg = backgroundAvg / 4;
-
-                        // REGRA ANTI-RASURA E ANTI-FALSO POSITIVO:
-                        // A bolinha vencedora deve ser significativamente mais escura que o fundo
-                        // e deve ter uma folga considerável para a segunda mais escura.
-                        const contrastRatio = maxDarkness - backgroundAvg;
-                        const isolationRatio = maxDarkness - secondMaxDarkness;
-
-                        // Se o contraste for maior que um limite X e a diferença pra 2ª for boa, aceita.
-                        // (Valores empíricos baseados em caneta azul/preta vs impressão cinza)
-                        if (contrastRatio > 25 && isolationRatio > 15) {
-                            mathAnalyzedAnswers.push(maxIndex); // 0=A, 1=B, etc.
-                        } else {
-                            mathAnalyzedAnswers.push(null); // Branco ou rasurado
-                        }
-                    }
-
-                    // Prepara tela de Revisão Visual interativa
-                    prepareReviewCanvas(croppedImageData, rows, cols, cellW, cellH);
-                    calculateGrade();
-                    
-                    stopVideoStream(); 
-                    omrState.value = 'review';
-                };
-
-                const prepareReviewCanvas = (imageData, rows, cols, cellW, cellH) => {
-                    const reviewCanvas = document.getElementById('omr-review-canvas');
-                    reviewCanvas.width = imageData.width;
-                    reviewCanvas.height = imageData.height;
-                    const ctx = reviewCanvas.getContext('2d');
-
-                    const drawOverlays = () => {
-                        ctx.putImageData(imageData, 0, 0); // Fundo limpo
-                        ctx.lineWidth = 4;
-                        
-                        for (let r = 0; r < rows; r++) {
-                            const correctIdx = correctKeyArray[r];
-                            const detectedIdx = mathAnalyzedAnswers[r];
-
-                            for (let c = 0; c < cols; c++) {
-                                const centerX = c * cellW + (cellW / 2);
-                                const centerY = r * cellH + (cellH / 2);
-                                const radius = Math.min(cellW, cellH) * 0.35;
-
-                                if (detectedIdx === c) {
-                                    ctx.beginPath();
-                                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                                    if (detectedIdx === correctIdx) {
-                                        ctx.strokeStyle = '#34d399'; // Verde
-                                    } else {
-                                        ctx.strokeStyle = '#f87171'; // Vermelho
-                                    }
-                                    ctx.stroke();
-                                }
-                                
-                                // Pontilhado no gabarito oficial se o aluno errou
-                                if (correctIdx === c && detectedIdx !== correctIdx) {
-                                    ctx.beginPath();
-                                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                                    ctx.strokeStyle = 'rgba(52, 211, 153, 0.6)';
-                                    ctx.setLineDash([5, 5]);
-                                    ctx.stroke();
-                                    ctx.setLineDash([]);
-                                }
-                            }
-                        }
-                    };
-
-                    drawOverlays();
-
-                    // Interatividade: Permitir clique na imagem para corrigir bugs de enquadramento
-                    reviewCanvas.onclick = (e) => {
-                        const rect = reviewCanvas.getBoundingClientRect();
-                        const scaleX = reviewCanvas.width / rect.width;
-                        const scaleY = reviewCanvas.height / rect.height;
-                        const x = (e.clientX - rect.left) * scaleX;
-                        const y = (e.clientY - rect.top) * scaleY;
-
-                        const clickedCol = Math.floor(x / cellW);
-                        const clickedRow = Math.floor(y / cellH);
-
-                        if (clickedRow >= 0 && clickedRow < rows && clickedCol >= 0 && clickedCol < cols) {
-                            if (mathAnalyzedAnswers[clickedRow] === clickedCol) {
-                                mathAnalyzedAnswers[clickedRow] = null; // desmarca
-                            } else {
-                                mathAnalyzedAnswers[clickedRow] = clickedCol; // marca nova altern.
-                            }
-                            calculateGrade(); 
-                            drawOverlays();
-                        }
-                    };
-                };
-
-                const calculateGrade = () => {
-                    let hits = 0;
-                    for (let i = 0; i < expectedAnswersCount; i++) {
-                        if (mathAnalyzedAnswers[i] === correctKeyArray[i]) hits++;
-                    }
-                    calculatedScore.value = ((hits / expectedAnswersCount) * 10).toFixed(1);
-                };
-
-                const retryOMR = () => {
-                    omrState.value = 'camera';
-                    startCameraForOMR();
-                };
-
-                const confirmAndSaveOMR = async () => {
-                    try {
-                        const parsedAnswers = {};
-                        mathAnalyzedAnswers.forEach((ans, idx) => {
-                            if (ans !== null) parsedAnswers[idx] = ans;
-                        });
-
-                        const resultData = {
-                            examId: currentScanData.value.examId,
-                            studentId: currentScanData.value.studentId,
-                            studentName: currentScanData.value.studentName,
-                            score: calculatedScore.value,
-                            date: Date.now(),
-                            answers: parsedAnswers,
-                            maxScore: expectedAnswersCount,
-                            version: currentScanData.value.version
-                        };
-
-                        const allResults = await db.results.toArray();
-                        const existing = allResults.find(r => r.examId === resultData.examId && r.studentId === resultData.studentId);
-
-                        if (existing) {
-                            await db.results.put({ ...resultData, id: existing.id });
-                        } else {
-                            await db.results.add(JSON.parse(JSON.stringify(resultData)));
-                        }
-                        results.value = await db.results.toArray();
-
-                        // Adiciona ao topo da lista local para feedback imediato
-                        sessionResults.value.unshift({
-                            id: Date.now(),
-                            studentName: resultData.studentName,
-                            examTitle: currentScanData.value.examTitle,
-                            score: resultData.score
-                        });
-
-                        speak(`${resultData.studentName.split(' ')[0]}, nota ${resultData.score}`);
-                        showToast(`Nota salva: ${calculatedScore.value}`, "success");
-                        closeOMRFlow();
-                        
-                    } catch (e) {
-                        showToast("Erro ao salvar resultado.", "error");
-                    }
-                };
-
-                // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) ---
-                
+                // --- TESTE DE API (Apenas para Gerador de Questões agora) ---
                 const testGeminiKey = async () => {
                     if(!geminiKey.value) return showToast("Insira a chave de API", "error");
                     toast.value = {show: true, message: "Testando comunicação com IA...", type: "loading"};
@@ -2160,7 +1717,6 @@
                 };
 
                 const triggerAIUpload = () => {
-                    if(!geminiKey.value) return showToast("Insira a chave da IA primeiro.", "error");
                     document.getElementById('aiUploadInput').click();
                 };
 
@@ -2169,7 +1725,7 @@
                     if(!files.length) return;
 
                     for(const f of files) {
-                        aiCorrectionQueue.value.push({
+                        omrCorrectionQueue.value.push({
                             id: crypto.randomUUID(),
                             file: f,
                             name: f.name,
@@ -2182,14 +1738,7 @@
                 };
 
                 const hasPendingItems = computed(() => {
-                    return aiCorrectionQueue.value.some(i => i.status === 'pending' || i.status === 'error');
-                });
-
-                const fileToBase64 = (file) => new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.onerror = error => reject(error);
+                    return omrCorrectionQueue.value.some(i => i.status === 'pending' || i.status === 'error');
                 });
 
                 const scanFileForQR = async (file) => {
@@ -2198,133 +1747,189 @@
                         const result = await tempQrScanner.scanFile(file, true);
                         return result;
                     } catch (err) {
-                        throw new Error("QR Code não legível ou não encontrado na imagem.");
+                        throw new Error("QR Code não detetado na imagem.");
                     } finally {
                         try { tempQrScanner.clear(); } catch(e){}
                     }
                 };
 
-                const callGemini = async (base64Data, mimeType, questionsCount) => {
-                    const apiKey = geminiKey.value;
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+                // OMR VIA OPENCV (Visão Computacional Nativa 100% Offline)
+                const processWithOpenCV = async (imageFile, numQuestions) => {
+                    return new Promise((resolve, reject) => {
+                        if (!isCvReady.value) return reject(new Error("Motor OMR OpenCV a carregar. Aguarde um momento."));
+                        
+                        const img = new Image();
+                        img.onload = () => {
+                            let src, gray, blurred, edged, contours, hierarchy, docContour, srcTri, dstTri, M, warped, thresh, kernel;
+                            try {
+                                const canvas = document.createElement('canvas');
+                                // Redimensionar imagem para não estourar memória do navegador
+                                const MAX_DIM = 1200; 
+                                let scale = Math.min(MAX_DIM / img.width, MAX_DIM / img.height);
+                                canvas.width = img.width * scale;
+                                canvas.height = img.height * scale;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-                    // NOVO PROMPT: Resolução do problema de "Desvio Espacial" (Attention Drift) nas questões mais abaixo.
-                    const prompt = `Atue como um scanner físico OMR mecânico.
-Analise a imagem deste cartão-resposta escolar. A grelha possui EXATAMENTE ${questionsCount} questões.
+                                src = cv.imread(canvas);
+                                gray = new cv.Mat();
+                                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                                
+                                blurred = new cv.Mat();
+                                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
 
-O GRANDE DESAFIO (CUIDADO COM O DESVIO DE LINHA):
-A partir da questão 5 ou 6, é comum a visão da IA "escorregar" para a linha de cima ou de baixo ou confundir as colunas devido à distância do cabeçalho e à perspetiva fotográfica. Para evitar isso, você DEVE usar uma ÂNCORA VISUAL.
+                                edged = new cv.Mat();
+                                cv.Canny(blurred, edged, 50, 150);
+                                
+                                // Engrossar as linhas para ajudar na deteção de bordas fracas
+                                kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+                                cv.dilate(edged, edged, kernel, new cv.Point(-1, -1), 1);
 
-MÉTODO DE RASTREIO OBRIGATÓRIO:
-Para CADA UMA das ${questionsCount} questões, faça exatamente isto na sua mente:
-1. ÂNCORA VISUAL: Localize fisicamente o NÚMERO impresso da questão (ex: "6") na margem esquerda da tabela.
-2. RASTREIO ALINHADO: A partir desse número exato, mova a visão em linha reta horizontal estritamente para a direita.
-3. MAPEAMENTO DE COLUNAS: A 1ª bolinha imediatamente após o número é SEMPRE A(0), a 2ª é B(1), a 3ª é C(2), a 4ª é D(3), a 5ª é E(4).
-4. AVALIAÇÃO: Registe a intensidade. Regra da rasura: borrão caótico + marcação limpa = vence a limpa. Duas marcações com a mesma força = null. Linha vazia = null.
+                                contours = new cv.MatVector();
+                                hierarchy = new cv.Mat();
+                                cv.findContours(edged, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-SAÍDA JSON ESTRITAMENTE OBRIGATÓRIA:
-Para garantir que não pula linhas nem sofre desvio de perspetiva, a sua chave "analise_linha_a_linha" deve seguir este formato descritivo rigoroso:
-{
-  "analise_linha_a_linha": [
-    "Vi o número 1. Bolinhas: A(vazio), B(vazio), C(forte), D(vazio), E(vazio) -> 2",
-    "Vi o número 2. Bolinhas: A(forte), B(rasura), C(vazio), D(vazio), E(vazio) -> 0",
-    "Vi o número 3. Bolinhas: Todas vazias -> null"
-  ],
-  "respostas": [2, 0, null]
-}
+                                let maxArea = 0;
+                                for (let i = 0; i < contours.size(); ++i) {
+                                    let cnt = contours.get(i);
+                                    let area = cv.contourArea(cnt);
+                                    if (area > 15000) { 
+                                        let peri = cv.arcLength(cnt, true);
+                                        let approx = new cv.Mat();
+                                        cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+                                        // Verificar se tem 4 cantos e é a maior área
+                                        if (approx.rows === 4 && area > maxArea) {
+                                            maxArea = area;
+                                            if (docContour) docContour.delete();
+                                            docContour = approx.clone();
+                                        }
+                                        approx.delete();
+                                    }
+                                }
 
-A chave "respostas" deve conter APENAS o array final numérico com exatamente ${questionsCount} elementos. Retorne APENAS o JSON puro, sem blocos de formatação (\`\`\`).`;
+                                if (!docContour) throw new Error("Grelha de respostas não detetada. Foque no cartão de respostas com bordas visíveis.");
 
-                    const payload = {
-                        contents: [{
-                            parts: [
-                                {text: prompt},
-                                {inline_data: { mime_type: mimeType, data: base64Data }}
-                            ]
-                        }],
-                        generationConfig: { 
-                            response_mime_type: "application/json",
-                            temperature: 0.0, // Matemática pura, sem criatividade
-                            topK: 1
-                        }
-                    };
+                                // Ordenar pontos para transformar a perspetiva
+                                let pts = [];
+                                for (let i=0; i<4; i++) pts.push({x: docContour.data32S[i*2], y: docContour.data32S[i*2+1]});
+                                pts.sort((a,b) => a.y - b.y); // separar topo de baixo
+                                let top = pts.slice(0,2).sort((a,b) => a.x - b.x); // Esq-Topo, Dir-Topo
+                                let bottom = pts.slice(2,4).sort((a,b) => a.x - b.x); // Esq-Fundo, Dir-Fundo
+                                let tl = top[0], tr = top[1], bl = bottom[0], br = bottom[1];
 
-                    let retries = 3;
-                    let delay = 3000; 
-                    
-                    while(retries > 0) {
-                        try {
-                            const response = await fetch(url, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
-                            });
-                            const data = await response.json();
-                            
-                            if(data.error) {
-                                if (data.error.code === 429) throw { isRateLimit: true, msg: "Limite da API excedido" };
-                                throw new Error(data.error.message);
+                                let widthA = Math.hypot(br.x - bl.x, br.y - bl.y);
+                                let widthB = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+                                let maxWidth = Math.max(Math.floor(widthA), Math.floor(widthB));
+
+                                let heightA = Math.hypot(tr.x - br.x, tr.y - br.y);
+                                let heightB = Math.hypot(tl.x - bl.x, tl.y - bl.y);
+                                let maxHeight = Math.max(Math.floor(heightA), Math.floor(heightB));
+
+                                srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+                                dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1]);
+
+                                M = cv.getPerspectiveTransform(srcTri, dstTri);
+                                warped = new cv.Mat();
+                                cv.warpPerspective(gray, warped, M, new cv.Size(maxWidth, maxHeight));
+
+                                // Binarização Matemática (Preto e Branco puro, anulando iluminação falha)
+                                thresh = new cv.Mat();
+                                cv.threshold(warped, thresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+
+                                // Mapeamento Geométrico Estático
+                                let numRows = numQuestions + 1; // +1 pelo cabeçalho
+                                let numCols = 6; // Coluna 0: Numero, 1 a 5: A a E
+                                let cellH = maxHeight / numRows;
+                                let cellW = maxWidth / numCols;
+                                let answers = [];
+
+                                for (let i = 1; i < numRows; i++) {
+                                    let rowScores = [];
+                                    for (let j = 1; j < numCols; j++) {
+                                        let x = Math.floor(j * cellW);
+                                        let y = Math.floor(i * cellH);
+                                        let w = Math.floor(cellW);
+                                        let h = Math.floor(cellH);
+                                        
+                                        // Cortar 30% das margens do retângulo para não capturar a grelha de separação
+                                        let mX = Math.floor(w * 0.30);
+                                        let mY = Math.floor(h * 0.30);
+                                        
+                                        let rect = new cv.Rect(x + mX, y + mY, w - 2*mX, h - 2*mY);
+                                        let cell = thresh.roi(rect);
+                                        
+                                        // Contagem de píxeis escuros na alternativa
+                                        let count = cv.countNonZero(cell);
+                                        let total = rect.width * rect.height;
+                                        rowScores.push({ index: j - 1, score: count / total });
+                                        cell.delete();
+                                    }
+                                    
+                                    rowScores.sort((a,b) => b.score - a.score);
+                                    let best = rowScores[0];
+                                    let second = rowScores[1];
+                                    
+                                    // CÁLCULO ANTI-RASURA INDUSTRIAL
+                                    if (best.score > 0.25) { // A alternativa tem de estar pelo menos 25% pintada 
+                                        if ((best.score - second.score) > 0.12) { // Diferença de intensidade de 12% para a rasura mais próxima
+                                            answers.push(best.index);
+                                        } else {
+                                            answers.push(null); // Dupla marcação ou rasura ambígua
+                                        }
+                                    } else {
+                                        answers.push(null); // Linha em branco
+                                    }
+                                }
+                                resolve(answers);
+                            } catch (e) {
+                                reject(new Error("A foto necessita de estar focada no retângulo de respostas inteiro."));
+                            } finally {
+                                // Limpeza obrigatória de memória para impedir falhas WebAssembly
+                                if(src) src.delete(); if(gray) gray.delete(); if(blurred) blurred.delete();
+                                if(edged) edged.delete(); if(kernel) kernel.delete(); if(contours) contours.delete();
+                                if(hierarchy) hierarchy.delete(); if(docContour) docContour.delete();
+                                if(srcTri) srcTri.delete(); if(dstTri) dstTri.delete(); if(M) M.delete();
+                                if(warped) warped.delete(); if(thresh) thresh.delete();
                             }
-                            
-                            let text = data.candidates[0].content.parts[0].text;
-                            const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                            
-                            // EXTRAÇÃO: Agora pegamos apenas a chave "respostas" do JSON complexo
-                            const parsedObj = JSON.parse(cleanedText);
-                            if (parsedObj.respostas && Array.isArray(parsedObj.respostas)) {
-                                return parsedObj.respostas;
-                            } else {
-                                throw new Error("A IA não retornou o array de respostas no formato esperado.");
-                            }
-                            
-                        } catch(e) {
-                            if(e.isRateLimit) {
-                                retries--;
-                                if(retries === 0) throw new Error("Chave bloqueada temporariamente (Muitos acessos). Tente em alguns minutos.");
-                                await new Promise(r => setTimeout(r, delay));
-                                delay *= 2; 
-                            } else {
-                                throw e;
-                            }
-                        }
-                    }
+                        };
+                        img.onerror = () => reject(new Error("Falha na leitura do ficheiro de imagem."));
+                        img.src = URL.createObjectURL(imageFile);
+                    });
                 };
 
-                const processAIQueue = async () => {
+                const processOMRQueue = async () => {
                     if(isProcessingQueue.value) return;
                     isProcessingQueue.value = true;
 
-                    for(const item of aiCorrectionQueue.value) {
+                    for(const item of omrCorrectionQueue.value) {
                         if(item.status !== 'pending' && item.status !== 'error') continue;
 
                         item.status = 'processing';
-                        item.message = 'Lendo QR Code do aluno...';
+                        item.message = 'A procurar QR Code...';
                         
                         try {
                             const qrText = await scanFileForQR(item.file);
                             const qrData = JSON.parse(qrText);
-                            if(qrData.e === undefined || qrData.s === undefined) throw new Error("QR não pertence a este sistema");
+                            if(qrData.e === undefined || qrData.s === undefined) throw new Error("QR inválido.");
 
                             const exam = exams.value.find(e => e.id === Number(qrData.e));
                             const student = students.value.find(s => s.id === Number(qrData.s));
-                            if(!exam || !student) throw new Error("Prova/Aluno ausentes no banco local");
+                            if(!exam || !student) throw new Error("Prova ou Aluno ausentes na base local.");
 
                             if(!exam.versions) exam.versions = [{id:0, questions:exam.questionsA || exam.questions}, {id:1, questions:exam.questionsB || []}];
                             const version = exam.versions[qrData.v] || exam.versions[0];
                             const questions = version.questions;
 
-                            item.message = `IA analisando gabarito de ${student.name.split(' ')[0]}...`;
+                            item.message = `Digitalizando métricas para ${student.name.split(' ')[0]}...`;
 
-                            const base64 = await fileToBase64(item.file);
-                            const aiAnswers = await callGemini(base64, item.file.type, questions.length);
-
-                            if(!Array.isArray(aiAnswers)) throw new Error("A IA não retornou um formato válido");
+                            // Motor Matemático OMR OpenCV nativo da Máquina local
+                            const omrAnswers = await processWithOpenCV(item.file, questions.length);
 
                             let hits = 0;
                             const parsedAnswers = {};
 
                             questions.forEach((q, idx) => {
-                                const studentAns = aiAnswers[idx];
+                                const studentAns = omrAnswers[idx];
                                 if(studentAns !== null && studentAns !== undefined) {
                                     parsedAnswers[idx] = studentAns;
 
@@ -2357,7 +1962,7 @@ A chave "respostas" deve conter APENAS o array final numérico com exatamente ${
 
                             item.status = 'success';
                             item.score = finalScore;
-                            item.message = `${student.name} concluído.`;
+                            item.message = `${student.name} extraído.`;
                             
                             item.resultData = results.value.find(r => r.id === savedId);
                             
@@ -2365,10 +1970,11 @@ A chave "respostas" deve conter APENAS o array final numérico com exatamente ${
 
                         } catch(err) {
                             item.status = 'error';
-                            item.message = err.message || "Erro desconhecido ao processar.";
+                            item.message = err.message || "Erro desconhecido na digitalização ótica.";
                         }
 
-                        await new Promise(r => setTimeout(r, 4200));
+                        // Pausa curta e impercetível em modo local
+                        await new Promise(r => setTimeout(r, 500));
                     }
 
                     isProcessingQueue.value = false;
@@ -2429,7 +2035,7 @@ A chave "respostas" deve conter APENAS o array final numérico com exatamente ${
                         
                         selectedResultDetails.value.score = updated.score;
                         
-                        const queueItem = aiCorrectionQueue.value.find(i => i.resultData && i.resultData.id === resultId);
+                        const queueItem = omrCorrectionQueue.value.find(i => i.resultData && i.resultData.id === resultId);
                         if (queueItem) queueItem.score = updated.score;
 
                         showToast('Gabarito e nota atualizados!', 'success');
@@ -2578,6 +2184,9 @@ A chave "respostas" deve conter APENAS o array final numérico com exatamente ${
                 };
                 
                 onMounted(() => {
+                    window.addEventListener('opencv-ready', () => { isCvReady.value = true; });
+                    if(typeof cv !== 'undefined') isCvReady.value = true; // Callback de segurança
+
                     initLicenseSystem(); 
                     load();
                 });
@@ -2954,7 +2563,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
 
                 const generatePDF = async () => {
                     const actionName = editingExamId.value 
-                        ? "⚠️ ATENÇÃO! Atualizar irá baralhar as questões e gerar novos QR Codes. As impressões antigas deixarão de funcionar na correção por IA. Tem a certeza absoluta de que deseja continuar?" 
+                        ? "⚠️ ATENÇÃO! Atualizar irá baralhar as questões e gerar novos QR Codes. As impressões antigas deixarão de funcionar na correção OMR. Tem a certeza absoluta de que deseja continuar?" 
                         : "Gerar e Baixar PDF da Prova?";
                     triggerConfirm(actionName, async () => {
                         try {
@@ -3134,11 +2743,12 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                                 widths: [35, 30, 30, 30, 30, 30],
                                                 body: answerKeyRows
                                             },
+                                            // NOVO: BORDAS GROSSAS NO PDF PARA O OPENCV DETETAR A TABELA MESMO COM MÁ ILUMINAÇÃO
                                             layout: {
-                                                hLineWidth: (i, node) => 1,
-                                                vLineWidth: (i, node) => (i === 0 || i === 1) ? 1 : 0,
-                                                hLineColor: (i, node) => '#e5e7eb',
-                                                vLineColor: (i, node) => '#e5e7eb',
+                                                hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 4 : 1,
+                                                vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 4 : 1,
+                                                hLineColor: (i, node) => (i === 0 || i === node.table.body.length) ? '#000000' : '#d1d5db',
+                                                vLineColor: (i, node) => (i === 0 || i === node.table.widths.length) ? '#000000' : '#d1d5db',
                                             },
                                             alignment: 'center',
                                             margin: [0, 0, 0, 20]
@@ -3602,24 +3212,20 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
                     generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, uniqueSubjects,
                     printConfig, editingExamId, openEditExam, changeQType,
-                    showFixKeyModal, fixKeyExam, fixKeyQuestions, openFixKey, saveFixedKey, // NOVO: Exportado
+                    showFixKeyModal, fixKeyExam, fixKeyQuestions, openFixKey, saveFixedKey,
                     dashboardStudentFilter,
                     examFilterSubject, examFilterTopic, 
                     appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, isTemporal, timeLeft, deleteClass, showLicenseModal, toggleExpand,
-                    geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, aiCorrectionQueue, processAIQueue, hasPendingItems, isProcessingQueue,
+                    geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload, omrCorrectionQueue, processOMRQueue, hasPendingItems, isProcessingQueue,
                     showResultDetailsModal, selectedResultDetails, openResultDetails, saveUpdatedAnswers, getAlternativeLabel, showExamStatsModal, examStats, openExamStats,
                     showAIGenModal, isGeneratingAI, aiGenConfig, openAIGenerator, generateQuestionsAI,
-                    canInstall, installPWA,
-                    
-                    // OMR EXPORTS
-                    omrState, sessionResults, currentScanData, calculatedScore,
-                    startOMRFlow, closeOMRFlow, captureAndAnalyzeOMR, retryOMR, confirmAndSaveOMR
+                    canInstall, installPWA
                 };
             }
         }).mount('#app');
 
         // --- REGISTRO DO SERVICE WORKER ---
-        if ('serviceWorker' in navigator) {
+        if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
@@ -3629,6 +3235,8 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                         console.log('Falha ao registrar SW:', err);
                     });
             });
+        } else {
+            console.log('Service Worker de PWA desativado: O ambiente atual não suporta o protocolo necessário (requer http: ou https:).');
         }
     </script>
 </body>
