@@ -624,6 +624,20 @@
                         O sistema usa agora a IA para realizar o <strong>enquadramento geométrico inicial</strong> da folha, ignorando fundos e distorções, antes de aplicar a análise anti-rasuras.
                     </div>
 
+                    <div class="bg-gray-50 p-3 rounded-xl mb-4 border border-gray-200 space-y-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Chave de API Gemini (Google)</label>
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[9px] text-indigo-500 hover:text-indigo-700 font-bold flex items-center gap-1 transition">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Criar Chave Grátis
+                            </a>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="password" v-model="geminiKey" placeholder="Cole sua chave AIzaSy..." class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-indigo-400" @change="saveSettings(true)">
+                            <button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-black transition whitespace-nowrap shadow-md active:scale-95"><i class="fa-solid fa-vial"></i> Testar</button>
+                        </div>
+                        <p class="text-[9px] text-gray-400 leading-tight">Necessária para o processamento visual e alinhamento do gabarito do aluno.</p>
+                    </div>
+
                     <input type="file" multiple accept="image/*" id="aiUploadInput" class="hidden" @change="handleAIUpload">
                     <button @click="triggerAIUpload" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition flex items-center justify-center gap-2 active:scale-95">
                         <i class="fa-solid fa-camera"></i> Selecionar Fotos (Cartões)
