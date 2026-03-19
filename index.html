@@ -161,21 +161,20 @@
                 <div class="bg-white p-5 rounded-2xl shadow-sm border">
                     <div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div><div><h3 class="font-bold text-gray-800 text-lg">Scanner OMR</h3><p class="text-xs text-gray-500">Correção automática imune a rasuras.</p></div></div>
                     <div class="bg-gray-50 p-3 rounded-xl mb-4 border"><div class="flex justify-between items-center mb-1"><label class="text-[10px] font-bold text-gray-400 uppercase">API Gemini</label></div><div class="flex gap-2"><input type="password" v-model="geminiKey" class="flex-1 bg-white border rounded-lg px-3 py-2 text-xs font-mono outline-none" @change="saveSettings(true)"><button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold"><i class="fa-solid fa-vial"></i></button></div></div>
+                    
                     <input type="file" multiple accept="image/*" id="aiUploadInput" class="hidden" @change="handleAIUpload">
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-                        <button @click="startCameraScanner" class="bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-700 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
-                            <i class="fa-solid fa-crosshairs text-lg mb-0.5"></i> Escanear
+                    <div class="grid grid-cols-3 gap-2 mt-3">
+                        <button @click="startUnifiedScanner" class="bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-700 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
+                            <i class="fa-solid fa-crosshairs text-lg mb-0.5"></i> Escanear Prova
                         </button>
-                        <button @click="()=>document.getElementById('aiUploadInput').click()" class="bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-600 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
+                        <button @click="()=>document.getElementById('aiUploadInput').click()" class="bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-600 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
                             <i class="fa-solid fa-images text-lg mb-0.5"></i> Galeria
-                        </button>
-                        <button @click="startLiveQRScan" class="bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-600 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
-                            <i class="fa-solid fa-qrcode text-lg mb-0.5"></i> Ler QR
                         </button>
                         <button @click="startManualEntry" class="bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
                             <i class="fa-solid fa-keyboard text-lg mb-0.5"></i> Manual
                         </button>
                     </div>
+
                     <div v-if="omrCorrectionQueue.length>0" class="mt-6 border-t pt-4">
                         <div class="flex justify-between items-center mb-3"><h4 class="font-bold text-sm">Fila</h4><div class="flex gap-2"><button v-if="!isProcessingQueue" @click="omrCorrectionQueue=[]" class="text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg font-bold"><i class="fa-solid fa-trash"></i></button><button v-if="!isProcessingQueue" @click="processOMRQueue" class="text-xs bg-indigo-600 text-white px-4 py-1.5 rounded-lg font-bold"><i class="fa-solid fa-play"></i> Iniciar</button></div></div>
                         <div class="space-y-2 max-h-[300px] overflow-y-auto">
@@ -308,33 +307,67 @@
         <!-- MODAL SCANNER MANUAL -->
         <div v-if="showManualInputModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm"><div class="flex justify-between mb-4"><h3 class="font-bold">Lançamento Manual</h3><button @click="showManualInputModal=false"><i class="fa-solid fa-times"></i></button></div><div class="space-y-4"><select v-model="manualConfig.examId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar prova...</option><option v-for="e in exams" :value="e.id">{{e.title}}</option></select><select v-if="manualConfig.examId" v-model="manualConfig.studentId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar aluno...</option><option v-for="s in manualStudents" :value="s.id">{{s.name}}</option></select><select v-if="manualConfig.studentId" v-model="manualConfig.version" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option v-for="(v,i) in selectedExamVersions" :value="i">Tipo {{i+1}}</option></select><button @click="confirmManualEntry" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Preencher</button></div></div></div>
 
-        <!-- MODAL LIVE QR -->
-        <div v-if="showLiveQRScanner" class="fixed inset-0 z-[400] flex flex-col bg-black"><div class="p-4 flex justify-between bg-gray-900 text-white"><h3 class="font-bold"><i class="fa-solid fa-qrcode"></i> Ler QR do Aluno</h3><button @click="stopLiveQRScan"><i class="fa-solid fa-times"></i></button></div><div class="flex-1 flex flex-col items-center justify-center p-4"><div id="live-qr-reader" class="w-full max-w-md bg-black rounded-xl overflow-hidden"></div></div></div>
-
-        <!-- MODAL CÂMERA COM GUIA OMR (ENQUADRAMENTO AO VIVO) -->
-        <div v-if="showLiveCameraModal" class="fixed inset-0 z-[500] flex flex-col bg-black animate-fade-in">
+        <!-- UNIFIED SCANNER MODAL -->
+        <div v-if="unifiedScanner.active" class="fixed inset-0 z-[500] flex flex-col bg-black animate-fade-in">
             <div class="p-4 flex justify-between items-center bg-gray-900 text-white z-30 shadow-md">
-                <h3 class="font-bold"><i class="fa-solid fa-camera"></i> Escanear Gabarito</h3>
-                <button @click="stopCameraScanner" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
+                <h3 class="font-bold"><i class="fa-solid fa-expand"></i> Escanear Gabarito</h3>
+                <button @click="stopUnifiedScanner" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
-            <div class="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
-                <video id="live-camera-video" class="absolute inset-0 w-full h-full object-cover z-10" playsinline autoplay muted></video>
-                <!-- Canvas de Desenho em Tempo Real -->
-                <canvas id="live-camera-overlay" class="absolute inset-0 w-full h-full object-cover z-20 pointer-events-none"></canvas>
+
+            <!-- STEP 1: QR Code -->
+            <div v-show="unifiedScanner.step === 1" class="flex-1 flex flex-col items-center justify-center p-4 relative">
+                <div id="unified-qr-reader" class="w-full max-w-md bg-black rounded-xl overflow-hidden shadow-2xl z-10"></div>
+                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20">
+                    <div class="w-64 h-64 border-2 border-dashed border-white/50 rounded-3xl"></div>
+                </div>
+                <p class="text-white font-bold text-center mt-6 px-4 z-20">Passo 1: Aponte para o QR Code da prova</p>
+            </div>
+
+            <!-- STEP 2: Confirmation -->
+            <div v-if="unifiedScanner.step === 2" class="flex-1 flex items-center justify-center p-6 bg-black">
+                <div class="bg-gray-900 border border-gray-700 p-6 rounded-3xl w-full max-w-sm text-center shadow-2xl animate-fade-in">
+                    <div class="w-20 h-20 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl"><i class="fa-solid fa-user-check"></i></div>
+                    <h2 class="text-2xl font-black text-white mb-1">{{ unifiedScanner.student?.name }}</h2>
+                    <p class="text-gray-400 font-medium mb-6">{{ unifiedScanner.exam?.title }} (Tipo {{ unifiedScanner.version + 1 }})</p>
+                    <button @click="startUnifiedGridScan" class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-lg active:scale-95">
+                        <i class="fa-solid fa-camera-viewfinder"></i> Alinhar Gabarito
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 3: Grid Scan (OpenCV) -->
+            <div v-show="unifiedScanner.step === 3" class="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
+                <video id="unified-camera-video" class="absolute inset-0 w-full h-full object-cover z-10" playsinline autoplay muted></video>
+                <canvas id="unified-camera-overlay" class="absolute inset-0 w-full h-full object-cover z-20 pointer-events-none"></canvas>
                 
-                <!-- Máscara Guia (Fundo Estático de ajuda) -->
-                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 pb-20 z-20 opacity-60">
-                    <div class="w-full max-w-sm aspect-[1/1.4] border border-white/30 relative flex items-center justify-center rounded-sm" style="box-shadow: 0 0 0 4000px rgba(0,0,0,0.65);">
-                        <p class="absolute -top-10 w-full text-center text-white font-bold text-xs bg-black/60 py-1.5 px-3 rounded-lg backdrop-blur-sm">Aponte para a prova e aguarde o alvo verde...</p>
+                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 pb-20 z-20">
+                    <div class="w-full max-w-sm aspect-[1/1.4] border-2 border-dashed border-white/50 relative flex items-center justify-center rounded-lg" style="box-shadow: 0 0 0 4000px rgba(0,0,0,0.75);">
+                        
+                        <div v-if="unifiedScanner.progress > 0" class="absolute inset-0 flex flex-col items-center justify-center bg-emerald-500/20 backdrop-blur-sm rounded-lg border-4 border-emerald-500">
+                            <i class="fa-solid fa-check-circle text-5xl text-emerald-400 drop-shadow-md mb-2 animate-pulse"></i>
+                            <div class="text-white text-6xl font-black drop-shadow-xl">{{ Math.round(unifiedScanner.progress * 100) }}%</div>
+                            <p class="text-emerald-300 font-bold mt-2 text-center px-2 drop-shadow-md">{{ unifiedScanner.statusMessage }}</p>
+                        </div>
+                        <p v-else class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white/80 font-bold text-center bg-black/50 py-2 px-4 rounded-xl backdrop-blur-sm w-3/4">{{ unifiedScanner.statusMessage || 'Alinhe a grelha de respostas aqui' }}</p>
                     </div>
                 </div>
 
-                <!-- Botão de Captura Manual (Caso o Auto-Capture não dispare por falta de luz) -->
                 <div class="absolute bottom-8 left-0 right-0 flex justify-center z-30">
-                    <button @click="captureCameraScanner" class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center border-4 border-white backdrop-blur-md active:scale-95 transition shadow-2xl">
-                        <div class="w-14 h-14 bg-white rounded-full"></div>
-                    </button>
+                    <div class="w-full max-w-xs px-6">
+                        <div class="h-3 w-full bg-gray-800 rounded-full overflow-hidden border border-gray-600">
+                            <div class="h-full bg-emerald-500 transition-all duration-75" :style="{ width: (unifiedScanner.progress * 100) + '%' }"></div>
+                        </div>
+                        <p class="text-center text-emerald-400 text-xs font-bold mt-2">Mantenha firme para focar...</p>
+                    </div>
                 </div>
+            </div>
+            
+            <!-- STEP 4: Processing... -->
+            <div v-if="unifiedScanner.step === 4" class="flex-1 flex items-center justify-center bg-black">
+                 <div class="text-center space-y-4">
+                     <i class="fa-solid fa-circle-notch fa-spin text-5xl text-emerald-500"></i>
+                     <p class="text-white font-bold animate-pulse">Processando gabarito com precisão matemática...</p>
+                 </div>
             </div>
         </div>
     </div>
@@ -464,7 +497,7 @@
                     const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="Nexus_Backup.json"; a.click(); 
                 };
 
-                // HELPER GEMINI API
+                // HELPER GEMINI API (Restaurado para gemini-2.5-flash-preview-09-2025 de acordo com a chave)
                 const fetchGemini = async (prompt, schema, base64Img=null, mimeType=null) => {
                     const payload = { contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0, responseMimeType:"application/json"} };
                     if(base64Img) payload.contents[0].parts.push({inlineData:{mimeType, data:base64Img}});
@@ -532,7 +565,48 @@
                     }finally{if(s)s.delete();if(g)g.delete();if(t)t.delete();if(cnts)cnts.delete();if(hie)hie.delete();if(wp)wp.delete();if(wpt)wpt.delete();if(dbM)dbM.delete();}
                 };
 
-                const processOMRQueue=async()=>{if(isProcessingQueue.value)return;isProcessingQueue.value=true;for(let itm of omrCorrectionQueue.value){if(itm.status!=='pending'&&itm.status!=='error')continue;itm.status='processing';try{let qrt=await scanFileForQR(itm.file),qd=JSON.parse(qrt);let ex=exams.value.find(e=>e.id===Number(qd.e)),st=students.value.find(s=>s.id===Number(qd.s));if(!ex||!st)throw new Error("Inválido");let pImg=await preprocessImage(itm.file);itm.message=`Localizando...`;let box=await fetchGemini(`Aja como um sistema de Visão Computacional... Retorne a bounding box dos 4 marcadores...`,{type:"OBJECT",properties:{box_ymin:{type:"INTEGER"},box_xmin:{type:"INTEGER"},box_ymax:{type:"INTEGER"},box_xmax:{type:"INTEGER"}},required:["box_ymin","box_xmin","box_ymax","box_xmax"]},pImg.base64,pImg.mimeType);itm.message=`Lendo...`;let cC=await createCroppedCanvas(pImg.base64,{ymin:box.box_ymin,xmin:box.box_xmin,ymax:box.box_ymax,xmax:box.box_xmax}),cvR=extractAnswersWithOpenCV(cC,getVersionQuestions(ex,qd.v).length);let pAns={};cvR.ans.forEach((a,i)=>{if(a!=null)pAns[i]=a});let sid=await saveExamResult(ex.id,st.id,st.name,qd.v,pAns,cvR.img);itm.status='success';itm.resultData=results.value.find(r=>r.id===sid);itm.score=itm.resultData.score;itm.message=`${st.name} OK`;speak(`${st.name}, nota ${itm.score}`);}catch(e){itm.status='error';itm.message=e.message||"Erro OMR";}await new Promise(r=>setTimeout(r,500));}isProcessingQueue.value=false;};
+                const processOMRQueue=async()=>{
+                    if(isProcessingQueue.value)return;
+                    isProcessingQueue.value=true;
+                    for(let itm of omrCorrectionQueue.value){
+                        if(itm.status!=='pending'&&itm.status!=='error')continue;
+                        itm.status='processing';
+                        try{
+                            let ex, st, vIdx;
+                            if (itm.preloadedData) {
+                                ex = itm.preloadedData.exam;
+                                st = itm.preloadedData.student;
+                                vIdx = itm.preloadedData.version;
+                            } else {
+                                let qrt=await scanFileForQR(itm.file), qd=JSON.parse(qrt);
+                                ex=exams.value.find(e=>e.id===Number(qd.e)); st=students.value.find(s=>s.id===Number(qd.s)); vIdx=qd.v;
+                                if(!ex||!st)throw new Error("Inválido");
+                            }
+                            
+                            let pImg=await preprocessImage(itm.file);
+                            itm.message=`Localizando...`;
+                            let box=await fetchGemini(`Aja como um sistema de Visão Computacional... Retorne a bounding box dos 4 marcadores...`,{type:"OBJECT",properties:{box_ymin:{type:"INTEGER"},box_xmin:{type:"INTEGER"},box_ymax:{type:"INTEGER"},box_xmax:{type:"INTEGER"}},required:["box_ymin","box_xmin","box_ymax","box_xmax"]},pImg.base64,pImg.mimeType);
+                            itm.message=`Lendo...`;
+                            let cC=await createCroppedCanvas(pImg.base64,{ymin:box.box_ymin,xmin:box.box_xmin,ymax:box.box_ymax,xmax:box.box_xmax});
+                            let cvR=extractAnswersWithOpenCV(cC,getVersionQuestions(ex,vIdx).length);
+                            let pAns={};cvR.ans.forEach((a,i)=>{if(a!=null)pAns[i]=a});
+                            
+                            let sid=await saveExamResult(ex.id,st.id,st.name,vIdx,pAns,cvR.img);
+                            itm.status='success';
+                            itm.resultData=results.value.find(r=>r.id===sid);
+                            itm.score=itm.resultData.score;
+                            itm.message=`${st.name} OK`;
+                            speak(`${st.name}, nota ${itm.score}`);
+
+                            // Auto-open if came from unified live scanner
+                            if (itm.preloadedData) {
+                                openResultDetails(itm.resultData);
+                            }
+                        }catch(e){itm.status='error';itm.message=e.message||"Erro OMR";}
+                        await new Promise(r=>setTimeout(r,500));
+                    }
+                    isProcessingQueue.value=false;
+                };
 
                 // AI GENERATOR
                 const generateQuestionsAI=async()=>{if(!aiGenConfig.value.topic)return showToast('Preencha tópico','error');let t=(aiGenConfig.value.counts.mc||0)+(aiGenConfig.value.counts.ce||0)+(aiGenConfig.value.counts.vf||0)+(aiGenConfig.value.counts.assoc||0);if(t<1)return showToast('Min 1 questão','warning');isGeneratingAI.value=true;showToast(`Gerando ${t} questões...`,'loading');try{let gq=await fetchGemini(`Crie ${t} questões de ${aiGenConfig.value.subject} (${aiGenConfig.value.topic}). Nível: ${aiGenConfig.value.difficulty}. ${aiGenConfig.value.counts.mc} multi (5 opt). ${aiGenConfig.value.counts.ce} C/E. ${aiGenConfig.value.counts.vf} V/F. ${aiGenConfig.value.counts.assoc} assoc. JSON Array puro!`, null);if(!Array.isArray(gq))throw new Error("Erro formatação");await db.questions.bulkAdd(gq);await load();showAIGenModal.value=false;showToast("Concluído!","success");}catch(e){showToast(e.message,"error")}finally{isGeneratingAI.value=false}};
@@ -553,57 +627,82 @@
                 const openFixKey=(ex)=>{fixKeyExam.value=ex;if(!ex.versions)ex.versions=[{id:0,questions:ex.questions}]; fixKeySelectedVersion.value=0; loadFixKeyQuestions(); showFixKeyModal.value=true;};
                 const saveFixedKey=async()=>{let uEx=JSON.parse(JSON.stringify(fixKeyExam.value)), vi=fixKeySelectedVersion.value; uEx.versions[vi].questions.forEach((q,i)=>q.correctIndex=fixKeyQuestions.value[i].newCorrectIndex); await db.exams.put(uEx); exams.value=await db.exams.orderBy('id').reverse().toArray(); let rs=results.value.filter(r=>r.examId===uEx.id&&r.version===vi); for(let r of rs) await saveExamResult(uEx.id,r.studentId,r.studentName,r.version,r.answers,r.annotatedImage); showFixKeyModal.value=false; showToast(`Gabarito V${vi+1} salvo! ${rs.length} notas recalculadas.`,"success");};
 
-                // QR SCANNER
-                const showLiveQRScanner=ref(false); let html5QrCode=null;
-                const startLiveQRScan=()=>{showLiveQRScanner.value=true; nextTick(()=>{html5QrCode=new Html5Qrcode("live-qr-reader"); html5QrCode.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:250}},(t)=>{html5QrCode.stop().then(()=>{showLiveQRScanner.value=false; let qd=JSON.parse(t); activeExam.value=exams.value.find(e=>e.id===Number(qd.e)); activeStudent.value=students.value.find(s=>s.id===Number(qd.s)); activeVersion.value=Number(qd.v)||0; studentAnswers.value={}; correctionMode.value=true; showToast("Identificado!","success");})},()=>{})})};
-                const stopLiveQRScan=()=>{if(html5QrCode)html5QrCode.stop().finally(()=>showLiveQRScanner.value=false)};
+                // UNIFIED SCANNER COM DETEÇÃO EM TEMPO REAL E AUTO-CAPTURE
+                const unifiedScanner = ref({ active: false, step: 1, student: null, exam: null, version: 0, progress: 0, qrText: '', statusMessage: 'Procurando gabarito...' });
+                let unifiedQrCode = null; let unifiedCameraStream = null; let unifiedScanLoopId = null; let unifiedStableFrames = 0;
+                const FRAMES_TO_LOCK = 20; // Aproximadamente 1 segundo a 15-20fps
 
-                // CAMERA SCANNER COM DETEÇÃO EM TEMPO REAL E AUTO-CAPTURE
-                const showLiveCameraModal = ref(false);
-                let cameraStream = null;
-                let scanLoopId = null;
-                let stableFrames = 0;
+                const startUnifiedScanner = () => {
+                    unifiedScanner.value = { active: true, step: 1, student: null, exam: null, version: 0, progress: 0, qrText: '', statusMessage: 'Aponte para o QR Code...' };
+                    nextTick(() => {
+                        unifiedQrCode = new Html5Qrcode("unified-qr-reader");
+                        unifiedQrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 250 } },
+                            (decodedText) => { unifiedQrCode.stop().then(() => handleUnifiedQR(decodedText)).catch(()=>{}); },
+                            (errorMessage) => {}
+                        ).catch(err => { showToast("Erro ao aceder à câmara para o QR.", "error"); unifiedScanner.value.active = false; });
+                    });
+                };
 
-                const runLiveScan = () => {
-                    if (!showLiveCameraModal.value) return;
-                    const video = document.getElementById('live-camera-video');
-                    const overlay = document.getElementById('live-camera-overlay');
+                const handleUnifiedQR = (qrText) => {
+                    try {
+                        const qrData = JSON.parse(qrText);
+                        if(qrData.e === undefined || qrData.s === undefined) throw new Error("QR Code não reconhecido.");
+                        const ex = exams.value.find(x => x.id === Number(qrData.e));
+                        const st = students.value.find(x => x.id === Number(qrData.s));
+                        if(!ex || !st) throw new Error("Prova ou Aluno não encontrados.");
+                        if(!ex.versions) {
+                            ex.versions = [{id:0, questions:ex.questionsA || []}, {id:1, questions:ex.questionsB || []}];
+                            if (!ex.questionsA && ex.questions) ex.versions = [{id:0, questions:ex.questions}];
+                        }
+                        unifiedScanner.value.exam = ex; unifiedScanner.value.student = st; unifiedScanner.value.version = Number(qrData.v) || 0;
+                        unifiedScanner.value.qrText = qrText; unifiedScanner.value.step = 2;
+                        speak(`Identificado. ${st.name}`);
+                    } catch(err) {
+                        showToast(err.message, "error"); stopUnifiedScanner();
+                    }
+                };
+
+                const startUnifiedGridScan = async () => {
+                    unifiedScanner.value.step = 3; unifiedScanner.value.progress = 0; unifiedStableFrames = 0;
+                    unifiedScanner.value.statusMessage = 'Procurando o gabarito...';
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+                        unifiedCameraStream = stream;
+                        nextTick(() => {
+                            const videoEl = document.getElementById('unified-camera-video');
+                            if (videoEl) { videoEl.srcObject = stream; unifiedScanLoopId = requestAnimationFrame(runUnifiedLiveScan); }
+                        });
+                    } catch (err) {
+                        showToast("Permissão da câmara negada.", "error"); stopUnifiedScanner();
+                    }
+                };
+
+                const runUnifiedLiveScan = () => {
+                    if (!unifiedScanner.value.active || unifiedScanner.value.step !== 3) return;
+                    const video = document.getElementById('unified-camera-video');
+                    const overlay = document.getElementById('unified-camera-overlay');
                     
                     if (video && overlay && video.readyState === video.HAVE_ENOUGH_DATA && typeof cv !== 'undefined') {
-                        overlay.width = video.videoWidth;
-                        overlay.height = video.videoHeight;
-                        const ctx = overlay.getContext('2d');
-                        ctx.clearRect(0, 0, overlay.width, overlay.height);
+                        overlay.width = video.videoWidth; overlay.height = video.videoHeight;
+                        const ctx = overlay.getContext('2d'); ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-                        // Reduzir resolução para o OpenCV processar a 60 FPS sem lag
-                        const sw = 400;
-                        const scale = sw / video.videoWidth;
-                        const sh = Math.floor(video.videoHeight * scale);
-                        
-                        const offCnv = document.createElement('canvas');
-                        offCnv.width = sw; offCnv.height = sh;
+                        const sw = 400; const scale = sw / video.videoWidth; const sh = Math.floor(video.videoHeight * scale);
+                        const offCnv = document.createElement('canvas'); offCnv.width = sw; offCnv.height = sh;
                         offCnv.getContext('2d').drawImage(video, 0, 0, sw, sh);
                         
                         let src, gray, thresh, cnts, hie;
                         try {
-                            src = cv.imread(offCnv);
-                            gray = new cv.Mat();
-                            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                            thresh = new cv.Mat();
-                            cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
-                            cnts = new cv.MatVector();
-                            hie = new cv.Mat();
+                            src = cv.imread(offCnv); gray = new cv.Mat(); cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                            thresh = new cv.Mat(); cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+                            cnts = new cv.MatVector(); hie = new cv.Mat();
                             cv.findContours(thresh, cnts, hie, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
                             let bTL = 9999, bTR = 9999, bBL = 9999, bBR = 9999;
                             let mTL = null, mTR = null, mBL = null, mBR = null;
-                            let foundQuad = false;
-                            let ptTL, ptTR, ptBR, ptBL;
+                            let foundQuad = false; let ptTL, ptTR, ptBR, ptBL;
 
-                            // 1. Tentar encontrar os 4 marcadores fiduciais (Nova versão de prova)
                             for (let i = 0; i < cnts.size(); ++i) {
-                                let c = cnts.get(i);
-                                let a = cv.contourArea(c);
+                                let c = cnts.get(i); let a = cv.contourArea(c);
                                 if (a > 10 && a < (sw * sh * 0.05)) {
                                     let M = cv.moments(c, false);
                                     if (M.m00 > 0) {
@@ -619,123 +718,89 @@
 
                             if (mTL && mTR && mBL && mBR) {
                                 let area = 0.5 * Math.abs((mTL.x*mTR.y + mTR.x*mBR.y + mBR.x*mBL.y + mBL.x*mTL.y) - (mTL.y*mTR.x + mTR.y*mBR.x + mBR.y*mBL.x + mBL.y*mTL.x));
-                                if (area > (sw * sh * 0.15)) {
+                                if (area > (sw * sh * 0.10)) {
                                     ptTL = {x: mTL.x/scale, y: mTL.y/scale}; ptTR = {x: mTR.x/scale, y: mTR.y/scale};
                                     ptBR = {x: mBR.x/scale, y: mBR.y/scale}; ptBL = {x: mBL.x/scale, y: mBL.y/scale};
                                     foundQuad = true;
                                 }
                             }
 
-                            // 2. Fallback: Se não achar os 4 cantos, procura uma borda grande (Provas Antigas)
                             if (!foundQuad) {
-                                let maxArea = 0;
-                                let bestApprox = null;
+                                let maxArea = 0; let bestApprox = null;
                                 for (let i = 0; i < cnts.size(); ++i) {
-                                    let c = cnts.get(i);
-                                    let area = cv.contourArea(c);
-                                    if (area > (sw * sh * 0.2)) {
-                                        let peri = cv.arcLength(c, true);
-                                        let approx = new cv.Mat();
+                                    let c = cnts.get(i); let area = cv.contourArea(c);
+                                    if (area > (sw * sh * 0.15)) {
+                                        let peri = cv.arcLength(c, true); let approx = new cv.Mat();
                                         cv.approxPolyDP(c, approx, 0.02 * peri, true);
                                         if (approx.rows === 4 && area > maxArea) {
-                                            maxArea = area;
-                                            if (bestApprox) bestApprox.delete();
-                                            bestApprox = approx.clone();
+                                            maxArea = area; if (bestApprox) bestApprox.delete(); bestApprox = approx.clone();
                                         }
                                         approx.delete();
                                     }
                                 }
                                 if (bestApprox) {
-                                    let pts = [];
-                                    for (let i=0; i<4; i++) pts.push({x: bestApprox.data32S[i*2], y: bestApprox.data32S[i*2+1]});
+                                    let pts = []; for (let i=0; i<4; i++) pts.push({x: bestApprox.data32S[i*2], y: bestApprox.data32S[i*2+1]});
                                     pts.sort((a,b) => a.y - b.y);
-                                    let top = pts.slice(0,2).sort((a,b) => a.x - b.x);
-                                    let bot = pts.slice(2,4).sort((a,b) => a.x - b.x);
+                                    let top = pts.slice(0,2).sort((a,b) => a.x - b.x); let bot = pts.slice(2,4).sort((a,b) => a.x - b.x);
                                     ptTL = {x: top[0].x/scale, y: top[0].y/scale}; ptTR = {x: top[1].x/scale, y: top[1].y/scale};
                                     ptBR = {x: bot[1].x/scale, y: bot[1].y/scale}; ptBL = {x: bot[0].x/scale, y: bot[0].y/scale};
-                                    foundQuad = true;
-                                    bestApprox.delete();
+                                    foundQuad = true; bestApprox.delete();
                                 }
                             }
 
-                            // Desenho do Scanner Verde e Auto-Capture
                             if (foundQuad) {
+                                unifiedScanner.value.statusMessage = "Enquadramento Perfeito! Segure...";
                                 ctx.beginPath(); ctx.moveTo(ptTL.x, ptTL.y); ctx.lineTo(ptTR.x, ptTR.y); ctx.lineTo(ptBR.x, ptBR.y); ctx.lineTo(ptBL.x, ptBL.y); ctx.closePath();
-                                ctx.lineWidth = 5; ctx.strokeStyle = '#10b981'; ctx.stroke(); // Verde Esmeralda
+                                ctx.lineWidth = 5; ctx.strokeStyle = '#10b981'; ctx.stroke();
                                 ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; ctx.fill();
-                                
                                 ctx.fillStyle = '#10b981';
                                 [ptTL, ptTR, ptBR, ptBL].forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, 2*Math.PI); ctx.fill(); });
 
-                                stableFrames++;
-                                // Se a mira verde ficar estável durante ~0.5 segundos na prova (12 frames)
-                                if (stableFrames > 12) { 
-                                    captureCameraScanner(); 
-                                    return; 
-                                }
+                                unifiedStableFrames++;
+                                unifiedScanner.value.progress = Math.min(unifiedStableFrames / FRAMES_TO_LOCK, 1.0);
+                                if (unifiedStableFrames >= FRAMES_TO_LOCK) { captureUnifiedGrid(); return; }
                             } else {
-                                stableFrames = 0; // Reseta se abanar
+                                unifiedScanner.value.statusMessage = "Procurando gabarito...";
+                                unifiedStableFrames = Math.max(0, unifiedStableFrames - 2);
+                                unifiedScanner.value.progress = Math.min(unifiedStableFrames / FRAMES_TO_LOCK, 1.0);
                             }
-                        } catch(e) { console.error(e); } 
+                        } catch(e) {} 
                         finally {
                             if (src) src.delete(); if (gray) gray.delete(); if (thresh) thresh.delete();
                             if (cnts) cnts.delete(); if (hie) hie.delete();
                         }
                     }
-                    scanLoopId = requestAnimationFrame(runLiveScan);
+                    unifiedScanLoopId = requestAnimationFrame(runUnifiedLiveScan);
                 };
 
-                const startCameraScanner = async () => {
-                    showLiveCameraModal.value = true;
-                    stableFrames = 0;
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({
-                            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-                        });
-                        cameraStream = stream;
-                        nextTick(() => {
-                            const videoEl = document.getElementById('live-camera-video');
-                            if (videoEl) {
-                                videoEl.srcObject = stream;
-                                scanLoopId = requestAnimationFrame(runLiveScan);
-                            }
-                        });
-                    } catch (err) {
-                        showToast("Erro ao aceder à câmara: Verifique as permissões.", "error");
-                        showLiveCameraModal.value = false;
-                    }
-                };
-
-                const stopCameraScanner = () => {
-                    if (scanLoopId) { cancelAnimationFrame(scanLoopId); scanLoopId = null; }
-                    if (cameraStream) { cameraStream.getTracks().forEach(track => track.stop()); cameraStream = null; }
-                    showLiveCameraModal.value = false;
-                };
-
-                const captureCameraScanner = () => {
-                    if (scanLoopId) { cancelAnimationFrame(scanLoopId); scanLoopId = null; }
-                    const videoEl = document.getElementById('live-camera-video');
-                    if (!videoEl) return;
+                const captureUnifiedGrid = () => {
+                    if (unifiedScanLoopId) { cancelAnimationFrame(unifiedScanLoopId); unifiedScanLoopId = null; }
+                    unifiedScanner.value.step = 4; 
+                    
+                    const videoEl = document.getElementById('unified-camera-video');
+                    if (!videoEl) return stopUnifiedScanner();
                     
                     const canvas = document.createElement('canvas');
-                    canvas.width = videoEl.videoWidth;
-                    canvas.height = videoEl.videoHeight;
+                    canvas.width = videoEl.videoWidth; canvas.height = videoEl.videoHeight;
                     canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
                     
-                    canvas.toBlob((blob) => {
+                    canvas.toBlob(async (blob) => {
                         const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' });
                         omrCorrectionQueue.value.push({
-                            id: crypto.randomUUID(),
-                            file: file,
-                            name: "Scanner Ao Vivo",
-                            status: 'pending',
-                            message: 'Aguardando na fila...',
-                            score: null
+                            id: crypto.randomUUID(), file: file, name: `Scan: ${unifiedScanner.value.student.name}`,
+                            status: 'pending', message: 'Aguardando na fila...', score: null,
+                            preloadedData: { exam: unifiedScanner.value.exam, student: unifiedScanner.value.student, version: unifiedScanner.value.version }
                         });
-                        stopCameraScanner();
-                        showToast("Prova detetada e capturada!", "success");
-                        if(!isProcessingQueue.value) processOMRQueue(); 
-                    }, 'image/jpeg', 0.9);
+                        stopUnifiedScanner();
+                        if(!isProcessingQueue.value) await processOMRQueue();
+                    }, 'image/jpeg', 0.95);
+                };
+
+                const stopUnifiedScanner = () => {
+                    if (unifiedQrCode) { unifiedQrCode.stop().catch(()=>{}); unifiedQrCode = null; }
+                    if (unifiedScanLoopId) { cancelAnimationFrame(unifiedScanLoopId); unifiedScanLoopId = null; }
+                    if (unifiedCameraStream) { unifiedCameraStream.getTracks().forEach(t => t.stop()); unifiedCameraStream = null; }
+                    unifiedScanner.value.active = false;
                 };
 
                 // DB CRUD
@@ -1104,7 +1169,7 @@
                     qFilter, filterType, filterSubject, filterTopic, examFilterSubject, examFilterTopic, examFilter, examTab,
                     showEditExamModal, editingExam, showHistory, examHistoryFilter, selectedClassIdForReport, dashboardStudentFilter,
                     showStudentModal, studentDetails, selectedBimester, showExtraPointForm, newExtraPoint, editingResultId, tempScore, tempBonus,
-                    showAIGenModal, isGeneratingAI, aiGenConfig,
+                    showAIGenModal, isGeneratingAI, aiGenConfig, unifiedScanner, startUnifiedScanner, stopUnifiedScanner, startUnifiedGridScan, captureUnifiedGrid,
 
                     currentView, tabs, classes, newClass, bulkStudents, addClass, saveStudents, getStudentCount:id=>students.value.filter(s=>s.classId===id).length, getFilteredStudents:id=>students.value.filter(s=>s.classId===id&&s.name.toLowerCase().includes(studentFilter.value.toLowerCase())), deleteStudent:(id)=>{triggerConfirm("Excluir?",async()=>{await db.students.delete(id);load()})}, deleteClass, studentFilter, filteredClasses:computed(()=>classes.value.filter(c=>c.name.toLowerCase().includes(studentFilter.value.toLowerCase()))), getClassName:id=>classes.value.find(c=>c.id===id)?.name,
                     uniqueTopics, uniqueSubjects, filteredQuestions, filteredExamQuestions, toggleExamQ:q=>{let i=examCart.value.findIndex(x=>x.id===q.id);i>-1?examCart.value.splice(i,1):examCart.value.push(q)}, isQInExam:id=>examCart.value.some(q=>q.id===id), examCart, showQFormModal, formSource, qType, newQ, changeQType, openQForm, saveQuestion, handleImageUpload:e=>{let r=new FileReader();r.onload=ev=>newQ.value.image=ev.target.result;r.readAsDataURL(e.target.files[0])}, editQuestion, deleteQuestion:(id)=>triggerConfirm("Apagar?",async()=>{await db.questions.delete(id);load()}),
@@ -1113,8 +1178,6 @@
                     showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, openFixKey, loadFixKeyQuestions, saveFixedKey, generateKeyPDF, generateCommentedKeyPDF,
                     geminiKey, testGeminiKey, handleAIUpload, triggerAIUpload:()=>document.getElementById('aiUploadInput').click(), omrCorrectionQueue, processOMRQueue, isProcessingQueue, hasPendingItems:computed(()=>omrCorrectionQueue.value.some(i=>i.status==='pending')),
                     showManualInputModal, manualConfig, manualStudents:computed(()=>students.value.filter(s=>s.classId===exams.value.find(e=>e.id===manualConfig.value.examId)?.classId)), selectedExamVersions:computed(()=>exams.value.find(e=>e.id===manualConfig.value.examId)?.versions||[{}]), startManualEntry, confirmManualEntry, correctionMode, activeStudent, activeExam, activeVersion, studentAnswers, saveManualCorrection,
-                    showLiveQRScanner, startLiveQRScan, stopLiveQRScan,
-                    showLiveCameraModal, startCameraScanner, stopCameraScanner, captureCameraScanner,
                     showResultDetailsModal, selectedResultDetails, openResultDetails, saveUpdatedAnswers, getAlternativeLabel,
                     getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution, generateClassReportPDF, generateGeneralReportPDF,
                     openStudentProfile:id=>{studentDetails.value=students.value.find(s=>s.id===id);showStudentModal.value=true}, studentExamsList, studentBimesterAverage, studentTotalExtraPoints, addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade:()=>editingResultId.value=null, deleteStudentResult:(id)=>triggerConfirm("Apagar?",async()=>{await db.results.delete(id);load()}), studentExtraPointsList,
