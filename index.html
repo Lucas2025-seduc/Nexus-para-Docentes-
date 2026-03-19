@@ -1146,7 +1146,7 @@
 
         <!-- MODAL: DETALHES DA CORREÇÃO -->
         <div v-if="showResultDetailsModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm h-[80vh] flex flex-col animate-fade-in overflow-hidden border border-gray-100">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col animate-fade-in overflow-hidden border border-gray-100">
                 <div class="p-4 border-b flex justify-between items-center bg-indigo-600 text-white shrink-0">
                     <div>
                         <h3 class="font-bold text-lg leading-tight">Análise de Respostas</h3>
@@ -1157,45 +1157,54 @@
                     </div>
                     <button @click="showResultDetailsModal = false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
                 </div>
-                <div class="p-2 bg-indigo-50 border-b border-indigo-100 text-[10px] font-bold text-indigo-700 text-center uppercase tracking-widest flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-pen"></i> Toque na resposta do aluno para corrigir
-                </div>
-                <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-2">
-                    <div v-for="(q, idx) in selectedResultDetails?.questions" :key="idx" 
-                         class="bg-white p-3 rounded-xl border flex items-center justify-between shadow-sm transition"
-                         :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'border-emerald-200' : 'border-red-200'">
-                        <div class="flex items-center gap-4">
-                            <span class="font-bold text-gray-400 w-5">#{{ idx + 1 }}</span>
-                            <div class="flex flex-col">
-                                <span class="text-[9px] uppercase font-bold text-gray-400">Gabarito</span>
-                                <span class="font-black text-emerald-600">{{ getAlternativeLabel(q.type, q.correctIndex) }}</span>
+                <div class="flex flex-1 overflow-hidden flex-col sm:flex-row">
+                    <div class="w-full sm:w-1/2 flex flex-col border-r border-gray-200">
+                        <div class="p-2 bg-indigo-50 border-b border-indigo-100 text-[10px] font-bold text-indigo-700 text-center uppercase tracking-widest flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-pen"></i> Toque na resposta para corrigir
+                        </div>
+                        <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-2">
+                            <div v-for="(q, idx) in selectedResultDetails?.questions" :key="idx" 
+                                 class="bg-white p-3 rounded-xl border flex items-center justify-between shadow-sm transition"
+                                 :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'border-emerald-200' : 'border-red-200'">
+                                <div class="flex items-center gap-4">
+                                    <span class="font-bold text-gray-400 w-5">#{{ idx + 1 }}</span>
+                                    <div class="flex flex-col">
+                                        <span class="text-[9px] uppercase font-bold text-gray-400">Gabarito</span>
+                                        <span class="font-black text-emerald-600">{{ getAlternativeLabel(q.type, q.correctIndex) }}</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <div class="flex flex-col items-end">
+                                        <span class="text-[9px] uppercase font-bold text-indigo-400">Aluno</span>
+                                        <select v-model="selectedResultDetails.answers[idx]" @change="saveUpdatedAnswers"
+                                                class="font-black text-right outline-none bg-transparent cursor-pointer appearance-none border-b border-dashed pb-0.5"
+                                                :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'text-emerald-600 border-emerald-200' : 'text-red-500 border-red-200'">
+                                            <option :value="null">-</option>
+                                            <template v-if="q.type === 'ce'">
+                                                <option :value="0">C</option>
+                                                <option :value="1">E</option>
+                                            </template>
+                                            <template v-else>
+                                                <option :value="0">A</option>
+                                                <option :value="1">B</option>
+                                                <option :value="2">C</option>
+                                                <option :value="3">D</option>
+                                                <option :value="4">E</option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div class="w-6 flex justify-end pointer-events-none">
+                                        <i v-if="selectedResultDetails.answers[idx] === q.correctIndex" class="fa-solid fa-check-circle text-emerald-500 text-lg shadow-sm rounded-full"></i>
+                                        <i v-else class="fa-solid fa-circle-xmark text-red-500 text-lg shadow-sm rounded-full"></i>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <div class="flex flex-col items-end">
-                                <span class="text-[9px] uppercase font-bold text-indigo-400">Aluno</span>
-                                <select v-model="selectedResultDetails.answers[idx]" @change="saveUpdatedAnswers"
-                                        class="font-black text-right outline-none bg-transparent cursor-pointer appearance-none border-b border-dashed pb-0.5"
-                                        :class="selectedResultDetails.answers[idx] === q.correctIndex ? 'text-emerald-600 border-emerald-200' : 'text-red-500 border-red-200'">
-                                    <option :value="null">-</option>
-                                    <template v-if="q.type === 'ce'">
-                                        <option :value="0">C</option>
-                                        <option :value="1">E</option>
-                                    </template>
-                                    <template v-else>
-                                        <option :value="0">A</option>
-                                        <option :value="1">B</option>
-                                        <option :value="2">C</option>
-                                        <option :value="3">D</option>
-                                        <option :value="4">E</option>
-                                    </template>
-                                </select>
-                            </div>
-                            <div class="w-6 flex justify-end pointer-events-none">
-                                <i v-if="selectedResultDetails.answers[idx] === q.correctIndex" class="fa-solid fa-check-circle text-emerald-500 text-lg shadow-sm rounded-full"></i>
-                                <i v-else class="fa-solid fa-circle-xmark text-red-500 text-lg shadow-sm rounded-full"></i>
-                            </div>
-                        </div>
+                    </div>
+                    <div class="w-full sm:w-1/2 p-4 bg-gray-900 overflow-y-auto flex flex-col items-center">
+                        <p class="text-xs font-bold text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-2"><i class="fa-solid fa-crop-simple"></i> Enquadramento da IA</p>
+                        <img v-if="selectedResultDetails?.annotatedImage" :src="selectedResultDetails.annotatedImage" class="w-full h-auto object-contain rounded-xl shadow-2xl border border-gray-700">
+                        <div v-else class="text-gray-500 text-xs italic text-center mt-10">Imagem do enquadramento indisponível.</div>
                     </div>
                 </div>
             </div>
@@ -1805,6 +1814,42 @@
                     img.src = URL.createObjectURL(file);
                 });
 
+                // DESENHA O ENQUADRAMENTO DA IA NA IMAGEM
+                const createAnnotatedImage = (base64Data, box) => new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_DIM = 800; // Redimensionar para salvar espaço no banco de dados
+                        let scale = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
+                        canvas.width = img.width * scale;
+                        canvas.height = img.height * scale;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        if (box && typeof box.ymin !== 'undefined') {
+                            const x = (box.xmin / 1000) * canvas.width;
+                            const y = (box.ymin / 1000) * canvas.height;
+                            const w = ((box.xmax - box.xmin) / 1000) * canvas.width;
+                            const h = ((box.ymax - box.ymin) / 1000) * canvas.height;
+                            
+                            // Escurece o fundo ao redor da grelha
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                            ctx.fillRect(0, 0, canvas.width, y); 
+                            ctx.fillRect(0, y, x, h); 
+                            ctx.fillRect(x + w, y, canvas.width - (x + w), h); 
+                            ctx.fillRect(0, y + h, canvas.width, canvas.height - (y + h)); 
+
+                            // Desenha a caixa delimitadora (Enquadramento)
+                            ctx.strokeStyle = '#22c55e'; // emerald-500
+                            ctx.lineWidth = 3;
+                            ctx.strokeRect(x, y, w, h);
+                        }
+                        resolve('data:image/jpeg;base64,' + canvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
+                    };
+                    img.src = 'data:image/jpeg;base64,' + base64Data;
+                });
+
                     // CHAMADA À IA COM INSTRUÇÃO DE ENQUADRAMENTO GEOMÉTRICO
                 const callGeminiOMR = async (base64Data, mimeType, questionsCount) => {
                     const apiKey = geminiKey.value;
@@ -1816,10 +1861,11 @@ Para garantir precisão máxima, siga estritamente estas duas fases:
 FASE 1: ENQUADRAMENTO GEOMÉTRICO INICIAL
 - Isole visualmente a grelha de respostas (tabela com as bolinhas).
 - Ignore fundos, mesas, dedos ou distorções.
-- Alinhe e "achate" mentalmente a perspetiva da grelha de modo a que as linhas e colunas fiquem perfeitamente ortogonais. É este enquadramento geométrico inicial que torna a correção fiável.
+- Retorne as coordenadas da "bounding box" (caixa delimitadora) que envolve EXATAMENTE E APENAS a tabela da grelha de respostas. 
+- Use o sistema de coordenadas de 0 a 1000 (onde ymin=0, xmin=0 é o topo-esquerdo da imagem e ymax=1000, xmax=1000 é o fundo-direito).
 
 FASE 2: EXTRAÇÃO DE RESPOSTAS
-- Percorra as exatas ${questionsCount} questões da grelha.
+- Percorra as exatas ${questionsCount} questões da grelha isolada na Fase 1.
 - Em cada linha, identifique a alternativa (0=A, 1=B, 2=C, 3=D, 4=E) que contém a maior densidade de marcação a caneta.
 - Rasuras inteligentes: Se uma alternativa estiver apenas rasurada/rabiscada, mas outra estiver claramente pintada e preenchida, considere a pintada.
 - Retorne null se a linha estiver vazia ou tiver duas marcações de força idêntica.`;
@@ -1837,12 +1883,16 @@ FASE 2: EXTRAÇÃO DE RESPOSTAS
                             responseSchema: {
                                 type: "OBJECT",
                                 properties: {
+                                    box_ymin: { type: "INTEGER" },
+                                    box_xmin: { type: "INTEGER" },
+                                    box_ymax: { type: "INTEGER" },
+                                    box_xmax: { type: "INTEGER" },
                                     respostas: {
                                         type: "ARRAY",
                                         items: { type: "INTEGER", nullable: true }
                                     }
                                 },
-                                required: ["respostas"]
+                                required: ["box_ymin", "box_xmin", "box_ymax", "box_xmax", "respostas"]
                             }
                         }
                     };
@@ -1865,7 +1915,16 @@ FASE 2: EXTRAÇÃO DE RESPOSTAS
                             if (parsedObj.respostas && Array.isArray(parsedObj.respostas)) {
                                 let respostas = parsedObj.respostas;
                                 while (respostas.length < questionsCount) respostas.push(null);
-                                return respostas.slice(0, questionsCount);
+                                
+                                return {
+                                    respostas: respostas.slice(0, questionsCount),
+                                    box: {
+                                        ymin: parsedObj.box_ymin,
+                                        xmin: parsedObj.box_xmin,
+                                        ymax: parsedObj.box_ymax,
+                                        xmax: parsedObj.box_xmax
+                                    }
+                                };
                             }
                             throw new Error("Formato estruturado falhou.");
                         } catch(e) {
@@ -1904,7 +1963,11 @@ FASE 2: EXTRAÇÃO DE RESPOSTAS
 
                             // Pré-processamento e Enquadramento Geométrico por IA
                             const processedImg = await preprocessImage(item.file);
-                            const omrAnswers = await callGeminiOMR(processedImg.base64, processedImg.mimeType, questions.length);
+                            const aiData = await callGeminiOMR(processedImg.base64, processedImg.mimeType, questions.length);
+                            const omrAnswers = aiData.respostas;
+                            
+                            // Gerar Imagem Anotada para Auditoria
+                            const annotatedImage = await createAnnotatedImage(processedImg.base64, aiData.box);
 
                             let hits = 0;
                             const parsedAnswers = {};
@@ -1929,7 +1992,8 @@ FASE 2: EXTRAÇÃO DE RESPOSTAS
                             const resultData = {
                                 examId: exam.id, studentId: student.id, studentName: student.name,
                                 score: finalScore, date: Date.now(), answers: parsedAnswers,
-                                maxScore: questions.length, version: qrData.v
+                                maxScore: questions.length, version: qrData.v,
+                                annotatedImage: annotatedImage
                             };
 
                             let savedId;
@@ -1979,6 +2043,7 @@ FASE 2: EXTRAÇÃO DE RESPOSTAS
                         score: examResult.score,
                         title: ex.title,
                         studentName: examResult.studentName,
+                        annotatedImage: examResult.annotatedImage, // NOVO: Mapeia a imagem anotada
                         answers: JSON.parse(JSON.stringify(examResult.answers || {})),
                         questions: version.questions.map(q => {
                             let correctIndex = q.correctIndex;
