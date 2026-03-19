@@ -160,7 +160,16 @@
                 <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden"><div class="z-10"><h2 class="text-2xl font-black">Correção Híbrida</h2><p class="text-xs text-indigo-200">IA + Visão Computacional OpenCV</p></div><i class="fa-solid fa-qrcode text-5xl text-white/20"></i></div>
                 <div class="bg-white p-5 rounded-2xl shadow-sm border">
                     <div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div><div><h3 class="font-bold text-gray-800 text-lg">Scanner OMR</h3><p class="text-xs text-gray-500">Correção automática imune a rasuras.</p></div></div>
-                    <div class="bg-gray-50 p-3 rounded-xl mb-4 border"><div class="flex justify-between items-center mb-1"><label class="text-[10px] font-bold text-gray-400 uppercase">API Gemini</label></div><div class="flex gap-2"><input type="password" v-model="geminiKey" class="flex-1 bg-white border rounded-lg px-3 py-2 text-xs font-mono outline-none" @change="saveSettings(true)"><button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold"><i class="fa-solid fa-vial"></i></button></div></div>
+                    <div class="bg-gray-50 p-3 rounded-xl mb-4 border">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">API Gemini (Auto-Descoberta)</label>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="password" v-model="geminiKey" class="flex-1 bg-white border rounded-lg px-3 py-2 text-xs font-mono outline-none" @change="saveSettings(true)">
+                            <button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold"><i class="fa-solid fa-vial"></i> Testar</button>
+                        </div>
+                        <p class="text-[9px] text-gray-400 leading-tight mt-1" v-if="settings.activeModel">Modelo Ativo: {{settings.activeModel}}</p>
+                    </div>
                     
                     <input type="file" multiple accept="image/*" id="aiUploadInput" class="hidden" @change="handleAIUpload">
                     <div class="grid grid-cols-3 gap-2 mt-3">
@@ -436,7 +445,7 @@
                 const whatsappLink = computed(() => `https://wa.me/558899361992?text=${encodeURIComponent('Interesse licença Nexus App. Device ID: '+deviceId.value)}`);
 
                 const currentView=ref('dashboard'), tabs=[{id:'dashboard',label:'Painel',icon:'fa-chart-pie'},{id:'classes',label:'Turmas',icon:'fa-users'},{id:'questions',label:'Banco',icon:'fa-database'},{id:'exams',label:'Provas',icon:'fa-file-contract'},{id:'correction',label:'Correção',icon:'fa-check-double'}];
-                const classes=ref([]), students=ref([]), questions=ref([]), exams=ref([]), results=ref([]), settings=ref({schoolName:'',logo:null}), extraPoints=ref([]);
+                const classes=ref([]), students=ref([]), questions=ref([]), exams=ref([]), results=ref([]), settings=ref({schoolName:'',logo:null, activeModel: null}), extraPoints=ref([]);
                 const geminiKey=ref(''), omrCorrectionQueue=ref([]), isProcessingQueue=ref(false);
                 const toast=ref({show:false,message:'',type:'info'}), confirmModal=ref({show:false,message:'',onConfirm:null});
                 
@@ -452,7 +461,7 @@
                     students.value=await db.students.toArray(); questions.value=await db.questions.orderBy('id').reverse().toArray();
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
                     extraPoints.value=await db.extraPoints.toArray(); const s=await db.settings.get('config');
-                    if(s) { settings.value={schoolName:s.schoolName,logo:s.logo}; if(s.geminiKey) geminiKey.value=s.geminiKey; }
+                    if(s) { settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null}; if(s.geminiKey) geminiKey.value=s.geminiKey; }
                 };
 
                 const saveSettings = async (silent) => { 
@@ -498,21 +507,69 @@
                     const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="Nexus_Backup.json"; a.click(); 
                 };
 
-                // HELPER GEMINI API (Restaurado para gemini-2.5-flash-preview-09-2025 de acordo com a chave)
+                // HELPER GEMINI API (Auto-Discovery)
                 const fetchGemini = async (prompt, schema, base64Img=null, mimeType=null) => {
+                    if (!settings.value.activeModel) {
+                        try {
+                            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey.value}`);
+                            const d = await r.json();
+                            if(d.error) throw d.error;
+                            let availableModels = d.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
+                            settings.value.activeModel = availableModels.find(m => m.includes('2.5-flash')) ||
+                                                         availableModels.find(m => m.includes('1.5-flash')) ||
+                                                         availableModels.find(m => m.includes('1.5-pro')) ||
+                                                         availableModels[0];
+                            saveSettings(true);
+                        } catch (e) {
+                            settings.value.activeModel = 'gemini-1.5-flash';
+                        }
+                    }
+
+                    const modelToUse = settings.value.activeModel;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${geminiKey.value}`;
+
                     const payload = { contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0, responseMimeType:"application/json"} };
                     if(base64Img) payload.contents[0].parts.push({inlineData:{mimeType, data:base64Img}});
                     if(schema) payload.generationConfig.responseSchema = schema;
+                    
                     let retries=3, delay=2000;
                     while(retries>0) {
                         try {
-                            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiKey.value}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-                            const d = await res.json(); if(d.error) throw d.error;
+                            const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+                            const d = await res.json();
+                            if(d.error) {
+                                if (d.error.status === 'NOT_FOUND' || d.error.code === 404) {
+                                     settings.value.activeModel = null;
+                                }
+                                throw d.error;
+                            }
                             return JSON.parse(d.candidates[0].content.parts[0].text.replace(/```json/gi,'').replace(/```/g,'').trim());
                         } catch(e) {
                             if(e.code===429) { retries--; await new Promise(r=>setTimeout(r,delay)); delay*=2; continue; }
-                            retries--; if(retries===0) throw new Error(e.message||"Falha IA"); await new Promise(r=>setTimeout(r,delay)); delay*=2;
+                            retries--;
+                            if(retries===0) {
+                                settings.value.activeModel = null;
+                                throw new Error(e.message||"Falha IA");
+                            }
+                            await new Promise(r=>setTimeout(r,delay)); delay*=2;
                         }
+                    }
+                };
+
+                const testGeminiKey=async()=>{
+                    if(!geminiKey.value)return showToast("Insira chave","error");
+                    toast.value={show:true,message:"Testando e buscando modelo...",type:"loading"};
+                    try{
+                        const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey.value}`);
+                        const d=await r.json();
+                        if(d.error)throw d.error;
+                        let availableModels = d.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
+                        let bestModel = availableModels.find(m => m.includes('2.5-flash')) || availableModels.find(m => m.includes('1.5-flash')) || availableModels.find(m => m.includes('1.5-pro')) || availableModels[0];
+                        settings.value.activeModel = bestModel;
+                        showToast(`Chave válida! Modelo ativado: ${bestModel}`, "success");
+                        saveSettings(true);
+                    }catch(e){
+                        showToast("Falha: "+e.message,"error");
                     }
                 };
 
@@ -527,8 +584,6 @@
                     let id=exst?exst.id:await db.results.add(JSON.parse(JSON.stringify(dt)));
                     if(exst) await db.results.put({...dt,id}); results.value=await db.results.toArray(); return id;
                 };
-
-                const testGeminiKey=async()=>{if(!geminiKey.value)return showToast("Insira chave","error");toast.value={show:true,message:"Testando...",type:"loading"};try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey.value}`);const d=await r.json();if(d.error)throw d.error;showToast("Chave válida!","success");saveSettings(true);}catch(e){showToast("Falha: "+e.message,"error");}};
 
                 const handleAIUpload=(e)=>{Array.from(e.target.files).forEach(f=>omrCorrectionQueue.value.push({id:crypto.randomUUID(),file:f,name:f.name,status:'pending',message:'Aguardando...',score:null})); e.target.value='';};
                 const scanFileForQR=async(f)=>{const s=new Html5Qrcode("hidden-qr-reader");try{return await s.scanFile(f,true)}catch(e){throw new Error("QR não detetado")}finally{try{s.clear()}catch(e){}}};
