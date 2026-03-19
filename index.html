@@ -1814,61 +1814,183 @@
                     img.src = URL.createObjectURL(file);
                 });
 
-                // DESENHA O ENQUADRAMENTO DA IA NA IMAGEM
-                const createAnnotatedImage = (base64Data, box) => new Promise((resolve) => {
+                // NOVO: Corta a imagem apenas na zona do gabarito (usando a IA como guia)
+                const createCroppedCanvas = (base64Data, box) => new Promise((resolve) => {
                     const img = new Image();
                     img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const MAX_DIM = 800; // Redimensionar para salvar espaço no banco de dados
-                        let scale = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
-                        canvas.width = img.width * scale;
-                        canvas.height = img.height * scale;
+                        let x = (box.xmin / 1000) * img.width;
+                        let y = (box.ymin / 1000) * img.height;
+                        let w = ((box.xmax - box.xmin) / 1000) * img.width;
+                        let h = ((box.ymax - box.ymin) / 1000) * img.height;
                         
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        // Adiciona 4% de margem para garantir que as linhas da borda não são cortadas
+                        let padX = w * 0.04;
+                        let padY = h * 0.04;
                         
-                        if (box && typeof box.ymin !== 'undefined') {
-                            const x = (box.xmin / 1000) * canvas.width;
-                            const y = (box.ymin / 1000) * canvas.height;
-                            const w = ((box.xmax - box.xmin) / 1000) * canvas.width;
-                            const h = ((box.ymax - box.ymin) / 1000) * canvas.height;
-                            
-                            // Escurece o fundo ao redor da grelha
-                            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                            ctx.fillRect(0, 0, canvas.width, y); 
-                            ctx.fillRect(0, y, x, h); 
-                            ctx.fillRect(x + w, y, canvas.width - (x + w), h); 
-                            ctx.fillRect(0, y + h, canvas.width, canvas.height - (y + h)); 
+                        let cX = Math.max(0, x - padX);
+                        let cY = Math.max(0, y - padY);
+                        let cW = Math.min(img.width - cX, w + 2*padX);
+                        let cH = Math.min(img.height - cY, h + 2*padY);
 
-                            // Desenha a caixa delimitadora (Enquadramento)
-                            ctx.strokeStyle = '#22c55e'; // emerald-500
-                            ctx.lineWidth = 3;
-                            ctx.strokeRect(x, y, w, h);
-                        }
-                        resolve('data:image/jpeg;base64,' + canvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = cW;
+                        canvas.height = cH;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, cX, cY, cW, cH, 0, 0, cW, cH);
+                        resolve(canvas);
                     };
                     img.src = 'data:image/jpeg;base64,' + base64Data;
                 });
 
-                    // CHAMADA À IA COM INSTRUÇÃO DE ENQUADRAMENTO GEOMÉTRICO
-                const callGeminiOMR = async (base64Data, mimeType, questionsCount) => {
+                // NOVO: Motor Matemático OpenCV (Zero Alucinações)
+                const extractAnswersWithOpenCV = (canvasElement, numQuestions) => {
+                    let src, gray, thresh, contours, hierarchy, warped, warpedThresh, debugMat;
+                    try {
+                        src = cv.imread(canvasElement);
+                        gray = new cv.Mat();
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                        
+                        // Binarização Adaptativa para eliminar sombras e contrastes fracos
+                        thresh = new cv.Mat();
+                        cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 15, 10);
+                        
+                        contours = new cv.MatVector();
+                        hierarchy = new cv.Mat();
+                        cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                        
+                        let maxArea = 0;
+                        let docContour = null;
+                        for (let i = 0; i < contours.size(); ++i) {
+                            let cnt = contours.get(i);
+                            let area = cv.contourArea(cnt);
+                            // A tabela principal deve ocupar pelo menos 30% do recorte
+                            if (area > (src.cols * src.rows * 0.3)) { 
+                                let peri = cv.arcLength(cnt, true);
+                                let approx = new cv.Mat();
+                                cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+                                if (approx.rows === 4 && area > maxArea) {
+                                    maxArea = area;
+                                    if (docContour) docContour.delete();
+                                    docContour = approx.clone();
+                                }
+                                approx.delete();
+                            }
+                        }
+                        
+                        warped = new cv.Mat();
+                        if (docContour) {
+                            // "Achatar" a perspetiva matematicamente usando os 4 cantos da tabela
+                            let pts = [];
+                            for (let i=0; i<4; i++) pts.push({x: docContour.data32S[i*2], y: docContour.data32S[i*2+1]});
+                            pts.sort((a,b) => a.y - b.y);
+                            let top = pts.slice(0,2).sort((a,b) => a.x - b.x);
+                            let bottom = pts.slice(2,4).sort((a,b) => a.x - b.x);
+                            let tl = top[0], tr = top[1], bl = bottom[0], br = bottom[1];
+
+                            let wA = Math.hypot(br.x - bl.x, br.y - bl.y);
+                            let wB = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+                            let maxWidth = Math.max(Math.floor(wA), Math.floor(wB));
+
+                            let hA = Math.hypot(tr.x - br.x, tr.y - br.y);
+                            let hB = Math.hypot(tl.x - bl.x, tl.y - bl.y);
+                            let maxHeight = Math.max(Math.floor(hA), Math.floor(hB));
+
+                            let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+                            let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1]);
+
+                            let M = cv.getPerspectiveTransform(srcTri, dstTri);
+                            cv.warpPerspective(gray, warped, M, new cv.Size(maxWidth, maxHeight));
+                            srcTri.delete(); dstTri.delete(); M.delete(); docContour.delete();
+                        } else {
+                            warped = gray.clone(); // Fallback caso a tabela já esteja muito reta
+                        }
+                        
+                        warpedThresh = new cv.Mat();
+                        cv.threshold(warped, warpedThresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+                        
+                        debugMat = new cv.Mat();
+                        cv.cvtColor(warped, debugMat, cv.COLOR_GRAY2RGBA);
+                        
+                        let numRows = numQuestions + 1; // +1 devido ao cabeçalho
+                        let numCols = 6; // Coluna da Questão + Alternativas A, B, C, D, E
+                        let cellH = warpedThresh.rows / numRows;
+                        let cellW = warpedThresh.cols / numCols;
+                        let answers = [];
+                        
+                        // Desenha grelha matemática de validação visual
+                        for(let i=1; i<=numRows; i++) cv.line(debugMat, new cv.Point(0, i*cellH), new cv.Point(debugMat.cols, i*cellH), new cv.Scalar(200,200,200,255), 1);
+                        for(let j=1; j<=numCols; j++) cv.line(debugMat, new cv.Point(j*cellW, 0), new cv.Point(j*cellW, debugMat.rows), new cv.Scalar(200,200,200,255), 1);
+                        
+                        for (let i = 1; i < numRows; i++) {
+                            let rowScores = [];
+                            for (let j = 1; j < numCols; j++) {
+                                let x = Math.floor(j * cellW);
+                                let y = Math.floor(i * cellH);
+                                let w = Math.floor(cellW);
+                                let h = Math.floor(cellH);
+                                
+                                // Analisar apenas o centro da célula (evita que a IA leia a linha da borda)
+                                let mX = Math.floor(w * 0.35); 
+                                let mY = Math.floor(h * 0.35);
+                                let innerW = w - 2*mX;
+                                let innerH = h - 2*mY;
+                                
+                                let rect = new cv.Rect(x + mX, y + mY, innerW, innerH);
+                                let cell = warpedThresh.roi(rect);
+                                
+                                let count = cv.countNonZero(cell); // Conta a tinta preta!
+                                let total = innerW * innerH;
+                                
+                                rowScores.push({ index: j - 1, score: count / total, rect: rect });
+                                cell.delete();
+                                
+                                // Marcar a vermelho o centro da bolinha analisada
+                                cv.rectangle(debugMat, new cv.Point(rect.x, rect.y), new cv.Point(rect.x+rect.width, rect.y+rect.height), new cv.Scalar(255, 0, 0, 100), 1);
+                            }
+                            
+                            rowScores.sort((a,b) => b.score - a.score);
+                            let best = rowScores[0];
+                            let second = rowScores[1];
+                            
+                            let selectedIndex = null;
+                            // Lógica de Densidade Anti-Rasuras e Dupla Marcação
+                            if (best.score > 0.25) { 
+                                if ((best.score - second.score) > 0.10) {
+                                    selectedIndex = best.index;
+                                } 
+                            }
+                            
+                            answers.push(selectedIndex);
+                            
+                            if (selectedIndex !== null) {
+                                let r = rowScores.find(rs => rs.index === selectedIndex).rect;
+                                cv.rectangle(debugMat, new cv.Point(r.x, r.y), new cv.Point(r.x+r.width, r.y+r.height), new cv.Scalar(0, 255, 0, 255), -1); // Quadrado Verde
+                            }
+                        }
+                        
+                        let outCanvas = document.createElement('canvas');
+                        cv.imshow(outCanvas, debugMat);
+                        let annotatedB64 = outCanvas.toDataURL('image/jpeg', 0.8);
+                        
+                        return { answers, debugImage: annotatedB64 };
+                    } finally {
+                        if(src) src.delete(); if(gray) gray.delete(); if(thresh) thresh.delete();
+                        if(contours) contours.delete(); if(hierarchy) hierarchy.delete();
+                        if(warped) warped.delete(); if(warpedThresh) warpedThresh.delete();
+                        if(debugMat) debugMat.delete();
+                    }
+                };
+
+                // CHAMADA À IA APENAS PARA ENQUADRAMENTO GEOMÉTRICO (Bounding Box)
+                const callGeminiBoundingBox = async (base64Data, mimeType) => {
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 
-                    const prompt = `Aja como um motor de correção OMR de nível profissional.
-Para garantir precisão máxima, siga estritamente estas duas fases:
-
-FASE 1: ENQUADRAMENTO GEOMÉTRICO INICIAL
-- Isole visualmente a grelha de respostas (tabela com as bolinhas).
-- Ignore fundos, mesas, dedos ou distorções.
-- Retorne as coordenadas da "bounding box" (caixa delimitadora) que envolve EXATAMENTE E APENAS a tabela da grelha de respostas. 
-- Use o sistema de coordenadas de 0 a 1000 (onde ymin=0, xmin=0 é o topo-esquerdo da imagem e ymax=1000, xmax=1000 é o fundo-direito).
-
-FASE 2: EXTRAÇÃO DE RESPOSTAS
-- Percorra as exatas ${questionsCount} questões da grelha isolada na Fase 1.
-- Em cada linha, identifique a alternativa (0=A, 1=B, 2=C, 3=D, 4=E) que contém a maior densidade de marcação a caneta.
-- Rasuras inteligentes: Se uma alternativa estiver apenas rasurada/rabiscada, mas outra estiver claramente pintada e preenchida, considere a pintada.
-- Retorne null se a linha estiver vazia ou tiver duas marcações de força idêntica.`;
+                    const prompt = `Aja como um sistema de Visão Computacional de Deteção de Objetos.
+Encontre a grelha de respostas (a tabela que contém as alternativas e os números das questões) na imagem fornecida.
+Ignore fundos da mesa, dedos ou margens de rodapé.
+Retorne as coordenadas da "bounding box" (caixa delimitadora) que envolve EXATAMENTE a borda exterior da tabela.
+Use a escala proporcional de 0 a 1000.`;
 
                     const payload = {
                         contents: [{
@@ -1886,13 +2008,9 @@ FASE 2: EXTRAÇÃO DE RESPOSTAS
                                     box_ymin: { type: "INTEGER" },
                                     box_xmin: { type: "INTEGER" },
                                     box_ymax: { type: "INTEGER" },
-                                    box_xmax: { type: "INTEGER" },
-                                    respostas: {
-                                        type: "ARRAY",
-                                        items: { type: "INTEGER", nullable: true }
-                                    }
+                                    box_xmax: { type: "INTEGER" }
                                 },
-                                required: ["box_ymin", "box_xmin", "box_ymax", "box_xmax", "respostas"]
+                                required: ["box_ymin", "box_xmin", "box_ymax", "box_xmax"]
                             }
                         }
                     };
@@ -1912,18 +2030,12 @@ FASE 2: EXTRAÇÃO DE RESPOSTAS
                             if(data.error) throw new Error(data.error.message);
                             
                             const parsedObj = JSON.parse(data.candidates[0].content.parts[0].text);
-                            if (parsedObj.respostas && Array.isArray(parsedObj.respostas)) {
-                                let respostas = parsedObj.respostas;
-                                while (respostas.length < questionsCount) respostas.push(null);
-                                
+                            if (parsedObj.box_xmin !== undefined) {
                                 return {
-                                    respostas: respostas.slice(0, questionsCount),
-                                    box: {
-                                        ymin: parsedObj.box_ymin,
-                                        xmin: parsedObj.box_xmin,
-                                        ymax: parsedObj.box_ymax,
-                                        xmax: parsedObj.box_xmax
-                                    }
+                                    ymin: parsedObj.box_ymin,
+                                    xmin: parsedObj.box_xmin,
+                                    ymax: parsedObj.box_ymax,
+                                    xmax: parsedObj.box_xmax
                                 };
                             }
                             throw new Error("Formato estruturado falhou.");
@@ -1959,15 +2071,21 @@ FASE 2: EXTRAÇÃO DE RESPOSTAS
                             const version = exam.versions[qrData.v] || exam.versions[0];
                             const questions = version.questions;
 
-                            item.message = `IA a enquadrar e ler ${student.name.split(' ')[0]}...`;
+                            item.message = `Enquadramento da grelha de ${student.name.split(' ')[0]}...`;
 
-                            // Pré-processamento e Enquadramento Geométrico por IA
+                            // FASE 1: Pré-processamento e Enquadramento Geométrico por IA
                             const processedImg = await preprocessImage(item.file);
-                            const aiData = await callGeminiOMR(processedImg.base64, processedImg.mimeType, questions.length);
-                            const omrAnswers = aiData.respostas;
+                            const boundingBox = await callGeminiBoundingBox(processedImg.base64, processedImg.mimeType);
                             
-                            // Gerar Imagem Anotada para Auditoria
-                            const annotatedImage = await createAnnotatedImage(processedImg.base64, aiData.box);
+                            // FASE 2: Recortar a região exata
+                            const croppedCanvas = await createCroppedCanvas(processedImg.base64, boundingBox);
+
+                            item.message = `Digitalização Matemática...`;
+                            
+                            // FASE 3: Correção Matemática OpenCV 
+                            const cvResult = extractAnswersWithOpenCV(croppedCanvas, questions.length);
+                            const omrAnswers = cvResult.answers;
+                            const annotatedImage = cvResult.debugImage;
 
                             let hits = 0;
                             const parsedAnswers = {};
