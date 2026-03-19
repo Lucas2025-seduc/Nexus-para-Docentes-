@@ -630,7 +630,7 @@
                 // UNIFIED SCANNER COM DETEÇÃO EM TEMPO REAL E AUTO-CAPTURE
                 const unifiedScanner = ref({ active: false, step: 1, student: null, exam: null, version: 0, progress: 0, qrText: '', statusMessage: 'Procurando gabarito...' });
                 let unifiedQrCode = null; let unifiedCameraStream = null; let unifiedScanLoopId = null; let unifiedStableFrames = 0;
-                const FRAMES_TO_LOCK = 20; // Aproximadamente 1 segundo a 15-20fps
+                const FRAMES_TO_LOCK = 60; // Aumentado de 20 para 60 para exigir cerca de 2 a 3 segundos de estabilidade total
 
                 const startUnifiedScanner = () => {
                     unifiedScanner.value = { active: true, step: 1, student: null, exam: null, version: 0, progress: 0, qrText: '', statusMessage: 'Aponte para o QR Code...' };
