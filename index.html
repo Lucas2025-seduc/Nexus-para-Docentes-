@@ -363,7 +363,8 @@
             </div>
             
             <!-- STEP 4: Processing... -->
-            <div v-if="unifiedScanner.step === 4" class="flex-1 flex items-center justify-center bg-black">
+            <div v-if="unifiedScanner.step === 4" class="flex-1 flex items-center justify-center bg-black relative">
+                 <button @click="stopUnifiedScanner" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition z-50"><i class="fa-solid fa-times text-xl text-white"></i></button>
                  <div class="text-center space-y-4">
                      <i class="fa-solid fa-circle-notch fa-spin text-5xl text-emerald-500"></i>
                      <p class="text-white font-bold animate-pulse">Processando gabarito com precisão matemática...</p>
@@ -637,7 +638,12 @@
                     nextTick(() => {
                         unifiedQrCode = new Html5Qrcode("unified-qr-reader");
                         unifiedQrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 250 } },
-                            (decodedText) => { unifiedQrCode.stop().then(() => handleUnifiedQR(decodedText)).catch(()=>{}); },
+                            (decodedText) => { 
+                                unifiedQrCode.stop().then(() => {
+                                    unifiedQrCode = null; // Liberta o sensor para evitar erros no fecho
+                                    handleUnifiedQR(decodedText);
+                                }).catch(()=>{}); 
+                            },
                             (errorMessage) => {}
                         ).catch(err => { showToast("Erro ao aceder à câmara para o QR.", "error"); unifiedScanner.value.active = false; });
                     });
@@ -778,7 +784,7 @@
                     unifiedScanner.value.step = 4; 
                     
                     const videoEl = document.getElementById('unified-camera-video');
-                    if (!videoEl) return stopUnifiedScanner();
+                    if (!videoEl || videoEl.videoWidth === 0) return stopUnifiedScanner();
                     
                     const canvas = document.createElement('canvas');
                     canvas.width = videoEl.videoWidth; canvas.height = videoEl.videoHeight;
@@ -792,14 +798,14 @@
                             preloadedData: { exam: unifiedScanner.value.exam, student: unifiedScanner.value.student, version: unifiedScanner.value.version }
                         });
                         stopUnifiedScanner();
-                        if(!isProcessingQueue.value) await processOMRQueue();
+                        if(!isProcessingQueue.value) processOMRQueue(); // Chamada não-bloqueante para não congelar UI
                     }, 'image/jpeg', 0.95);
                 };
 
                 const stopUnifiedScanner = () => {
-                    if (unifiedQrCode) { unifiedQrCode.stop().catch(()=>{}); unifiedQrCode = null; }
-                    if (unifiedScanLoopId) { cancelAnimationFrame(unifiedScanLoopId); unifiedScanLoopId = null; }
-                    if (unifiedCameraStream) { unifiedCameraStream.getTracks().forEach(t => t.stop()); unifiedCameraStream = null; }
+                    try { if (unifiedQrCode) { unifiedQrCode.stop().catch(()=>{}); } } catch(e){} finally { unifiedQrCode = null; }
+                    try { if (unifiedScanLoopId) { cancelAnimationFrame(unifiedScanLoopId); } } catch(e){} finally { unifiedScanLoopId = null; }
+                    try { if (unifiedCameraStream) { unifiedCameraStream.getTracks().forEach(t => t.stop()); } } catch(e){} finally { unifiedCameraStream = null; }
                     unifiedScanner.value.active = false;
                 };
 
