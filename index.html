@@ -599,13 +599,13 @@
                 </div>
             </div>
 
-            <!-- CORREÇÃO DE PROVAS OMR (OpenCV) -->
+            <!-- CORREÇÃO DE PROVAS PELA IA -->
             <div v-if="currentView === 'correction'" class="max-w-xl mx-auto space-y-4 animate-fade-in pb-20">
                 
                 <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center relative overflow-hidden">
                      <div class="relative z-10">
-                         <h2 class="text-2xl font-black mb-1">Correção com IA</h2>
-                         <p class="text-xs text-indigo-200">Enquadramento Geométrico Profissional</p>
+                         <h2 class="text-2xl font-black mb-1">Correção Híbrida</h2>
+                         <p class="text-xs text-indigo-200">IA + Visão Computacional OpenCV</p>
                      </div>
                      <i class="fa-solid fa-qrcode text-5xl text-white/20 absolute right-6"></i>
                 </div>
@@ -614,14 +614,9 @@
                     <div class="flex items-center gap-4 mb-4">
                         <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div>
                         <div class="flex-1">
-                            <h3 class="font-bold text-gray-800 text-lg">Scanner IA (Geometric Framing)</h3>
-                            <p class="text-xs text-gray-500">Faça upload de fotografias dos cartões para leitura 100% precisa.</p>
+                            <h3 class="font-bold text-gray-800 text-lg">Scanner OMR Robusto</h3>
+                            <p class="text-xs text-gray-500">Submeta fotos para leitura automática imune a rasuras e desvios.</p>
                         </div>
-                    </div>
-
-                    <div class="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-xl mb-4 text-[10px] leading-relaxed shadow-sm">
-                        <strong class="font-black text-xs block mb-1"><i class="fa-solid fa-circle-info"></i> Modo Profissional Ativado</strong>
-                        O sistema usa agora a IA para realizar o <strong>enquadramento geométrico inicial</strong> da folha, ignorando fundos e distorções, antes de aplicar a análise anti-rasuras.
                     </div>
 
                     <div class="bg-gray-50 p-3 rounded-xl mb-4 border border-gray-200 space-y-2">
@@ -635,13 +630,21 @@
                             <input type="password" v-model="geminiKey" placeholder="Cole sua chave AIzaSy..." class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-indigo-400" @change="saveSettings(true)">
                             <button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-black transition whitespace-nowrap shadow-md active:scale-95"><i class="fa-solid fa-vial"></i> Testar</button>
                         </div>
-                        <p class="text-[9px] text-gray-400 leading-tight">Necessária para o processamento visual e alinhamento do gabarito do aluno.</p>
+                        <p class="text-[9px] text-gray-400 leading-tight">Necessária apenas para o enquadramento da página inicial (Fase 1).</p>
                     </div>
 
                     <input type="file" multiple accept="image/*" id="aiUploadInput" class="hidden" @change="handleAIUpload">
-                    <button @click="triggerAIUpload" class="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition flex items-center justify-center gap-2 active:scale-95">
-                        <i class="fa-solid fa-camera"></i> Selecionar Fotos (Cartões)
-                    </button>
+                    <div class="grid grid-cols-3 gap-2 mt-3">
+                        <button @click="triggerAIUpload" class="bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-600 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
+                            <i class="fa-solid fa-images text-lg mb-0.5"></i> Fotos
+                        </button>
+                        <button @click="startLiveQRScan" class="bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-600 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
+                            <i class="fa-solid fa-qrcode text-lg mb-0.5"></i> Ler QR
+                        </button>
+                        <button @click="startManualEntry" class="bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
+                            <i class="fa-solid fa-keyboard text-lg mb-0.5"></i> Manual
+                        </button>
+                    </div>
 
                     <div v-if="omrCorrectionQueue.length > 0" class="mt-6 border-t border-gray-100 pt-4 animate-fade-in">
                         <div class="flex justify-between items-center mb-3">
@@ -724,17 +727,14 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Disciplina</label>
-                            <!-- NOVO: Atributo list="dl-subjects" adicionado -->
                             <input list="dl-subjects" v-model="aiGenConfig.subject" placeholder="Ex: Biologia" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
                         </div>
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Tópico</label>
-                            <!-- NOVO: Atributo list="dl-topics" adicionado -->
                             <input list="dl-topics" v-model="aiGenConfig.topic" placeholder="Ex: Divisão Celular" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-500 font-medium text-gray-700">
                         </div>
                     </div>
                     
-                    <!-- Novas Opções de Personalização -->
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Nível</label>
@@ -1046,7 +1046,6 @@
                         <div class="flex gap-2">
                             <button @click="openExamStats(e)" class="w-9 h-9 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 flex items-center justify-center transition" title="Estatísticas, Ranking e Acertos"><i class="fa-solid fa-chart-pie"></i></button>
                             
-                            <!-- NOVO BOTÃO: CORRIGIR GABARITO (SEM EMBARALHAR) -->
                             <button @click="openFixKey(e)" class="w-9 h-9 rounded-full bg-orange-50 text-orange-600 hover:bg-orange-100 flex items-center justify-center transition" title="Corrigir Gabarito Oficial (Não afeta impressões)"><i class="fa-solid fa-list-check"></i></button>
                             
                             <button @click="openEditExam(e)" class="w-9 h-9 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition" title="Editar (Carregar Tudo)"><i class="fa-solid fa-pen"></i></button>
@@ -1100,7 +1099,7 @@
             </div>
         </div>
 
-        <!-- NOVO MODAL: ALTERAR GABARITO (PÓS-IMPRESSÃO) -->
+        <!-- NOVO MODAL: ALTERAR GABARITO (PÓS-IMPRESSÃO COM SELEÇÃO DE TIPO) -->
         <div v-if="showFixKeyModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md h-[80vh] flex flex-col animate-fade-in overflow-hidden border border-gray-100">
                 <div class="p-4 border-b flex justify-between items-center bg-orange-500 text-white shrink-0">
@@ -1110,8 +1109,14 @@
                     </div>
                     <button @click="showFixKeyModal = false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
                 </div>
-                <div class="p-3 bg-orange-50 text-[10px] text-orange-800 border-b border-orange-100 text-center leading-tight shadow-sm">
-                    <strong>Atenção:</strong> Alterar o gabarito aqui mudará as respostas certas em todas as variações (Tipos A, B, etc.) e <strong>recalculará as notas</strong> dos alunos já corrigidos automaticamente. A prova impressa continua válida.
+                <div class="p-3 bg-orange-50 border-b border-orange-200 flex items-center gap-2 justify-between shadow-sm shrink-0">
+                    <span class="text-xs font-bold text-orange-800 uppercase tracking-wide">Editar Versão:</span>
+                    <select v-model="fixKeySelectedVersion" @change="loadFixKeyQuestions" class="flex-1 max-w-[200px] p-2 bg-white border border-orange-300 rounded-lg text-sm font-bold text-orange-700 outline-none shadow-sm cursor-pointer transition focus:border-orange-500">
+                        <option v-for="(v, i) in fixKeyExam?.versions" :value="i">Tipo {{ i + 1 }}</option>
+                    </select>
+                </div>
+                <div class="p-2 bg-orange-100/60 text-[10px] text-orange-800 text-center leading-tight shadow-sm shrink-0">
+                    <strong>Atenção:</strong> Esta alteração será aplicada APENAS ao Tipo selecionado acima, recalibrando automaticamente as notas dos alunos correspondentes.
                 </div>
                 <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-3">
                     <div v-for="(q, idx) in fixKeyQuestions" :key="q.id" class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm transition hover:border-orange-300">
@@ -1138,13 +1143,99 @@
                 </div>
                 <div class="p-4 bg-white border-t border-gray-100 shrink-0">
                     <button @click="saveFixedKey" class="w-full bg-orange-500 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-orange-600 transition flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-calculator"></i> Salvar e Recalcular Notas
+                        <i class="fa-solid fa-calculator"></i> Atualizar Gabarito Tipo {{ fixKeySelectedVersion + 1 }}
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- MODAL: DETALHES DA CORREÇÃO -->
+        <!-- MODAL: ENTRADA MANUAL DE CORREÇÃO -->
+        <div v-if="showManualInputModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fade-in border border-gray-100">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">Lançamento Manual</h3>
+                    <button @click="showManualInputModal = false" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 block">1. Selecionar Prova</label>
+                        <select v-model="manualConfig.examId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border border-gray-200 outline-none font-bold text-gray-700">
+                            <option value="">Selecione a prova...</option>
+                            <option v-for="e in exams" :value="e.id">{{ e.title }}</option>
+                        </select>
+                    </div>
+                    <div v-if="manualConfig.examId">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 block">2. Selecionar Aluno</label>
+                        <select v-model="manualConfig.studentId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border border-gray-200 outline-none font-bold text-gray-700">
+                            <option value="">Selecione o aluno...</option>
+                            <option v-for="s in manualStudents" :value="s.id">{{ s.name }}</option>
+                        </select>
+                    </div>
+                    <div v-if="manualConfig.studentId">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 block">3. Tipo de Prova (Versão)</label>
+                        <select v-model="manualConfig.version" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border border-gray-200 outline-none font-bold text-gray-700">
+                            <option v-for="(v, i) in selectedExamVersions" :value="i">Tipo {{ i + 1 }}</option>
+                        </select>
+                    </div>
+                    <button @click="confirmManualEntry" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow hover:bg-blue-700 transition mt-2 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-right"></i> Preencher Gabarito
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ECRÃ DE PREENCHIMENTO MANUAL DE CORREÇÃO (FULLSCREEN) -->
+        <div v-if="correctionMode" class="fixed inset-0 z-[300] bg-gray-50 flex flex-col animate-fade-in">
+            <div class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-md shrink-0">
+                <div>
+                    <h2 class="font-bold text-lg leading-tight">Preenchimento Manual</h2>
+                    <p class="text-xs text-blue-200">{{ activeStudent?.name }} | {{ activeExam?.title }} (Tipo {{ activeVersion + 1 }})</p>
+                </div>
+                <button @click="correctionMode = false" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
+                <div class="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Selecione as opções que o aluno marcou na prova</div>
+                <div v-for="(q, idx) in activeExam?.versions[activeVersion].questions" :key="idx" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="font-black text-gray-700 text-lg">Questão {{ idx + 1 }}</span>
+                        <button @click="studentAnswers[idx] = null" class="text-[10px] text-red-400 border border-red-200 font-bold uppercase hover:bg-red-50 px-2 py-1 rounded transition">Limpar</button>
+                    </div>
+                    <div class="flex gap-2 justify-center">
+                        <template v-if="q.type === 'ce'">
+                            <button @click="studentAnswers[idx] = 0" :class="studentAnswers[idx] === 0 ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-105' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'" class="flex-1 py-3 border rounded-xl font-bold transition-all text-sm">Certo</button>
+                            <button @click="studentAnswers[idx] = 1" :class="studentAnswers[idx] === 1 ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-105' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'" class="flex-1 py-3 border rounded-xl font-bold transition-all text-sm">Errado</button>
+                        </template>
+                        <template v-else>
+                            <button v-for="(lbl, bIdx) in ['A','B','C','D','E']" :key="bIdx" 
+                                @click="studentAnswers[idx] = bIdx"
+                                :class="studentAnswers[idx] === bIdx ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-110' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'" 
+                                class="w-12 h-12 border-2 rounded-full font-black text-lg flex items-center justify-center transition-all shadow-sm">
+                                {{ lbl }}
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-white border-t shrink-0 max-w-2xl mx-auto w-full">
+                <button @click="saveManualCorrection" class="w-full bg-emerald-500 text-white py-4 rounded-xl font-black text-lg shadow-lg hover:bg-emerald-600 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check-double"></i> Finalizar Avaliação
+                </button>
+            </div>
+        </div>
+
+        <!-- MODAL: SCANNER QR LIVE -->
+        <div v-if="showLiveQRScanner" class="fixed inset-0 z-[400] flex flex-col bg-black animate-fade-in">
+            <div class="p-4 flex justify-between items-center bg-gray-900 text-white shrink-0">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-qrcode mr-2"></i> Ler QR do Aluno</h3>
+                <button @click="stopLiveQRScan" class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="flex-1 flex flex-col items-center justify-center relative p-4">
+                 <div id="live-qr-reader" class="w-full max-w-md bg-black rounded-xl overflow-hidden shadow-2xl"></div>
+                 <p class="text-white/70 text-sm font-bold text-center mt-6 px-4">Aponte a câmara para o QR Code impresso no canto superior do gabarito para identificar imediatamente o aluno e a prova.</p>
+            </div>
+        </div>
+
+        <!-- MODAL: DETALHES DA CORREÇÃO (AGORA COM 2 METADES E IMAGEM DO OMR) -->
         <div v-if="showResultDetailsModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col animate-fade-in overflow-hidden border border-gray-100">
                 <div class="p-4 border-b flex justify-between items-center bg-indigo-600 text-white shrink-0">
@@ -1202,9 +1293,9 @@
                         </div>
                     </div>
                     <div class="w-full h-1/2 sm:h-full sm:w-1/2 p-4 bg-gray-900 overflow-y-auto flex flex-col items-center">
-                        <p class="text-xs font-bold text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-2 shrink-0"><i class="fa-solid fa-crop-simple"></i> Enquadramento da IA</p>
+                        <p class="text-xs font-bold text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-2 shrink-0"><i class="fa-solid fa-crop-simple"></i> Motor OMR Matemático</p>
                         <img v-if="selectedResultDetails?.annotatedImage" :src="selectedResultDetails.annotatedImage" class="w-full h-auto object-contain rounded-xl shadow-2xl border border-gray-700">
-                        <div v-else class="text-gray-500 text-xs italic text-center mt-10">Imagem do enquadramento indisponível.</div>
+                        <div v-else class="text-gray-500 text-xs italic text-center mt-10">Imagem indisponível.</div>
                     </div>
                 </div>
             </div>
@@ -1481,9 +1572,7 @@
                 const studentFilter = ref('');
                 const examHistoryFilter = ref('');
                 const dashboardStudentFilter = ref('');
-                const filterTopic = ref(''); // Filtro por tópico no banco
-                
-                // Variáveis para filtro de questões na aba de Provas
+                const filterTopic = ref(''); 
                 const examFilterSubject = ref('');
                 const examFilterTopic = ref('');
                 
@@ -1547,24 +1636,30 @@
                 const examCart = ref([]); 
                 const showHistory = ref(false);
 
-                // EDITAR PROVA NO HISTÓRICO
                 const showEditExamModal = ref(false);
                 const editingExam = ref({});
                 const editingExamId = ref(null); 
 
-                // --- ESTADO E LÓGICA DO NOVO "CORRIGIR GABARITO" ---
                 const showFixKeyModal = ref(false);
                 const fixKeyExam = ref(null);
                 const fixKeyQuestions = ref([]);
+                const fixKeySelectedVersion = ref(0);
+
+                const loadFixKeyQuestions = () => {
+                    if(!fixKeyExam.value || !fixKeyExam.value.versions) return;
+                    const version = fixKeyExam.value.versions[fixKeySelectedVersion.value];
+                    fixKeyQuestions.value = JSON.parse(JSON.stringify(version.questions)).map(q => {
+                        return { ...q, newCorrectIndex: q.correctIndex };
+                    });
+                };
 
                 const openFixKey = (exam) => {
                     fixKeyExam.value = exam;
-                    const baseVersion = exam.versions ? exam.versions[0] : { questions: exam.questions || [] };
-                    
-                    fixKeyQuestions.value = JSON.parse(JSON.stringify(baseVersion.questions)).map(q => {
-                        return { ...q, newCorrectIndex: q.correctIndex };
-                    });
-                    
+                    if(!fixKeyExam.value.versions) {
+                        fixKeyExam.value.versions = [{id:0, questions:exam.questionsA || exam.questions}];
+                    }
+                    fixKeySelectedVersion.value = 0;
+                    loadFixKeyQuestions();
                     showFixKeyModal.value = true;
                 };
 
@@ -1573,41 +1668,25 @@
                     if (!examToUpdate) return;
                     
                     const updatedExam = JSON.parse(JSON.stringify(examToUpdate));
+                    const vIdx = fixKeySelectedVersion.value;
 
-                    fixKeyQuestions.value.forEach(baseQ => {
-                        const newBaseCorrectIdx = baseQ.newCorrectIndex;
-                        let targetOptText = null;
-                        
-                        if (baseQ.type !== 'ce' && baseQ.type !== 'vf' && baseQ.type !== 'assoc') {
-                            targetOptText = baseQ.options[newBaseCorrectIdx].text;
-                        }
-
-                        if (updatedExam.versions) {
-                            updatedExam.versions.forEach(v => {
-                                const vq = v.questions.find(q => q.id === baseQ.id);
-                                if (vq) {
-                                    if (baseQ.type === 'ce') {
-                                        vq.correctIndex = newBaseCorrectIdx;
-                                    } else if (baseQ.type !== 'vf' && baseQ.type !== 'assoc') {
-                                        const newIdx = vq.options.findIndex(o => o.text === targetOptText);
-                                        if (newIdx !== -1) vq.correctIndex = newIdx;
-                                    }
-                                }
-                            });
-                        } else if (updatedExam.questions) {
-                            const vq = updatedExam.questions.find(q => q.id === baseQ.id);
-                            if (vq) vq.correctIndex = newBaseCorrectIdx;
+                    // Atualiza APENAS a versão selecionada no dropdown
+                    updatedExam.versions[vIdx].questions.forEach((vq, idx) => {
+                        const baseQ = fixKeyQuestions.value[idx];
+                        if (vq.id === baseQ.id) {
+                            vq.correctIndex = baseQ.newCorrectIndex;
                         }
                     });
 
                     await db.exams.put(updatedExam);
 
+                    // Recalcula notas APENAS dos alunos que fizeram ESTA versão
                     const allResults = await db.results.toArray();
-                    const examResultsToUpdate = allResults.filter(r => r.examId === updatedExam.id);
+                    const examResultsToUpdate = allResults.filter(r => r.examId === updatedExam.id && r.version === vIdx);
                     
                     for (let r of examResultsToUpdate) {
                         let hits = 0;
-                        const version = (updatedExam.versions && updatedExam.versions[r.version]) ? updatedExam.versions[r.version] : (updatedExam.versions ? updatedExam.versions[0] : { questions: updatedExam.questions || []});
+                        const version = updatedExam.versions[vIdx];
                         
                         version.questions.forEach((q, idx) => {
                             let cIdx = q.correctIndex;
@@ -1622,7 +1701,7 @@
 
                     showFixKeyModal.value = false;
                     load();
-                    showToast(`Gabarito salvo e ${examResultsToUpdate.length} notas recalculadas!`, "success");
+                    showToast(`Gabarito Tipo ${vIdx + 1} salvo e ${examResultsToUpdate.length} notas recalculadas!`, "success");
                 };
 
                 const openEditExam = (e) => {
@@ -1661,7 +1740,6 @@
                     }
                 };
 
-                // Lançamento Manual State
                 const correctionMode = ref(false); 
                 const activeStudent = ref(null); 
                 const activeExam = ref(null); 
@@ -1699,6 +1777,72 @@
                     showManualInputModal.value = true;
                 };
 
+                const showLiveQRScanner = ref(false);
+                let html5QrCode = null;
+
+                const startLiveQRScan = () => {
+                    showLiveQRScanner.value = true;
+                    nextTick(() => {
+                        html5QrCode = new Html5Qrcode("live-qr-reader");
+                        html5QrCode.start(
+                            { facingMode: "environment" },
+                            { fps: 10, qrbox: { width: 250, height: 250 } },
+                            (decodedText) => {
+                                html5QrCode.stop().then(() => {
+                                    showLiveQRScanner.value = false;
+                                    handleScannedQR(decodedText);
+                                }).catch(err => {
+                                    showLiveQRScanner.value = false;
+                                });
+                            },
+                            (errorMessage) => {
+                                // ignora erros de frame a frame
+                            }
+                        ).catch(err => {
+                            showToast("Erro ao aceder à câmara: Verifique as permissões.", "error");
+                            showLiveQRScanner.value = false;
+                        });
+                    });
+                };
+
+                const stopLiveQRScan = () => {
+                    if (html5QrCode) {
+                        html5QrCode.stop().then(() => {
+                            showLiveQRScanner.value = false;
+                        }).catch(() => {
+                            showLiveQRScanner.value = false;
+                        });
+                    } else {
+                        showLiveQRScanner.value = false;
+                    }
+                };
+
+                const handleScannedQR = (qrText) => {
+                    try {
+                        const qrData = JSON.parse(qrText);
+                        if(qrData.e === undefined || qrData.s === undefined) throw new Error("QR Code não reconhecido pelo sistema.");
+
+                        const e = exams.value.find(x => x.id === Number(qrData.e));
+                        const s = students.value.find(x => x.id === Number(qrData.s));
+                        if(!e || !s) throw new Error("Prova ou Aluno não encontrados na base de dados.");
+
+                        if(!e.versions) {
+                            e.versions = [{id:0, questions:e.questionsA || []}, {id:1, questions:e.questionsB || []}];
+                            if (!e.questionsA && e.questions) e.versions = [{id:0, questions:e.questions}];
+                        }
+
+                        activeExam.value = e;
+                        activeStudent.value = s;
+                        activeVersion.value = Number(qrData.v) || 0;
+                        studentAnswers.value = {};
+                        
+                        correctionMode.value = true;
+                        showToast(`Identificado: ${s.name}`, "success");
+                    } catch(err) {
+                        showToast(err.message, "error");
+                    }
+                };
+
                 const confirmManualEntry = async () => {
                     if (!manualConfig.value.examId || !manualConfig.value.studentId) return showToast('Selecione prova e aluno', 'error');
                     
@@ -1721,7 +1865,51 @@
                     correctionMode.value = true;
                 };
 
-                // --- TESTE DE API (Apenas para Gerador de Questões agora) ---
+                const saveManualCorrection = async () => {
+                    const exam = activeExam.value;
+                    const student = activeStudent.value;
+                    const version = exam.versions[activeVersion.value];
+                    const questions = version.questions;
+                    
+                    let hits = 0;
+                    const parsedAnswers = {};
+
+                    questions.forEach((q, idx) => {
+                        const studentAns = studentAnswers.value[idx];
+                        if (studentAns !== null && studentAns !== undefined) {
+                            parsedAnswers[idx] = studentAns;
+
+                            let correctIdx = q.correctIndex;
+                            if(q.type === 'vf' || q.type === 'assoc') correctIdx = (q.id || 0) % 5;
+
+                            if(studentAns === correctIdx) hits++;
+                        }
+                    });
+
+                    const finalScore = ((hits / questions.length) * 10).toFixed(1);
+
+                    const allResults = await db.results.toArray();
+                    const existing = allResults.find(r => r.examId === exam.id && r.studentId === student.id);
+
+                    const resultData = {
+                        examId: exam.id, studentId: student.id, studentName: student.name,
+                        score: finalScore, date: Date.now(), answers: parsedAnswers,
+                        maxScore: questions.length, version: activeVersion.value,
+                        annotatedImage: null
+                    };
+
+                    if (existing) {
+                        await db.results.put({ ...resultData, id: existing.id });
+                    } else {
+                        await db.results.add(JSON.parse(JSON.stringify(resultData)));
+                    }
+                    results.value = await db.results.toArray();
+
+                    showToast(`Correção Salva! ${student.name}: Nota ${finalScore}`, 'success');
+                    correctionMode.value = false;
+                };
+
+                // --- TESTE DE API ---
                 const testGeminiKey = async () => {
                     if(!geminiKey.value) return showToast("Insira a chave de API", "error");
                     toast.value = {show: true, message: "Testando comunicação com IA...", type: "loading"};
@@ -1776,7 +1964,7 @@
                     }
                 };
 
-                // PRÉ-PROCESSAMENTO (Garante que a IA recebe a imagem direita e sem cor)
+                // PRÉ-PROCESSAMENTO 
                 const preprocessImage = (file) => new Promise((resolve, reject) => {
                     const img = new Image();
                     img.onload = () => {
@@ -1814,7 +2002,7 @@
                     img.src = URL.createObjectURL(file);
                 });
 
-                // NOVO: Corta a imagem apenas na zona do gabarito (usando a IA como guia)
+                // CORTA A IMAGEM NA ÁREA DA GRELHA (USANDO A IA)
                 const createCroppedCanvas = (base64Data, box) => new Promise((resolve) => {
                     const img = new Image();
                     img.onload = () => {
@@ -1823,7 +2011,7 @@
                         let w = ((box.xmax - box.xmin) / 1000) * img.width;
                         let h = ((box.ymax - box.ymin) / 1000) * img.height;
                         
-                        // Adiciona 2% de margem para garantir que as linhas da borda não são cortadas
+                        // Margem para não cortar as linhas da borda da tabela
                         let padX = w * 0.02;
                         let padY = h * 0.02;
                         
@@ -1842,7 +2030,7 @@
                     img.src = 'data:image/jpeg;base64,' + base64Data;
                 });
 
-                // NOVO: Motor Matemático OpenCV Absoluto (Zero Alucinações & Sem Desvios)
+                // MOTOR OMR OPENCV COM AUTO-CENTRAMENTO MATEMÁTICO
                 const extractAnswersWithOpenCV = (canvasElement, numQuestions) => {
                     let src, gray, thresh, contours, hierarchy, warped, warpedThresh, debugMat;
                     try {
@@ -1850,23 +2038,21 @@
                         gray = new cv.Mat();
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
                         
-                        // Binarização Adaptativa para contrastar a tinta da caneta com o papel
+                        // Thresholding Adaptativo para eliminar sombras
                         thresh = new cv.Mat();
                         cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 5);
                         
+                        // Procura do contorno exato da tabela no recorte da IA
                         contours = new cv.MatVector();
                         hierarchy = new cv.Mat();
                         cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
                         
                         let maxArea = 0;
                         let docContour = null;
-                        let srcArea = src.cols * src.rows;
-                        
-                        // Procura a linha exterior da tabela (que ocupa quase todo o recorte da IA)
                         for (let i = 0; i < contours.size(); ++i) {
                             let cnt = contours.get(i);
                             let area = cv.contourArea(cnt);
-                            if (area > srcArea * 0.30) { 
+                            if (area > (src.cols * src.rows * 0.2)) { 
                                 let peri = cv.arcLength(cnt, true);
                                 let approx = new cv.Mat();
                                 cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
@@ -1881,7 +2067,7 @@
                         
                         warped = new cv.Mat();
                         if (docContour) {
-                            // Achatar a perspetiva (corrige inclinação da câmara do telemóvel)
+                            // Achatar a tabela perfeitamente
                             let pts = [];
                             for (let i=0; i<4; i++) pts.push({x: docContour.data32S[i*2], y: docContour.data32S[i*2+1]});
                             pts.sort((a,b) => a.y - b.y);
@@ -1902,11 +2088,10 @@
 
                             let M = cv.getPerspectiveTransform(srcTri, dstTri);
                             cv.warpPerspective(gray, warped, M, new cv.Size(maxWidth, maxHeight));
-                            srcTri.delete(); dstTri.delete(); M.delete();
+                            srcTri.delete(); dstTri.delete(); M.delete(); docContour.delete();
                         } else {
-                            warped = gray.clone(); // Fallback de segurança se a borda estiver rompida
+                            warped = gray.clone();
                         }
-                        if(docContour) docContour.delete();
 
                         warpedThresh = new cv.Mat();
                         cv.threshold(warped, warpedThresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
@@ -1914,62 +2099,68 @@
                         debugMat = new cv.Mat();
                         cv.cvtColor(warped, debugMat, cv.COLOR_GRAY2RGBA);
                         
-                        // --- MATEMÁTICA PROPORCIONAL DE GRELHA (Corrige o erro de desalinhamento) ---
-                        let answers = [];
                         let maxWidth = warpedThresh.cols;
                         let maxHeight = warpedThresh.rows;
                         
-                        // Rácios exatos extraídos do motor de PDF (widths: [35, 30, 30, 30, 30, 30])
+                        // Proporções exatas do PDF Gerado
                         const totalW = 185; 
-                        const colW_0 = 35 / totalW;   // Coluna 'Questão' é mais larga
-                        const colW_alt = 30 / totalW; // Colunas das alternativas (A-E)
+                        const colW_0 = 35 / totalW;
+                        const colW_alt = 30 / totalW;
 
-                        // Rácios de altura baseados nas margens do PDF
-                        const headerH = 11;
-                        const rowH = 14;
-                        const totalH = headerH + (numQuestions * rowH);
-                        const headerProp = headerH / totalH;
-                        const rowProp = rowH / totalH;
-
-                        let currentY = headerProp * maxHeight;
+                        let numRows = numQuestions + 1; // Cabeçalho + Questões
+                        let rowH = maxHeight / numRows;
+                        let answers = [];
+                        let currentY = rowH; // Inicia após o cabeçalho
                         
                         for (let i = 0; i < numQuestions; i++) {
                             let rowScores = [];
                             let currentX = colW_0 * maxWidth;
-                            
-                            // Centro exato da linha
-                            let cY = currentY + (rowProp * maxHeight) / 2;
+                            let baseCY = currentY + rowH / 2;
                             
                             for (let j = 0; j < 5; j++) {
                                 let cellW = colW_alt * maxWidth;
-                                let cellH = rowProp * maxHeight;
-                                let cX = currentX + cellW / 2; // Centro exato da coluna
+                                let baseCX = currentX + cellW / 2;
                                 
-                                // A caixa vermelha foca APENAS no centro milimétrico da célula (ignora grelhas)
-                                let boxW = cellW * 0.40;
-                                let boxH = cellH * 0.45;
+                                // AUTO-CENTER: Janela de busca ampla (60% da célula) para encontrar a bolinha
+                                let sW = cellW * 0.6;
+                                let sH = rowH * 0.6;
+                                let sX = Math.max(0, baseCX - sW/2);
+                                let sY = Math.max(0, baseCY - sH/2);
+                                sW = Math.min(maxWidth - sX, sW);
+                                sH = Math.min(maxHeight - sY, sH);
                                 
-                                let rectX = Math.floor(cX - boxW/2);
-                                let rectY = Math.floor(cY - boxH/2);
-                                let rect = new cv.Rect(rectX, rectY, Math.floor(boxW), Math.floor(boxH));
+                                let sRect = new cv.Rect(Math.floor(sX), Math.floor(sY), Math.floor(sW), Math.floor(sH));
+                                let sRoi = warpedThresh.roi(sRect);
                                 
-                                // Grampos de segurança nas bordas
-                                rect.x = Math.max(0, rect.x);
-                                rect.y = Math.max(0, rect.y);
-                                rect.width = Math.min(maxWidth - rect.x, rect.width);
-                                rect.height = Math.min(maxHeight - rect.y, rect.height);
-
-                                let roi = warpedThresh.roi(rect);
-                                let count = cv.countNonZero(roi); // Conta a tinta preta!
-                                let total = rect.width * rect.height;
-                                let fillRatio = count / total;
+                                let M = cv.moments(sRoi, false);
+                                let trueCX = baseCX;
+                                let trueCY = baseCY;
                                 
-                                rowScores.push({ index: j, score: fillRatio, rect: rect });
-                                roi.delete();
+                                // Se houver tinta significativa, arrasta o centro matematicamente para cima da tinta
+                                if (M.m00 > 15) { 
+                                    trueCX = sX + (M.m10 / M.m00);
+                                    trueCY = sY + (M.m01 / M.m00);
+                                }
+                                sRoi.delete();
                                 
-                                // Desenha caixa vermelha na zona avaliada (para o ecrã de auditoria)
-                                cv.rectangle(debugMat, new cv.Point(rect.x, rect.y), new cv.Point(rect.x+rect.width, rect.y+rect.height), new cv.Scalar(255, 0, 0, 255), 2);
+                                // CAIXA DE LEITURA (rRect) exata, focada no centro descoberto
+                                let rW = cellW * 0.35;
+                                let rH = rowH * 0.35;
+                                let rX = Math.max(0, trueCX - rW/2);
+                                let rY = Math.max(0, trueCY - rH/2);
+                                rW = Math.min(maxWidth - rX, rW);
+                                rH = Math.min(maxHeight - rY, rH);
                                 
+                                let rRect = new cv.Rect(Math.floor(rX), Math.floor(rY), Math.floor(rW), Math.floor(rH));
+                                let rRoi = warpedThresh.roi(rRect);
+                                
+                                let count = cv.countNonZero(rRoi);
+                                let total = rW * rH;
+                                rowScores.push({ index: j, score: count / total, rect: rRect });
+                                rRoi.delete();
+                                
+                                // Desenha caixa vermelha na imagem de auditoria
+                                cv.rectangle(debugMat, new cv.Point(rRect.x, rRect.y), new cv.Point(rRect.x+rRect.width, rRect.y+rRect.height), new cv.Scalar(255, 0, 0, 255), 2);
                                 currentX += cellW;
                             }
                             
@@ -1978,30 +2169,22 @@
                             let second = rowScores[1];
                             let selectedIndex = null;
                             
-                            // Lógica de Densidade Anti-Rasuras (Ignora falhas humanas)
-                            // A bolinha deve estar mais de 20% pintada E superar a rasura em mais de 10%
-                            if (best.score > 0.20) {
-                                if ((best.score - second.score) > 0.10) {
-                                    selectedIndex = best.index;
-                                }
+                            // Lógica Anti-Rasura Matemática: Tem de estar bem preenchida e superar a 2ª marcação mais escura
+                            if (best.score > 0.15 && (best.score - second.score) > 0.08) {
+                                selectedIndex = best.index;
                             }
-                            
                             answers.push(selectedIndex);
                             
-                            // Destaca a alternativa vencedora com bloco verde opaco
                             if (selectedIndex !== null) {
                                 let r = rowScores.find(rs => rs.index === selectedIndex).rect;
                                 cv.rectangle(debugMat, new cv.Point(r.x, r.y), new cv.Point(r.x+r.width, r.y+r.height), new cv.Scalar(0, 255, 0, 150), -1);
                             }
-                            
-                            currentY += (rowProp * maxHeight);
+                            currentY += rowH;
                         }
                         
                         let outCanvas = document.createElement('canvas');
                         cv.imshow(outCanvas, debugMat);
-                        let debugB64 = outCanvas.toDataURL('image/jpeg', 0.8);
-                        
-                        return { answers, debugImage: debugB64 };
+                        return { answers, debugImage: outCanvas.toDataURL('image/jpeg', 0.8) };
                     } finally {
                         if(src) src.delete(); if(gray) gray.delete(); if(thresh) thresh.delete();
                         if(contours) contours.delete(); if(hierarchy) hierarchy.delete();
@@ -2010,16 +2193,16 @@
                     }
                 };
 
-                // CHAMADA À IA (APENAS PARA ENQUADRAMENTO - NÃO LÊ RESPOSTAS)
+                // CHAMADA À IA (APENAS PARA ENQUADRAMENTO DA GRELHA)
                 const callGeminiBoundingBox = async (base64Data, mimeType) => {
                     const apiKey = geminiKey.value;
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
                     const prompt = `Aja como um sistema de Visão Computacional Especializado.
-Sua ÚNICA missão é encontrar a grelha de respostas (a tabela central que contém as alternativas de bolinhas).
-Ignore fundos, dedos, ou margens.
+Sua ÚNICA missão é encontrar a grelha de respostas (a tabela central que contém as alternativas e os números das questões).
+Ignore fundos, dedos, texto do cabeçalho ou QR code.
 Retorne as coordenadas da "bounding box" que envolve EXATAMENTE a borda exterior PRETA da tabela de respostas.
-Use a escala proporcional estrita de 0 a 1000.`;
+Use a escala proporcional de 0 a 1000.`;
 
                     const payload = {
                         contents: [{
@@ -2100,15 +2283,15 @@ Use a escala proporcional estrita de 0 a 1000.`;
                             const version = exam.versions[qrData.v] || exam.versions[0];
                             const questions = version.questions;
 
-                            item.message = `Enquadramento da IA em curso...`;
+                            item.message = `IA a delimitar as margens...`;
 
-                            // FASE 1: Pré-processamento e Enquadramento Geométrico por IA (Gemini Pro)
+                            // FASE 1: IA localiza a grelha
                             const processedImg = await preprocessImage(item.file);
                             const boundingBox = await callGeminiBoundingBox(processedImg.base64, processedImg.mimeType);
                             
-                            item.message = `Visão Matemática a ler bolinhas...`;
+                            item.message = `Visão Matemática a corrigir...`;
 
-                            // FASE 2 & 3: Recorte da região exata e Digitalização OpenCV
+                            // FASE 2 e 3: OpenCV processa a leitura geometricamente perfeita
                             const croppedCanvas = await createCroppedCanvas(processedImg.base64, boundingBox);
                             const cvResult = extractAnswersWithOpenCV(croppedCanvas, questions.length);
                             
@@ -2153,7 +2336,7 @@ Use a escala proporcional estrita de 0 a 1000.`;
 
                             item.status = 'success';
                             item.score = finalScore;
-                            item.message = `${student.name} extraído.`;
+                            item.message = `${student.name} corrigido.`;
                             
                             item.resultData = results.value.find(r => r.id === savedId);
                             
@@ -2164,7 +2347,6 @@ Use a escala proporcional estrita de 0 a 1000.`;
                             item.message = err.message || "Erro desconhecido na digitalização ótica.";
                         }
 
-                        // Pausa curta e impercetível em modo local
                         await new Promise(r => setTimeout(r, 500));
                     }
 
@@ -2189,7 +2371,7 @@ Use a escala proporcional estrita de 0 a 1000.`;
                         score: examResult.score,
                         title: ex.title,
                         studentName: examResult.studentName,
-                        annotatedImage: examResult.annotatedImage, // NOVO: Mapeia a imagem anotada
+                        annotatedImage: examResult.annotatedImage, 
                         answers: JSON.parse(JSON.stringify(examResult.answers || {})),
                         questions: version.questions.map(q => {
                             let correctIndex = q.correctIndex;
@@ -2377,7 +2559,7 @@ Use a escala proporcional estrita de 0 a 1000.`;
                 
                 onMounted(() => {
                     window.addEventListener('opencv-ready', () => { isCvReady.value = true; });
-                    if(typeof cv !== 'undefined') isCvReady.value = true; // Callback de segurança
+                    if(typeof cv !== 'undefined') isCvReady.value = true; 
 
                     initLicenseSystem(); 
                     load();
@@ -2509,7 +2691,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
 
                         while (retries > 0) {
                             try {
-                                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${geminiKey.value}`, {
+                                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiKey.value}`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
@@ -2935,7 +3117,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                                 widths: [35, 30, 30, 30, 30, 30],
                                                 body: answerKeyRows
                                             },
-                                            // NOVO: BORDAS GROSSAS NO PDF PARA O OPENCV DETETAR A TABELA MESMO COM MÁ ILUMINAÇÃO
+                                            // BORDAS GROSSAS NO PDF PARA O OPENCV DETETAR A TABELA MESMO COM MÁ ILUMINAÇÃO
                                             layout: {
                                                 hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 4 : 1,
                                                 vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 4 : 1,
@@ -3213,7 +3395,6 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     pdfMake.createPdf({ content, styles: {} }).download(`Gabarito_Comentado_${exam.title}.pdf`);
                 };
 
-                // --- FUNÇÕES RESTAURADAS ---
                 const handleLogoUpload = (e) => { 
                     const f=e.target.files[0]; if(!f)return; 
                     const r=new FileReader(); r.onload=evt=>{ settings.value.logo=evt.target.result; saveSettings(true); }; r.readAsDataURL(f); 
@@ -3404,7 +3585,9 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                     editingResultId, tempScore, tempBonus, startEditingGrade, cancelEditingGrade, saveEditedGrade,
                     generateGeneralReportPDF, deleteStudentResult, deleteExtraPoint, uniqueSubjects,
                     printConfig, editingExamId, openEditExam, changeQType,
-                    showFixKeyModal, fixKeyExam, fixKeyQuestions, openFixKey, saveFixedKey,
+                    showFixKeyModal, fixKeyExam, fixKeyQuestions, openFixKey, saveFixedKey, fixKeySelectedVersion, loadFixKeyQuestions,
+                    showManualInputModal, manualConfig, manualStudents, selectedExamVersions, startManualEntry, confirmManualEntry, correctionMode, activeStudent, activeExam, activeVersion, studentAnswers, saveManualCorrection,
+                    showLiveQRScanner, startLiveQRScan, stopLiveQRScan,
                     dashboardStudentFilter,
                     examFilterSubject, examFilterTopic, 
                     appLocked, deviceId, whatsappLink, licenseInput, validateLicense, copyDeviceId, isLicensed, isTemporal, timeLeft, deleteClass, showLicenseModal, toggleExpand,
