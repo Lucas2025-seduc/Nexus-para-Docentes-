@@ -311,27 +311,26 @@
         <!-- MODAL LIVE QR -->
         <div v-if="showLiveQRScanner" class="fixed inset-0 z-[400] flex flex-col bg-black"><div class="p-4 flex justify-between bg-gray-900 text-white"><h3 class="font-bold"><i class="fa-solid fa-qrcode"></i> Ler QR do Aluno</h3><button @click="stopLiveQRScan"><i class="fa-solid fa-times"></i></button></div><div class="flex-1 flex flex-col items-center justify-center p-4"><div id="live-qr-reader" class="w-full max-w-md bg-black rounded-xl overflow-hidden"></div></div></div>
 
-        <!-- MODAL CÂMERA COM GUIA OMR -->
+        <!-- MODAL CÂMERA COM GUIA OMR (ENQUADRAMENTO AO VIVO) -->
         <div v-if="showLiveCameraModal" class="fixed inset-0 z-[500] flex flex-col bg-black animate-fade-in">
-            <div class="p-4 flex justify-between items-center bg-gray-900 text-white z-10 shadow-md">
+            <div class="p-4 flex justify-between items-center bg-gray-900 text-white z-30 shadow-md">
                 <h3 class="font-bold"><i class="fa-solid fa-camera"></i> Escanear Gabarito</h3>
                 <button @click="stopCameraScanner" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
             <div class="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
-                <video id="live-camera-video" class="absolute inset-0 w-full h-full object-cover" playsinline autoplay muted></video>
-                <!-- Overlay Máscara com Cantos -->
-                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 pb-20">
+                <video id="live-camera-video" class="absolute inset-0 w-full h-full object-cover z-10" playsinline autoplay muted></video>
+                <!-- Canvas de Desenho em Tempo Real -->
+                <canvas id="live-camera-overlay" class="absolute inset-0 w-full h-full object-cover z-20 pointer-events-none"></canvas>
+                
+                <!-- Máscara Guia (Fundo Estático de ajuda) -->
+                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 pb-20 z-20 opacity-60">
                     <div class="w-full max-w-sm aspect-[1/1.4] border border-white/30 relative flex items-center justify-center rounded-sm" style="box-shadow: 0 0 0 4000px rgba(0,0,0,0.65);">
-                        <p class="absolute -top-10 w-full text-center text-white font-bold text-xs bg-black/60 py-1.5 px-3 rounded-lg backdrop-blur-sm">Enquadre as margens da prova aqui</p>
-                        <!-- Cantos Fiduciais Verdes -->
-                        <div class="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-emerald-500 rounded-tl-sm"></div>
-                        <div class="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-emerald-500 rounded-tr-sm"></div>
-                        <div class="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-emerald-500 rounded-bl-sm"></div>
-                        <div class="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-emerald-500 rounded-br-sm"></div>
+                        <p class="absolute -top-10 w-full text-center text-white font-bold text-xs bg-black/60 py-1.5 px-3 rounded-lg backdrop-blur-sm">Aponte para a prova e aguarde o alvo verde...</p>
                     </div>
                 </div>
-                <!-- Botão Capturar -->
-                <div class="absolute bottom-8 left-0 right-0 flex justify-center z-20">
+
+                <!-- Botão de Captura Manual (Caso o Auto-Capture não dispare por falta de luz) -->
+                <div class="absolute bottom-8 left-0 right-0 flex justify-center z-30">
                     <button @click="captureCameraScanner" class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center border-4 border-white backdrop-blur-md active:scale-95 transition shadow-2xl">
                         <div class="w-14 h-14 bg-white rounded-full"></div>
                     </button>
@@ -559,12 +558,136 @@
                 const startLiveQRScan=()=>{showLiveQRScanner.value=true; nextTick(()=>{html5QrCode=new Html5Qrcode("live-qr-reader"); html5QrCode.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:250}},(t)=>{html5QrCode.stop().then(()=>{showLiveQRScanner.value=false; let qd=JSON.parse(t); activeExam.value=exams.value.find(e=>e.id===Number(qd.e)); activeStudent.value=students.value.find(s=>s.id===Number(qd.s)); activeVersion.value=Number(qd.v)||0; studentAnswers.value={}; correctionMode.value=true; showToast("Identificado!","success");})},()=>{})})};
                 const stopLiveQRScan=()=>{if(html5QrCode)html5QrCode.stop().finally(()=>showLiveQRScanner.value=false)};
 
-                // CAMERA SCANNER COM GUIA
+                // CAMERA SCANNER COM DETEÇÃO EM TEMPO REAL E AUTO-CAPTURE
                 const showLiveCameraModal = ref(false);
                 let cameraStream = null;
+                let scanLoopId = null;
+                let stableFrames = 0;
+
+                const runLiveScan = () => {
+                    if (!showLiveCameraModal.value) return;
+                    const video = document.getElementById('live-camera-video');
+                    const overlay = document.getElementById('live-camera-overlay');
+                    
+                    if (video && overlay && video.readyState === video.HAVE_ENOUGH_DATA && typeof cv !== 'undefined') {
+                        overlay.width = video.videoWidth;
+                        overlay.height = video.videoHeight;
+                        const ctx = overlay.getContext('2d');
+                        ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+                        // Reduzir resolução para o OpenCV processar a 60 FPS sem lag
+                        const sw = 400;
+                        const scale = sw / video.videoWidth;
+                        const sh = Math.floor(video.videoHeight * scale);
+                        
+                        const offCnv = document.createElement('canvas');
+                        offCnv.width = sw; offCnv.height = sh;
+                        offCnv.getContext('2d').drawImage(video, 0, 0, sw, sh);
+                        
+                        let src, gray, thresh, cnts, hie;
+                        try {
+                            src = cv.imread(offCnv);
+                            gray = new cv.Mat();
+                            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                            thresh = new cv.Mat();
+                            cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+                            cnts = new cv.MatVector();
+                            hie = new cv.Mat();
+                            cv.findContours(thresh, cnts, hie, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                            let bTL = 9999, bTR = 9999, bBL = 9999, bBR = 9999;
+                            let mTL = null, mTR = null, mBL = null, mBR = null;
+                            let foundQuad = false;
+                            let ptTL, ptTR, ptBR, ptBL;
+
+                            // 1. Tentar encontrar os 4 marcadores fiduciais (Nova versão de prova)
+                            for (let i = 0; i < cnts.size(); ++i) {
+                                let c = cnts.get(i);
+                                let a = cv.contourArea(c);
+                                if (a > 10 && a < (sw * sh * 0.05)) {
+                                    let M = cv.moments(c, false);
+                                    if (M.m00 > 0) {
+                                        let cx = M.m10 / M.m00, cy = M.m01 / M.m00;
+                                        let dtl = Math.hypot(cx, cy), dtr = Math.hypot(cx - sw, cy), dbl = Math.hypot(cx, cy - sh), dbr = Math.hypot(cx - sw, cy - sh);
+                                        if (cx < sw/2 && cy < sh/2 && dtl < bTL) { bTL = dtl; mTL = {x:cx, y:cy}; }
+                                        if (cx > sw/2 && cy < sh/2 && dtr < bTR) { bTR = dtr; mTR = {x:cx, y:cy}; }
+                                        if (cx < sw/2 && cy > sh/2 && dbl < bBL) { bBL = dbl; mBL = {x:cx, y:cy}; }
+                                        if (cx > sw/2 && cy > sh/2 && dbr < bBR) { bBR = dbr; mBR = {x:cx, y:cy}; }
+                                    }
+                                }
+                            }
+
+                            if (mTL && mTR && mBL && mBR) {
+                                let area = 0.5 * Math.abs((mTL.x*mTR.y + mTR.x*mBR.y + mBR.x*mBL.y + mBL.x*mTL.y) - (mTL.y*mTR.x + mTR.y*mBR.x + mBR.y*mBL.x + mBL.y*mTL.x));
+                                if (area > (sw * sh * 0.15)) {
+                                    ptTL = {x: mTL.x/scale, y: mTL.y/scale}; ptTR = {x: mTR.x/scale, y: mTR.y/scale};
+                                    ptBR = {x: mBR.x/scale, y: mBR.y/scale}; ptBL = {x: mBL.x/scale, y: mBL.y/scale};
+                                    foundQuad = true;
+                                }
+                            }
+
+                            // 2. Fallback: Se não achar os 4 cantos, procura uma borda grande (Provas Antigas)
+                            if (!foundQuad) {
+                                let maxArea = 0;
+                                let bestApprox = null;
+                                for (let i = 0; i < cnts.size(); ++i) {
+                                    let c = cnts.get(i);
+                                    let area = cv.contourArea(c);
+                                    if (area > (sw * sh * 0.2)) {
+                                        let peri = cv.arcLength(c, true);
+                                        let approx = new cv.Mat();
+                                        cv.approxPolyDP(c, approx, 0.02 * peri, true);
+                                        if (approx.rows === 4 && area > maxArea) {
+                                            maxArea = area;
+                                            if (bestApprox) bestApprox.delete();
+                                            bestApprox = approx.clone();
+                                        }
+                                        approx.delete();
+                                    }
+                                }
+                                if (bestApprox) {
+                                    let pts = [];
+                                    for (let i=0; i<4; i++) pts.push({x: bestApprox.data32S[i*2], y: bestApprox.data32S[i*2+1]});
+                                    pts.sort((a,b) => a.y - b.y);
+                                    let top = pts.slice(0,2).sort((a,b) => a.x - b.x);
+                                    let bot = pts.slice(2,4).sort((a,b) => a.x - b.x);
+                                    ptTL = {x: top[0].x/scale, y: top[0].y/scale}; ptTR = {x: top[1].x/scale, y: top[1].y/scale};
+                                    ptBR = {x: bot[1].x/scale, y: bot[1].y/scale}; ptBL = {x: bot[0].x/scale, y: bot[0].y/scale};
+                                    foundQuad = true;
+                                    bestApprox.delete();
+                                }
+                            }
+
+                            // Desenho do Scanner Verde e Auto-Capture
+                            if (foundQuad) {
+                                ctx.beginPath(); ctx.moveTo(ptTL.x, ptTL.y); ctx.lineTo(ptTR.x, ptTR.y); ctx.lineTo(ptBR.x, ptBR.y); ctx.lineTo(ptBL.x, ptBL.y); ctx.closePath();
+                                ctx.lineWidth = 5; ctx.strokeStyle = '#10b981'; ctx.stroke(); // Verde Esmeralda
+                                ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; ctx.fill();
+                                
+                                ctx.fillStyle = '#10b981';
+                                [ptTL, ptTR, ptBR, ptBL].forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, 2*Math.PI); ctx.fill(); });
+
+                                stableFrames++;
+                                // Se a mira verde ficar estável durante ~0.5 segundos na prova (12 frames)
+                                if (stableFrames > 12) { 
+                                    captureCameraScanner(); 
+                                    return; 
+                                }
+                            } else {
+                                stableFrames = 0; // Reseta se abanar
+                            }
+                        } catch(e) { console.error(e); } 
+                        finally {
+                            if (src) src.delete(); if (gray) gray.delete(); if (thresh) thresh.delete();
+                            if (cnts) cnts.delete(); if (hie) hie.delete();
+                        }
+                    }
+                    scanLoopId = requestAnimationFrame(runLiveScan);
+                };
 
                 const startCameraScanner = async () => {
                     showLiveCameraModal.value = true;
+                    stableFrames = 0;
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({
                             video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
@@ -572,7 +695,10 @@
                         cameraStream = stream;
                         nextTick(() => {
                             const videoEl = document.getElementById('live-camera-video');
-                            if (videoEl) videoEl.srcObject = stream;
+                            if (videoEl) {
+                                videoEl.srcObject = stream;
+                                scanLoopId = requestAnimationFrame(runLiveScan);
+                            }
                         });
                     } catch (err) {
                         showToast("Erro ao aceder à câmara: Verifique as permissões.", "error");
@@ -581,14 +707,13 @@
                 };
 
                 const stopCameraScanner = () => {
-                    if (cameraStream) {
-                        cameraStream.getTracks().forEach(track => track.stop());
-                        cameraStream = null;
-                    }
+                    if (scanLoopId) { cancelAnimationFrame(scanLoopId); scanLoopId = null; }
+                    if (cameraStream) { cameraStream.getTracks().forEach(track => track.stop()); cameraStream = null; }
                     showLiveCameraModal.value = false;
                 };
 
                 const captureCameraScanner = () => {
+                    if (scanLoopId) { cancelAnimationFrame(scanLoopId); scanLoopId = null; }
                     const videoEl = document.getElementById('live-camera-video');
                     if (!videoEl) return;
                     
@@ -602,14 +727,14 @@
                         omrCorrectionQueue.value.push({
                             id: crypto.randomUUID(),
                             file: file,
-                            name: "Scanner Rápido",
+                            name: "Scanner Ao Vivo",
                             status: 'pending',
                             message: 'Aguardando na fila...',
                             score: null
                         });
                         stopCameraScanner();
-                        showToast("Prova digitalizada!", "success");
-                        if(!isProcessingQueue.value) processOMRQueue(); // Arranca a correção mal a foto é tirada!
+                        showToast("Prova detetada e capturada!", "success");
+                        if(!isProcessingQueue.value) processOMRQueue(); 
                     }, 'image/jpeg', 0.9);
                 };
 
