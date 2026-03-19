@@ -1823,9 +1823,9 @@
                         let w = ((box.xmax - box.xmin) / 1000) * img.width;
                         let h = ((box.ymax - box.ymin) / 1000) * img.height;
                         
-                        // Adiciona 4% de margem para garantir que as linhas da borda não são cortadas
-                        let padX = w * 0.04;
-                        let padY = h * 0.04;
+                        // Adiciona 2% de margem para garantir que as linhas da borda não são cortadas
+                        let padX = w * 0.02;
+                        let padY = h * 0.02;
                         
                         let cX = Math.max(0, x - padX);
                         let cY = Math.max(0, y - padY);
@@ -1842,7 +1842,7 @@
                     img.src = 'data:image/jpeg;base64,' + base64Data;
                 });
 
-                // NOVO: Motor Matemático OpenCV (Zero Alucinações)
+                // NOVO: Motor Matemático OpenCV Absoluto (Zero Alucinações & Sem Desvios)
                 const extractAnswersWithOpenCV = (canvasElement, numQuestions) => {
                     let src, gray, thresh, contours, hierarchy, warped, warpedThresh, debugMat;
                     try {
@@ -1850,9 +1850,9 @@
                         gray = new cv.Mat();
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
                         
-                        // Binarização Adaptativa para eliminar sombras e contrastes fracos
+                        // Binarização Adaptativa para contrastar a tinta da caneta com o papel
                         thresh = new cv.Mat();
-                        cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 15, 10);
+                        cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 5);
                         
                         contours = new cv.MatVector();
                         hierarchy = new cv.Mat();
@@ -1860,11 +1860,13 @@
                         
                         let maxArea = 0;
                         let docContour = null;
+                        let srcArea = src.cols * src.rows;
+                        
+                        // Procura a linha exterior da tabela (que ocupa quase todo o recorte da IA)
                         for (let i = 0; i < contours.size(); ++i) {
                             let cnt = contours.get(i);
                             let area = cv.contourArea(cnt);
-                            // A tabela principal deve ocupar pelo menos 30% do recorte
-                            if (area > (src.cols * src.rows * 0.3)) { 
+                            if (area > srcArea * 0.30) { 
                                 let peri = cv.arcLength(cnt, true);
                                 let approx = new cv.Mat();
                                 cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
@@ -1879,7 +1881,7 @@
                         
                         warped = new cv.Mat();
                         if (docContour) {
-                            // "Achatar" a perspetiva matematicamente usando os 4 cantos da tabela
+                            // Achatar a perspetiva (corrige inclinação da câmara do telemóvel)
                             let pts = [];
                             for (let i=0; i<4; i++) pts.push({x: docContour.data32S[i*2], y: docContour.data32S[i*2+1]});
                             pts.sort((a,b) => a.y - b.y);
@@ -1900,79 +1902,106 @@
 
                             let M = cv.getPerspectiveTransform(srcTri, dstTri);
                             cv.warpPerspective(gray, warped, M, new cv.Size(maxWidth, maxHeight));
-                            srcTri.delete(); dstTri.delete(); M.delete(); docContour.delete();
+                            srcTri.delete(); dstTri.delete(); M.delete();
                         } else {
-                            warped = gray.clone(); // Fallback caso a tabela já esteja muito reta
+                            warped = gray.clone(); // Fallback de segurança se a borda estiver rompida
                         }
-                        
+                        if(docContour) docContour.delete();
+
                         warpedThresh = new cv.Mat();
                         cv.threshold(warped, warpedThresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
                         
                         debugMat = new cv.Mat();
                         cv.cvtColor(warped, debugMat, cv.COLOR_GRAY2RGBA);
                         
-                        let numRows = numQuestions + 1; // +1 devido ao cabeçalho
-                        let numCols = 6; // Coluna da Questão + Alternativas A, B, C, D, E
-                        let cellH = warpedThresh.rows / numRows;
-                        let cellW = warpedThresh.cols / numCols;
+                        // --- MATEMÁTICA PROPORCIONAL DE GRELHA (Corrige o erro de desalinhamento) ---
                         let answers = [];
+                        let maxWidth = warpedThresh.cols;
+                        let maxHeight = warpedThresh.rows;
                         
-                        // Desenha grelha matemática de validação visual
-                        for(let i=1; i<=numRows; i++) cv.line(debugMat, new cv.Point(0, i*cellH), new cv.Point(debugMat.cols, i*cellH), new cv.Scalar(200,200,200,255), 1);
-                        for(let j=1; j<=numCols; j++) cv.line(debugMat, new cv.Point(j*cellW, 0), new cv.Point(j*cellW, debugMat.rows), new cv.Scalar(200,200,200,255), 1);
+                        // Rácios exatos extraídos do motor de PDF (widths: [35, 30, 30, 30, 30, 30])
+                        const totalW = 185; 
+                        const colW_0 = 35 / totalW;   // Coluna 'Questão' é mais larga
+                        const colW_alt = 30 / totalW; // Colunas das alternativas (A-E)
+
+                        // Rácios de altura baseados nas margens do PDF
+                        const headerH = 11;
+                        const rowH = 14;
+                        const totalH = headerH + (numQuestions * rowH);
+                        const headerProp = headerH / totalH;
+                        const rowProp = rowH / totalH;
+
+                        let currentY = headerProp * maxHeight;
                         
-                        for (let i = 1; i < numRows; i++) {
+                        for (let i = 0; i < numQuestions; i++) {
                             let rowScores = [];
-                            for (let j = 1; j < numCols; j++) {
-                                let x = Math.floor(j * cellW);
-                                let y = Math.floor(i * cellH);
-                                let w = Math.floor(cellW);
-                                let h = Math.floor(cellH);
+                            let currentX = colW_0 * maxWidth;
+                            
+                            // Centro exato da linha
+                            let cY = currentY + (rowProp * maxHeight) / 2;
+                            
+                            for (let j = 0; j < 5; j++) {
+                                let cellW = colW_alt * maxWidth;
+                                let cellH = rowProp * maxHeight;
+                                let cX = currentX + cellW / 2; // Centro exato da coluna
                                 
-                                // Analisar apenas o centro da célula (evita que a IA leia a linha da borda)
-                                let mX = Math.floor(w * 0.35); 
-                                let mY = Math.floor(h * 0.35);
-                                let innerW = w - 2*mX;
-                                let innerH = h - 2*mY;
+                                // A caixa vermelha foca APENAS no centro milimétrico da célula (ignora grelhas)
+                                let boxW = cellW * 0.40;
+                                let boxH = cellH * 0.45;
                                 
-                                let rect = new cv.Rect(x + mX, y + mY, innerW, innerH);
-                                let cell = warpedThresh.roi(rect);
+                                let rectX = Math.floor(cX - boxW/2);
+                                let rectY = Math.floor(cY - boxH/2);
+                                let rect = new cv.Rect(rectX, rectY, Math.floor(boxW), Math.floor(boxH));
                                 
-                                let count = cv.countNonZero(cell); // Conta a tinta preta!
-                                let total = innerW * innerH;
+                                // Grampos de segurança nas bordas
+                                rect.x = Math.max(0, rect.x);
+                                rect.y = Math.max(0, rect.y);
+                                rect.width = Math.min(maxWidth - rect.x, rect.width);
+                                rect.height = Math.min(maxHeight - rect.y, rect.height);
+
+                                let roi = warpedThresh.roi(rect);
+                                let count = cv.countNonZero(roi); // Conta a tinta preta!
+                                let total = rect.width * rect.height;
+                                let fillRatio = count / total;
                                 
-                                rowScores.push({ index: j - 1, score: count / total, rect: rect });
-                                cell.delete();
+                                rowScores.push({ index: j, score: fillRatio, rect: rect });
+                                roi.delete();
                                 
-                                // Marcar a vermelho o centro da bolinha analisada
-                                cv.rectangle(debugMat, new cv.Point(rect.x, rect.y), new cv.Point(rect.x+rect.width, rect.y+rect.height), new cv.Scalar(255, 0, 0, 100), 1);
+                                // Desenha caixa vermelha na zona avaliada (para o ecrã de auditoria)
+                                cv.rectangle(debugMat, new cv.Point(rect.x, rect.y), new cv.Point(rect.x+rect.width, rect.y+rect.height), new cv.Scalar(255, 0, 0, 255), 2);
+                                
+                                currentX += cellW;
                             }
                             
                             rowScores.sort((a,b) => b.score - a.score);
                             let best = rowScores[0];
                             let second = rowScores[1];
-                            
                             let selectedIndex = null;
-                            // Lógica de Densidade Anti-Rasuras e Dupla Marcação
-                            if (best.score > 0.25) { 
+                            
+                            // Lógica de Densidade Anti-Rasuras (Ignora falhas humanas)
+                            // A bolinha deve estar mais de 20% pintada E superar a rasura em mais de 10%
+                            if (best.score > 0.20) {
                                 if ((best.score - second.score) > 0.10) {
                                     selectedIndex = best.index;
-                                } 
+                                }
                             }
                             
                             answers.push(selectedIndex);
                             
+                            // Destaca a alternativa vencedora com bloco verde opaco
                             if (selectedIndex !== null) {
                                 let r = rowScores.find(rs => rs.index === selectedIndex).rect;
-                                cv.rectangle(debugMat, new cv.Point(r.x, r.y), new cv.Point(r.x+r.width, r.y+r.height), new cv.Scalar(0, 255, 0, 255), -1); // Quadrado Verde
+                                cv.rectangle(debugMat, new cv.Point(r.x, r.y), new cv.Point(r.x+r.width, r.y+r.height), new cv.Scalar(0, 255, 0, 150), -1);
                             }
+                            
+                            currentY += (rowProp * maxHeight);
                         }
                         
                         let outCanvas = document.createElement('canvas');
                         cv.imshow(outCanvas, debugMat);
-                        let annotatedB64 = outCanvas.toDataURL('image/jpeg', 0.8);
+                        let debugB64 = outCanvas.toDataURL('image/jpeg', 0.8);
                         
-                        return { answers, debugImage: annotatedB64 };
+                        return { answers, debugImage: debugB64 };
                     } finally {
                         if(src) src.delete(); if(gray) gray.delete(); if(thresh) thresh.delete();
                         if(contours) contours.delete(); if(hierarchy) hierarchy.delete();
@@ -1981,16 +2010,16 @@
                     }
                 };
 
-                // CHAMADA À IA APENAS PARA ENQUADRAMENTO GEOMÉTRICO (Bounding Box)
+                // CHAMADA À IA (APENAS PARA ENQUADRAMENTO - NÃO LÊ RESPOSTAS)
                 const callGeminiBoundingBox = async (base64Data, mimeType) => {
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 
-                    const prompt = `Aja como um sistema de Visão Computacional de Deteção de Objetos.
-Encontre a grelha de respostas (a tabela que contém as alternativas e os números das questões) na imagem fornecida.
-Ignore fundos da mesa, dedos ou margens de rodapé.
-Retorne as coordenadas da "bounding box" (caixa delimitadora) que envolve EXATAMENTE a borda exterior da tabela.
-Use a escala proporcional de 0 a 1000.`;
+                    const prompt = `Aja como um sistema de Visão Computacional Especializado.
+Sua ÚNICA missão é encontrar a grelha de respostas (a tabela central que contém as alternativas de bolinhas).
+Ignore fundos, dedos, ou margens.
+Retorne as coordenadas da "bounding box" que envolve EXATAMENTE a borda exterior PRETA da tabela de respostas.
+Use a escala proporcional estrita de 0 a 1000.`;
 
                     const payload = {
                         contents: [{
@@ -2071,19 +2100,18 @@ Use a escala proporcional de 0 a 1000.`;
                             const version = exam.versions[qrData.v] || exam.versions[0];
                             const questions = version.questions;
 
-                            item.message = `Enquadramento da grelha de ${student.name.split(' ')[0]}...`;
+                            item.message = `Enquadramento da IA em curso...`;
 
-                            // FASE 1: Pré-processamento e Enquadramento Geométrico por IA
+                            // FASE 1: Pré-processamento e Enquadramento Geométrico por IA (Gemini Pro)
                             const processedImg = await preprocessImage(item.file);
                             const boundingBox = await callGeminiBoundingBox(processedImg.base64, processedImg.mimeType);
                             
-                            // FASE 2: Recortar a região exata
-                            const croppedCanvas = await createCroppedCanvas(processedImg.base64, boundingBox);
+                            item.message = `Visão Matemática a ler bolinhas...`;
 
-                            item.message = `Digitalização Matemática...`;
-                            
-                            // FASE 3: Correção Matemática OpenCV 
+                            // FASE 2 & 3: Recorte da região exata e Digitalização OpenCV
+                            const croppedCanvas = await createCroppedCanvas(processedImg.base64, boundingBox);
                             const cvResult = extractAnswersWithOpenCV(croppedCanvas, questions.length);
+                            
                             const omrAnswers = cvResult.answers;
                             const annotatedImage = cvResult.debugImage;
 
