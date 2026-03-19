@@ -433,9 +433,9 @@
                             <button @click="editingExamId = null; examCart=[]; examConfig.title=''" class="text-indigo-400 hover:text-indigo-600"><i class="fa-solid fa-times"></i> Cancelar</button>
                         </div>
                         
-                        <div v-if="editingExamId" class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl mb-2 text-[10px] leading-relaxed shadow-sm">
-                            <p><strong class="font-black text-xs"><i class="fa-solid fa-triangle-exclamation mr-1"></i> AVISO CRÍTICO:</strong> Se já imprimiu ou entregou esta prova aos alunos, <strong>NÃO</strong> a atualize aqui. Isto irá gerar novos QR Codes e baralhar as questões novamente, invalidando a correção OMR dos papéis antigos.</p>
-                            <p class="mt-1 opacity-80"><em>Para corrigir apenas o gabarito (sem afetar as impressões), edite a prova no Histórico utilizando a função "Corrigir Gabarito Oficial".</em></p>
+                        <div v-if="editingExamId" class="bg-blue-50 border border-blue-200 text-blue-700 p-3 rounded-xl mb-2 text-[10px] leading-relaxed shadow-sm">
+                            <p><strong class="font-black text-xs"><i class="fa-solid fa-circle-info mr-1"></i> ATUALIZAÇÃO SEGURA:</strong> Se corrigir apenas textos ou imagens das questões, <strong>os gabaritos já impressos continuarão totalmente válidos</strong> (o sistema preserva a ordem das alternativas e os QR Codes antigas).</p>
+                            <p class="mt-1 opacity-80"><em>Aviso: Adicionar ou remover questões mudará a estrutura e invalidará as impressões antigas. Para alterar o gabarito oficial sem imprimir de novo, use a opção "Corrigir Gabarito" no Histórico.</em></p>
                         </div>
 
                         <div>
@@ -1670,7 +1670,6 @@
                     const updatedExam = JSON.parse(JSON.stringify(examToUpdate));
                     const vIdx = fixKeySelectedVersion.value;
 
-                    // Atualiza APENAS a versão selecionada no dropdown
                     updatedExam.versions[vIdx].questions.forEach((vq, idx) => {
                         const baseQ = fixKeyQuestions.value[idx];
                         if (vq.id === baseQ.id) {
@@ -1680,7 +1679,6 @@
 
                     await db.exams.put(updatedExam);
 
-                    // Recalcula notas APENAS dos alunos que fizeram ESTA versão
                     const allResults = await db.results.toArray();
                     const examResultsToUpdate = allResults.filter(r => r.examId === updatedExam.id && r.version === vIdx);
                     
@@ -1796,7 +1794,7 @@
                                 });
                             },
                             (errorMessage) => {
-                                // ignora erros de frame a frame
+                                // ignora erros
                             }
                         ).catch(err => {
                             showToast("Erro ao aceder à câmara: Verifique as permissões.", "error");
@@ -1898,15 +1896,23 @@
                         annotatedImage: null
                     };
 
+                    let savedId;
                     if (existing) {
-                        await db.results.put({ ...resultData, id: existing.id });
+                        savedId = existing.id;
+                        await db.results.put({ ...resultData, id: savedId });
                     } else {
-                        await db.results.add(JSON.parse(JSON.stringify(resultData)));
+                        savedId = await db.results.add(JSON.parse(JSON.stringify(resultData)));
                     }
                     results.value = await db.results.toArray();
 
                     showToast(`Correção Salva! ${student.name}: Nota ${finalScore}`, 'success');
                     correctionMode.value = false;
+                    
+                    // NOVO: Abre imediatamente os detalhes (Olho) após a correção manual
+                    const savedResult = results.value.find(r => r.id === savedId);
+                    if (savedResult) {
+                        openResultDetails(savedResult);
+                    }
                 };
 
                 // --- TESTE DE API ---
@@ -2011,7 +2017,6 @@
                         let w = ((box.xmax - box.xmin) / 1000) * img.width;
                         let h = ((box.ymax - box.ymin) / 1000) * img.height;
                         
-                        // Margem para não cortar as linhas da borda da tabela
                         let padX = w * 0.02;
                         let padY = h * 0.02;
                         
@@ -2030,7 +2035,7 @@
                     img.src = 'data:image/jpeg;base64,' + base64Data;
                 });
 
-                // MOTOR OMR OPENCV COM AUTO-CENTRAMENTO MATEMÁTICO
+                // MOTOR OMR OPENCV COM 4 FIDUCIAIS NO CANTO
                 const extractAnswersWithOpenCV = (canvasElement, numQuestions) => {
                     let src, gray, thresh, contours, hierarchy, warped, warpedThresh, debugMat;
                     try {
@@ -2038,60 +2043,53 @@
                         gray = new cv.Mat();
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
                         
-                        // Thresholding Adaptativo para eliminar sombras
+                        // Thresholding Inv para destacar os 4 quadrados pretos e a tinta da caneta
                         thresh = new cv.Mat();
-                        cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 5);
+                        cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
                         
-                        // Procura do contorno exato da tabela no recorte da IA
                         contours = new cv.MatVector();
                         hierarchy = new cv.Mat();
                         cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
                         
-                        let maxArea = 0;
-                        let docContour = null;
+                        let w = thresh.cols;
+                        let h = thresh.rows;
+                        
+                        let best_tl = 999999, best_tr = 999999, best_bl = 999999, best_br = 999999;
+                        let tl_m = {x:0, y:0}, tr_m = {x:w, y:0}, bl_m = {x:0, y:h}, br_m = {x:w, y:h}; 
+
+                        // Procurar os 4 marcadores fiduciais nos cantos
                         for (let i = 0; i < contours.size(); ++i) {
                             let cnt = contours.get(i);
                             let area = cv.contourArea(cnt);
-                            if (area > (src.cols * src.rows * 0.2)) { 
-                                let peri = cv.arcLength(cnt, true);
-                                let approx = new cv.Mat();
-                                cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-                                if (approx.rows === 4 && area > maxArea) {
-                                    maxArea = area;
-                                    if (docContour) docContour.delete();
-                                    docContour = approx.clone();
+                            if (area > 15 && area < (w*h*0.05)) { 
+                                let M = cv.moments(cnt, false);
+                                if(M.m00 > 0) {
+                                    let cx = M.m10 / M.m00;
+                                    let cy = M.m01 / M.m00;
+                                    
+                                    let dist_tl = Math.hypot(cx - 0, cy - 0);
+                                    let dist_tr = Math.hypot(cx - w, cy - 0);
+                                    let dist_bl = Math.hypot(cx - 0, cy - h);
+                                    let dist_br = Math.hypot(cx - w, cy - h);
+                                    
+                                    if (cx < w/2 && cy < h/2 && dist_tl < best_tl) { best_tl = dist_tl; tl_m = {x:cx, y:cy}; }
+                                    if (cx > w/2 && cy < h/2 && dist_tr < best_tr) { best_tr = dist_tr; tr_m = {x:cx, y:cy}; }
+                                    if (cx < w/2 && cy > h/2 && dist_bl < best_bl) { best_bl = dist_bl; bl_m = {x:cx, y:cy}; }
+                                    if (cx > w/2 && cy > h/2 && dist_br < best_br) { best_br = dist_br; br_m = {x:cx, y:cy}; }
                                 }
-                                approx.delete();
                             }
                         }
                         
+                        let maxWidth = Math.max(Math.hypot(br_m.x - bl_m.x, br_m.y - bl_m.y), Math.hypot(tr_m.x - tl_m.x, tr_m.y - tl_m.y));
+                        let maxHeight = Math.max(Math.hypot(tr_m.x - br_m.x, tr_m.y - br_m.y), Math.hypot(tl_m.x - bl_m.x, tl_m.y - bl_m.y));
+
                         warped = new cv.Mat();
-                        if (docContour) {
-                            // Achatar a tabela perfeitamente
-                            let pts = [];
-                            for (let i=0; i<4; i++) pts.push({x: docContour.data32S[i*2], y: docContour.data32S[i*2+1]});
-                            pts.sort((a,b) => a.y - b.y);
-                            let top = pts.slice(0,2).sort((a,b) => a.x - b.x);
-                            let bottom = pts.slice(2,4).sort((a,b) => a.x - b.x);
-                            let tl = top[0], tr = top[1], bl = bottom[0], br = bottom[1];
+                        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl_m.x, tl_m.y, tr_m.x, tr_m.y, br_m.x, br_m.y, bl_m.x, bl_m.y]);
+                        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1]);
 
-                            let wA = Math.hypot(br.x - bl.x, br.y - bl.y);
-                            let wB = Math.hypot(tr.x - tl.x, tr.y - tl.y);
-                            let maxWidth = Math.max(Math.floor(wA), Math.floor(wB));
-
-                            let hA = Math.hypot(tr.x - br.x, tr.y - br.y);
-                            let hB = Math.hypot(tl.x - bl.x, tl.y - bl.y);
-                            let maxHeight = Math.max(Math.floor(hA), Math.floor(hB));
-
-                            let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
-                            let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1]);
-
-                            let M = cv.getPerspectiveTransform(srcTri, dstTri);
-                            cv.warpPerspective(gray, warped, M, new cv.Size(maxWidth, maxHeight));
-                            srcTri.delete(); dstTri.delete(); M.delete(); docContour.delete();
-                        } else {
-                            warped = gray.clone();
-                        }
+                        let M_warp = cv.getPerspectiveTransform(srcTri, dstTri);
+                        cv.warpPerspective(gray, warped, M_warp, new cv.Size(maxWidth, maxHeight));
+                        srcTri.delete(); dstTri.delete(); M_warp.delete();
 
                         warpedThresh = new cv.Mat();
                         cv.threshold(warped, warpedThresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
@@ -2099,29 +2097,25 @@
                         debugMat = new cv.Mat();
                         cv.cvtColor(warped, debugMat, cv.COLOR_GRAY2RGBA);
                         
-                        let maxWidth = warpedThresh.cols;
-                        let maxHeight = warpedThresh.rows;
-                        
                         // Proporções exatas do PDF Gerado
                         const totalW = 185; 
                         const colW_0 = 35 / totalW;
                         const colW_alt = 30 / totalW;
 
-                        let numRows = numQuestions + 1; // Cabeçalho + Questões
+                        let numRows = numQuestions + 3; // 1 (Marcador Topo) + 1 (Cabeçalho) + Questões + 1 (Marcador Fundo)
                         let rowH = maxHeight / numRows;
                         let answers = [];
-                        let currentY = rowH; // Inicia após o cabeçalho
                         
                         for (let i = 0; i < numQuestions; i++) {
                             let rowScores = [];
                             let currentX = colW_0 * maxWidth;
-                            let baseCY = currentY + rowH / 2;
+                            let baseCY = ((i + 2) + 0.5) * rowH; // A partir da linha índice 2
                             
                             for (let j = 0; j < 5; j++) {
                                 let cellW = colW_alt * maxWidth;
                                 let baseCX = currentX + cellW / 2;
                                 
-                                // AUTO-CENTER: Janela de busca ampla (60% da célula) para encontrar a bolinha
+                                // AUTO-CENTER: Janela de busca para encontrar o centro de massa da tinta (O "Íman")
                                 let sW = cellW * 0.6;
                                 let sH = rowH * 0.6;
                                 let sX = Math.max(0, baseCX - sW/2);
@@ -2132,18 +2126,18 @@
                                 let sRect = new cv.Rect(Math.floor(sX), Math.floor(sY), Math.floor(sW), Math.floor(sH));
                                 let sRoi = warpedThresh.roi(sRect);
                                 
-                                let M = cv.moments(sRoi, false);
+                                let M_ink = cv.moments(sRoi, false);
                                 let trueCX = baseCX;
                                 let trueCY = baseCY;
                                 
-                                // Se houver tinta significativa, arrasta o centro matematicamente para cima da tinta
-                                if (M.m00 > 15) { 
-                                    trueCX = sX + (M.m10 / M.m00);
-                                    trueCY = sY + (M.m01 / M.m00);
+                                // Arrasta o centro matematicamente para cima da tinta
+                                if (M_ink.m00 > 15) { 
+                                    trueCX = sX + (M_ink.m10 / M_ink.m00);
+                                    trueCY = sY + (M_ink.m01 / M_ink.m00);
                                 }
                                 sRoi.delete();
                                 
-                                // CAIXA DE LEITURA (rRect) exata, focada no centro descoberto
+                                // CAIXA DE LEITURA focada no centro descoberto
                                 let rW = cellW * 0.35;
                                 let rH = rowH * 0.35;
                                 let rX = Math.max(0, trueCX - rW/2);
@@ -2159,7 +2153,6 @@
                                 rowScores.push({ index: j, score: count / total, rect: rRect });
                                 rRoi.delete();
                                 
-                                // Desenha caixa vermelha na imagem de auditoria
                                 cv.rectangle(debugMat, new cv.Point(rRect.x, rRect.y), new cv.Point(rRect.x+rRect.width, rRect.y+rRect.height), new cv.Scalar(255, 0, 0, 255), 2);
                                 currentX += cellW;
                             }
@@ -2169,7 +2162,6 @@
                             let second = rowScores[1];
                             let selectedIndex = null;
                             
-                            // Lógica Anti-Rasura Matemática: Tem de estar bem preenchida e superar a 2ª marcação mais escura
                             if (best.score > 0.15 && (best.score - second.score) > 0.08) {
                                 selectedIndex = best.index;
                             }
@@ -2179,7 +2171,6 @@
                                 let r = rowScores.find(rs => rs.index === selectedIndex).rect;
                                 cv.rectangle(debugMat, new cv.Point(r.x, r.y), new cv.Point(r.x+r.width, r.y+r.height), new cv.Scalar(0, 255, 0, 150), -1);
                             }
-                            currentY += rowH;
                         }
                         
                         let outCanvas = document.createElement('canvas');
@@ -2193,15 +2184,15 @@
                     }
                 };
 
-                // CHAMADA À IA (APENAS PARA ENQUADRAMENTO DA GRELHA)
+                // CHAMADA À IA (APENAS PARA ENQUADRAMENTO DOS 4 MARCADORES)
                 const callGeminiBoundingBox = async (base64Data, mimeType) => {
                     const apiKey = geminiKey.value;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
                     const prompt = `Aja como um sistema de Visão Computacional Especializado.
-Sua ÚNICA missão é encontrar a grelha de respostas (a tabela central que contém as alternativas e os números das questões).
+Sua ÚNICA missão é encontrar os 4 quadrados pretos sólidos (marcadores fiduciais) localizados nos cantos extremos da grelha de respostas.
 Ignore fundos, dedos, texto do cabeçalho ou QR code.
-Retorne as coordenadas da "bounding box" que envolve EXATAMENTE a borda exterior PRETA da tabela de respostas.
+Retorne as coordenadas da "bounding box" que engloba EXATAMENTE estes 4 quadrados pretos na imagem.
 Use a escala proporcional de 0 a 1000.`;
 
                     const payload = {
@@ -2937,7 +2928,7 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
 
                 const generatePDF = async () => {
                     const actionName = editingExamId.value 
-                        ? "⚠️ ATENÇÃO! Atualizar irá baralhar as questões e gerar novos QR Codes. As impressões antigas deixarão de funcionar na correção OMR. Tem a certeza absoluta de que deseja continuar?" 
+                        ? "Gerar PDF atualizado? (Se não adicionou nem removeu questões, os gabaritos antigos funcionarão perfeitamente!)" 
                         : "Gerar e Baixar PDF da Prova?";
                     triggerConfirm(actionName, async () => {
                         try {
@@ -2959,50 +2950,123 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                             const imgSizes = { small: 80, medium: 150, large: 250 };
                             const currentImgWidth = imgSizes[printConfig.value.qImageSize] || imgSizes.medium;
 
-                            const versions = [];
-                            const mode = examConfig.value.variationMode;
-                            let numVersions = 2; 
+                            let versions = [];
+                            let studentVersionMap = {};
+                            let examId = editingExamId.value;
+                            let plainExamData;
 
-                            if (mode === 'unique') numVersions = classStudents.length;
-                            else if (mode === '1_10') numVersions = Math.ceil(classStudents.length / 10);
-                            
-                            for (let i = 0; i < numVersions; i++) {
-                                let qs = JSON.parse(JSON.stringify(baseQ)).map(q => ({...q, correctIndex: q.correct}));
-                                if (i > 0 || mode !== 'standard') { 
-                                    qs.sort(() => Math.random() - 0.5);
-                                    qs.forEach(q => {
-                                        if (q.type !== 'ce') { 
-                                            let opts = q.options.map((o, idx) => ({...o, isCorrect: idx === q.correctIndex}));
-                                            opts.sort(() => Math.random() - 0.5);
-                                            q.options = opts;
-                                            q.correctIndex = opts.findIndex(o => o.isCorrect);
+                            if (examId) {
+                                const existingExam = await db.exams.get(examId);
+                                const oldIds = existingExam.versions[0].questions.map(q => q.id).sort().join(',');
+                                const newIds = baseQ.map(q => q.id).sort().join(',');
+                                
+                                if (oldIds === newIds && existingExam.variationMode === examConfig.value.variationMode) {
+                                    // ATUALIZAÇÃO SEGURA: Preserva embaralhamento e QR Codes antigos
+                                    versions = existingExam.versions.map(v => {
+                                        v.questions.forEach(vq => {
+                                            const updatedQ = baseQ.find(bq => bq.id === vq.id);
+                                            if (updatedQ) {
+                                                vq.text = updatedQ.text;
+                                                vq.image = updatedQ.image;
+                                                // Não reordenar 'options' ou 'correctIndex' para manter compatibilidade com OMR antigo!
+                                            }
+                                        });
+                                        return v;
+                                    });
+                                    studentVersionMap = existingExam.studentMap;
+                                    
+                                    // Adiciona apenas alunos novos que entraram na turma depois da 1ª impressão
+                                    classStudents.forEach((s, idx) => {
+                                        if (studentVersionMap[s.id] === undefined) {
+                                            studentVersionMap[s.id] = idx % versions.length;
                                         }
                                     });
+
+                                    plainExamData = { 
+                                        ...existingExam,
+                                        title: examConfig.value.title, 
+                                        classId: examConfig.value.classId, 
+                                        type: examConfig.value.type, 
+                                        weight: parseFloat(examConfig.value.weight), 
+                                        bimester: parseInt(examConfig.value.bimester),
+                                        teacher: examConfig.value.teacher,
+                                        versions: versions,
+                                        studentMap: studentVersionMap
+                                    };
+                                    await db.exams.put(plainExamData);
+                                } else {
+                                    // ESTRUTURA ALTERADA: Precisa de re-embaralhar tudo
+                                    showToast('Estrutura alterada! Gerando novos gabaritos.', 'warning');
+                                    const mode = examConfig.value.variationMode;
+                                    let numVersions = 2; 
+                                    if (mode === 'unique') numVersions = classStudents.length;
+                                    else if (mode === '1_10') numVersions = Math.ceil(classStudents.length / 10);
+                                    
+                                    for (let i = 0; i < numVersions; i++) {
+                                        let qs = JSON.parse(JSON.stringify(baseQ)).map(q => ({...q, correctIndex: q.correct}));
+                                        if (i > 0 || mode !== 'standard') { 
+                                            qs.sort(() => Math.random() - 0.5);
+                                            qs.forEach(q => {
+                                                if (q.type !== 'ce') { 
+                                                    let opts = q.options.map((o, idx) => ({...o, isCorrect: idx === q.correctIndex}));
+                                                    opts.sort(() => Math.random() - 0.5);
+                                                    q.options = opts;
+                                                    q.correctIndex = opts.findIndex(o => o.isCorrect);
+                                                }
+                                            });
+                                        }
+                                        versions.push({ id: i, label: `Tipo ${i+1}`, questions: qs });
+                                    }
+                                    classStudents.forEach((s, idx) => { studentVersionMap[s.id] = idx % numVersions; });
+                                    plainExamData = { 
+                                        ...existingExam,
+                                        title:examConfig.value.title, classId:examConfig.value.classId, 
+                                        date:Date.now(), versions: versions, studentMap: studentVersionMap, 
+                                        type: examConfig.value.type, weight: parseFloat(examConfig.value.weight), 
+                                        bimester: parseInt(examConfig.value.bimester),
+                                        teacher: examConfig.value.teacher,
+                                        variationMode: examConfig.value.variationMode
+                                    };
+                                    await db.exams.put(plainExamData);
                                 }
-                                versions.push({ id: i, label: `Tipo ${i+1}`, questions: qs });
-                            }
-
-                            const studentVersionMap = {};
-                            classStudents.forEach((s, idx) => { studentVersionMap[s.id] = idx % numVersions; });
-
-                            const examData = { 
-                                title:examConfig.value.title, classId:examConfig.value.classId, 
-                                date:Date.now(), versions: versions, studentMap: studentVersionMap, 
-                                type: examConfig.value.type, weight: parseFloat(examConfig.value.weight), 
-                                bimester: parseInt(examConfig.value.bimester),
-                                teacher: examConfig.value.teacher,
-                                variationMode: examConfig.value.variationMode
-                            };
-                            
-                            const plainExamData = JSON.parse(JSON.stringify(examData));
-                            
-                            let examId;
-                            if (editingExamId.value) {
-                                examId = editingExamId.value;
-                                await db.exams.put({ ...plainExamData, id: examId });
                                 editingExamId.value = null; 
                             } else {
+                                // PROVA NOVA (CRIADA PELA PRIMEIRA VEZ)
+                                const mode = examConfig.value.variationMode;
+                                let numVersions = 2; 
+
+                                if (mode === 'unique') numVersions = classStudents.length;
+                                else if (mode === '1_10') numVersions = Math.ceil(classStudents.length / 10);
+                                
+                                for (let i = 0; i < numVersions; i++) {
+                                    let qs = JSON.parse(JSON.stringify(baseQ)).map(q => ({...q, correctIndex: q.correct}));
+                                    if (i > 0 || mode !== 'standard') { 
+                                        qs.sort(() => Math.random() - 0.5);
+                                        qs.forEach(q => {
+                                            if (q.type !== 'ce') { 
+                                                let opts = q.options.map((o, idx) => ({...o, isCorrect: idx === q.correctIndex}));
+                                                opts.sort(() => Math.random() - 0.5);
+                                                q.options = opts;
+                                                q.correctIndex = opts.findIndex(o => o.isCorrect);
+                                            }
+                                        });
+                                    }
+                                    versions.push({ id: i, label: `Tipo ${i+1}`, questions: qs });
+                                }
+
+                                classStudents.forEach((s, idx) => { studentVersionMap[s.id] = idx % numVersions; });
+
+                                plainExamData = { 
+                                    title:examConfig.value.title, classId:examConfig.value.classId, 
+                                    date:Date.now(), versions: versions, studentMap: studentVersionMap, 
+                                    type: examConfig.value.type, weight: parseFloat(examConfig.value.weight), 
+                                    bimester: parseInt(examConfig.value.bimester),
+                                    teacher: examConfig.value.teacher,
+                                    variationMode: examConfig.value.variationMode
+                                };
+                                
                                 examId = await db.exams.add(plainExamData);
+                                plainExamData.id = examId;
                             }
                             
                             load();
@@ -3019,37 +3083,48 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                 const questionsForStudent = versions[vIndex].questions;
                                 
                                 let answerKeyRows = [];
-                                
+
+                                // PADRÃO INDUSTRIAL OMR
+                                // LINHA 0: Marcadores Fiduciais de Topo (Quadrados Pretos Sólidos)
                                 answerKeyRows.push([
-                                    { text: 'Questão', bold: true, fillColor: '#eee', alignment: 'center', fontSize: 9, margin:[0, 1] },
-                                    { text: 'RESPOSTA', bold: true, fillColor: '#eee', alignment: 'center', fontSize: 9, colSpan: 5, margin:[0, 1] },
-                                    {}, {}, {}, {} 
+                                    { canvas: [{ type: 'rect', x: 12, y: 5, w: 12, h: 12, color: '#000000' }], border: [false,false,false,false] },
+                                    { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] }, 
+                                    { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
+                                    { canvas: [{ type: 'rect', x: 6, y: 5, w: 12, h: 12, color: '#000000' }], border: [false,false,false,false] }
+                                ]);
+
+                                // LINHA 1: Cabeçalho com Letras (Drop-out color #d1d5db) e Questão
+                                answerKeyRows.push([
+                                    { text: 'Q', bold: true, color: '#9ca3af', alignment: 'center', fontSize: 9, margin:[0, 4], border: [false,false,false,false] },
+                                    { text: 'A', bold: true, color: '#d1d5db', alignment: 'center', fontSize: 9, margin:[0, 4], border: [false,false,false,false] },
+                                    { text: 'B', bold: true, color: '#d1d5db', alignment: 'center', fontSize: 9, margin:[0, 4], border: [false,false,false,false] },
+                                    { text: 'C', bold: true, color: '#d1d5db', alignment: 'center', fontSize: 9, margin:[0, 4], border: [false,false,false,false] },
+                                    { text: 'D', bold: true, color: '#d1d5db', alignment: 'center', fontSize: 9, margin:[0, 4], border: [false,false,false,false] },
+                                    { text: 'E', bold: true, color: '#d1d5db', alignment: 'center', fontSize: 9, margin:[0, 4], border: [false,false,false,false] }
                                 ]);
 
                                 for(let k=0; k<questionsForStudent.length; k++) { 
                                     const q = questionsForStudent[k];
                                     const qType = q.type;
                                     
-                                    let r = [{ text: k + 1, bold: true, alignment: 'center', fillColor: '#f8f9fa', fontSize: 9, margin:[0, 2] }];
+                                    // Números das questões (cinza médio, drop-out no processamento ótico)
+                                    let r = [{ text: k + 1, bold: true, alignment: 'center', color: '#9ca3af', fontSize: 9, margin:[0, 4], border: [false,false,false,false] }];
                                     
-                                    let labels;
-                                    if (qType === 'ce') {
-                                        labels = ['C', 'E'];
-                                    } else {
-                                        labels = ['A', 'B', 'C', 'D', 'E'];
-                                    }
+                                    let labels = (qType === 'ce') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'];
                                     
                                     for(let j=0; j<5; j++) {
                                         if(j < labels.length) {
                                             r.push({ 
                                                 stack: [
+                                                    // Círculos em Drop-Out Color (desaparecem no OMR binarizado, isolando a tinta do aluno)
                                                     { 
-                                                        canvas: [{ type: 'ellipse', x: 8, y: 8, r1: 6, r2: 6, lineWidth: 1, lineColor: '#9ca3af' }], 
+                                                        canvas: [{ type: 'ellipse', x: 8, y: 8, r1: 6, r2: 6, lineWidth: 1, lineColor: '#d1d5db' }], 
                                                         alignment: 'center' 
                                                     },
-                                                    { text: labels[j], fontSize: 7, color:'#6b7280', alignment: 'center', relativePosition: {x:0, y:-10} }
+                                                    { text: labels[j], fontSize: 7, color:'#d1d5db', alignment: 'center', relativePosition: {x:0, y:-10} }
                                                 ],
-                                                margin: [0, 1]
+                                                margin: [0, 1],
+                                                border: [false,false,false,false]
                                             });
                                         } else {
                                             r.push({ text: '', border: [false, false, false, false] });
@@ -3058,23 +3133,16 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                     answerKeyRows.push(r); 
                                 }
 
+                                // LINHA FINAL: Marcadores Fiduciais de Fundo
+                                answerKeyRows.push([
+                                    { canvas: [{ type: 'rect', x: 12, y: 5, w: 12, h: 12, color: '#000000' }], border: [false,false,false,false] },
+                                    { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] }, 
+                                    { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
+                                    { canvas: [{ type: 'rect', x: 6, y: 5, w: 12, h: 12, color: '#000000' }], border: [false,false,false,false] }
+                                ]);
+
                                 content.push({
                                     stack: [
-                                        {
-                                            canvas: [
-                                                {
-                                                    type: 'rect',
-                                                    x: 0,
-                                                    y: 0,
-                                                    w: 515,
-                                                    h: 110,
-                                                    r: 6,
-                                                    lineWidth: 1,
-                                                    lineColor: '#6b7280'
-                                                }
-                                            ],
-                                            absolutePosition: { x: 40, y: 40 }
-                                        },
                                         {
                                             columns: [
                                                 (settings.value.logo && settings.value.logo.startsWith('data:image')) 
@@ -3113,17 +3181,11 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                         { text: 'CARTÃO RESPOSTA', fontSize: 10, bold: true, alignment: 'center', color: '#4b5563', margin: [0, 20, 0, 5] },
                                         {
                                             table: {
-                                                headerRows: 1,
+                                                headerRows: 0,
                                                 widths: [35, 30, 30, 30, 30, 30],
                                                 body: answerKeyRows
                                             },
-                                            // BORDAS GROSSAS NO PDF PARA O OPENCV DETETAR A TABELA MESMO COM MÁ ILUMINAÇÃO
-                                            layout: {
-                                                hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 4 : 1,
-                                                vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 4 : 1,
-                                                hLineColor: (i, node) => (i === 0 || i === node.table.body.length) ? '#000000' : '#d1d5db',
-                                                vLineColor: (i, node) => (i === 0 || i === node.table.widths.length) ? '#000000' : '#d1d5db',
-                                            },
+                                            layout: 'noBorders',
                                             alignment: 'center',
                                             margin: [0, 0, 0, 20]
                                         },
@@ -3344,7 +3406,6 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                         baseVersion.questions.forEach((q, i) => {
                             let correctAnswerText = '';
                             
-                            // Formata a resposta correta baseado no tipo de questão
                             if (q.type === 'ce') {
                                 correctAnswerText = ['Certo', 'Errado'][q.correctIndex] || '?';
                             } else if (q.type === 'vf') {
@@ -3369,7 +3430,6 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                             content.push({ text: `Questão ${i + 1} - ${q.subject} (${q.topic})`, bold: true, fontSize: 11, margin: [0, 15, 0, 5], color: '#4f46e5' });
                             content.push({ text: q.text, fontSize: 10, margin: [0, 0, 0, 5] });
                             
-                            // Adiciona a imagem se houver
                             if(q.image && typeof q.image === 'string' && q.image.startsWith('data:image')) {
                                 content.push({image: q.image, width: 150, margin: [0, 5, 0, 5]});
                             }
@@ -3385,7 +3445,6 @@ Caso seja "assoc": {"subject":"...","topic":"...","text":"Associe as colunas:","
                                 margin: [0, 0, 0, 10] 
                             });
                             
-                            // Linha divisória
                             content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e5e7eb' }], margin: [0, 5, 0, 5] });
                         });
                     } else {
