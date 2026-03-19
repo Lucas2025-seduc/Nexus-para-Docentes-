@@ -1158,8 +1158,8 @@
                     <button @click="showResultDetailsModal = false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
                 </div>
                 <div class="flex flex-1 overflow-hidden flex-col sm:flex-row">
-                    <div class="w-full sm:w-1/2 flex flex-col border-r border-gray-200">
-                        <div class="p-2 bg-indigo-50 border-b border-indigo-100 text-[10px] font-bold text-indigo-700 text-center uppercase tracking-widest flex items-center justify-center gap-2">
+                    <div class="w-full h-1/2 sm:h-full sm:w-1/2 flex flex-col border-b sm:border-b-0 sm:border-r border-gray-200">
+                        <div class="p-2 bg-indigo-50 border-b border-indigo-100 text-[10px] font-bold text-indigo-700 text-center uppercase tracking-widest flex items-center justify-center gap-2 shrink-0">
                             <i class="fa-solid fa-pen"></i> Toque na resposta para corrigir
                         </div>
                         <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-2">
@@ -1201,8 +1201,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="w-full sm:w-1/2 p-4 bg-gray-900 overflow-y-auto flex flex-col items-center">
-                        <p class="text-xs font-bold text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-2"><i class="fa-solid fa-crop-simple"></i> Enquadramento da IA</p>
+                    <div class="w-full h-1/2 sm:h-full sm:w-1/2 p-4 bg-gray-900 overflow-y-auto flex flex-col items-center">
+                        <p class="text-xs font-bold text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-2 shrink-0"><i class="fa-solid fa-crop-simple"></i> Enquadramento da IA</p>
                         <img v-if="selectedResultDetails?.annotatedImage" :src="selectedResultDetails.annotatedImage" class="w-full h-auto object-contain rounded-xl shadow-2xl border border-gray-700">
                         <div v-else class="text-gray-500 text-xs italic text-center mt-10">Imagem do enquadramento indisponível.</div>
                     </div>
