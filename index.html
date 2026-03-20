@@ -157,12 +157,12 @@
 
             <!-- CORREÇÃO HÍBRIDA IA -->
             <div v-if="currentView==='correction'" class="max-w-xl mx-auto space-y-4 animate-fade-in pb-20">
-                <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden"><div class="z-10"><h2 class="text-2xl font-black">Correção Inteligente</h2><p class="text-xs text-indigo-200">IA + Matemática OMR de Alta Precisão</p></div><i class="fa-solid fa-brain text-5xl text-white/20"></i></div>
+                <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden"><div class="z-10"><h2 class="text-2xl font-black">Correção Inteligente</h2><p class="text-xs text-indigo-200">OpenCV (Foco) + IA (Gabarito)</p></div><i class="fa-solid fa-brain text-5xl text-white/20"></i></div>
                 <div class="bg-white p-5 rounded-2xl shadow-sm border">
-                    <div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div><div><h3 class="font-bold text-gray-800 text-lg">Scanner IA</h3><p class="text-xs text-gray-500">Sem erros: Foco IA + Leitura Matemática de Tinta.</p></div></div>
+                    <div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div><div><h3 class="font-bold text-gray-800 text-lg">Scanner AI</h3><p class="text-xs text-gray-500">Sem erros: Foco na grelha e leitura pela IA Gemini.</p></div></div>
                     <div class="bg-gray-50 p-3 rounded-xl mb-4 border">
                         <div class="flex justify-between items-center mb-1">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase">API Gemini</label>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">API Gemini (Auto-Descoberta)</label>
                         </div>
                         <div class="flex gap-2">
                             <input type="password" v-model="geminiKey" class="flex-1 bg-white border rounded-lg px-3 py-2 text-xs font-mono outline-none" @change="saveSettings(true)">
@@ -176,7 +176,7 @@
                         <button @click="startUnifiedScanner" class="bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-700 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
                             <i class="fa-solid fa-camera-viewfinder text-lg mb-0.5"></i> Escanear Prova
                         </button>
-                        <button @click="()=>document.getElementById('aiUploadInput').click()" class="bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-600 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
+                        <button @click="triggerAIUpload" class="bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-600 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
                             <i class="fa-solid fa-images text-lg mb-0.5"></i> Galeria
                         </button>
                         <button @click="startManualEntry" class="bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition flex flex-col items-center justify-center gap-1 active:scale-95 text-xs">
@@ -300,7 +300,7 @@
         <div v-if="showResultDetailsModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4">
             <div class="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col sm:flex-row overflow-hidden">
                 <div class="w-full h-1/2 sm:h-full sm:w-1/2 flex flex-col border-r"><div class="p-4 bg-indigo-600 text-white flex justify-between"><h3 class="font-bold">{{selectedResultDetails?.studentName}} - {{selectedResultDetails?.score}}</h3><button @click="showResultDetailsModal=false"><i class="fa-solid fa-times"></i></button></div><div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-2"><div v-for="(q, idx) in selectedResultDetails?.questions" class="bg-white p-3 rounded-xl border flex justify-between items-center" :class="selectedResultDetails.answers[idx]===q.correctIndex?'border-emerald-200':'border-red-200'"><div class="flex gap-3"><span class="font-bold text-gray-400 w-5">#{{idx+1}}</span><div class="text-[9px] uppercase font-bold text-gray-400">Gab: <span class="text-emerald-600 text-base">{{getAlternativeLabel(q.type, q.correctIndex)}}</span></div></div><div><select v-model="selectedResultDetails.answers[idx]" @change="saveUpdatedAnswers" class="font-black text-right outline-none bg-transparent" :class="selectedResultDetails.answers[idx]===q.correctIndex?'text-emerald-600':'text-red-500'"><option :value="null">-</option><template v-if="q.type==='ce'"><option :value="0">C</option><option :value="1">E</option></template><template v-else><option v-for="(lbl,i) in ['A','B','C','D','E']" :value="i">{{lbl}}</option></template></select></div></div></div></div>
-                <div class="w-full h-1/2 sm:h-full sm:w-1/2 p-4 bg-gray-900 overflow-y-auto flex flex-col items-center"><p class="text-xs font-bold text-gray-400 mb-3"><i class="fa-solid fa-crop-simple"></i> Leitura OMR OpenCV</p><img v-if="selectedResultDetails?.annotatedImage" :src="selectedResultDetails.annotatedImage" class="w-full object-contain rounded-xl border border-gray-700"></div>
+                <div class="w-full h-1/2 sm:h-full sm:w-1/2 p-4 bg-gray-900 overflow-y-auto flex flex-col items-center"><p class="text-xs font-bold text-gray-400 mb-3"><i class="fa-solid fa-crop-simple"></i> Recorte OpenCV enviado à IA</p><img v-if="selectedResultDetails?.annotatedImage" :src="selectedResultDetails.annotatedImage" class="w-full object-contain rounded-xl border border-gray-700"></div>
             </div>
         </div>
 
@@ -371,7 +371,7 @@
                  <button @click="stopUnifiedScanner" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition z-50"><i class="fa-solid fa-times text-xl text-white"></i></button>
                  <div class="text-center space-y-4 px-6">
                      <i class="fa-solid fa-wand-magic-sparkles text-5xl text-emerald-400 mb-2 animate-bounce"></i>
-                     <p class="text-white font-bold text-lg">A isolar gabarito (IA)...</p>
+                     <p class="text-white font-bold text-lg">A isolar gabarito (OpenCV)...</p>
                      <p class="text-gray-400 text-sm">Garantindo precisão matemática.</p>
                  </div>
             </div>
@@ -650,17 +650,18 @@
                     if(exst) await db.results.put({...dt,id}); results.value=await db.results.toArray(); return id;
                 };
 
-                const handleAIUpload=(e)=>{Array.from(e.target.files).forEach(f=>omrCorrectionQueue.value.push({id:crypto.randomUUID(),file:f,name:f.name,status:'pending',message:'Aguardando...',score:null})); e.target.value='';};
+                const triggerAIUpload=()=>document.getElementById('aiUploadInput').click();
+                const handleAIUpload=(e)=>{Array.from(e.target.files).forEach(f=>omrCorrectionQueue.value.push({id:crypto.randomUUID(),file:f,name:f.name,status:'pending',message:'Aguardando...',score:null})); e.target.value=''; if(!isProcessingQueue.value) processOMRQueue();};
                 const scanFileForQR=async(f)=>{const s=new Html5Qrcode("hidden-qr-reader");try{return await s.scanFile(f,true)}catch(e){throw new Error("QR não detetado")}finally{try{s.clear()}catch(e){}}};
 
                 const preprocessImage=(file)=>new Promise((r,j)=>{let i=new Image();i.onload=()=>{let c=document.createElement('canvas'),x=c.getContext('2d');if(i.height>i.width){c.width=i.height;c.height=i.width;x.translate(i.height/2,i.width/2);x.rotate(-90*Math.PI/180);x.drawImage(i,-i.width/2,-i.height/2,i.width,i.height);}else{c.width=i.width;c.height=i.height;x.drawImage(i,0,0,i.width,i.height);}let d=x.getImageData(0,0,c.width,c.height);for(let k=0;k<d.data.length;k+=4){let g=d.data[k]*0.299+d.data[k+1]*0.587+d.data[k+2]*0.114;d.data[k]=d.data[k+1]=d.data[k+2]=g;}x.putImageData(d,0,0);r({base64:c.toDataURL('image/jpeg',0.85).split(',')[1],mimeType:'image/jpeg'});};i.onerror=j;i.src=URL.createObjectURL(file);});
 
-                // A MAGIA: Combinação de IA (Encontrar Cantos) + OpenCV (Limpar cinzento e ver tinta escura)
-                const extractAnswersWithOpenCV = (b64, pts, nQ) => {
-                    return new Promise((resolve, reject) => {
+                // NOVO FLUXO DE CORREÇÃO CIRÚRGICA
+                const cropPaperOpenCV = (b64) => {
+                    return new Promise((resolve) => {
                         let img = new Image();
                         img.onload = () => {
-                            let s, g, wp, wpt, dbM;
+                            let s, g, t, cnts, hie, wp;
                             try {
                                 let canvas = document.createElement('canvas');
                                 canvas.width = img.width; canvas.height = img.height;
@@ -668,76 +669,91 @@
 
                                 s = cv.imread(canvas);
                                 g = new cv.Mat(); cv.cvtColor(s, g, cv.COLOR_RGBA2GRAY);
+                                t = new cv.Mat(); cv.threshold(g, t, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+                                cnts = new cv.MatVector(); hie = new cv.Mat();
+                                cv.findContours(t, cnts, hie, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                                let tl = { x: (pts.tl[0]/1000)*img.width, y: (pts.tl[1]/1000)*img.height };
-                                let tr = { x: (pts.tr[0]/1000)*img.width, y: (pts.tr[1]/1000)*img.height };
-                                let br = { x: (pts.br[0]/1000)*img.width, y: (pts.br[1]/1000)*img.height };
-                                let bl = { x: (pts.bl[0]/1000)*img.width, y: (pts.bl[1]/1000)*img.height };
-
-                                let mW = Math.max(Math.hypot(br.x - bl.x, br.y - bl.y), Math.hypot(tr.x - tl.x, tr.y - tl.y));
-                                let mH = Math.max(Math.hypot(tr.x - br.x, tr.y - br.y), Math.hypot(tl.x - bl.x, tl.y - bl.y));
-                                mW = Math.round(mW); mH = Math.round(mH);
-
-                                let sT = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
-                                let dT = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, mW - 1, 0, mW - 1, mH - 1, 0, mH - 1]);
-
-                                wp = new cv.Mat();
-                                let M = cv.getPerspectiveTransform(sT, dT);
-                                cv.warpPerspective(g, wp, M, new cv.Size(mW, mH));
-
-                                // MAGIC THRESHOLD: Remove círculos cinzentos clarinhos e mantém a tinta da caneta preta/azul
-                                wpt = new cv.Mat();
-                                cv.threshold(wp, wpt, 150, 255, cv.THRESH_BINARY_INV);
-
-                                dbM = new cv.Mat();
-                                cv.cvtColor(wp, dbM, cv.COLOR_GRAY2RGBA);
-
-                                let ans = [];
-                                let tW = 185; let c0 = 35 / tW; let ca = 30 / tW; let numRows = nQ + 3; let rH = mH / numRows;
-
-                                for (let i = 0; i < nQ; i++) {
-                                    let rs = []; let cX = c0 * mW; let bY = (i + 2) * rH; let cellH = rH;
-
-                                    for (let j = 0; j < 5; j++) {
-                                        let cW = ca * mW; let bX = cX + cW / 2; let centerY = bY + cellH / 2;
-                                        let sW = cW * 0.4; let sH = cellH * 0.5;
-                                        let rx = Math.max(0, bX - sW/2); let ry = Math.max(0, centerY - sH/2);
-                                        let rw = Math.min(mW - rx, sW); let rh = Math.min(mH - ry, sH);
-
-                                        let rr = new cv.Rect(Math.floor(rx), Math.floor(ry), Math.floor(rw), Math.floor(rh));
-                                        let ro = wpt.roi(rr);
-
-                                        let count = cv.countNonZero(ro);
-                                        let total = rw * rh;
-                                        let density = count / total;
-
-                                        rs.push({ i: j, s: density, r: rr });
-                                        ro.delete();
-
-                                        cv.rectangle(dbM, new cv.Point(rr.x, rr.y), new cv.Point(rr.x + rr.width, rr.y + rr.height), new cv.Scalar(255, 0, 0, 255), 2);
-                                        cX += cW;
-                                    }
-
-                                    rs.sort((a, b) => b.s - a.s);
-                                    // Tolerância de marcação rigorosa: tem de ter pelo menos 10% de preenchimento e distar da segunda mais preenchida (para evitar rasuras mal apagadas)
-                                    let si = (rs[0].s > 0.10 && (rs[0].s - rs[1].s) > 0.05) ? rs[0].i : null;
-                                    ans.push(si);
-
-                                    if (si !== null) {
-                                        let r = rs.find(x => x.i === si).r;
-                                        cv.rectangle(dbM, new cv.Point(r.x, r.y), new cv.Point(r.x + r.width, r.y + r.height), new cv.Scalar(0, 255, 0, 150), -1);
+                                let w = t.cols, h = t.rows;
+                                let bTL = 9999, bTR = 9999, bBL = 9999, bBR = 9999;
+                                let mTL = null, mTR = null, mBL = null, mBR = null;
+                                
+                                for (let i = 0; i < cnts.size(); ++i) {
+                                    let c = cnts.get(i); let a = cv.contourArea(c);
+                                    if (a > 10 && a < (w * h * 0.05)) {
+                                        let M = cv.moments(c, false);
+                                        if (M.m00 > 0) {
+                                            let cx = M.m10 / M.m00, cy = M.m01 / M.m00;
+                                            let dtl = Math.hypot(cx, cy), dtr = Math.hypot(cx - w, cy);
+                                            let dbl = Math.hypot(cx, cy - h), dbr = Math.hypot(cx - w, cy - h);
+                                            if (cx < w/2 && cy < h/2 && dtl < bTL) { bTL = dtl; mTL = {x:cx, y:cy}; }
+                                            if (cx > w/2 && cy < h/2 && dtr < bTR) { bTR = dtr; mTR = {x:cx, y:cy}; }
+                                            if (cx < w/2 && cy > h/2 && dbl < bBL) { bBL = dbl; mBL = {x:cx, y:cy}; }
+                                            if (cx > w/2 && cy > h/2 && dbr < bBR) { bBR = dbr; mBR = {x:cx, y:cy}; }
+                                        }
                                     }
                                 }
 
-                                let oC = document.createElement('canvas');
-                                cv.imshow(oC, dbM);
-                                resolve({ ans, img: oC.toDataURL('image/jpeg', 0.8) });
+                                let foundQuad = false;
+                                let ptTL, ptTR, ptBR, ptBL;
 
-                            } catch (e) { reject(e); } finally {
-                                if (s) s.delete(); if (g) g.delete(); if (wp) wp.delete(); if (wpt) wpt.delete(); if (dbM) dbM.delete();
+                                if (mTL && mTR && mBL && mBR) {
+                                    let area = 0.5 * Math.abs((mTL.x*mTR.y + mTR.x*mBR.y + mBR.x*mBL.y + mBL.x*mTL.y) - (mTL.y*mTR.x + mTR.y*mBR.x + mBR.y*mBL.x + mBL.y*mTL.x));
+                                    if (area > (w * h * 0.05)) {
+                                        ptTL = mTL; ptTR = mTR; ptBR = mBR; ptBL = mBL;
+                                        foundQuad = true;
+                                    }
+                                }
+
+                                if (!foundQuad) {
+                                    let maxArea = 0; let bestApprox = null;
+                                    for (let i = 0; i < cnts.size(); ++i) {
+                                        let c = cnts.get(i); let area = cv.contourArea(c);
+                                        if (area > (w * h * 0.15)) {
+                                            let peri = cv.arcLength(c, true); let approx = new cv.Mat();
+                                            cv.approxPolyDP(c, approx, 0.02 * peri, true);
+                                            if (approx.rows === 4 && area > maxArea) {
+                                                maxArea = area; if (bestApprox) bestApprox.delete(); bestApprox = approx.clone();
+                                            }
+                                            approx.delete();
+                                        }
+                                    }
+                                    if (bestApprox) {
+                                        let pts = []; for (let i=0; i<4; i++) pts.push({x: bestApprox.data32S[i*2], y: bestApprox.data32S[i*2+1]});
+                                        pts.sort((a,b) => a.y - b.y);
+                                        let top = pts.slice(0,2).sort((a,b) => a.x - b.x); let bot = pts.slice(2,4).sort((a,b) => a.x - b.x);
+                                        ptTL = top[0]; ptTR = top[1]; ptBR = bot[1]; ptBL = bot[0];
+                                        foundQuad = true; bestApprox.delete();
+                                    }
+                                }
+
+                                if (foundQuad) {
+                                    let mW = Math.max(Math.hypot(ptBR.x - ptBL.x, ptBR.y - ptBL.y), Math.hypot(ptTR.x - ptTL.x, ptTR.y - ptTL.y));
+                                    let mH = Math.max(Math.hypot(ptTR.x - ptBR.x, ptTR.y - ptBR.y), Math.hypot(ptTL.x - ptBL.x, ptTL.y - ptBL.y));
+                                    mW = Math.round(mW); mH = Math.round(mH);
+
+                                    let sT = cv.matFromArray(4, 1, cv.CV_32FC2, [ptTL.x, ptTL.y, ptTR.x, ptTR.y, ptBR.x, ptBR.y, ptBL.x, ptBL.y]);
+                                    let dT = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, mW - 1, 0, mW - 1, mH - 1, 0, mH - 1]);
+
+                                    wp = new cv.Mat();
+                                    let M = cv.getPerspectiveTransform(sT, dT);
+                                    cv.warpPerspective(s, wp, M, new cv.Size(mW, mH));
+                                    
+                                    let oC = document.createElement('canvas');
+                                    cv.imshow(oC, wp);
+                                    resolve(oC.toDataURL('image/jpeg', 0.9).split(',')[1]);
+
+                                    sT.delete(); dT.delete(); M.delete();
+                                } else {
+                                    resolve(b64);
+                                }
+                            } catch(e) {
+                                resolve(b64);
+                            } finally {
+                                if(s) s.delete(); if(g) g.delete(); if(t) t.delete(); if(cnts) cnts.delete(); if(hie) hie.delete(); if(wp) wp.delete();
                             }
                         };
-                        img.onerror = reject; img.src = 'data:image/jpeg;base64,' + b64;
+                        img.onerror = () => resolve(b64);
+                        img.src = 'data:image/jpeg;base64,' + b64;
                     });
                 };
 
@@ -758,34 +774,46 @@
                             }
 
                             let pImg=await preprocessImage(itm.file);
-                            itm.message=`A IA está a procurar os contornos da folha...`;
-
-                            let aiPrompt = `Aja como um sistema de Visão Computacional. Analise a imagem da prova e encontre as coordenadas exatas do CENTRO dos 4 quadrados pretos sólidos (marcadores) localizados nos cantos extremos da grelha de respostas.
-A imagem pode estar com perspetiva, então retorne os 4 pontos: top_left (canto superior esquerdo), top_right, bottom_right, bottom_left.
-Use uma escala de 0 a 1000, onde [0,0] é o canto superior esquerdo da foto e [1000,1000] é o canto inferior direito.
-Responda EXATAMENTE neste formato JSON: {"tl": [x, y], "tr": [x, y], "br": [x, y], "bl": [x, y]}`;
-
-                            let schema = {
-                                type: "OBJECT",
-                                properties: {
-                                    tl: {type: "ARRAY", items: {type: "INTEGER"}},
-                                    tr: {type: "ARRAY", items: {type: "INTEGER"}},
-                                    br: {type: "ARRAY", items: {type: "INTEGER"}},
-                                    bl: {type: "ARRAY", items: {type: "INTEGER"}}
-                                },
-                                required: ["tl", "tr", "br", "bl"]
-                            };
-
-                            let pts = await fetchGemini(aiPrompt, schema, pImg.base64, pImg.mimeType);
-
-                            itm.message=`Leitura matemática em curso...`;
-                            let nQ = getVersionQuestions(ex, vIdx).length;
                             
-                            let cvR = await extractAnswersWithOpenCV(pImg.base64, pts, nQ);
+                            let croppedBase64 = pImg.base64;
+                            if (!itm.preloadedData) { // Se veio da galeria, recorta usando OpenCV para isolar a prova
+                                itm.message=`Alinhando gabarito...`;
+                                croppedBase64 = await cropPaperOpenCV(pImg.base64);
+                            }
 
-                            let pAns={}; cvR.ans.forEach((a,i)=>{if(a!==null)pAns[i]=a});
+                            itm.message=`A Inteligência Artificial está a ler as respostas...`;
 
-                            let sid=await saveExamResult(ex.id,st.id,st.name,vIdx,pAns,cvR.img);
+                            let nQ = getVersionQuestions(ex, vIdx).length;
+
+                            let prompt = `Aja como um leitor ótico (OMR) de altíssima precisão. Analise a imagem fotográfica deste gabarito de respostas.
+A prova possui exatamente ${nQ} questões. A imagem contém uma grelha de respostas. Para cada linha (questão), o aluno marcou a sua escolha pintando O INTERIOR de um círculo com caneta escura.
+As alternativas podem ser (A, B, C, D, E) ou (Certo, Errado) impressas num tom cinza claro muito fraco.
+A sua ÚNICA e EXCLUSIVA tarefa é ler quais marcações ESCURAS foram feitas pelo aluno.
+Ignore completamente os círculos vazios (cinza claro). Concentre-se APENAS nas bolhas pintadas com tinta.
+
+Retorne ESTRITAMENTE um objeto JSON contendo a chave "answers", que deve ser um array com EXATAMENTE ${nQ} posições correspondentes a cada uma das ${nQ} questões (índice 0 = questão 1, índice 1 = questão 2, etc).
+Valores aceites para as posições do array:
+- 0: se a alternativa A (ou Certo) estiver pintada de escuro.
+- 1: se a alternativa B (ou Errado) estiver pintada de escuro.
+- 2: se a alternativa C estiver pintada de escuro.
+- 3: se a alternativa D estiver pintada de escuro.
+- 4: se a alternativa E estiver pintada de escuro.
+- null: se a questão estiver em branco (nenhum círculo escuro) OU se houver rasura (mais de um círculo escuro na mesma linha).
+
+NÃO ALUCINE. Utilize rigor absoluto. Analise linha a linha contando as bolhas.
+O formato deve ser exatamente: {"answers": [0, null, 1, 4, 2...]}`;
+
+                            let schema = { type: "OBJECT", properties: { answers: { type: "ARRAY", items: { type: "INTEGER", nullable: true } } }, required: ["answers"] };
+
+                            let aiResult = await fetchGemini(prompt, schema, croppedBase64, pImg.mimeType);
+                            if (!aiResult || !aiResult.answers) throw new Error("A IA falhou ao extrair o gabarito.");
+
+                            let pAns={};
+                            aiResult.answers.forEach((a,i)=>{
+                                if(a!==null && a!==undefined && i < nQ) pAns[i]=a;
+                            });
+
+                            let sid=await saveExamResult(ex.id,st.id,st.name,vIdx,pAns,"data:image/jpeg;base64,"+croppedBase64);
                             itm.status='success';
                             itm.resultData=results.value.find(r=>r.id===sid);
                             itm.score=itm.resultData.score;
@@ -1269,6 +1297,7 @@ Responda EXATAMENTE neste formato JSON: {"tl": [x, y], "tr": [x, y], "br": [x, y
                     installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, importBackup, triggerImport, backupData, testGeminiKey,
                     handleAIUpload, processOMRQueue, generateQuestionsAI, openResultDetails, saveUpdatedAnswers, getAlternativeLabel,
                     startManualEntry, confirmManualEntry, saveManualCorrection, loadFixKeyQuestions, openFixKey, saveFixedKey,
+                    triggerAIUpload: () => { const el = document.getElementById('aiUploadInput'); if(el) el.click(); },
                     changeQType, openQForm, saveQuestion, editQuestion, deleteQuestion: id=>triggerConfirm("Apagar?",async()=>{await db.questions.delete(id);load()}),
                     openEditExam, saveEditedExam, generatePDF, generateClassReportPDF, generateGeneralReportPDF, generateKeyPDF, generateCommentedKeyPDF,
                     getClassRanking, getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution, openStudentProfile: id=>{studentDetails.value=students.value.find(s=>s.id===id);showStudentModal.value=true},
