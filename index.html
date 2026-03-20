@@ -156,11 +156,11 @@
                 <div class="grid grid-cols-2 gap-3 pb-24 sm:pb-0"><button @click="generatePDF" :disabled="!examCart.length||!examConfig.classId" class="bg-indigo-600 text-white py-3.5 rounded-xl font-bold shadow-lg disabled:opacity-50"><i class="fa-solid fa-print"></i> {{editingExamId?'Atualizar PDF':'Gerar Prova'}}</button><button @click="showHistory=true" class="bg-white border text-gray-700 py-3.5 rounded-xl font-bold"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</button></div>
             </div>
 
-            <!-- CORREÇÃO HÍBRIDA -->
+            <!-- CORREÇÃO HÍBRIDA IA -->
             <div v-if="currentView==='correction'" class="max-w-xl mx-auto space-y-4 animate-fade-in pb-20">
-                <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden"><div class="z-10"><h2 class="text-2xl font-black">Correção Inteligente</h2><p class="text-xs text-indigo-200">OpenCV (Foco) + IA (Gabarito)</p></div><i class="fa-solid fa-brain text-5xl text-white/20"></i></div>
+                <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden"><div class="z-10"><h2 class="text-2xl font-black">Correção Inteligente</h2><p class="text-xs text-indigo-200">Visão IA + Foco sem Rasuras</p></div><i class="fa-solid fa-brain text-5xl text-white/20"></i></div>
                 <div class="bg-white p-5 rounded-2xl shadow-sm border">
-                    <div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div><div><h3 class="font-bold text-gray-800 text-lg">Scanner AI</h3><p class="text-xs text-gray-500">Sem erros: Foco na grelha e leitura pela IA Gemini.</p></div></div>
+                    <div class="flex items-center gap-4 mb-4"><div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-camera"></i></div><div><h3 class="font-bold text-gray-800 text-lg">Scanner AI</h3><p class="text-xs text-gray-500">Correção imune a rasuras lida pela Gemini.</p></div></div>
                     <div class="bg-gray-50 p-3 rounded-xl mb-4 border">
                         <div class="flex justify-between items-center mb-1">
                             <label class="text-[10px] font-bold text-gray-400 uppercase">API Gemini (Auto-Descoberta)</label>
@@ -216,6 +216,15 @@
                         <input list="dl-topics" v-model="aiGenConfig.topic" placeholder="Conteúdo" class="p-2 border rounded-lg text-sm outline-none">
                         <select v-model="aiGenConfig.difficulty" class="p-2 border rounded-lg text-sm outline-none"><option value="Ensino Fundamental">Fundamental</option><option value="Ensino Médio">Médio</option><option value="Ensino Superior">Superior</option></select>
                         <select v-model="aiGenConfig.style" class="p-2 border rounded-lg text-sm outline-none"><option value="Padrão">Escolar</option><option value="ENEM">ENEM</option><option value="Concurso Público">Concurso</option></select>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-xl border mt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Chave API Gemini</label>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="password" v-model="geminiKey" placeholder="Sua chave..." class="flex-1 bg-white border rounded-lg px-3 py-2 text-xs font-mono outline-none" @change="saveSettings(true)">
+                            <button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold"><i class="fa-solid fa-vial"></i></button>
+                        </div>
                     </div>
                     <div class="pt-2 border-t">
                         <label class="text-[10px] font-bold text-gray-400 uppercase block mb-2">Quantidades</label>
@@ -275,13 +284,32 @@
                 <div class="overflow-y-auto p-4 space-y-2 bg-gray-50/50 flex-1">
                     <div v-for="e in filteredHistoryExams" :key="e.id" class="bg-white border rounded-xl p-4 flex justify-between items-center">
                         <div><div class="font-bold text-sm">{{e.title}}</div><div class="text-[10px] text-gray-500 flex gap-1 mt-1"><span class="bg-indigo-50 text-indigo-700 px-1 rounded">{{getClassName(e.classId)}}</span><span class="bg-gray-100 px-1 rounded">{{e.bimester}}º Bim</span></div></div>
-                        <div class="flex gap-2"><button @click="generateKeyPDF(e)" class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600"><i class="fa-solid fa-key"></i></button><button @click="deleteExam(e.id)" class="w-8 h-8 rounded-full bg-red-50 text-red-400"><i class="fa-solid fa-trash"></i></button></div>
+                        <div class="flex gap-2"><button @click="openExamStats(e)" class="w-8 h-8 rounded-full bg-purple-50 text-purple-600"><i class="fa-solid fa-chart-pie"></i></button><button @click="openFixKey(e)" class="w-8 h-8 rounded-full bg-orange-50 text-orange-600"><i class="fa-solid fa-list-check"></i></button><button @click="generateKeyPDF(e)" class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600"><i class="fa-solid fa-key"></i></button><button @click="deleteExam(e.id)" class="w-8 h-8 rounded-full bg-red-50 text-red-400"><i class="fa-solid fa-trash"></i></button></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- DETALHES RESULTADO (O OLHO) - AGORA COM Z-INDEX SUPERIOR -->
+        <!-- CORRIGIR GABARITO (FIX KEY) -->
+        <div v-if="showFixKeyModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4">
+            <div class="bg-white rounded-2xl w-full max-w-md h-[80vh] flex flex-col">
+                <div class="p-4 border-b bg-orange-500 text-white flex justify-between"><h3 class="font-bold">Corrigir Gabarito</h3><button @click="showFixKeyModal=false"><i class="fa-solid fa-times"></i></button></div>
+                <div class="p-3 bg-orange-50 flex items-center gap-2"><span class="text-xs font-bold text-orange-800">Versão:</span><select v-model="fixKeySelectedVersion" @change="loadFixKeyQuestions" class="flex-1 p-2 border rounded-lg text-sm"><option v-for="(v,i) in fixKeyExam?.versions" :value="i">Tipo {{i+1}}</option></select></div>
+                <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-3">
+                    <div v-for="(q, idx) in fixKeyQuestions" :key="q.id" class="bg-white p-3 rounded-xl border">
+                        <p class="text-xs font-bold text-gray-700 mb-2">#{{idx+1}} {{q.text.substring(0,80)}}</p>
+                        <select v-model="q.newCorrectIndex" :disabled="q.type==='vf'||q.type==='assoc'" class="w-full p-2 bg-gray-50 border rounded-lg text-xs font-bold text-orange-700 outline-none">
+                            <option v-if="q.type==='ce'" :value="0">Certo</option><option v-if="q.type==='ce'" :value="1">Errado</option>
+                            <option v-else-if="q.type!=='vf'&&q.type!=='assoc'" v-for="(o,oi) in q.options" :value="oi">{{['A','B','C','D','E'][oi]}} - {{o.text}}</option>
+                            <option v-else :value="q.correctIndex">Múltiplos (Não Editável)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="p-4 border-t"><button @click="saveFixedKey" class="w-full bg-orange-500 text-white py-3 rounded-xl font-bold">Salvar e Recalcular Notas</button></div>
+            </div>
+        </div>
+
+        <!-- DETALHES RESULTADO -->
         <div v-if="showResultDetailsModal" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4">
             <div class="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col sm:flex-row overflow-hidden shadow-2xl">
                 <div class="w-full h-1/2 sm:h-full sm:w-1/2 flex flex-col border-r"><div class="p-4 bg-indigo-600 text-white flex justify-between"><h3 class="font-bold">{{selectedResultDetails?.studentName}} - {{selectedResultDetails?.score}}</h3><button @click="showResultDetailsModal=false"><i class="fa-solid fa-times text-xl"></i></button></div><div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-2"><div v-for="(q, idx) in selectedResultDetails?.questions" class="bg-white p-3 rounded-xl border flex justify-between items-center" :class="selectedResultDetails.answers[idx]===q.correctIndex?'border-emerald-200':'border-red-200'"><div class="flex gap-3"><span class="font-bold text-gray-400 w-5">#{{idx+1}}</span><div class="text-[9px] uppercase font-bold text-gray-400">Gab: <span class="text-emerald-600 text-base">{{getAlternativeLabel(q.type, q.correctIndex)}}</span></div></div><div><select v-model="selectedResultDetails.answers[idx]" @change="saveUpdatedAnswers" class="font-black text-right outline-none bg-transparent" :class="selectedResultDetails.answers[idx]===q.correctIndex?'text-emerald-600':'text-red-500'"><option :value="null">-</option><template v-if="q.type==='ce'"><option :value="0">C</option><option :value="1">E</option></template><template v-else><option v-for="(lbl,i) in ['A','B','C','D','E']" :value="i">{{lbl}}</option></template></select></div></div></div></div>
@@ -304,7 +332,7 @@
         <!-- UNIFIED SCANNER MODAL -->
         <div v-if="unifiedScanner.active" class="fixed inset-0 z-[500] flex flex-col bg-black animate-fade-in">
             <div class="p-4 flex justify-between items-center bg-gray-900 text-white z-30 shadow-md">
-                <h3 class="font-bold"><i class="fa-solid fa-camera"></i> Scan Inteligente</h3>
+                <h3 class="font-bold"><i class="fa-solid fa-expand"></i> Escanear Gabarito</h3>
                 <button @click="stopUnifiedScanner" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
 
@@ -314,7 +342,7 @@
                 <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20">
                     <div class="w-64 h-64 border-2 border-dashed border-white/50 rounded-3xl"></div>
                 </div>
-                <p class="text-white font-bold text-center mt-6 px-4 z-20">1. Aponte para o QR Code da prova</p>
+                <p class="text-white font-bold text-center mt-6 px-4 z-20">Passo 1: Aponte para o QR Code da prova</p>
             </div>
 
             <!-- STEP 2: Confirmation -->
@@ -326,24 +354,34 @@
                     <button @click="startUnifiedGridScan" class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-lg active:scale-95">
                         <i class="fa-solid fa-camera-viewfinder"></i> Alinhar Gabarito
                     </button>
+                    <!-- NEW: Import from Gallery specific to this student -->
+                    <button @click="triggerUnifiedGalleryUpload" class="mt-4 w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 text-sm active:scale-95">
+                        <i class="fa-solid fa-image"></i> Usar foto da Galeria
+                    </button>
+                    <input type="file" accept="image/*" id="unifiedGalleryInput" class="hidden" @change="handleUnifiedGalleryUpload">
                 </div>
             </div>
 
-            <!-- STEP 3: Captura Estática Guiada por OpenCV -->
+            <!-- STEP 3: Manual Capture with Frame -->
             <div v-show="unifiedScanner.step === 3" class="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
                 <video id="unified-camera-video" class="absolute inset-0 w-full h-full object-cover z-10" playsinline autoplay muted></video>
-                <canvas id="unified-camera-overlay" class="absolute inset-0 w-full h-full object-cover z-20 pointer-events-none"></canvas>
                 
                 <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 pb-24 z-20">
-                    <!-- Guia visual transparente -->
-                    <div class="w-full max-w-sm aspect-[1/1.4] border-2 border-dashed border-white/50 relative flex items-center justify-center rounded-lg shadow-[0_0_0_4000px_rgba(0,0,0,0.7)]">
-                        <p v-if="!unifiedScanner.readyToCapture" class="absolute -top-12 w-full text-center text-white font-bold text-sm bg-black/60 py-2 px-4 rounded-xl shadow-lg">Enquadre todo o gabarito aqui</p>
-                        <p v-else class="absolute -top-12 w-full text-center text-white font-bold text-sm bg-emerald-600 py-2 px-4 rounded-xl shadow-lg">Pronto! Fotografe agora.</p>
+                    <div class="w-full max-w-sm aspect-[1/1.4] border-2 border-emerald-500 relative flex items-center justify-center rounded-lg shadow-[0_0_0_4000px_rgba(0,0,0,0.8)]">
+                        <p class="absolute -top-12 w-full text-center text-white font-bold text-sm bg-emerald-600 py-2 px-4 rounded-xl shadow-lg">2. Enquadre as margens da prova aqui</p>
+                        <!-- Crosshairs -->
+                        <div class="absolute -top-3 -left-3 w-6 h-6 border-t-4 border-l-4 border-white"></div>
+                        <div class="absolute -top-3 -right-3 w-6 h-6 border-t-4 border-r-4 border-white"></div>
+                        <div class="absolute -bottom-3 -left-3 w-6 h-6 border-b-4 border-l-4 border-white"></div>
+                        <div class="absolute -bottom-3 -right-3 w-6 h-6 border-b-4 border-r-4 border-white"></div>
                     </div>
                 </div>
 
-                <div class="absolute bottom-8 left-0 right-0 flex justify-center z-30">
-                    <button @click="captureUnifiedGrid" class="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center border-4 border-white shadow-2xl active:scale-95 transition" :class="unifiedScanner.readyToCapture ? 'scale-110 bg-emerald-400' : ''">
+                <div class="absolute bottom-8 left-0 right-0 flex justify-center gap-6 z-30">
+                    <button @click="triggerUnifiedGalleryUpload" class="w-14 h-14 bg-indigo-500 rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition">
+                        <i class="fa-solid fa-image text-xl text-white"></i>
+                    </button>
+                    <button @click="captureUnifiedGrid" class="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center border-4 border-white shadow-2xl active:scale-95 transition">
                         <i class="fa-solid fa-camera text-3xl text-white"></i>
                     </button>
                 </div>
@@ -353,9 +391,9 @@
             <div v-if="unifiedScanner.step === 4" class="flex-1 flex items-center justify-center bg-black relative">
                  <button @click="stopUnifiedScanner" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition z-50"><i class="fa-solid fa-times text-xl text-white"></i></button>
                  <div class="text-center space-y-4 px-6">
-                     <i class="fa-solid fa-brain text-5xl text-purple-400 mb-2 animate-bounce"></i>
+                     <i class="fa-solid fa-brain text-5xl text-emerald-400 mb-2 animate-bounce"></i>
                      <p class="text-white font-bold text-lg">A Inteligência Artificial está a ler...</p>
-                     <p class="text-gray-400 text-sm">Garantindo precisão máxima e evitando rasuras.</p>
+                     <p class="text-gray-400 text-sm">Garantindo precisão e ignorando anotações laterais.</p>
                  </div>
             </div>
         </div>
@@ -633,110 +671,8 @@
 
                 const triggerAIUpload=()=>document.getElementById('aiUploadInput').click();
                 const handleAIUpload=(e)=>{Array.from(e.target.files).forEach(f=>omrCorrectionQueue.value.push({id:crypto.randomUUID(),file:f,name:f.name,status:'pending',message:'Aguardando...',score:null})); e.target.value=''; if(!isProcessingQueue.value) processOMRQueue();};
-                const scanFileForQR=async(f)=>{const s=new Html5Qrcode("hidden-qr-reader");try{return await s.scanFile(f,true)}catch(e){throw new Error("QR não detetado")}finally{try{s.clear()}catch(e){}}};
-
-                const preprocessImage=(file)=>new Promise((r,j)=>{let i=new Image();i.onload=()=>{let c=document.createElement('canvas'),x=c.getContext('2d');if(i.height>i.width){c.width=i.height;c.height=i.width;x.translate(i.height/2,i.width/2);x.rotate(-90*Math.PI/180);x.drawImage(i,-i.width/2,-i.height/2,i.width,i.height);}else{c.width=i.width;c.height=i.height;x.drawImage(i,0,0,i.width,i.height);}let d=x.getImageData(0,0,c.width,c.height);for(let k=0;k<d.data.length;k+=4){let g=d.data[k]*0.299+d.data[k+1]*0.587+d.data[k+2]*0.114;d.data[k]=d.data[k+1]=d.data[k+2]=g;}x.putImageData(d,0,0);r({base64:c.toDataURL('image/jpeg',0.85).split(',')[1],mimeType:'image/jpeg'});};i.onerror=j;i.src=URL.createObjectURL(file);});
-
-                // NOVO FLUXO DE CORREÇÃO CIRÚRGICA
-                const cropPaperOpenCV = (b64) => {
-                    return new Promise((resolve) => {
-                        let img = new Image();
-                        img.onload = () => {
-                            let s, g, t, cnts, hie, wp;
-                            try {
-                                let canvas = document.createElement('canvas');
-                                canvas.width = img.width; canvas.height = img.height;
-                                let ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
-
-                                s = cv.imread(canvas);
-                                g = new cv.Mat(); cv.cvtColor(s, g, cv.COLOR_RGBA2GRAY);
-                                t = new cv.Mat(); cv.threshold(g, t, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
-                                cnts = new cv.MatVector(); hie = new cv.Mat();
-                                cv.findContours(t, cnts, hie, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                                let w = t.cols, h = t.rows;
-                                let bTL = 9999, bTR = 9999, bBL = 9999, bBR = 9999;
-                                let mTL = null, mTR = null, mBL = null, mBR = null;
-                                
-                                for (let i = 0; i < cnts.size(); ++i) {
-                                    let c = cnts.get(i); let a = cv.contourArea(c);
-                                    if (a > 10 && a < (w * h * 0.05)) {
-                                        let M = cv.moments(c, false);
-                                        if (M.m00 > 0) {
-                                            let cx = M.m10 / M.m00, cy = M.m01 / M.m00;
-                                            let dtl = Math.hypot(cx, cy), dtr = Math.hypot(cx - w, cy);
-                                            let dbl = Math.hypot(cx, cy - h), dbr = Math.hypot(cx - w, cy - h);
-                                            if (cx < w/2 && cy < h/2 && dtl < bTL) { bTL = dtl; mTL = {x:cx, y:cy}; }
-                                            if (cx > w/2 && cy < h/2 && dtr < bTR) { bTR = dtr; mTR = {x:cx, y:cy}; }
-                                            if (cx < w/2 && cy > h/2 && dbl < bBL) { bBL = dbl; mBL = {x:cx, y:cy}; }
-                                            if (cx > w/2 && cy > h/2 && dbr < bBR) { bBR = dbr; mBR = {x:cx, y:cy}; }
-                                        }
-                                    }
-                                }
-
-                                let foundQuad = false;
-                                let ptTL, ptTR, ptBR, ptBL;
-
-                                if (mTL && mTR && mBL && mBR) {
-                                    let area = 0.5 * Math.abs((mTL.x*mTR.y + mTR.x*mBR.y + mBR.x*mBL.y + mBL.x*mTL.y) - (mTL.y*mTR.x + mTR.y*mBR.x + mBR.y*mBL.x + mBL.y*mTL.x));
-                                    if (area > (w * h * 0.05)) {
-                                        ptTL = mTL; ptTR = mTR; ptBR = mBR; ptBL = mBL;
-                                        foundQuad = true;
-                                    }
-                                }
-
-                                if (!foundQuad) {
-                                    let maxArea = 0; let bestApprox = null;
-                                    for (let i = 0; i < cnts.size(); ++i) {
-                                        let c = cnts.get(i); let area = cv.contourArea(c);
-                                        if (area > (w * h * 0.15)) {
-                                            let peri = cv.arcLength(c, true); let approx = new cv.Mat();
-                                            cv.approxPolyDP(c, approx, 0.02 * peri, true);
-                                            if (approx.rows === 4 && area > maxArea) {
-                                                maxArea = area; if (bestApprox) bestApprox.delete(); bestApprox = approx.clone();
-                                            }
-                                            approx.delete();
-                                        }
-                                    }
-                                    if (bestApprox) {
-                                        let pts = []; for (let i=0; i<4; i++) pts.push({x: bestApprox.data32S[i*2], y: bestApprox.data32S[i*2+1]});
-                                        pts.sort((a,b) => a.y - b.y);
-                                        let top = pts.slice(0,2).sort((a,b) => a.x - b.x); let bot = pts.slice(2,4).sort((a,b) => a.x - b.x);
-                                        ptTL = top[0]; ptTR = top[1]; ptBR = bot[1]; ptBL = bot[0];
-                                        foundQuad = true; bestApprox.delete();
-                                    }
-                                }
-
-                                if (foundQuad) {
-                                    let mW = Math.max(Math.hypot(ptBR.x - ptBL.x, ptBR.y - ptBL.y), Math.hypot(ptTR.x - ptTL.x, ptTR.y - ptTL.y));
-                                    let mH = Math.max(Math.hypot(ptTR.x - ptBR.x, ptTR.y - ptBR.y), Math.hypot(ptTL.x - ptBL.x, ptTL.y - ptBL.y));
-                                    mW = Math.round(mW); mH = Math.round(mH);
-
-                                    let sT = cv.matFromArray(4, 1, cv.CV_32FC2, [ptTL.x, ptTL.y, ptTR.x, ptTR.y, ptBR.x, ptBR.y, ptBL.x, ptBL.y]);
-                                    let dT = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, mW - 1, 0, mW - 1, mH - 1, 0, mH - 1]);
-
-                                    wp = new cv.Mat();
-                                    let M = cv.getPerspectiveTransform(sT, dT);
-                                    cv.warpPerspective(s, wp, M, new cv.Size(mW, mH));
-                                    
-                                    let oC = document.createElement('canvas');
-                                    cv.imshow(oC, wp);
-                                    resolve(oC.toDataURL('image/jpeg', 0.9).split(',')[1]);
-
-                                    sT.delete(); dT.delete(); M.delete();
-                                } else {
-                                    resolve(b64);
-                                }
-                            } catch(e) {
-                                resolve(b64);
-                            } finally {
-                                if(s) s.delete(); if(g) g.delete(); if(t) t.delete(); if(cnts) cnts.delete(); if(hie) hie.delete(); if(wp) wp.delete();
-                            }
-                        };
-                        img.onerror = () => resolve(b64);
-                        img.src = 'data:image/jpeg;base64,' + b64;
-                    });
-                };
+                
+                const preprocessImage=(file)=>new Promise((r,j)=>{let i=new Image();i.onload=()=>{let c=document.createElement('canvas'),x=c.getContext('2d');if(i.height>i.width){c.width=i.height;c.height=i.width;x.translate(i.height/2,i.width/2);x.rotate(-90*Math.PI/180);x.drawImage(i,-i.width/2,-i.height/2,i.width,i.height);}else{c.width=i.width;c.height=i.height;x.drawImage(i,0,0,i.width,i.height);}let d=x.getImageData(0,0,c.width,c.height);r({base64:c.toDataURL('image/jpeg',0.9).split(',')[1],mimeType:'image/jpeg'});};i.onerror=j;i.src=URL.createObjectURL(file);});
 
                 const processOMRQueue=async()=>{
                     if(isProcessingQueue.value)return;
@@ -749,19 +685,11 @@
                             if (itm.preloadedData) {
                                 ex = itm.preloadedData.exam; st = itm.preloadedData.student; vIdx = itm.preloadedData.version;
                             } else {
-                                let qrt=await scanFileForQR(itm.file), qd=JSON.parse(qrt);
-                                ex=exams.value.find(e=>e.id===Number(qd.e)); st=students.value.find(s=>s.id===Number(qd.s)); vIdx=qd.v;
-                                if(!ex||!st)throw new Error("QR Code Inválido");
+                                throw new Error("Por favor, use o 'Escanear Prova' para identificar o aluno primeiro.");
                             }
 
                             let pImg=await preprocessImage(itm.file);
                             
-                            let croppedBase64 = pImg.base64;
-                            if (!itm.preloadedData) { 
-                                itm.message=`Alinhando gabarito...`;
-                                croppedBase64 = await cropPaperOpenCV(pImg.base64);
-                            }
-
                             itm.message=`A Inteligência Artificial está a ler as respostas...`;
 
                             let nQ = getVersionQuestions(ex, vIdx).length;
@@ -769,8 +697,13 @@
                             let prompt = `Aja como um leitor ótico (OMR) de altíssima precisão. Analise a imagem fotográfica deste gabarito de respostas.
 A prova possui exatamente ${nQ} questões. A imagem contém uma grelha de respostas. Para cada linha (questão), o aluno marcou a sua escolha pintando O INTERIOR de um círculo com caneta escura.
 As alternativas podem ser (A, B, C, D, E) ou (Certo, Errado) impressas num tom cinza claro muito fraco.
-A sua ÚNICA e EXCLUSIVA tarefa é ler quais marcações ESCURAS foram feitas pelo aluno.
-Ignore completamente os círculos vazios (cinza claro). Concentre-se APENAS nas bolhas pintadas com tinta.
+
+ATENÇÃO CRÍTICA PARA EVITAR ALUCINAÇÕES:
+1. A imagem contém rabiscos grossos nos 4 cantos feitos à mão. IGNORE-OS.
+2. A imagem contém anotações do professor feitas à mão na margem direita (como letras 'C', 'W', 'E', símbolos de 'certo', traços). IGNORE-AS COMPLETAMENTE.
+3. O seu foco é ÚNICA E EXCLUSIVAMENTE o interior dos pequenos círculos impressos da tabela central.
+
+A sua tarefa é identificar qual bolha foi escurecida com tinta da caneta do aluno em cada linha. Ignore os círculos vazios.
 
 Retorne ESTRITAMENTE um objeto JSON contendo a chave "answers", que deve ser um array com EXATAMENTE ${nQ} posições correspondentes a cada uma das ${nQ} questões (índice 0 = questão 1, índice 1 = questão 2, etc).
 Valores aceites para as posições do array:
@@ -781,12 +714,12 @@ Valores aceites para as posições do array:
 - 4: se a alternativa E estiver pintada de escuro.
 - null: se a questão estiver em branco (nenhum círculo escuro) OU se houver rasura (mais de um círculo escuro na mesma linha).
 
-NÃO ALUCINE. Utilize rigor absoluto. Analise linha a linha contando as bolhas.
+NÃO ALUCINE. Utilize rigor absoluto. Analise linha a linha contando as bolhas com tinta.
 O formato deve ser exatamente: {"answers": [0, null, 1, 4, 2...]}`;
 
                             let schema = { type: "OBJECT", properties: { answers: { type: "ARRAY", items: { type: "INTEGER", nullable: true } } }, required: ["answers"] };
 
-                            let aiResult = await fetchGemini(prompt, schema, croppedBase64, pImg.mimeType);
+                            let aiResult = await fetchGemini(prompt, schema, pImg.base64, pImg.mimeType);
                             if (!aiResult || !aiResult.answers) throw new Error("A IA falhou ao extrair o gabarito.");
 
                             let pAns={};
@@ -794,7 +727,7 @@ O formato deve ser exatamente: {"answers": [0, null, 1, 4, 2...]}`;
                                 if(a!==null && a!==undefined && i < nQ) pAns[i]=a;
                             });
 
-                            let sid=await saveExamResult(ex.id,st.id,st.name,vIdx,pAns,"data:image/jpeg;base64,"+croppedBase64);
+                            let sid=await saveExamResult(ex.id,st.id,st.name,vIdx,pAns,"data:image/jpeg;base64,"+pImg.base64);
                             itm.status='success';
                             itm.resultData=results.value.find(r=>r.id===sid);
                             itm.score=itm.resultData.score;
@@ -826,27 +759,7 @@ O formato deve ser exatamente: {"answers": [0, null, 1, 4, 2...]}`;
                 };
 
                 const getAlternativeLabel=(t,i)=>i==null?'-':(t==='ce'?['C','E'][i]||'?':['A','B','C','D','E'][i]||'?');
-                
-                const openResultDetails = (r) => {
-                    if (!r) return;
-                    let ex = exams.value.find(e => e.id === r.examId);
-                    if (!ex) { showToast('Prova não encontrada.', 'error'); return; }
-                    let v = getVersionQuestions(ex, r.version || 0);
-                    selectedResultDetails.value = {
-                        resultId: r.id,
-                        score: r.score,
-                        title: ex.title,
-                        studentName: r.studentName,
-                        annotatedImage: r.annotatedImage,
-                        answers: JSON.parse(JSON.stringify(r.answers || {})),
-                        questions: v.map(q => ({
-                            ...q,
-                            correctIndex: (q.type === 'vf' || q.type === 'assoc') ? (q.id || 0) % 5 : q.correctIndex
-                        }))
-                    };
-                    showResultDetailsModal.value = true;
-                };
-
+                const openResultDetails=(r)=>{let ex=exams.value.find(e=>e.id===r.examId), v=getVersionQuestions(ex,r.version); selectedResultDetails.value={resultId:r.id, score:r.score, title:ex.title, studentName:r.studentName, annotatedImage:r.annotatedImage, answers:JSON.parse(JSON.stringify(r.answers||{})), questions:v.map(q=>({...q,correctIndex:(q.type==='vf'||q.type==='assoc')?(q.id||0)%5:q.correctIndex}))}; showResultDetailsModal.value=true;};
                 const saveUpdatedAnswers=async()=>{let rd=selectedResultDetails.value; if(!rd)return; let r=results.value.find(x=>x.id===rd.resultId); await saveExamResult(r.examId,r.studentId,r.studentName,r.version,rd.answers); let u=results.value.find(x=>x.id===rd.resultId); rd.score=u.score; let qi=omrCorrectionQueue.value.find(i=>i.resultData?.id===r.id); if(qi)qi.score=u.score; showToast("Atualizado!","success");};
 
                 const startManualEntry=()=>{manualConfig.value={examId:'',studentId:'',version:0};showManualInputModal.value=true;};
@@ -858,7 +771,6 @@ O formato deve ser exatamente: {"answers": [0, null, 1, 4, 2...]}`;
                 const saveFixedKey=async()=>{let uEx=JSON.parse(JSON.stringify(fixKeyExam.value)), vi=fixKeySelectedVersion.value; uEx.versions[vi].questions.forEach((q,i)=>q.correctIndex=fixKeyQuestions.value[i].newCorrectIndex); await db.exams.put(uEx); exams.value=await db.exams.orderBy('id').reverse().toArray(); let rs=results.value.filter(r=>r.examId===uEx.id&&r.version===vi); for(let r of rs) await saveExamResult(uEx.id,r.studentId,r.studentName,r.version,r.answers,r.annotatedImage); showFixKeyModal.value=false; showToast(`Gabarito V${vi+1} salvo! ${rs.length} notas recalculadas.`,"success");};
 
                 // --- UNIFIED SCANNER ---
-                let unifiedQrCode = null; let unifiedCameraStream = null; let unifiedScanLoopId = null;
                 const startUnifiedScanner = () => {
                     unifiedScanner.value = { active: true, step: 1, student: null, exam: null, version: 0, progress: 0, qrText: '', statusMessage: 'Procurando gabarito...', readyToCapture: false };
                     nextTick(() => {
@@ -903,79 +815,11 @@ O formato deve ser exatamente: {"answers": [0, null, 1, 4, 2...]}`;
                             const videoEl = document.getElementById('unified-camera-video');
                             if (videoEl) {
                                 videoEl.srcObject = stream;
-                                unifiedScanLoopId = requestAnimationFrame(runUnifiedLiveScan);
                             }
                         });
                     } catch (err) {
                         showToast("Permissão negada.", "error"); stopUnifiedScanner();
                     }
-                };
-
-                const runUnifiedLiveScan = () => {
-                    if (!unifiedScanner.value.active || unifiedScanner.value.step !== 3) return;
-                    const video = document.getElementById('unified-camera-video');
-                    const overlay = document.getElementById('unified-camera-overlay');
-
-                    if (video && overlay && video.readyState === video.HAVE_ENOUGH_DATA && typeof cv !== 'undefined') {
-                        overlay.width = video.videoWidth; overlay.height = video.videoHeight;
-                        const ctx = overlay.getContext('2d'); ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-                        const sw = 400; const scale = sw / video.videoWidth; const sh = Math.floor(video.videoHeight * scale);
-                        const offCnv = document.createElement('canvas'); offCnv.width = sw; offCnv.height = sh;
-                        offCnv.getContext('2d').drawImage(video, 0, 0, sw, sh);
-
-                        let src, gray, thresh, cnts, hie;
-                        try {
-                            src = cv.imread(offCnv); gray = new cv.Mat(); cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                            thresh = new cv.Mat(); cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
-                            cnts = new cv.MatVector(); hie = new cv.Mat();
-                            cv.findContours(thresh, cnts, hie, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                            let bTL = 9999, bTR = 9999, bBL = 9999, bBR = 9999;
-                            let mTL = null, mTR = null, mBL = null, mBR = null;
-                            let foundQuad = false; let ptTL, ptTR, ptBR, ptBL;
-
-                            for (let i = 0; i < cnts.size(); ++i) {
-                                let c = cnts.get(i); let a = cv.contourArea(c);
-                                if (a > 10 && a < (sw * sh * 0.05)) {
-                                    let M = cv.moments(c, false);
-                                    if (M.m00 > 0) {
-                                        let cx = M.m10 / M.m00, cy = M.m01 / M.m00;
-                                        let dtl = Math.hypot(cx, cy), dtr = Math.hypot(cx - sw, cy), dbl = Math.hypot(cx, cy - sh), dbr = Math.hypot(cx - sw, cy - sh);
-                                        if (cx < sw/2 && cy < sh/2 && dtl < bTL) { bTL = dtl; mTL = {x:cx, y:cy}; }
-                                        if (cx > sw/2 && cy < sh/2 && dtr < bTR) { bTR = dtr; mTR = {x:cx, y:cy}; }
-                                        if (cx < sw/2 && cy > sh/2 && dbl < bBL) { bBL = dbl; mBL = {x:cx, y:cy}; }
-                                        if (cx > sw/2 && cy > sh/2 && dbr < bBR) { bBR = dbr; mBR = {x:cx, y:cy}; }
-                                    }
-                                }
-                            }
-
-                            if (mTL && mTR && mBL && mBR) {
-                                let area = 0.5 * Math.abs((mTL.x*mTR.y + mTR.x*mBR.y + mBR.x*mBL.y + mBL.x*mTL.y) - (mTL.y*mTR.x + mTR.y*mBR.x + mBR.y*mBL.x + mBL.y*mTL.x));
-                                if (area > (sw * sh * 0.10)) {
-                                    ptTL = {x: mTL.x/scale, y: mTL.y/scale}; ptTR = {x: mTR.x/scale, y: mTR.y/scale};
-                                    ptBR = {x: mBR.x/scale, y: mBR.y/scale}; ptBL = {x: mBL.x/scale, y: mBL.y/scale};
-                                    foundQuad = true;
-                                }
-                            }
-
-                            if (foundQuad) {
-                                unifiedScanner.value.readyToCapture = true;
-                                ctx.beginPath(); ctx.moveTo(ptTL.x, ptTL.y); ctx.lineTo(ptTR.x, ptTR.y); ctx.lineTo(ptBR.x, ptBR.y); ctx.lineTo(ptBL.x, ptBL.y); ctx.closePath();
-                                ctx.lineWidth = 5; ctx.strokeStyle = '#10b981'; ctx.stroke();
-                                ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; ctx.fill();
-                                ctx.fillStyle = '#10b981';
-                                [ptTL, ptTR, ptBR, ptBL].forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, 2*Math.PI); ctx.fill(); });
-                            } else {
-                                unifiedScanner.value.readyToCapture = false;
-                            }
-                        } catch(e) {}
-                        finally {
-                            if (src) src.delete(); if (gray) gray.delete(); if (thresh) thresh.delete();
-                            if (cnts) cnts.delete(); if (hie) hie.delete();
-                        }
-                    }
-                    unifiedScanLoopId = requestAnimationFrame(runUnifiedLiveScan);
                 };
 
                 const captureUnifiedGrid = () => {
@@ -1001,9 +845,23 @@ O formato deve ser exatamente: {"answers": [0, null, 1, 4, 2...]}`;
 
                 const stopUnifiedScanner = () => {
                     try { if (unifiedQrCode) { unifiedQrCode.stop().catch(()=>{}); } } catch(e){} finally { unifiedQrCode = null; }
-                    try { if (unifiedScanLoopId) { cancelAnimationFrame(unifiedScanLoopId); } } catch(e){} finally { unifiedScanLoopId = null; }
                     try { if (unifiedCameraStream) { unifiedCameraStream.getTracks().forEach(t => t.stop()); } } catch(e){} finally { unifiedCameraStream = null; }
                     unifiedScanner.value.active = false;
+                };
+
+                const triggerUnifiedGalleryUpload = () => { document.getElementById('unifiedGalleryInput').click(); };
+                
+                const handleUnifiedGalleryUpload = (e) => {
+                    const file = e.target.files[0];
+                    if(!file) return;
+                    omrCorrectionQueue.value.push({
+                        id: crypto.randomUUID(), file: file, name: `Galeria: ${unifiedScanner.value.student.name}`,
+                        status: 'pending', message: 'Aguardando na fila...', score: null,
+                        preloadedData: { exam: unifiedScanner.value.exam, student: unifiedScanner.value.student, version: unifiedScanner.value.version }
+                    });
+                    stopUnifiedScanner();
+                    if(!isProcessingQueue.value) processOMRQueue();
+                    e.target.value = '';
                 };
 
                 const addClass=async()=>{if(newClass.value){await db.classes.add({name:newClass.value}); newClass.value=''; load(); showToast("Criada","success")}};
@@ -1366,15 +1224,16 @@ O formato deve ser exatamente: {"answers": [0, null, 1, 4, 2...]}`;
                     studentExamsList, studentExtraPointsList, studentTotalExtraPoints, studentBimesterAverage,
 
                     installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, importBackup, triggerImport, backupData, testGeminiKey,
-                    handleAIUpload, processOMRQueue, generateQuestionsAI, openResultDetails, saveUpdatedAnswers, getAlternativeLabel,
+                    handleAIUpload, processOMRQueue, openResultDetails, saveUpdatedAnswers, getAlternativeLabel,
                     startManualEntry, confirmManualEntry, saveManualCorrection, loadFixKeyQuestions, openFixKey, saveFixedKey,
-                    triggerAIUpload: () => { const el = document.getElementById('aiUploadInput'); if(el) el.click(); },
+                    triggerUnifiedGalleryUpload, handleUnifiedGalleryUpload, triggerAIUpload: () => { const el = document.getElementById('aiUploadInput'); if(el) el.click(); },
                     changeQType, openQForm, saveQuestion, editQuestion, deleteQuestion: id=>triggerConfirm("Apagar?",async()=>{await db.questions.delete(id);load()}),
                     openEditExam, saveEditedExam, generatePDF, generateClassReportPDF, generateGeneralReportPDF, generateKeyPDF, generateCommentedKeyPDF,
                     getClassRanking, getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution, openStudentProfile: id=>{studentDetails.value=students.value.find(s=>s.id===id);showStudentModal.value=true},
                     addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade, deleteStudentResult: id=>triggerConfirm("Apagar?",async()=>{await db.results.delete(id);load()}),
                     toggleExamQ: q=>{let i=examCart.value.findIndex(x=>x.id===q.id);i>-1?examCart.value.splice(i,1):examCart.value.push(q)}, isQInExam: id=>examCart.value.some(q=>q.id===id), deleteExam: id=>triggerConfirm("Apagar?",async()=>{await db.exams.delete(id);load()}),
-                    handleImageUpload: e=>{let r=new FileReader();r.onload=ev=>newQ.value.image=ev.target.result;r.readAsDataURL(e.target.files[0])}
+                    handleImageUpload: e=>{let r=new FileReader();r.onload=ev=>newQ.value.image=ev.target.result;r.readAsDataURL(e.target.files[0])},
+                    generateQuestionsAI
                 };
             }
         }).mount('#app');
