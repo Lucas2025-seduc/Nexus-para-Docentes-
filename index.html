@@ -221,7 +221,7 @@
                         <div class="bg-gray-50/80 p-3 rounded-xl border space-y-3">
                             <div class="grid grid-cols-2 gap-3"><div><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Variação</p><select v-model="examConfig.variationMode" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border"><option value="standard">Padrão A/B</option><option value="unique">1 por Aluno</option></select></div><div><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Tipo</p><select v-model="examConfig.type" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border"><option v-for="t in ['Mensal','Bimestral','Simulado']" :value="t">{{t}}</option></select></div></div>
                             <div class="flex gap-3"><div class="flex-1"><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Professor(a)</p><input v-model="examConfig.teacher" class="w-full p-1.5 bg-white rounded-lg text-xs border outline-none"></div><div class="w-24"><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Data</p><input v-model="examConfig.date" type="date" class="w-full p-1.5 bg-white rounded-lg text-xs border outline-none"></div></div>
-                            <div class="mt-3 border-t pt-2"><p class="text-[9px] font-bold text-gray-400 uppercase mb-2"><i class="fa-solid fa-print"></i> Layout</p><div class="grid grid-cols-2 gap-3 mb-2"><select v-model="printConfig.layout" class="w-full p-1.5 bg-white rounded-lg text-xs border outline-none"><option value="standard">1 Coluna</option><option value="columns">2 Colunas</option></select><select v-model="printConfig.qImageSize" class="w-full p-1.5 bg-white rounded-lg text-xs border outline-none"><option value="medium">Img Média</option><option value="large">Img Grande</option></select></div><label class="flex items-center gap-2 cursor-pointer bg-white border p-2 rounded-lg"><input type="checkbox" v-model="printConfig.addBlankPage"><span class="text-[10px] font-bold text-gray-600">Pág. Branco (Frente/Verso)</span></label></div>
+                            <div class="mt-3 border-t pt-2"><p class="text-[9px] font-bold text-gray-400 uppercase mb-2"><i class="fa-solid fa-print"></i> Layout</p><div class="grid grid-cols-2 gap-3 mb-2"><select v-model="printConfig.layout" class="w-full p-1.5 bg-white rounded-lg text-xs border outline-none"><option value="standard">1 Coluna</option><option value="columns">2 Colunas</option></select><select v-model="printConfig.qImageSize" class="w-full p-1.5 bg-white rounded-lg text-xs border outline-none"><option value="medium">Img Média</option><option value="large">Img Grande</option></select></div><label class="flex items-center gap-2 cursor-pointer bg-white border p-2 rounded-lg" title="Ative isto APENAS se a sua prova tiver um número ÍMPAR de páginas (1, 3, 5...) para que o aluno seguinte comece numa folha nova"><input type="checkbox" v-model="printConfig.addBlankPage"><span class="text-[10px] font-bold text-gray-600">Forçar Verso Branco (Nº Ímpar)</span></label></div>
                         </div>
                     </div>
                 </div>
@@ -849,6 +849,8 @@
                                 if(d.c) await db.classes.bulkPut(d.c); if(d.s) await db.students.bulkPut(d.s);
                                 if(d.q) await db.questions.bulkPut(d.q); if(d.e) await db.exams.bulkPut(d.e);
                                 if(d.r) await db.results.bulkPut(d.r);
+                                if(d.sch) await db.schedules.bulkPut(d.sch);
+                                if(d.att) await db.attendance.bulkPut(d.att);
                                 if(d.cfg) await db.settings.put({ ...d.cfg, id: 'config' });
                                 if(d.license) {
                                     await db.settings.put(d.license); deviceId.value = d.license.deviceId;
@@ -872,7 +874,9 @@
 
                 const backupData = async () => {
                     const licenseConfig = await db.settings.get('license_config');
-                    const d={ c:classes.value, s:students.value, q:questions.value, e:exams.value, r:results.value, cfg: { ...settings.value, id: 'config', geminiKey: geminiKey.value }, license: licenseConfig };
+                    const sch = await db.schedules.toArray();
+                    const att = await db.attendance.toArray();
+                    const d={ c:classes.value, s:students.value, q:questions.value, e:exams.value, r:results.value, sch: sch, att: att, cfg: { ...settings.value, id: 'config', geminiKey: geminiKey.value }, license: licenseConfig };
                     const b=new Blob([JSON.stringify(d)],{type:"application/json"});
                     const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="Nexus_Backup.json"; a.click();
                 };
@@ -1524,7 +1528,13 @@ Retorne o JSON estritamente neste formato.`;
                                 q.options.forEach((o,x)=>{if(q.type==='mc')qB.push({text:`${['a','b','c','d','e'][x]}) ${o.text}`,margin:[0,2]})});
                                 cont.push({stack:qB,margin:[0,0,0,10]});
                             });
-                            if(i<stds.length-1||printConfig.value.addBlankPage) cont.push({text:'',pageBreak:'after'});
+                            
+                            if (printConfig.value.addBlankPage) {
+                                cont.push({ text: '', pageBreak: 'after' });
+                                cont.push({ text: 'Verso em branco intencional', color: '#f3f4f6', alignment: 'center', margin: [0, 300], italics: true });
+                            }
+                            
+                            if(i<stds.length-1) cont.push({text:'',pageBreak:'after'});
                         });
                         pdfMake.createPdf({content:cont}).download(`Prova.pdf`); showToast("Gerado","success");
                     });
