@@ -1415,15 +1415,16 @@ Retorne o JSON estritamente neste formato.`;
                             const mimeType = file.type;
 
                             const prompt = `Você é um sistema OMR baseado em Inteligência Artificial com ALTA TOLERÂNCIA a falhas humanas. Siga as instruções ESTRITAMENTE:
-1. ALINHAMENTO E ANCORAGEM (CRUCIAL): Utilize os 4 quadrados pretos (âncoras) localizados nos quatro cantos exatos da grelha de respostas para corrigir mentalmente a perspetiva, a distorção e a rotação da foto.
-2. ORIENTAÇÃO E LETRAS: O topo da página é indicado pelo texto "GABARITO OFICIAL" e pelo QR Code. Observe atentamente as letras (A, B, C, D, E) impressas no cabeçalho das colunas e DENTRO das próprias bolhas. Use estas letras para confirmar com 100% de certeza qual a alternativa escolhida, cruzando a linha da questão com a coluna correspondente.
-3. SINCRONIZAÇÃO DE LINHAS: Cada linha de questão possui um pequeno quadrado preto (Timing Mark) à esquerda e outro à direita. Use-os em conjunto com o número impresso da questão para garantir que está a ler a linha exata.
-4. LEITURA E INTENÇÃO HUMANA (MUITO IMPORTANTE): 
-   - O aluno deve pintar a bolha, MAS seja inteligente: se ele marcou um 'X' claro, um '✓', circulou a letra ou pintou fora da borda, ACEITE a resposta se a intenção for óbvia para aquela letra.
-   - RASURAS: Se houver uma bolha borrada/apagada e outra preenchida de forma mais escura/nítida, considere a MAIS ESCURA E NÍTIDA como a resposta válida do aluno.
-5. REGRAS DE FALHA: Retorne o valor -1 APENAS se a linha estiver totalmente em branco, ou se houver dupla marcação com a exata mesma intensidade (impossível decidir qual ele escolheu).
-6. QR CODE: Tente ler o QR Code no canto superior e extraia o JSON em qrText.
-7. Extraia a resposta como um array de objetos associando o número da linha (q) e o índice marcado (v). Sendo v: 0=A/Certo, 1=B/Errado, 2=C, 3=D, 4=E. Retorne apenas o JSON.`;
+1. ALINHAMENTO E ANCORAGEM: Utilize os 4 quadrados pretos grandes (âncoras) nos cantos para corrigir mentalmente a perspetiva.
+2. LEITURA COMPLETA (CRUCIAL - NÃO PULE A ÚLTIMA): O gabarito contém várias linhas numeradas (ex: 01, 02, 03... até à última). A última questão fica "colada" aos quadrados grandes inferiores. É OBRIGATÓRIO verificar e devolver o resultado de TODAS as linhas numeradas, garantindo que não ignora a última questão!
+3. ORIENTAÇÃO E LETRAS: O topo é indicado pelo texto "GABARITO OFICIAL". Observe as letras (A, B, C, D, E) no cabeçalho e DENTRO das bolhas para confirmar a alternativa escolhida.
+4. SINCRONIZAÇÃO DE LINHAS: Cada linha numerada tem um pequeno retângulo preto (Timing Mark) à esquerda e à direita. Siga estes retângulos milimetricamente para não misturar as respostas de linhas diferentes.
+5. INTENÇÃO HUMANA: 
+   - Aceite 'X', '✓', bolhas mal pintadas ou circuladas se a intenção for clara.
+   - RASURAS: Entre uma bolha borrada e outra nitidamente preenchida, considere a MAIS ESCURA E NÍTIDA como a correta.
+6. REGRAS DE FALHA: Retorne o valor -1 APENAS se a linha estiver 100% em branco ou se houver dupla marcação idêntica.
+7. QR CODE: Tente ler o QR no canto superior e extraia o JSON em qrText.
+8. SAÍDA FINAL: Extraia a resposta como um array de objetos associando o NÚMERO DA LINHA impresso na grelha (q) e o índice marcado (v). Sendo v: 0=A/Certo, 1=B/Errado, 2=C, 3=D, 4=E. Retorne apenas o JSON.`;
 
                             const schema = {
                                 type: "OBJECT",
