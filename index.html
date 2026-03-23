@@ -352,8 +352,11 @@
                 </div>
                 <div class="p-3 bg-white border-t rounded-b-3xl">
                     <div class="flex gap-2 bg-gray-100 p-1.5 rounded-2xl border border-gray-200">
-                        <input v-model="assistantQuery" @keyup.enter="askAssistant" placeholder="Ex: Mude a nota da Ana para 8..." class="flex-1 bg-transparent px-3 py-2 text-sm outline-none text-gray-700">
-                        <button @click="askAssistant" :disabled="isAssistantThinking" class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md hover:bg-indigo-700 disabled:opacity-50 transition"><i class="fa-solid fa-paper-plane"></i></button>
+                        <button @click="toggleDictation" :class="isDictating ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-indigo-600'" class="w-10 h-10 flex flex-none items-center justify-center transition" title="Ditar por voz">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                        <input v-model="assistantQuery" @keyup.enter="askAssistant" placeholder="Ex: Mude a nota da Ana para 8..." class="flex-1 w-full bg-transparent px-2 py-2 text-sm outline-none text-gray-700">
+                        <button @click="askAssistant" :disabled="isAssistantThinking" class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex flex-none items-center justify-center shadow-md hover:bg-indigo-700 disabled:opacity-50 transition"><i class="fa-solid fa-paper-plane"></i></button>
                     </div>
                 </div>
             </div>
@@ -645,6 +648,7 @@
                 const showAssistant = ref(false);
                 const assistantQuery = ref('');
                 const isAssistantThinking = ref(false);
+                const isDictating = ref(false);
                 const assistantHistory = ref([
                     {role: 'model', text: 'Olá, Professor! Eu sou o assistente virtual da caderneta. Pergunte-me sobre a frequência de hoje, as faltas de um aluno ou as notas das provas! Posso também alterar ou lançar dados para você.'}
                 ]);
@@ -970,6 +974,41 @@
 
                 const cancelAssistantAction = (msg) => {
                     msg.actionResolved = 'cancelled';
+                };
+
+                let recognition = null;
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    recognition = new SpeechRec();
+                    recognition.lang = 'pt-BR'; // Mantém o idioma de reconhecimento para a variante principal de uso
+                    recognition.interimResults = false;
+                    recognition.continuous = false;
+
+                    recognition.onresult = (event) => {
+                        const text = event.results[0][0].transcript;
+                        assistantQuery.value += (assistantQuery.value ? ' ' : '') + text;
+                        isDictating.value = false;
+                    };
+                    recognition.onerror = (event) => {
+                        console.error("Erro de voz:", event.error);
+                        isDictating.value = false;
+                        showToast("Erro no microfone. Verifique as permissões.", "error");
+                    };
+                    recognition.onend = () => {
+                        isDictating.value = false;
+                    };
+                }
+
+                const toggleDictation = () => {
+                    if (!recognition) {
+                        return showToast("O seu navegador não suporta reconhecimento de voz.", "warning");
+                    }
+                    if (isDictating.value) {
+                        recognition.stop();
+                    } else {
+                        recognition.start();
+                        isDictating.value = true;
+                    }
                 };
 
                 const askAssistant = async () => {
@@ -1742,6 +1781,7 @@ Retorne o JSON estritamente neste formato.`;
                     // Assistant IA
                     showAssistant, assistantQuery, assistantHistory, isAssistantThinking, askAssistant,
                     confirmAssistantAction, cancelAssistantAction, getActionDescription,
+                    isDictating, toggleDictation,
 
                     // Details & Results
                     recentCorrections: computed(() => {
