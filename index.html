@@ -808,8 +808,11 @@
                 };
 
                 const deleteSchedule = async (id) => {
-                    await db.schedules.delete(id);
-                    loadDiaryData();
+                    triggerConfirm("Tem certeza que deseja apagar este horário?", async () => {
+                        await db.schedules.delete(id);
+                        loadDiaryData();
+                        showToast("Horário apagado com sucesso.", "success");
+                    });
                 };
 
                 const saveSettings = async (silent) => {
@@ -820,19 +823,23 @@
                 };
 
                 const deleteAllGrades = () => {
-                    triggerConfirm("ATENÇÃO: Isto apagará TODAS as notas de TODOS os alunos de forma irreversível. Tem a certeza absoluta?", async () => {
-                        await db.results.clear();
-                        await db.extraPoints.clear();
-                        results.value = [];
-                        extraPoints.value = [];
-                        showToast("Todas as notas foram apagadas com sucesso.", "success");
-                        load();
+                    triggerConfirm("Tem certeza que deseja apagar TODAS as notas e pontos extras de TODOS os alunos? Esta ação é irreversível.", async () => {
+                        try {
+                            await db.results.clear();
+                            await db.extraPoints.clear();
+                            results.value = [];
+                            extraPoints.value = [];
+                            await load();
+                            showToast("Confirmação: Todas as notas foram apagadas com sucesso do sistema.", "success");
+                        } catch (error) {
+                            showToast("Erro ao tentar apagar as notas.", "error");
+                        }
                     });
                 };
 
                 const importBackup = async (e) => {
                     const f = e.target.files[0]; if (!f) return;
-                    triggerConfirm("Importar substituirá dados atuais. Continuar?", () => {
+                    triggerConfirm("Tem certeza que deseja importar este backup? Os dados atuais serão substituídos.", () => {
                         const r = new FileReader();
                         r.onload = async event => {
                             try {
@@ -1338,8 +1345,8 @@ Retorne o JSON estritamente neste formato.`;
                 };
 
                 const addClass=async()=>{if(newClass.value){await db.classes.add({name:newClass.value}); newClass.value=''; load(); showToast("Criada","success")}};
-                const deleteClass=(id)=>{triggerConfirm("Excluir turma e alunos?",async()=>{await db.students.bulkDelete(students.value.filter(s=>s.classId===id).map(s=>s.id)); await db.classes.delete(id); load();})};
-                const saveStudents=(cid)=>{if(!bulkStudents.value[cid])return; triggerConfirm("Salvar?",async()=>{await db.students.bulkAdd(bulkStudents.value[cid].split('\n').map(n=>n.trim()).filter(n=>n).map(n=>({classId:cid,name:n}))); bulkStudents.value[cid]=''; load();})};
+                const deleteClass=(id)=>{triggerConfirm("Tem certeza que deseja apagar esta turma e todos os seus alunos?",async()=>{await db.students.bulkDelete(students.value.filter(s=>s.classId===id).map(s=>s.id)); await db.classes.delete(id); load();})};
+                const saveStudents=(cid)=>{if(!bulkStudents.value[cid])return; triggerConfirm("Tem certeza que deseja salvar estes alunos?",async()=>{await db.students.bulkAdd(bulkStudents.value[cid].split('\n').map(n=>n.trim()).filter(n=>n).map(n=>({classId:cid,name:n}))); bulkStudents.value[cid]=''; load();})};
 
                 const changeQType=t=>{qType.value=t; newQ.value.options=(t==='vf')?[{text:'',isTrue:true},{text:'',isTrue:false}]:(t==='assoc'?[{text:'',match:''},{text:'',match:''}]:[{text:''},{text:''},{text:''},{text:''},{text:''}])};
                 const openQForm=src=>{formSource.value=src; newQ.value={subject:'',topic:'',text:'',options:[]}; changeQType('mc'); showQFormModal.value=true};
@@ -1356,7 +1363,7 @@ Retorne o JSON estritamente neste formato.`;
                 const saveEditedExam = async () => { await db.exams.put(JSON.parse(JSON.stringify(editingExam.value))); showEditExamModal.value = false; load(); };
 
                 const generatePDF=async()=>{
-                    triggerConfirm("Gerar Prova?",async()=>{
+                    triggerConfirm("Tem certeza que deseja gerar o PDF desta prova?",async()=>{
                         let v=[], sm={}, stds=students.value.filter(s=>s.classId===examConfig.value.classId), nV=(examConfig.value.variationMode==='unique')?stds.length:(examConfig.value.variationMode==='1_10'?Math.ceil(stds.length/10):2);
                         if(editingExamId.value) {
                             let e=await db.exams.get(editingExamId.value);
@@ -1720,10 +1727,10 @@ Retorne o JSON estritamente neste formato.`;
                 };
 
                 const deleteExtraPoint = (epId) => {
-                    triggerConfirm("Apagar este ponto extra?", async () => {
+                    triggerConfirm("Tem certeza que deseja apagar este ponto extra?", async () => {
                         await db.extraPoints.delete(epId);
                         extraPoints.value = await db.extraPoints.toArray();
-                        showToast("Ponto extra removido.", "success");
+                        showToast("Ponto extra removido com sucesso.", "success");
                     });
                 };
 
@@ -1794,13 +1801,13 @@ Retorne o JSON estritamente neste formato.`;
                     
                     // Classes & Students
                     newClass, bulkStudents, addClass, saveStudents, getStudentCount, getFilteredStudents, studentFilter, filteredClasses:computed(()=>classes.value.filter(c=>c.name.toLowerCase().includes(studentFilter.value.toLowerCase()))), getClassName,
-                    deleteStudent:(id)=>{triggerConfirm("Excluir?",async()=>{await db.students.delete(id);load()})}, deleteClass,
+                    deleteStudent:(id)=>{triggerConfirm("Tem certeza que deseja apagar este aluno?",async()=>{await db.students.delete(id);load()})}, deleteClass,
                     
                     // Questions
                     uniqueTopics: computed(() => [...new Set(questions.value.map(q => q.topic).filter(Boolean))].sort()),
                     uniqueSubjects: computed(() => [...new Set(questions.value.map(q => q.subject).filter(Boolean))].sort()),
                     filteredQuestions: computed(() => questions.value.filter(q => (!qFilter.value || q.text.toLowerCase().includes(qFilter.value.toLowerCase()) || (q.topic && q.topic.toLowerCase().includes(qFilter.value.toLowerCase()))) && (!filterType.value || q.type === filterType.value) && (!filterSubject.value || (q.subject && q.subject.toLowerCase().includes(filterSubject.value.toLowerCase()))) && (!filterTopic.value || (q.topic && q.topic.toLowerCase().includes(filterTopic.value.toLowerCase()))))),
-                    changeQType, openQForm, saveQuestion, editQuestion, deleteQuestion: id=>triggerConfirm("Apagar?",async()=>{await db.questions.delete(id);load()}),
+                    changeQType, openQForm, saveQuestion, editQuestion, deleteQuestion: id=>triggerConfirm("Tem certeza que deseja apagar esta questão?",async()=>{await db.questions.delete(id);load()}),
                     qType, newQ, showQFormModal, formSource, handleImageUpload: e=>{let r=new FileReader();r.onload=ev=>newQ.value.image=ev.target.result;r.readAsDataURL(e.target.files[0])},
                     
                     // Exams
@@ -1808,7 +1815,7 @@ Retorne o JSON estritamente neste formato.`;
                     filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilterSubject.value || (q.subject && q.subject.toLowerCase().includes(examFilterSubject.value.toLowerCase()))) && (!examFilterTopic.value || (q.topic && q.topic.toLowerCase().includes(examFilterTopic.value.toLowerCase()))) && (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase()) || (q.subject && q.subject.toLowerCase().includes(examFilter.value.toLowerCase())) || (q.topic && q.topic.toLowerCase().includes(examFilter.value.toLowerCase()))))),
                     filteredHistoryExams: computed(()=>exams.value.filter(e=>!examHistoryFilter.value||e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()))),
                     openEditExam, saveEditedExam, generatePDF, generateClassReportPDF, generateGeneralReportPDF, generateKeyPDF, generateCommentedKeyPDF,
-                    toggleExamQ: q=>{let i=examCart.value.findIndex(x=>x.id===q.id);i>-1?examCart.value.splice(i,1):examCart.value.push(q)}, isQInExam: id=>examCart.value.some(q=>q.id===id), deleteExam: id=>triggerConfirm("Apagar?",async()=>{await db.exams.delete(id);load()}),
+                    toggleExamQ: q=>{let i=examCart.value.findIndex(x=>x.id===q.id);i>-1?examCart.value.splice(i,1):examCart.value.push(q)}, isQInExam: id=>examCart.value.some(q=>q.id===id), deleteExam: id=>triggerConfirm("Tem certeza que deseja apagar esta prova e os seus resultados?",async()=>{await db.exams.delete(id);load()}),
                     
                     // Fix Key
                     showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, loadFixKeyQuestions, openFixKey, saveFixedKey,
@@ -1818,7 +1825,7 @@ Retorne o JSON estritamente neste formato.`;
                     selectedExamVersions: computed(()=>exams.value.find(e=>e.id===manualConfig.value.examId)?.versions||[{}]),
                     studentExamsList, studentExtraPointsList, studentTotalExtraPoints, studentBimesterAverage,
                     getClassRanking, getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution, openStudentProfile: id=>{studentDetails.value=students.value.find(s=>s.id===id);showStudentModal.value=true},
-                    addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade, deleteStudentResult: id=>triggerConfirm("Apagar?",async()=>{await db.results.delete(id);load()}),
+                    addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade, deleteStudentResult: id=>triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?",async()=>{await db.results.delete(id);load()}),
                     
                     // Global utilities
                     installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, importBackup, triggerImport, backupData, testGeminiKey,
