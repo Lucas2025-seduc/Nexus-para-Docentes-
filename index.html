@@ -1141,6 +1141,11 @@
                         const schArray = await db.schedules.toArray();
                         const sch = schArray.map(x=>({idTurma:x.classId, dia:x.day, aula:x.period}));
 
+                        const chatContext = assistantHistory.value
+                            .slice(-10) // Memoriza as últimas 10 interações
+                            .map(m => `${m.role === 'user' ? 'Professor' : 'Assistente'}: ${m.text}`)
+                            .join('\n');
+
                         const promptText = `Você é o assistente virtual da aplicação Nexus. Responda em português.
 CONTEXTO DA BASE DE DADOS:
 - Turmas (Use o 'id' para ações): ${JSON.stringify(c)}
@@ -1150,7 +1155,10 @@ CONTEXTO DA BASE DE DADOS:
 - Frequências (P=Presente, F=Falta, J=Justificada): ${JSON.stringify(att)}
 - Horários Atuais: ${JSON.stringify(sch)}
 
-AÇÃO DO USUÁRIO: "${userQuery}"
+HISTÓRICO DA CONVERSA RECENTE:
+${chatContext}
+
+NOVA AÇÃO/PERGUNTA DO USUÁRIO: "${userQuery}"
 
 REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
 1. Em 'reply', seja breve e confirme se vai preparar as ações ou responda à pergunta do usuário.
