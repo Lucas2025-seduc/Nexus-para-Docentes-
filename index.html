@@ -328,12 +328,14 @@
                         <div class="max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm" :class="msg.role==='user'?'bg-indigo-600 text-white rounded-tr-sm':'bg-white border border-gray-100 text-gray-700 rounded-tl-sm'">
                             {{msg.text}}
                             
-                            <!-- CARD DE AÇÃO PENDENTE -->
-                            <div v-if="msg.hasAction && !msg.actionResolved" class="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                            <!-- CARD DE AÇÃO PENDENTE (AGORA SUPORTA MÚLTIPLAS AÇÕES) -->
+                            <div v-if="msg.hasAction && !msg.actionResolved && msg.actions && msg.actions.length > 0" class="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
                                 <p class="text-[10px] font-black text-indigo-800 mb-1.5 uppercase tracking-wide"><i class="fa-solid fa-triangle-exclamation text-orange-500"></i> Confirmação Necessária</p>
-                                <p class="text-xs text-indigo-900 mb-3 font-medium">{{ getActionDescription(msg) }}</p>
+                                <ul class="text-xs text-indigo-900 mb-3 font-medium list-disc pl-4 space-y-1">
+                                    <li v-for="(act, idx) in msg.actions" :key="idx">{{ getActionDescription(act) }}</li>
+                                </ul>
                                 <div class="flex gap-2">
-                                    <button @click="confirmAssistantAction(msg)" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-check"></i> Confirmar</button>
+                                    <button @click="confirmAssistantAction(msg)" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-check"></i> Confirmar Tudo</button>
                                     <button @click="cancelAssistantAction(msg)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs py-2 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-times"></i> Cancelar</button>
                                 </div>
                             </div>
@@ -922,60 +924,84 @@
                     }
                 };
 
-                // --- ASSISTENTE VIRTUAL COM AÇÕES ---
-                const getActionDescription = (msg) => {
-                    const std = students.value.find(s => s.id === msg.studentId);
-                    const name = std ? std.name : 'Aluno desconhecido';
-                    if (msg.actionType === 'update_grade') {
-                        const ex = exams.value.find(e => e.id === msg.examId);
-                        const exName = ex ? ex.title : 'Prova';
-                        return `Lançar nota ${msg.score} para ${name} em '${exName}'`;
+                // --- ASSISTENTE VIRTUAL COM AÇÕES MULTIPLAS ---
+                const getActionDescription = (act) => {
+                    if (act.actionType === 'update_grade' || act.actionType === 'delete_grade' || act.actionType === 'set_attendance') {
+                        const std = students.value.find(s => s.id === act.studentId);
+                        const name = std ? std.name : 'Aluno desconhecido';
+                        
+                        if (act.actionType === 'update_grade') {
+                            const ex = exams.value.find(e => e.id === act.examId);
+                            const exName = ex ? ex.title : 'Prova';
+                            return `Lançar nota ${act.score} para ${name} em '${exName}'`;
+                        }
+                        if (act.actionType === 'delete_grade') {
+                            const ex = exams.value.find(e => e.id === act.examId);
+                            return `Excluir nota de ${name} em '${ex ? ex.title : 'Prova'}'`;
+                        }
+                        if (act.actionType === 'set_attendance') {
+                            const stMap = {'P':'Presença', 'F':'Falta', 'J':'Falta Justificada'};
+                            const rawDate = act.date || new Date().toISOString().split('T')[0];
+                            const dateFormatted = rawDate.split('-').reverse().join('/');
+                            return `Registrar ${stMap[act.status]||act.status} para ${name} no dia ${dateFormatted}`;
+                        }
                     }
-                    if (msg.actionType === 'delete_grade') {
-                        const ex = exams.value.find(e => e.id === msg.examId);
-                        return `Excluir nota de ${name} em '${ex ? ex.title : 'Prova'}'`;
-                    }
-                    if (msg.actionType === 'set_attendance') {
-                        const stMap = {'P':'Presença', 'F':'Falta', 'J':'Falta Justificada'};
-                        const rawDate = msg.date || new Date().toISOString().split('T')[0];
-                        const dateFormatted = rawDate.split('-').reverse().join('/');
-                        return `Registrar ${stMap[msg.status]||msg.status} para ${name} no dia ${dateFormatted}`;
+                    if (act.actionType === 'add_schedule') {
+                        const cls = classes.value.find(c => c.id === act.classId);
+                        return `Adicionar horário na turma '${cls ? cls.name : 'Desconhecida'}': ${act.day}, das ${act.startTime} às ${act.endTime}`;
                     }
                     return "Ação desconhecida";
                 };
 
                 const confirmAssistantAction = async (msg) => {
                     try {
-                        if (msg.actionType === 'update_grade') {
-                            let res = results.value.find(r => r.examId === msg.examId && r.studentId === msg.studentId);
-                            if (res) {
-                                res.score = Number(msg.score).toFixed(1);
-                                await db.results.put(JSON.parse(JSON.stringify(res)));
-                            } else {
-                                const std = students.value.find(s=>s.id === msg.studentId);
-                                if(!std) throw new Error("Aluno não encontrado");
-                                await db.results.add({
-                                    examId: msg.examId, studentId: msg.studentId, studentName: std.name,
-                                    score: Number(msg.score).toFixed(1), bonus: 0, date: Date.now(), answers: {}, version: 0
-                                });
+                        if(!msg.actions || msg.actions.length === 0) throw new Error("Nenhuma ação válida encontrada");
+                        
+                        for (const act of msg.actions) {
+                            if (act.actionType === 'update_grade') {
+                                let res = results.value.find(r => r.examId === act.examId && r.studentId === act.studentId);
+                                if (res) {
+                                    res.score = Number(act.score).toFixed(1);
+                                    await db.results.put(JSON.parse(JSON.stringify(res)));
+                                } else {
+                                    const std = students.value.find(s=>s.id === act.studentId);
+                                    if(std) {
+                                        await db.results.add({
+                                            examId: act.examId, studentId: act.studentId, studentName: std.name,
+                                            score: Number(act.score).toFixed(1), bonus: 0, date: Date.now(), answers: {}, version: 0
+                                        });
+                                    }
+                                }
+                            } else if (act.actionType === 'delete_grade') {
+                                let res = results.value.find(r => r.examId === act.examId && r.studentId === act.studentId);
+                                if (res) await db.results.delete(res.id);
+                            } else if (act.actionType === 'set_attendance') {
+                                const std = students.value.find(s=>s.id === act.studentId);
+                                if(std) {
+                                    const classId = std.classId;
+                                    const dt = act.date || new Date().toISOString().split('T')[0];
+                                    await db.attendance.where({classId, date: dt, studentId: act.studentId}).delete();
+                                    await db.attendance.add({classId, date: dt, studentId: act.studentId, status: act.status});
+                                }
+                            } else if (act.actionType === 'add_schedule') {
+                                const cls = classes.value.find(c=>c.id === act.classId);
+                                if(cls) {
+                                    await db.schedules.add({
+                                        classId: act.classId,
+                                        day: act.day,
+                                        start: act.startTime,
+                                        end: act.endTime
+                                    });
+                                }
                             }
-                        } else if (msg.actionType === 'delete_grade') {
-                            let res = results.value.find(r => r.examId === msg.examId && r.studentId === msg.studentId);
-                            if (res) await db.results.delete(res.id);
-                        } else if (msg.actionType === 'set_attendance') {
-                            const std = students.value.find(s=>s.id === msg.studentId);
-                            if(!std) throw new Error("Aluno não encontrado");
-                            const classId = std.classId;
-                            const dt = msg.date || new Date().toISOString().split('T')[0];
-                            await db.attendance.where({classId, date: dt, studentId: msg.studentId}).delete();
-                            await db.attendance.add({classId, date: dt, studentId: msg.studentId, status: msg.status});
                         }
                         
                         msg.actionResolved = 'confirmed';
                         await load();
-                        showToast("Ação executada com sucesso!", "success");
+                        if (currentView.value === 'diary') await loadDiaryData();
+                        showToast("Ações executadas com sucesso!", "success");
                     } catch(e) {
-                        showToast(e.message || "Erro ao executar ação", "error");
+                        showToast(e.message || "Erro ao executar ações", "error");
                     }
                 };
 
@@ -1039,23 +1065,28 @@
                         const r = results.value.map(x=>({idAluno:x.studentId, idProva: x.examId, nota:x.score}));
                         const attArray = await db.attendance.toArray();
                         const att = attArray.map(x=>({idAluno:x.studentId, data:x.date, status:x.status}));
+                        const schArray = await db.schedules.toArray();
+                        const sch = schArray.map(x=>({idTurma:x.classId, dia:x.day, inicio:x.start, fim:x.end}));
 
                         const promptText = `Você é o assistente virtual da aplicação Nexus. Responda em português.
 CONTEXTO DA BASE DE DADOS:
-- Turmas: ${JSON.stringify(c)}
+- Turmas (Use o 'id' para ações): ${JSON.stringify(c)}
 - Alunos (Use o 'id' para ações): ${JSON.stringify(s)}
 - Provas (Use o 'id' para ações): ${JSON.stringify(eList)}
 - Notas Atuais: ${JSON.stringify(r)}
 - Frequências (P=Presente, F=Falta, J=Justificada): ${JSON.stringify(att)}
+- Horários Atuais: ${JSON.stringify(sch)}
 
 AÇÃO DO USUÁRIO: "${userQuery}"
 
 REGRAS OBRIGATÓRIAS:
-1. Em 'reply', seja breve e confirme se vai preparar a ação ou responda à pergunta.
-2. SE o usuário pedir claramente para LANÇAR/ALTERAR NOTA, defina hasAction=true, actionType="update_grade", forneça studentId, examId e score.
-3. SE o usuário pedir para EXCLUIR/APAGAR NOTA, defina hasAction=true, actionType="delete_grade", forneça studentId e examId.
-4. SE o usuário pedir para DAR FALTA OU PRESENÇA, defina hasAction=true, actionType="set_attendance", forneça studentId, date (formato YYYY-MM-DD) e status ("P", "F" ou "J"). Se ele não disser o dia, use a data de hoje: ${new Date().toISOString().split('T')[0]}.
-5. SE for só uma pergunta ou bate-papo, defina hasAction=false.
+1. Em 'reply', seja breve e confirme se vai preparar as ações ou responda à pergunta do usuário.
+2. SE o usuário pedir para fazer cadastros, alterações ou exclusões, defina hasAction=true e preencha o array 'actions' com CADA ação solicitada (o usuário pode pedir várias ações de uma só vez, por exemplo: cadastrar horários em turmas diferentes).
+3. AÇÃO DE NOTA: actionType="update_grade", forneça studentId, examId e score.
+4. EXCLUIR NOTA: actionType="delete_grade", forneça studentId e examId.
+5. FREQUÊNCIA: actionType="set_attendance", forneça studentId, date (YYYY-MM-DD) e status ("P", "F" ou "J"). Se não disser o dia, use a data de hoje: ${new Date().toISOString().split('T')[0]}.
+6. HORÁRIO: actionType="add_schedule", forneça classId, day (Ex: "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"), startTime (HH:MM) e endTime (HH:MM). Deduz o ID correto da turma procurando pelo nome fornecido pelo usuário na lista de Turmas acima (ex: se o usuário disser '3a', ache a turma com 'nome' mais parecido e pegue o 'id').
+7. SE for só uma pergunta, defina hasAction=false.
 Retorne o JSON estritamente neste formato.`;
 
                         const schema = {
@@ -1063,12 +1094,24 @@ Retorne o JSON estritamente neste formato.`;
                             properties: {
                                 reply: { type: "STRING" },
                                 hasAction: { type: "BOOLEAN" },
-                                actionType: { type: "STRING" },
-                                studentId: { type: "INTEGER" },
-                                examId: { type: "INTEGER" },
-                                score: { type: "NUMBER" },
-                                date: { type: "STRING" },
-                                status: { type: "STRING" }
+                                actions: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            actionType: { type: "STRING" },
+                                            studentId: { type: "INTEGER" },
+                                            examId: { type: "INTEGER" },
+                                            classId: { type: "INTEGER" },
+                                            score: { type: "NUMBER" },
+                                            date: { type: "STRING" },
+                                            status: { type: "STRING" },
+                                            day: { type: "STRING" },
+                                            startTime: { type: "STRING" },
+                                            endTime: { type: "STRING" }
+                                        }
+                                    }
+                                }
                             }
                         };
 
@@ -1079,12 +1122,7 @@ Retorne o JSON estritamente neste formato.`;
                                 role: 'model',
                                 text: aiResult.reply,
                                 hasAction: aiResult.hasAction,
-                                actionType: aiResult.actionType,
-                                studentId: aiResult.studentId,
-                                examId: aiResult.examId,
-                                score: aiResult.score,
-                                date: aiResult.date,
-                                status: aiResult.status,
+                                actions: aiResult.actions || [],
                                 actionResolved: null
                             });
                         } else {
