@@ -1414,13 +1414,16 @@ Retorne o JSON estritamente neste formato.`;
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `Você é um sistema OMR de altíssima precisão. Siga as instruções ESTRITAMENTE:
-1. ORIENTAÇÃO: Localize o texto "GABARITO OFICIAL" para saber qual é a parte de cima da página. Use as âncoras pretas (quadrados nos quatro cantos) para corrigir mentalmente a perspectiva.
-2. SINCRONIZAÇÃO: Cada linha de questão possui um pequeno quadrado preto à esquerda e outro à direita (Timing Marks).
-3. LEITURA DE MARCAÇÕES: Verifique apenas o interior das grandes bolhas de contorno grosso. As opções em branco têm letras cinzas. O aluno deve ter pintado o círculo de cor escura.
-4. REGRAS DE FALHA: Se a linha estiver em branco, ou se houver mais de uma bolha preenchida na mesma linha, ou for ilegível, use o valor -1.
-5. Se conseguir ler o código QR no canto superior, extraia o texto JSON em qrText.
-6. Extraia a resposta como um array de objetos associando o número da linha (q) e o índice marcado (v). Sendo v: 0=A/Certo, 1=B/Errado, 2=C, 3=D, 4=E. Retorne apenas o JSON.`;
+                            const prompt = `Você é um sistema OMR baseado em Inteligência Artificial com ALTA TOLERÂNCIA a falhas humanas. Siga as instruções ESTRITAMENTE:
+1. ALINHAMENTO E ANCORAGEM (CRUCIAL): Utilize os 4 quadrados pretos (âncoras) localizados nos quatro cantos exatos da grelha de respostas para corrigir mentalmente a perspetiva, a distorção e a rotação da foto.
+2. ORIENTAÇÃO E LETRAS: O topo da página é indicado pelo texto "GABARITO OFICIAL" e pelo QR Code. Observe atentamente as letras (A, B, C, D, E) impressas no cabeçalho das colunas e DENTRO das próprias bolhas. Use estas letras para confirmar com 100% de certeza qual a alternativa escolhida, cruzando a linha da questão com a coluna correspondente.
+3. SINCRONIZAÇÃO DE LINHAS: Cada linha de questão possui um pequeno quadrado preto (Timing Mark) à esquerda e outro à direita. Use-os em conjunto com o número impresso da questão para garantir que está a ler a linha exata.
+4. LEITURA E INTENÇÃO HUMANA (MUITO IMPORTANTE): 
+   - O aluno deve pintar a bolha, MAS seja inteligente: se ele marcou um 'X' claro, um '✓', circulou a letra ou pintou fora da borda, ACEITE a resposta se a intenção for óbvia para aquela letra.
+   - RASURAS: Se houver uma bolha borrada/apagada e outra preenchida de forma mais escura/nítida, considere a MAIS ESCURA E NÍTIDA como a resposta válida do aluno.
+5. REGRAS DE FALHA: Retorne o valor -1 APENAS se a linha estiver totalmente em branco, ou se houver dupla marcação com a exata mesma intensidade (impossível decidir qual ele escolheu).
+6. QR CODE: Tente ler o QR Code no canto superior e extraia o JSON em qrText.
+7. Extraia a resposta como um array de objetos associando o número da linha (q) e o índice marcado (v). Sendo v: 0=A/Certo, 1=B/Errado, 2=C, 3=D, 4=E. Retorne apenas o JSON.`;
 
                             const schema = {
                                 type: "OBJECT",
@@ -1440,6 +1443,9 @@ Retorne o JSON estritamente neste formato.`;
                             };
 
                             const aiResult = await fetchGemini(prompt, schema, base64Img, mimeType);
+                            
+                            // Bloqueio de segurança 1: Aborta a gravação se o professor carregou em Interromper
+                            if (stopQueueFlag.value) break;
                             
                             let finalQrText = qrData ? JSON.stringify(qrData) : aiResult.qrText;
                             if (!finalQrText || finalQrText === "null" || finalQrText.trim() === "") {
@@ -1470,20 +1476,36 @@ Retorne o JSON estritamente neste formato.`;
                                 });
                             }
 
+                            // Bloqueio de segurança 2: Aborta imediatamente antes de gravar
+                            if (stopQueueFlag.value) break;
+
                             await saveExamResult(exm.id, std.id, std.name, ver, ansMap);
 
                             if (i < correctionQueue.value.length - 1) {
-                                await new Promise(res => setTimeout(res, 2500));
+                                // Pausa interativa que cancela no exato milissegundo se a flag alterar
+                                await new Promise(res => {
+                                    let t = 0;
+                                    let timer = setInterval(() => {
+                                        t += 100;
+                                        if (stopQueueFlag.value || t >= 2500) {
+                                            clearInterval(timer);
+                                            res();
+                                        }
+                                    }, 100);
+                                });
                             }
 
                         } catch(e) {
-                            showToast(e.message || "Erro de análise", "error");
+                            if (!stopQueueFlag.value) showToast(e.message || "Erro de análise", "error");
                         }
+                        
+                        if (stopQueueFlag.value) break;
                         processedCount.value++;
                     }
 
-                    isProcessingQueue.value = false;
+                    // Somente corre a conclusão se não houver interrupções forçadas
                     if (!stopQueueFlag.value) {
+                        isProcessingQueue.value = false;
                         showToast("Correção em lote concluída!", "success");
                         load(); // Atualiza os resultados na interface
                     }
