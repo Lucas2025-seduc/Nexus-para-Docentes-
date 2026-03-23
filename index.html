@@ -195,7 +195,7 @@
             <!-- QUESTÕES -->
             <div v-if="currentView==='questions'" class="space-y-4 animate-fade-in">
                  <div class="bg-white p-3 rounded-2xl shadow-sm border sticky top-0 z-20 space-y-2">
-                    <div class="flex gap-2"><input v-model="qFilter" placeholder="Buscar enunciado..." class="flex-1 bg-gray-50 px-3 rounded-xl text-sm outline-none font-medium"><button @click="showAIGenModal=true" class="bg-purple-600 text-white w-12 h-10 rounded-xl"><i class="fa-solid fa-wand-magic-sparkles"></i></button><button @click="openQForm('bank')" class="bg-indigo-600 text-white w-12 h-10 rounded-xl"><i class="fa-solid fa-plus"></i></button></div>
+                    <div class="flex gap-2"><input v-model="qFilter" placeholder="Buscar enunciado..." class="flex-1 bg-gray-50 px-3 rounded-xl text-sm outline-none font-medium"><button @click="deleteAllQuestions" class="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white transition w-12 h-10 rounded-xl flex items-center justify-center" title="Apagar todo o banco"><i class="fa-solid fa-trash-can"></i></button><button @click="showAIGenModal=true" class="bg-purple-600 text-white w-12 h-10 rounded-xl flex items-center justify-center" title="Gerador IA"><i class="fa-solid fa-wand-magic-sparkles"></i></button><button @click="openQForm('bank')" class="bg-indigo-600 text-white w-12 h-10 rounded-xl flex items-center justify-center" title="Nova Questão"><i class="fa-solid fa-plus"></i></button></div>
                     <div class="grid grid-cols-3 gap-2"><select v-model="filterType" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"><option value="">Tipos</option><option value="mc">Multi</option><option value="ce">C/E</option><option value="assoc">Assoc</option></select><input list="dl-subjects" v-model="filterSubject" placeholder="Disciplina" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"><input list="dl-topics" v-model="filterTopic" placeholder="Conteúdo" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"></div>
                 </div>
                 <div class="space-y-3 pb-20">
@@ -1348,6 +1348,18 @@ Retorne o JSON estritamente neste formato.`;
                 const deleteClass=(id)=>{triggerConfirm("Tem certeza que deseja apagar esta turma e todos os seus alunos?",async()=>{await db.students.bulkDelete(students.value.filter(s=>s.classId===id).map(s=>s.id)); await db.classes.delete(id); load();})};
                 const saveStudents=(cid)=>{if(!bulkStudents.value[cid])return; triggerConfirm("Tem certeza que deseja salvar estes alunos?",async()=>{await db.students.bulkAdd(bulkStudents.value[cid].split('\n').map(n=>n.trim()).filter(n=>n).map(n=>({classId:cid,name:n}))); bulkStudents.value[cid]=''; load();})};
 
+                const deleteAllQuestions = () => {
+                    triggerConfirm("Tem a certeza que deseja apagar TODO o banco de questões? Esta ação é irreversível.", async () => {
+                        try {
+                            await db.questions.clear();
+                            await load();
+                            showToast("O banco de questões foi apagado com sucesso.", "success");
+                        } catch (error) {
+                            showToast("Erro ao apagar as questões.", "error");
+                        }
+                    });
+                };
+
                 const changeQType=t=>{qType.value=t; newQ.value.options=(t==='vf')?[{text:'',isTrue:true},{text:'',isTrue:false}]:(t==='assoc'?[{text:'',match:''},{text:'',match:''}]:[{text:''},{text:''},{text:''},{text:''},{text:''}])};
                 const openQForm=src=>{formSource.value=src; newQ.value={subject:'',topic:'',text:'',options:[]}; changeQType('mc'); showQFormModal.value=true};
                 const saveQuestion=async(add)=>{let q={...newQ.value, type:qType.value}; if(qType.value==='ce')q.options=[{text:'Certo'},{text:'Errado'}]; if(q.id)await db.questions.put(q); else {let id=await db.questions.add(q); if(formSource.value==='exam')examCart.value.push(await db.questions.get(id))} if(!add)showQFormModal.value=false; else openQForm(formSource.value); load();};
@@ -1807,7 +1819,7 @@ Retorne o JSON estritamente neste formato.`;
                     uniqueTopics: computed(() => [...new Set(questions.value.map(q => q.topic).filter(Boolean))].sort()),
                     uniqueSubjects: computed(() => [...new Set(questions.value.map(q => q.subject).filter(Boolean))].sort()),
                     filteredQuestions: computed(() => questions.value.filter(q => (!qFilter.value || q.text.toLowerCase().includes(qFilter.value.toLowerCase()) || (q.topic && q.topic.toLowerCase().includes(qFilter.value.toLowerCase()))) && (!filterType.value || q.type === filterType.value) && (!filterSubject.value || (q.subject && q.subject.toLowerCase().includes(filterSubject.value.toLowerCase()))) && (!filterTopic.value || (q.topic && q.topic.toLowerCase().includes(filterTopic.value.toLowerCase()))))),
-                    changeQType, openQForm, saveQuestion, editQuestion, deleteQuestion: id=>triggerConfirm("Tem certeza que deseja apagar esta questão?",async()=>{await db.questions.delete(id);load()}),
+                    changeQType, openQForm, saveQuestion, editQuestion, deleteQuestion: id=>triggerConfirm("Tem certeza que deseja apagar esta questão?",async()=>{await db.questions.delete(id);load()}), deleteAllQuestions,
                     qType, newQ, showQFormModal, formSource, handleImageUpload: e=>{let r=new FileReader();r.onload=ev=>newQ.value.image=ev.target.result;r.readAsDataURL(e.target.files[0])},
                     
                     // Exams
