@@ -130,9 +130,17 @@
 
                     <!-- Frequência -->
                     <div v-if="diaryTab==='attendance'" class="p-4 space-y-4">
-                        <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border">
-                            <label class="text-xs font-bold text-gray-600">Data:</label>
-                            <input type="date" v-model="attendanceDate" class="flex-1 bg-white p-2 rounded-lg border outline-none text-sm font-medium">
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border">
+                                <label class="text-xs font-bold text-gray-600">Data:</label>
+                                <input type="date" v-model="attendanceDate" class="w-full bg-transparent outline-none text-sm font-medium">
+                            </div>
+                            <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border">
+                                <label class="text-xs font-bold text-gray-600">Aula:</label>
+                                <select v-model="attendancePeriod" class="w-full bg-transparent outline-none text-sm font-medium">
+                                    <option v-for="p in periodsList" :value="p">{{p}}</option>
+                                </select>
+                            </div>
                         </div>
                         
                         <div class="space-y-2">
@@ -152,12 +160,19 @@
                     <!-- Horários -->
                     <div v-if="diaryTab==='schedule'" class="p-4 space-y-4 bg-gray-50/30">
                         <div class="bg-white p-3 rounded-xl border flex flex-col gap-3">
-                            <select v-model="newSchedule.day" class="w-full p-2 bg-gray-50 rounded-lg text-sm border font-bold outline-none">
-                                <option v-for="d in ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado']" :value="d">{{d}}</option>
-                            </select>
-                            <div class="flex gap-2">
-                                <div class="flex-1"><label class="text-[10px] text-gray-500 font-bold block mb-1">Início</label><input type="time" v-model="newSchedule.start" class="w-full p-2 bg-gray-50 border rounded-lg text-sm"></div>
-                                <div class="flex-1"><label class="text-[10px] text-gray-500 font-bold block mb-1">Fim</label><input type="time" v-model="newSchedule.end" class="w-full p-2 bg-gray-50 border rounded-lg text-sm"></div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="flex-1">
+                                    <label class="text-[10px] text-gray-500 font-bold block mb-1">Dia</label>
+                                    <select v-model="newSchedule.day" class="w-full p-2 bg-gray-50 rounded-lg text-sm border font-bold outline-none">
+                                        <option v-for="d in ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado']" :value="d">{{d}}</option>
+                                    </select>
+                                </div>
+                                <div class="flex-1">
+                                    <label class="text-[10px] text-gray-500 font-bold block mb-1">Período</label>
+                                    <select v-model="newSchedule.period" class="w-full p-2 bg-gray-50 rounded-lg text-sm border font-bold outline-none">
+                                        <option v-for="p in periodsList" :value="p">{{p}}</option>
+                                    </select>
+                                </div>
                             </div>
                             <button @click="addSchedule" class="w-full py-2 bg-emerald-500 text-white rounded-lg text-xs font-bold"><i class="fa-solid fa-plus"></i> Adicionar Horário</button>
                         </div>
@@ -166,7 +181,7 @@
                             <div v-for="sch in schedulesList" :key="sch.id" class="bg-white border p-3 rounded-xl flex justify-between items-center shadow-sm">
                                 <div>
                                     <span class="font-bold text-indigo-700 text-sm block">{{sch.day}}</span>
-                                    <span class="text-xs text-gray-500 font-medium">{{sch.start}} às {{sch.end}}</span>
+                                    <span class="text-xs text-gray-500 font-medium">{{sch.period}}</span>
                                 </div>
                                 <button @click="deleteSchedule(sch.id)" class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button>
                             </div>
@@ -581,7 +596,7 @@
     <script>
         const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
         const db = new Dexie('NexusAppDB');
-        db.version(3).stores({ 
+        db.version(4).stores({ 
             classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
             results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
             schedules: '++id, classId', attendance: '++id, classId, date, studentId'
@@ -638,13 +653,15 @@
                 const dashboardStudentFilter = ref('');
                 const examHistoryFilter = ref('');
                 
-                // Diário
+                // Diário (Aulas/Períodos)
+                const periodsList = ['1ª Aula', '2ª Aula', '3ª Aula', '4ª Aula', '5ª Aula', '6ª Aula', '7ª Aula', '8ª Aula', '9ª Aula'];
                 const diaryClassId = ref(null);
                 const diaryTab = ref('attendance');
                 const attendanceDate = ref(new Date().toISOString().split('T')[0]);
+                const attendancePeriod = ref('1ª Aula');
                 const attendanceMap = ref({});
                 const schedulesList = ref([]);
-                const newSchedule = ref({ day: 'Segunda', start: '', end: '' });
+                const newSchedule = ref({ day: 'Segunda', period: '1ª Aula' });
 
                 // Assistente Virtual IA
                 const showAssistant = ref(false);
@@ -652,7 +669,7 @@
                 const isAssistantThinking = ref(false);
                 const isDictating = ref(false);
                 const assistantHistory = ref([
-                    {role: 'model', text: 'Olá, Professor! Eu sou o assistente virtual da caderneta. Pergunte-me sobre a frequência de hoje, as faltas de um aluno ou as notas das provas! Posso também alterar ou lançar dados para você.'}
+                    {role: 'model', text: 'Olá, Professor! Eu sou o assistente virtual da caderneta. Posso ajudá-lo a gerir as suas notas, as faltas em qualquer aula, ou os seus horários.'}
                 ]);
 
                 // Exam & Question Modals
@@ -766,45 +783,52 @@
                     if(s) { settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null}; if(s.geminiKey) geminiKey.value=s.geminiKey; }
                 };
 
-                // --- DIÁRIO FUNCIONALIDADES ---
+                // --- DIÁRIO FUNCIONALIDADES (Por Aula) ---
                 const loadDiaryData = async () => {
                     if(!diaryClassId.value) return;
                     schedulesList.value = await db.schedules.where({classId: diaryClassId.value}).toArray();
                     
-                    const attRecords = await db.attendance.where({classId: diaryClassId.value, date: attendanceDate.value}).toArray();
+                    // Carrega todos os registros da turma e filtra localmente por data e aula
+                    const allClassAtt = await db.attendance.where('classId').equals(diaryClassId.value).toArray();
+                    const currentAtt = allClassAtt.filter(r => r.date === attendanceDate.value && r.period === attendancePeriod.value);
+                    
                     const map = {};
-                    attRecords.forEach(r => { map[r.studentId] = r.status; });
+                    currentAtt.forEach(r => { map[r.studentId] = r.status; });
                     
                     students.value.filter(s=>s.classId===diaryClassId.value).forEach(s => {
-                        if(!map[s.id]) map[s.id] = 'P';
+                        if(!map[s.id]) map[s.id] = 'P'; // Presença por omissão
                     });
                     attendanceMap.value = map;
                 };
 
-                watch([diaryClassId, attendanceDate], loadDiaryData);
+                watch([diaryClassId, attendanceDate, attendancePeriod], loadDiaryData);
 
                 const saveAttendance = async () => {
                     if(!diaryClassId.value) return;
                     const records = Object.keys(attendanceMap.value).map(sId => ({
                         classId: diaryClassId.value,
                         date: attendanceDate.value,
+                        period: attendancePeriod.value,
                         studentId: Number(sId),
                         status: attendanceMap.value[sId]
                     }));
-                    await db.attendance.where({classId: diaryClassId.value, date: attendanceDate.value}).delete();
+                    
+                    // Limpar registros existentes desta Aula específica no mesmo dia e turma
+                    const allClassAtt = await db.attendance.where('classId').equals(diaryClassId.value).toArray();
+                    const toDeleteIds = allClassAtt.filter(r => r.date === attendanceDate.value && r.period === attendancePeriod.value).map(r => r.id);
+                    
+                    await db.attendance.bulkDelete(toDeleteIds);
                     await db.attendance.bulkAdd(records);
                     showToast("Frequência salva!", "success");
                 };
 
                 const addSchedule = async () => {
-                    if(!diaryClassId.value || !newSchedule.value.start || !newSchedule.value.end) return showToast("Preencha todos os campos do horário", "warning");
+                    if(!diaryClassId.value || !newSchedule.value.period) return showToast("Preencha todos os campos do horário", "warning");
                     await db.schedules.add({
                         classId: diaryClassId.value,
                         day: newSchedule.value.day,
-                        start: newSchedule.value.start,
-                        end: newSchedule.value.end
+                        period: newSchedule.value.period
                     });
-                    newSchedule.value.start = ''; newSchedule.value.end = '';
                     loadDiaryData();
                     showToast("Horário adicionado", "success");
                 };
@@ -928,7 +952,7 @@
                     }
                 };
 
-                // --- ASSISTENTE VIRTUAL COM AÇÕES MULTIPLAS ---
+                // --- ASSISTENTE VIRTUAL COM AÇÕES MULTIPLAS E PRECISAS ---
                 const getActionDescription = (act) => {
                     if (act.actionType === 'update_grade' || act.actionType === 'delete_grade' || act.actionType === 'set_attendance') {
                         const std = students.value.find(s => s.id === act.studentId);
@@ -947,12 +971,12 @@
                             const stMap = {'P':'Presença', 'F':'Falta', 'J':'Falta Justificada'};
                             const rawDate = act.date || new Date().toISOString().split('T')[0];
                             const dateFormatted = rawDate.split('-').reverse().join('/');
-                            return `Registrar ${stMap[act.status]||act.status} para ${name} no dia ${dateFormatted}`;
+                            return `Registrar ${stMap[act.status]||act.status} para ${name} no dia ${dateFormatted} (${act.period || 'Aula Desconhecida'})`;
                         }
                     }
                     if (act.actionType === 'add_schedule') {
                         const cls = classes.value.find(c => c.id === act.classId);
-                        return `Adicionar horário na turma '${cls ? cls.name : 'Desconhecida'}': ${act.day}, das ${act.startTime} às ${act.endTime}`;
+                        return `Adicionar horário na turma '${cls ? cls.name : 'Desconhecida'}': ${act.day}, ${act.period}`;
                     }
                     return "Ação desconhecida";
                 };
@@ -984,8 +1008,11 @@
                                 if(std) {
                                     const classId = std.classId;
                                     const dt = act.date || new Date().toISOString().split('T')[0];
-                                    await db.attendance.where({classId, date: dt, studentId: act.studentId}).delete();
-                                    await db.attendance.add({classId, date: dt, studentId: act.studentId, status: act.status});
+                                    const per = act.period || '1ª Aula';
+                                    const allClassAtt = await db.attendance.where('classId').equals(classId).toArray();
+                                    const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per && r.studentId === act.studentId).map(r => r.id);
+                                    await db.attendance.bulkDelete(toDelete);
+                                    await db.attendance.add({classId, date: dt, period: per, studentId: act.studentId, status: act.status});
                                 }
                             } else if (act.actionType === 'add_schedule') {
                                 const cls = classes.value.find(c=>c.id === act.classId);
@@ -993,8 +1020,7 @@
                                     await db.schedules.add({
                                         classId: act.classId,
                                         day: act.day,
-                                        start: act.startTime,
-                                        end: act.endTime
+                                        period: act.period
                                     });
                                 }
                             }
@@ -1017,7 +1043,7 @@
                 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
                     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
                     recognition = new SpeechRec();
-                    recognition.lang = 'pt-BR'; // Mantém o idioma de reconhecimento para a variante principal de uso
+                    recognition.lang = 'pt-BR';
                     recognition.interimResults = false;
                     recognition.continuous = false;
 
@@ -1065,32 +1091,31 @@
                     try {
                         const c = classes.value.map(x=>({id:x.id, nome:x.name}));
                         const s = students.value.map(x=>({id:x.id, idTurma:x.classId, nome:x.name}));
-                        const eList = exams.value.map(x=>({id:x.id, titulo:x.title}));
+                        const eList = exams.value.map(x=>({id:x.id, titulo:x.title, bimestre:x.bimester, tipo:x.type}));
                         const r = results.value.map(x=>({idAluno:x.studentId, idProva: x.examId, nota:x.score}));
                         const attArray = await db.attendance.toArray();
-                        const att = attArray.map(x=>({idAluno:x.studentId, data:x.date, status:x.status}));
+                        const att = attArray.map(x=>({idAluno:x.studentId, data:x.date, aula:x.period, status:x.status}));
                         const schArray = await db.schedules.toArray();
-                        const sch = schArray.map(x=>({idTurma:x.classId, dia:x.day, inicio:x.start, fim:x.end}));
+                        const sch = schArray.map(x=>({idTurma:x.classId, dia:x.day, aula:x.period}));
 
                         const promptText = `Você é o assistente virtual da aplicação Nexus. Responda em português.
 CONTEXTO DA BASE DE DADOS:
 - Turmas (Use o 'id' para ações): ${JSON.stringify(c)}
 - Alunos (Use o 'id' para ações): ${JSON.stringify(s)}
-- Provas (Use o 'id' para ações): ${JSON.stringify(eList)}
+- Provas cadastradas: ${JSON.stringify(eList)}
 - Notas Atuais: ${JSON.stringify(r)}
 - Frequências (P=Presente, F=Falta, J=Justificada): ${JSON.stringify(att)}
 - Horários Atuais: ${JSON.stringify(sch)}
 
 AÇÃO DO USUÁRIO: "${userQuery}"
 
-REGRAS OBRIGATÓRIAS:
+REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
 1. Em 'reply', seja breve e confirme se vai preparar as ações ou responda à pergunta do usuário.
-2. SE o usuário pedir para fazer cadastros, alterações ou exclusões, defina hasAction=true e preencha o array 'actions' com CADA ação solicitada (o usuário pode pedir várias ações de uma só vez, por exemplo: cadastrar horários em turmas diferentes).
-3. AÇÃO DE NOTA: actionType="update_grade", forneça studentId, examId e score.
-4. EXCLUIR NOTA: actionType="delete_grade", forneça studentId e examId.
-5. FREQUÊNCIA: actionType="set_attendance", forneça studentId, date (YYYY-MM-DD) e status ("P", "F" ou "J"). Se não disser o dia, use a data de hoje: ${new Date().toISOString().split('T')[0]}.
-6. HORÁRIO: actionType="add_schedule", forneça classId, day (Ex: "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"), startTime (HH:MM) e endTime (HH:MM). Deduz o ID correto da turma procurando pelo nome fornecido pelo usuário na lista de Turmas acima (ex: se o usuário disser '3a', ache a turma com 'nome' mais parecido e pegue o 'id').
-7. SE for só uma pergunta, defina hasAction=false.
+2. SE o usuário pedir para LANÇAR/ALTERAR NOTA, você PRECISA saber o aluno e qual é a prova. Para identificar a prova, o usuário deve dizer o bimestre e o tipo (ex: Mensal, Bimestral) ou o título exato. Se ele NÃO disser, NÃO gere a ação e responda perguntando "Para qual prova e bimestre é essa nota?". Se ele disser, ache o examId em 'Provas cadastradas' e gere actionType="update_grade", preenchendo studentId, examId e score.
+3. EXCLUIR NOTA: Mesma regra. Se não souber qual prova, pergunte. Se souber, actionType="delete_grade", fornecendo studentId e examId.
+4. FREQUÊNCIA: Você PRECISA saber o aluno, a data e a AULA (ex: "1ª Aula", "2ª Aula", etc). Se ele não disser qual é a aula (ex: "O João faltou hoje"), NÃO gere a ação e pergunte "Em qual aula o João faltou?". Se tiver a aula e a data (assuma hoje: ${new Date().toISOString().split('T')[0]} se ele não disser dia), gere actionType="set_attendance", fornecendo studentId, date (YYYY-MM-DD), period (A aula) e status ("P", "F" ou "J").
+5. HORÁRIO: actionType="add_schedule", forneça classId (ache pelo nome exato, ex '3a' = 3º Ano A), day (Ex: "Segunda", "Terça") e period (Ex: "2ª Aula", "9ª Aula").
+6. SE for só uma pergunta genérica ou estiverem a faltar dados cruciais para a ação, defina hasAction=false e converse naturalmente.
 Retorne o JSON estritamente neste formato.`;
 
                         const schema = {
@@ -1111,8 +1136,7 @@ Retorne o JSON estritamente neste formato.`;
                                             date: { type: "STRING" },
                                             status: { type: "STRING" },
                                             day: { type: "STRING" },
-                                            startTime: { type: "STRING" },
-                                            endTime: { type: "STRING" }
+                                            period: { type: "STRING" }
                                         }
                                     }
                                 }
@@ -1133,7 +1157,7 @@ Retorne o JSON estritamente neste formato.`;
                             throw new Error("Resposta vazia");
                         }
                     } catch(e) {
-                        assistantHistory.value.push({ role: 'model', text: "Desculpe, ocorreu um erro. Verifique a base de dados ou tente formular de forma mais clara informando o nome exato da prova e do aluno." });
+                        assistantHistory.value.push({ role: 'model', text: "Desculpe, ocorreu um erro. Verifique a base de dados ou tente formular de forma mais clara informando o nome exato da prova/aula e do aluno." });
                     } finally {
                         isAssistantThinking.value = false;
                         nextTick(() => {
@@ -1841,7 +1865,7 @@ Retorne o JSON estritamente neste formato.`;
                     correctionQueue, isProcessingQueue, processedCount, stopQueue,
 
                     // Diário (Schedules & Attendance)
-                    diaryClassId, diaryTab, attendanceDate, attendanceMap, schedulesList, newSchedule,
+                    periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceMap, schedulesList, newSchedule,
                     studentsInDiaryClass: computed(()=>students.value.filter(s=>s.classId===diaryClassId.value)),
                     saveAttendance, addSchedule, deleteSchedule, deleteAllGrades,
 
