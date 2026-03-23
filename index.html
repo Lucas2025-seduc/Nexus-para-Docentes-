@@ -985,6 +985,8 @@
                     try {
                         if(!msg.actions || msg.actions.length === 0) throw new Error("Nenhuma ação válida encontrada");
                         
+                        let switchToDiary = false;
+
                         for (const act of msg.actions) {
                             if (act.actionType === 'update_grade') {
                                 let res = results.value.find(r => r.examId === act.examId && r.studentId === act.studentId);
@@ -1007,26 +1009,57 @@
                                 const std = students.value.find(s=>s.id === act.studentId);
                                 if(std) {
                                     const classId = std.classId;
-                                    const dt = act.date || new Date().toISOString().split('T')[0];
-                                    const per = act.period || '1ª Aula';
+                                    
+                                    // Normalizar e forçar o formato da data (YYYY-MM-DD)
+                                    let dt = act.date || new Date().toISOString().split('T')[0];
+                                    if (dt.includes('/')) {
+                                        const parts = dt.split('/');
+                                        if (parts.length === 3 && parts[2].length === 4) {
+                                            dt = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                        }
+                                    }
+                                    
+                                    // Normalizar e forçar o formato do período (Ex: "1a" vira "1ª Aula")
+                                    let per = act.period || '1ª Aula';
+                                    const match = per.match(/(\d)/);
+                                    if (match) per = match[1] + 'ª Aula';
+
                                     const allClassAtt = await db.attendance.where('classId').equals(classId).toArray();
                                     const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per && r.studentId === act.studentId).map(r => r.id);
                                     await db.attendance.bulkDelete(toDelete);
                                     await db.attendance.add({classId, date: dt, period: per, studentId: act.studentId, status: act.status});
+                                    
+                                    // Atualizar os filtros da UI para ver a modificação na hora
+                                    diaryClassId.value = classId;
+                                    diaryTab.value = 'attendance';
+                                    attendanceDate.value = dt;
+                                    attendancePeriod.value = per;
+                                    switchToDiary = true;
                                 }
                             } else if (act.actionType === 'add_schedule') {
                                 const cls = classes.value.find(c=>c.id === act.classId);
                                 if(cls) {
+                                    let per = act.period || '1ª Aula';
+                                    const match = per.match(/(\d)/);
+                                    if (match) per = match[1] + 'ª Aula';
+
                                     await db.schedules.add({
                                         classId: act.classId,
                                         day: act.day,
-                                        period: act.period
+                                        period: per
                                     });
+                                    
+                                    diaryClassId.value = act.classId;
+                                    diaryTab.value = 'schedule';
+                                    switchToDiary = true;
                                 }
                             }
                         }
                         
                         msg.actionResolved = 'confirmed';
+                        if (switchToDiary) {
+                            currentView.value = 'diary';
+                        }
                         await load();
                         if (currentView.value === 'diary') await loadDiaryData();
                         showToast("Ações executadas com sucesso!", "success");
@@ -1113,8 +1146,8 @@ REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
 1. Em 'reply', seja breve e confirme se vai preparar as ações ou responda à pergunta do usuário.
 2. SE o usuário pedir para LANÇAR/ALTERAR NOTA, você PRECISA saber o aluno e qual é a prova. Para identificar a prova, o usuário deve dizer o bimestre e o tipo (ex: Mensal, Bimestral) ou o título exato. Se ele NÃO disser, NÃO gere a ação e responda perguntando "Para qual prova e bimestre é essa nota?". Se ele disser, ache o examId em 'Provas cadastradas' e gere actionType="update_grade", preenchendo studentId, examId e score.
 3. EXCLUIR NOTA: Mesma regra. Se não souber qual prova, pergunte. Se souber, actionType="delete_grade", fornecendo studentId e examId.
-4. FREQUÊNCIA: Você PRECISA saber o aluno, a data e a AULA (ex: "1ª Aula", "2ª Aula", etc). Se ele não disser qual é a aula (ex: "O João faltou hoje"), NÃO gere a ação e pergunte "Em qual aula o João faltou?". Se tiver a aula e a data (assuma hoje: ${new Date().toISOString().split('T')[0]} se ele não disser dia), gere actionType="set_attendance", fornecendo studentId, date (YYYY-MM-DD), period (A aula) e status ("P", "F" ou "J").
-5. HORÁRIO: actionType="add_schedule", forneça classId (ache pelo nome exato, ex '3a' = 3º Ano A), day (Ex: "Segunda", "Terça") e period (Ex: "2ª Aula", "9ª Aula").
+4. FREQUÊNCIA: Você PRECISA saber o aluno, a data e a AULA (ex: "1ª Aula", "2ª Aula", etc). Se ele não disser qual é a aula (ex: "O João faltou hoje"), NÃO gere a ação e pergunte "Em qual aula o João faltou?". Se tiver a aula e a data (assuma hoje: ${new Date().toISOString().split('T')[0]} se ele não disser dia), gere actionType="set_attendance", fornecendo studentId, date (FORMATO OBRIGATÓRIO: YYYY-MM-DD), period (FORMATO OBRIGATÓRIO EXATO: "1ª Aula", "2ª Aula", etc) e status ("P", "F" ou "J").
+5. HORÁRIO: actionType="add_schedule", forneça classId (ache pelo nome exato, ex '3a' = 3º Ano A), day (Ex: "Segunda", "Terça") e period (FORMATO OBRIGATÓRIO EXATO: "2ª Aula", "9ª Aula").
 6. SE for só uma pergunta genérica ou estiverem a faltar dados cruciais para a ação, defina hasAction=false e converse naturalmente.
 Retorne o JSON estritamente neste formato.`;
 
