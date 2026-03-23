@@ -1414,15 +1414,15 @@ Retorne o JSON estritamente neste formato.`;
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `Você é um sistema OMR baseado em Inteligência Artificial com ALTA TOLERÂNCIA a falhas humanas. Siga as instruções ESTRITAMENTE:
-1. ALINHAMENTO E ANCORAGEM: Utilize os 4 quadrados pretos grandes (âncoras) nos cantos para corrigir mentalmente a perspetiva.
-2. LEITURA COMPLETA (CRUCIAL - NÃO PULE A ÚLTIMA): O gabarito contém várias linhas numeradas (ex: 01, 02, 03... até à última). A última questão fica "colada" aos quadrados grandes inferiores. É OBRIGATÓRIO verificar e devolver o resultado de TODAS as linhas numeradas, garantindo que não ignora a última questão!
-3. ORIENTAÇÃO E LETRAS: O topo é indicado pelo texto "GABARITO OFICIAL". Observe as letras (A, B, C, D, E) no cabeçalho e DENTRO das bolhas para confirmar a alternativa escolhida.
-4. SINCRONIZAÇÃO DE LINHAS: Cada linha numerada tem um pequeno retângulo preto (Timing Mark) à esquerda e à direita. Siga estes retângulos milimetricamente para não misturar as respostas de linhas diferentes.
-5. INTENÇÃO HUMANA: 
-   - Aceite 'X', '✓', bolhas mal pintadas ou circuladas se a intenção for clara.
-   - RASURAS: Entre uma bolha borrada e outra nitidamente preenchida, considere a MAIS ESCURA E NÍTIDA como a correta.
-6. REGRAS DE FALHA: Retorne o valor -1 APENAS se a linha estiver 100% em branco ou se houver dupla marcação idêntica.
+                            const prompt = `Você é um sistema OMR baseado em Inteligência Artificial em MODO DE SOBREVIVÊNCIA.
+AVISO DE MÁ QUALIDADE: A imagem fornecida pode ser uma fotografia tirada a um ecrã/tela de telemóvel (contendo reflexos de luz extremos, padrão moiré e perspetiva severa). Faça o possível para "ver através" do clarão.
+Siga as instruções ESTRITAMENTE:
+1. ALINHAMENTO ROBUSTO: Tente usar os 4 quadrados pretos grandes nos cantos. SE algum estiver cortado/fora da foto, deduza a geometria da grelha usando os restantes e os pequenos retângulos pretos laterais.
+2. LEITURA COMPLETA: Verifique TODAS as linhas numeradas do início ao fim (mesmo as que estão na base). Não ignore a última questão!
+3. ORIENTAÇÃO: O topo é indicado pelo QR Code e pelo texto "GABARITO OFICIAL". Se o texto estiver rasurado/tapado por desenhos digitais, guie-se exclusivamente pelo QR Code para saber onde é o topo.
+4. MARCAÇÕES (Físicas ou Digitais): O aluno pode ter preenchido com caneta ou com desenhos digitais (ex: manchas azuis, verdes). Considere a bolha com a cor mais forte ou preenchimento evidente como a resposta correta. Use a letra impressa no cabeçalho ou dentro da bolha para confirmar (A, B, C, D, E).
+5. SINCRONIZAÇÃO: Siga os retângulos pretos laterais estritamente linha a linha, da esquerda para a direita.
+6. REGRAS DE FALHA: Retorne o valor -1 APENAS se a linha estiver 100% vazia ou impossível de ler devido a um clarão de luz branco absoluto.
 7. QR CODE: Tente ler o QR no canto superior e extraia o JSON em qrText.
 8. SAÍDA FINAL: Extraia a resposta como um array de objetos associando o NÚMERO DA LINHA impresso na grelha (q) e o índice marcado (v). Sendo v: 0=A/Certo, 1=B/Errado, 2=C, 3=D, 4=E. Retorne apenas o JSON.`;
 
