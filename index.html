@@ -1295,45 +1295,50 @@ Distribuição OBRIGATÓRIA:
 - ${aiGenConfig.value.counts.vf} questões do tipo "vf" (Verdadeiro/Falso. As 'options' DEVEM ter o campo booleano 'isTrue').
 - ${aiGenConfig.value.counts.assoc} questões do tipo "assoc" (Associação. As 'options' DEVEM ter o texto principal em 'text' e a correspondência no campo 'match').
 
-IMPORTANTE: O retorno DEVE ser EXATAMENTE um Array JSON. Cada objeto de questão deve ter os campos: type, subject, topic, text, options e correct (quando aplicável para 'mc' e 'ce').`;
+IMPORTANTE: O retorno DEVE ser UM OBJETO JSON contendo a propriedade "questions" (que é um array). Cada questão dentro do array deve ter estritamente as chaves: 'type', 'text' (para o enunciado), 'options' (array de objetos) e 'correct' (inteiro, quando aplicável).`;
 
                         const schema = {
-                            type: "ARRAY",
-                            items: {
-                                type: "OBJECT",
-                                properties: {
-                                    type: { type: "STRING" },
-                                    subject: { type: "STRING" },
-                                    topic: { type: "STRING" },
-                                    text: { type: "STRING" },
-                                    options: {
-                                        type: "ARRAY",
-                                        items: {
-                                            type: "OBJECT",
-                                            properties: {
-                                                text: { type: "STRING" },
-                                                isTrue: { type: "BOOLEAN" },
-                                                match: { type: "STRING" }
-                                            }
+                            type: "OBJECT",
+                            properties: {
+                                questions: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            type: { type: "STRING" },
+                                            text: { type: "STRING" },
+                                            options: {
+                                                type: "ARRAY",
+                                                items: {
+                                                    type: "OBJECT",
+                                                    properties: {
+                                                        text: { type: "STRING" },
+                                                        isTrue: { type: "BOOLEAN" },
+                                                        match: { type: "STRING" }
+                                                    }
+                                                }
+                                            },
+                                            correct: { type: "INTEGER" }
                                         }
-                                    },
-                                    correct: { type: "INTEGER" }
+                                    }
                                 }
                             }
                         };
 
-                        let gq=await fetchGemini(promptText, schema);
+                        let aiResult = await fetchGemini(promptText, schema);
                         
-                        // Fallback de segurança caso a IA encapsule o array num objeto
-                        if(gq && !Array.isArray(gq) && gq.items) gq = gq.items;
-                        if(gq && !Array.isArray(gq) && gq.questions) gq = gq.questions;
+                        // Extrai as questões dependendo de como a IA estruturou o JSON final
+                        let gq = aiResult.questions || aiResult.items || aiResult;
                         
                         if(!Array.isArray(gq)) throw new Error("O formato retornado pela IA é inválido.");
                         
-                        // Normalização: Garante que os dados estão completos antes de salvar no banco
+                        // Normalização: Garante que os dados estão completos e os nomes dos campos estão certos
                         gq = gq.map(q => {
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
+                            // Rede de segurança: caso a IA chame "enunciado" em vez de "text"
+                            q.text = q.text || q.enunciado || q.pergunta || "Enunciado não gerado";
+                            
                             if (q.type === 'ce' && (!q.options || q.options.length < 2)) {
                                 q.options = [{text: 'Certo'}, {text: 'Errado'}];
                             }
