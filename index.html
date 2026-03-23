@@ -48,7 +48,7 @@
         <!-- HEADER E NAVEGAÇÃO -->
         <header class="bg-white shadow-sm z-50 flex-none border-b border-gray-200 relative">
             <div class="px-4 py-3 flex justify-between items-center">
-                <div class="flex items-center gap-3 text-indigo-700 select-none"><img src="https://placehold.co/80x80/4f46e5/ffffff?text=NEXUS" class="w-20 h-20 rounded-xl object-cover shadow-md border border-gray-100"><div><h1 class="font-black text-xl leading-none">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1><p class="text-[9px] font-medium text-gray-400 mt-0.5">Gestão Escolar</p></div></div>
+                <div class="flex items-center gap-3 text-indigo-700 select-none"><img src="logo-principal.png" class="w-20 h-20 rounded-xl object-cover shadow-md border border-gray-100 bg-white"><div><h1 class="font-black text-xl leading-none">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1><p class="text-[9px] font-medium text-gray-400 mt-0.5">Gestão Escolar</p></div></div>
                 <div class="flex gap-1 text-gray-400 items-center">
                     <button v-if="canInstall" @click="installPWA" class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-download"></i></button>
                     <button v-if="!isLicensed" @click="showLicenseModal=true" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-key"></i></button>
@@ -56,13 +56,10 @@
                     <button @click="backupData" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-cloud-arrow-down"></i></button>
                 </div>
             </div>
-            <nav class="flex bg-white text-[10px] font-bold text-gray-400 uppercase overflow-x-auto no-scrollbar border-t border-gray-50">
-                <button v-for="t in tabs" :key="t.id" @click="currentView=t.id" :class="currentView===t.id?'text-indigo-600 border-indigo-600 bg-indigo-50/60':'border-transparent hover:bg-gray-50'" class="flex-1 py-3 min-w-[70px] border-b-2 transition flex flex-col items-center gap-1"><i :class="t.icon" class="text-base"></i> {{ t.label }}</button>
-            </nav>
         </header>
 
         <!-- DASHBOARD -->
-        <main class="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full pb-24 sm:pb-4">
+        <main class="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
             <!-- PAINEL -->
             <div v-if="currentView==='dashboard'" class="space-y-6 animate-fade-in">
                  <div class="text-center py-8 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl shadow-xl text-white relative overflow-hidden">
@@ -182,9 +179,9 @@
                 </div>
 
                 <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
-                    <input type="file" id="ai-correction-upload" accept="image/*" capture="environment" class="hidden" @change="processAICorrection">
+                    <input type="file" id="ai-correction-upload" accept="image/*" multiple class="hidden" @change="processAICorrection">
                     <button @click="triggerAICorrection" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-3">
-                        <i class="fa-solid fa-wand-magic-sparkles text-xl"></i> Corrigir com IA (Foto do Gabarito)
+                        <i class="fa-solid fa-layer-group text-xl"></i> Corrigir em Lote com IA (Fotos)
                     </button>
                     
                     <button @click="startLiveQRScan" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-3">
@@ -197,6 +194,21 @@
                 </div>
             </div>
         </main>
+
+        <!-- NAVEGAÇÃO BOTTOM PREMIUM -->
+        <nav class="flex-none bg-white border-t border-gray-100 px-3 py-3 shadow-[0_-15px_40px_rgba(0,0,0,0.04)] relative z-50">
+            <div class="flex justify-between items-center max-w-3xl mx-auto gap-1">
+                <button v-for="t in tabs" :key="t.id" @click="currentView=t.id"
+                    class="relative flex items-center justify-center h-12 rounded-2xl transition-all duration-300 overflow-hidden"
+                    :class="currentView===t.id ? 'w-auto px-5 bg-indigo-600 text-white shadow-lg shadow-indigo-200/50' : 'flex-1 text-gray-400 hover:bg-gray-50 hover:text-indigo-500'">
+                    <i :class="t.icon" class="text-lg transition-transform duration-300 z-10" :class="currentView===t.id ? 'mr-2' : ''"></i>
+                    <span class="text-[11px] font-bold tracking-wide whitespace-nowrap transition-all duration-300 z-10"
+                          :class="currentView===t.id ? 'opacity-100 max-w-[100px]' : 'opacity-0 max-w-0 absolute'">
+                        {{ t.label }}
+                    </span>
+                </button>
+            </div>
+        </nav>
 
         <!-- HIDDEN & DATALISTS -->
         <div id="hidden-qr-reader" style="display:none;"></div>
@@ -278,13 +290,28 @@
         </div>
         
         <!-- HISTÓRICO -->
-        <div v-if="showHistory" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-            <div class="bg-white rounded-2xl w-full max-w-lg h-[80vh] flex flex-col">
-                <div class="p-4 border-b flex justify-between"><h3 class="font-bold">Histórico</h3><button @click="showHistory=false"><i class="fa-solid fa-times"></i></button></div>
-                <div class="overflow-y-auto p-4 space-y-2 bg-gray-50/50 flex-1">
-                    <div v-for="e in filteredHistoryExams" :key="e.id" class="bg-white border rounded-xl p-4 flex justify-between items-center">
-                        <div><div class="font-bold text-sm">{{e.title}}</div><div class="text-[10px] text-gray-500 flex gap-1 mt-1"><span class="bg-indigo-50 text-indigo-700 px-1 rounded">{{getClassName(e.classId)}}</span><span class="bg-gray-100 px-1 rounded">{{e.bimester}}º Bim</span></div></div>
-                        <div class="flex gap-2"><button @click="openFixKey(e)" class="w-8 h-8 rounded-full bg-orange-50 text-orange-600" title="Corrigir Gabarito"><i class="fa-solid fa-list-check"></i></button><button @click="generateKeyPDF(e)" class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600"><i class="fa-solid fa-key"></i></button><button @click="deleteExam(e.id)" class="w-8 h-8 rounded-full bg-red-50 text-red-400"><i class="fa-solid fa-trash"></i></button></div>
+        <div v-if="showHistory" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl w-full max-w-lg h-[80vh] flex flex-col shadow-2xl overflow-hidden">
+                <div class="p-5 border-b flex justify-between bg-gray-50"><h3 class="font-black text-gray-800"><i class="fa-solid fa-clock-rotate-left text-indigo-600 mr-2"></i> Histórico de Provas</h3><button @click="showHistory=false" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button></div>
+                <div class="overflow-y-auto p-4 space-y-3 bg-gray-50/50 flex-1">
+                    <div v-for="e in filteredHistoryExams" :key="e.id" class="bg-white border border-gray-100 rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow transition">
+                        <div class="flex-1 pr-3">
+                            <div class="font-bold text-sm text-gray-800">{{e.title}}</div>
+                            <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-1.5 mb-2"><i class="fa-regular fa-calendar-check text-indigo-400"></i> Editada em: <span class="font-bold text-gray-600">{{formatDateTime(e.date)}}</span></div>
+                            <div class="text-[9px] font-black uppercase tracking-widest flex gap-1.5">
+                                <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">{{getClassName(e.classId)}}</span>
+                                <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md border border-gray-200">{{e.bimester}}º Bim</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <button @click="openFixKey(e)" class="w-10 h-10 rounded-xl bg-orange-50 hover:bg-orange-500 hover:text-white text-orange-600 transition flex items-center justify-center" title="Corrigir Gabarito"><i class="fa-solid fa-list-check"></i></button>
+                            <button @click="generateKeyPDF(e)" class="w-10 h-10 rounded-xl bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Gabarito PDF"><i class="fa-solid fa-key"></i></button>
+                            <button @click="deleteExam(e.id)" class="w-10 h-10 rounded-xl bg-red-50 hover:bg-red-500 hover:text-white text-red-500 transition flex items-center justify-center" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div v-if="filteredHistoryExams.length === 0" class="text-center py-12 text-gray-400 flex flex-col items-center justify-center">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3"><i class="fa-solid fa-file-circle-xmark text-2xl text-gray-300"></i></div>
+                        <p class="text-sm font-bold">Nenhuma prova no histórico.</p>
                     </div>
                 </div>
             </div>
@@ -356,15 +383,16 @@
         createApp({
             setup() {
                 const getAlternativeLabel = (t, i) => i == null ? '-' : (t === 'ce' ? ['C', 'E'][i] || '?' : ['A', 'B', 'C', 'D', 'E'][i] || '?');
+                const formatDateTime = (ts) => { if (!ts) return '-'; const d = new Date(ts); return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}); };
 
                 // --- STATE REFS ---
                 const currentView = ref('dashboard');
                 const tabs = [
-                    {id:'dashboard',label:'Painel',icon:'fa-chart-pie'},
-                    {id:'classes',label:'Turmas',icon:'fa-users'},
-                    {id:'questions',label:'Banco',icon:'fa-database'},
-                    {id:'exams',label:'Provas',icon:'fa-file-contract'},
-                    {id:'correction',label:'Correção',icon:'fa-check-double'}
+                    {id:'dashboard',label:'Painel',icon:'fa-solid fa-chart-pie'},
+                    {id:'classes',label:'Turmas',icon:'fa-solid fa-chalkboard-user'},
+                    {id:'questions',label:'Banca',icon:'fa-solid fa-layer-group'},
+                    {id:'exams',label:'Provas',icon:'fa-solid fa-file-signature'},
+                    {id:'correction',label:'Correção',icon:'fa-solid fa-clipboard-check'}
                 ];
                 const classes = ref([]);
                 const students = ref([]);
@@ -443,6 +471,13 @@
                 const correctionMode = ref(false);
                 const showManualInputModal = ref(false);
                 const manualConfig = ref({examId:'',studentId:'',version:0});
+                
+                // Queue Correction
+                const correctionQueue = ref([]);
+                const isProcessingQueue = ref(false);
+                const processedCount = ref(0);
+                const stopQueueFlag = ref(false);
+                const stopQueue = () => { stopQueueFlag.value = true; };
 
                 // Fix Key
                 const showFixKeyModal = ref(false);
@@ -588,13 +623,13 @@
                             }
                             return JSON.parse(d.candidates[0].content.parts[0].text.replace(/```json/gi,'').replace(/```/g,'').trim());
                         } catch(e) {
-                            if(e.code===429) { retries--; await new Promise(r=>setTimeout(r,delay)); delay*=2; continue; }
+                            if(e.code===429 || (e.message && e.message.includes('429'))) { retries--; await new Promise(r=>setTimeout(r,delay)); delay*=1.5; continue; }
                             retries--;
                             if(retries===0) {
                                 settings.value.activeModel = null;
                                 throw new Error(e.message||"Falha IA");
                             }
-                            await new Promise(r=>setTimeout(r,delay)); delay*=2;
+                            await new Promise(r=>setTimeout(r,delay)); delay*=1.5;
                         }
                     }
                 };
@@ -739,79 +774,109 @@
                 };
 
                 const processAICorrection = async (event) => {
-                    const file = event.target.files[0];
-                    if (!file) return;
+                    const files = event.target.files;
+                    if (!files || files.length === 0) return;
+
+                    correctionQueue.value = Array.from(files);
                     event.target.value = ''; // Reset
+                    isProcessingQueue.value = true;
+                    processedCount.value = 0;
+                    stopQueueFlag.value = false;
 
-                    toast.value = { show: true, message: "IA analisando a imagem...", type: "loading" };
+                    for (let i = 0; i < correctionQueue.value.length; i++) {
+                        if (stopQueueFlag.value) break;
 
-                    try {
-                        let qrData = null;
+                        const file = correctionQueue.value[i];
                         try {
-                            const localScanner = new Html5Qrcode("hidden-qr-reader");
-                            const result = await localScanner.scanFile(file, false);
-                            qrData = JSON.parse(result);
-                        } catch (err) {
-                            console.log("QR Scan local falhou, delegando leitura para IA.");
-                        }
-
-                        const reader = new FileReader();
-                        reader.readAsDataURL(file);
-                        await new Promise(r => reader.onload = r);
-                        const base64Img = reader.result.split(',')[1];
-                        const mimeType = file.type;
-
-                        const prompt = `Você é um sistema OMR avançado. Analise a imagem deste gabarito impresso.
-1. O gabarito tem âncoras pretas (20x20) nos cantos para alinhamento. As linhas alternam fundos (branco/cinza).
-2. As bolhas vazias contêm letras claras. Bolhas preenchidas pelo aluno estão pintadas/escuras.
-3. Se conseguir ler o QR code visível na imagem (contém um JSON), coloque seu texto exato em 'qrText'.
-4. Extraia as respostas lendo os círculos. Retorne o array numérico 'answers'.
-Valores das colunas lidas da esquerda para a direita: Múltipla escolha (0, 1, 2, 3, 4) ou Certo/Errado (0, 1). Se o aluno deixou em branco, borrou muito ou marcou mais de uma opção na mesma linha, use o valor -1.`;
-
-                        const schema = {
-                            type: "OBJECT",
-                            properties: {
-                                qrText: { type: "STRING" },
-                                answers: { type: "ARRAY", items: { type: "INTEGER" } }
+                            let qrData = null;
+                            try {
+                                const localScanner = new Html5Qrcode("hidden-qr-reader");
+                                const result = await localScanner.scanFile(file, false);
+                                qrData = JSON.parse(result);
+                            } catch (err) {
+                                console.log("QR Scan local falhou, delegando leitura para IA.");
                             }
-                        };
 
-                        const aiResult = await fetchGemini(prompt, schema, base64Img, mimeType);
-                        
-                        let finalQrText = qrData ? JSON.stringify(qrData) : aiResult.qrText;
-                        if (!finalQrText || finalQrText === "null" || finalQrText.trim() === "") {
-                            throw new Error("Não foi possível ler o QR Code da Prova. Tire uma foto que enquadre bem o topo da página.");
-                        }
-                        
-                        let qd;
-                        try {
-                            qd = typeof finalQrText === 'string' ? JSON.parse(finalQrText.replace(/`/g, '')) : finalQrText;
-                        } catch(e) {
-                            throw new Error("Os dados do aluno no QR Code estão ilegíveis.");
-                        }
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            await new Promise(r => reader.onload = r);
+                            const base64Img = reader.result.split(',')[1];
+                            const mimeType = file.type;
 
-                        activeExam.value = exams.value.find(e => e.id === Number(qd.e));
-                        activeStudent.value = students.value.find(s => s.id === Number(qd.s));
-                        activeVersion.value = Number(qd.v) || 0;
+                            const prompt = `Você é um sistema OMR de altíssima precisão. Siga as instruções ESTRITAMENTE:
+1. ORIENTAÇÃO: Localize o texto "GABARITO OFICIAL" para saber qual é a parte de cima da página. Use as âncoras pretas (quadrados nos quatro cantos) para corrigir mentalmente a perspectiva.
+2. SINCRONIZAÇÃO: Cada linha de questão possui um pequeno quadrado preto à esquerda e outro à direita (Timing Marks).
+3. LEITURA DE MARCAÇÕES: Verifique apenas o interior das grandes bolhas de contorno grosso. As opções em branco têm letras cinzas. O aluno deve ter pintado o círculo de cor escura.
+4. REGRAS DE FALHA: Se a linha estiver em branco, ou se houver mais de uma bolha preenchida na mesma linha, ou for ilegível, use o valor -1.
+5. Se conseguir ler o código QR no canto superior, extraia o texto JSON em qrText.
+6. Extraia a resposta como um array de objetos associando o número da linha (q) e o índice marcado (v). Sendo v: 0=A/Certo, 1=B/Errado, 2=C, 3=D, 4=E. Retorne apenas o JSON.`;
 
-                        if(!activeExam.value || !activeStudent.value) throw new Error("A prova ou o aluno lidos na imagem não existem no banco de dados.");
-
-                        studentAnswers.value = {};
-                        if (aiResult.answers && Array.isArray(aiResult.answers)) {
-                            // Limita ao número de questões reais da prova para evitar alucinações de linhas extras
-                            const maxQ = getVersionQuestions(activeExam.value, activeVersion.value).length;
-                            aiResult.answers.slice(0, maxQ).forEach((ans, idx) => {
-                                if(ans !== -1 && ans !== null && ans !== undefined) {
-                                    studentAnswers.value[idx] = ans;
+                            const schema = {
+                                type: "OBJECT",
+                                properties: {
+                                    qrText: { type: "STRING" },
+                                    answers: {
+                                        type: "ARRAY",
+                                        items: {
+                                            type: "OBJECT",
+                                            properties: {
+                                                q: { type: "INTEGER" },
+                                                v: { type: "INTEGER" }
+                                            }
+                                        }
+                                    }
                                 }
-                            });
+                            };
+
+                            const aiResult = await fetchGemini(prompt, schema, base64Img, mimeType);
+                            
+                            let finalQrText = qrData ? JSON.stringify(qrData) : aiResult.qrText;
+                            if (!finalQrText || finalQrText === "null" || finalQrText.trim() === "") {
+                                throw new Error(`Arq ${i+1}: QR Code não encontrado.`);
+                            }
+                            
+                            let qd;
+                            try {
+                                qd = typeof finalQrText === 'string' ? JSON.parse(finalQrText.replace(/`/g, '')) : finalQrText;
+                            } catch(e) {
+                                throw new Error(`Arq ${i+1}: QR Code corrompido.`);
+                            }
+
+                            const exm = exams.value.find(e => e.id === Number(qd.e));
+                            const std = students.value.find(s => s.id === Number(qd.s));
+                            const ver = Number(qd.v) || 0;
+
+                            if(!exm || !std) throw new Error(`Arq ${i+1}: Prova/Aluno não cadastrados.`);
+
+                            let ansMap = {};
+                            if (aiResult.answers && Array.isArray(aiResult.answers)) {
+                                const maxQ = getVersionQuestions(exm, ver).length;
+                                aiResult.answers.forEach(ansObj => {
+                                    const qIndex = ansObj.q - 1;
+                                    if (qIndex >= 0 && qIndex < maxQ && ansObj.v !== -1 && ansObj.v !== null && ansObj.v !== undefined) {
+                                        ansMap[qIndex] = ansObj.v;
+                                    }
+                                });
+                            }
+
+                            // Salva a nota automaticamente (fila contínua)
+                            await saveExamResult(exm.id, std.id, std.name, ver, ansMap);
+
+                            // Pausa para não estourar o limite de requisições da Gemini
+                            if (i < correctionQueue.value.length - 1) {
+                                await new Promise(res => setTimeout(res, 2500));
+                            }
+
+                        } catch(e) {
+                            showToast(e.message || "Erro de análise", "error");
                         }
+                        processedCount.value++;
+                    }
 
-                        correctionMode.value = true;
-                        showToast("Extração Concluída! Revise as marcações na tela.", "success");
-
-                    } catch(e) {
-                        showToast(e.message || "Falha na análise da IA. Verifique a chave ou tire nova foto.", "error");
+                    isProcessingQueue.value = false;
+                    if (!stopQueueFlag.value) {
+                        showToast("Correção em lote concluída!", "success");
+                        load(); // Atualiza os resultados na interface
                     }
                 };
 
@@ -846,7 +911,7 @@ Valores das colunas lidas da esquerda para a direita: Múltipla escolha (0, 1, 2
                             for(let i=0;i<nV;i++){ let qs=JSON.parse(JSON.stringify(examCart.value)).map(q=>({...q,correctIndex:q.correct})); if(i>0||examConfig.value.variationMode!=='standard'){qs.sort(()=>Math.random()-0.5); qs.forEach(q=>{if(q.type!=='ce'){let o=q.options.map((op,x)=>({...op,isc:x===q.correctIndex})).sort(()=>Math.random()-0.5); q.options=o; q.correctIndex=o.findIndex(x=>x.isc)}})} v.push({id:i, questions:qs}) }
                             stds.forEach((s,i)=>sm[s.id]=i%nV);
                         }
-                        let eD={title:examConfig.value.title, classId:examConfig.value.classId, type:examConfig.value.type, weight:examConfig.value.weight, bimester:examConfig.value.bimester, teacher:examConfig.value.teacher, variationMode:examConfig.value.variationMode, versions:v, studentMap:sm, date:Date.now()};
+                        let eD={title:examConfig.value.title || `Avaliação - ${new Date().toLocaleDateString('pt-BR')}`, classId:examConfig.value.classId, type:examConfig.value.type, weight:examConfig.value.weight, bimester:examConfig.value.bimester, teacher:examConfig.value.teacher, variationMode:examConfig.value.variationMode, versions:v, studentMap:sm, date:Date.now()};
                         let eId=editingExamId.value?editingExamId.value:await db.exams.add(eD); if(editingExamId.value)await db.exams.put({...eD,id:eId}); editingExamId.value=null; load();
 
                         let cont=[];
@@ -855,32 +920,53 @@ Valores das colunas lidas da esquerda para a direita: Múltipla escolha (0, 1, 2
                             
                             let kr = [];
                             
-                            // 1. ANCORAS SUPERIORES (Fiducial Markers para IA não distorcer)
+                            // 1. ANCORAS SUPERIORES (8 colunas agora, com a ancoragem nos extremos)
                             kr.push([
-                                { canvas: [{ type: 'rect', x: 7, y: 5, w: 20, h: 20, color: '#000' }], border: [false,false,false,false] },
+                                { canvas: [{ type: 'rect', x: 2, y: 5, w: 16, h: 16, color: '#000' }], border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { canvas: [{ type: 'rect', x: 3, y: 5, w: 20, h: 20, color: '#000' }], border: [false,false,false,false] }
+                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
+                                { canvas: [{ type: 'rect', x: 2, y: 5, w: 16, h: 16, color: '#000' }], border: [false,false,false,false] }
                             ]);
                             
-                            // 2. CONSTRUÇÃO DAS LINHAS DE QUESTÕES (Alto Contraste + Zebra Striping)
+                            // 1.5 HEADER DE OPÇÕES PARA ALINHAMENTO DO PDFMAKE
+                            kr.push([
+                                { text: '', border: [false,false,false,false] },
+                                { text: '', border: [false,false,false,false] },
+                                { text: 'A', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                { text: 'B', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                { text: 'C', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                { text: 'D', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                { text: 'E', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                { text: '', border: [false,false,false,false] }
+                            ]);
+                            
+                            // 2. CONSTRUÇÃO COM TRILHAS DE SINCRONIZAÇÃO E BORDAS MAIS FORTES
                             qs.forEach((q, k) => {
-                                let rw = [{ text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 8] }], l = (q.type === 'ce') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'];
                                 let rColor = k % 2 === 0 ? '#ffffff' : '#f3f4f6';
-                                rw[0].fillColor = rColor;
+                                let rw = [
+                                    // Trilha esquerda (Timing Mark)
+                                    { canvas: [{ type: 'rect', x: 6, y: 8, w: 8, h: 8, color: '#000' }], fillColor: rColor, border: [false,false,false,false] },
+                                    // Numero Zero-padded
+                                    { text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 8], fillColor: rColor }
+                                ];
+                                let l = (q.type === 'ce') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'];
                                 for (let j = 0; j < 5; j++) {
                                     if (j < l.length) rw.push({ stack: [{ canvas: [{ type: 'ellipse', x: 15, y: 14, r1: 11, r2: 11, lineWidth: 1.5, lineColor: '#000', color: rColor }], alignment: 'center' }, { text: l[j], fontSize: 11, bold: true, color: '#d1d5db', alignment: 'center', relativePosition: { x: 0, y: -15.5 } }], margin: [0, 2], fillColor: rColor });
                                     else rw.push({ text: '', fillColor: rColor });
                                 }
+                                // Trilha direita (Timing Mark)
+                                rw.push({ canvas: [{ type: 'rect', x: 6, y: 8, w: 8, h: 8, color: '#000' }], fillColor: rColor, border: [false,false,false,false] });
                                 kr.push(rw);
                             });
                             
                             // 3. ANCORAS INFERIORES
                             kr.push([
-                                { canvas: [{ type: 'rect', x: 7, y: 5, w: 20, h: 20, color: '#000' }], border: [false,false,false,false] },
+                                { canvas: [{ type: 'rect', x: 2, y: 5, w: 16, h: 16, color: '#000' }], border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { canvas: [{ type: 'rect', x: 3, y: 5, w: 20, h: 20, color: '#000' }], border: [false,false,false,false] }
+                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
+                                { canvas: [{ type: 'rect', x: 2, y: 5, w: 16, h: 16, color: '#000' }], border: [false,false,false,false] }
                             ]);
 
                             cont.push({
@@ -901,11 +987,13 @@ Valores das colunas lidas da esquerda para a direita: Múltipla escolha (0, 1, 2
                                     {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0,10,0,2], bold:true, fontSize:12},
                                     {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0,8], fontSize:9, color:'#4b5563'},
                                     {
-                                        table:{ widths:[35,30,30,30,30,30], body:kr },
+                                        // Matriz de 8 Colunas Ajustadas
+                                        table:{ widths:[15, 20, 25, 25, 25, 25, 25, 15], body:kr },
                                         layout: {
-                                            hLineWidth: function(i, node) { return (i > 1 && i < node.table.body.length - 1) ? 1 : 0; },
-                                            vLineWidth: function(i, node) { return 0; },
-                                            hLineColor: function(i, node) { return '#e5e7eb'; },
+                                            hLineWidth: function(i, node) { return (i === 1 || i === node.table.body.length - 1) ? 2 : (i > 1 && i < node.table.body.length - 1) ? 1 : 0; }, // Bordas super grossas no topo/fundo da grade real
+                                            vLineWidth: function(i, node) { return (i === 1 || i === node.table.widths.length - 1) ? 2 : 0; }, // Bordas grossas fechando as laterais
+                                            hLineColor: function(i, node) { return (i === 1 || i === node.table.body.length - 1) ? '#000' : '#e5e7eb'; },
+                                            vLineColor: function(i, node) { return '#000'; },
                                             paddingTop: function(i, node) { return 3; },
                                             paddingBottom: function(i, node) { return 3; }
                                         },
@@ -915,13 +1003,6 @@ Valores das colunas lidas da esquerda para a direita: Múltipla escolha (0, 1, 2
                                 ]
                             });
                             
-                            qs.forEach((q,k)=>{
-                                let rw=[{text:k+1,bold:true,alignment:'center',color:'#9ca3af',margin:[0,4],border:[false,false,false,false]}], l=(q.type==='ce')?['C','E']:['A','B','C','D','E'];
-                                for(let j=0;j<5;j++){ if(j<l.length) rw.push({stack:[{canvas:[{type:'ellipse',x:8,y:8,r1:6,r2:6,lineWidth:1,lineColor:'#d1d5db'}],alignment:'center'},{text:l[j],fontSize:7,color:'#d1d5db',alignment:'center',relativePosition:{x:0,y:-10}}],margin:[0,1],border:[false,false,false,false]}); else rw.push({text:'',border:[false,false,false,false]}); } kr.push(rw);
-                            });
-                            kr.push([ {canvas:[{type:'rect',x:12,y:5,w:12,h:12,color:'#000'}],border:[false,false,false,false]}, {text:'',border:[false,false,false,false]},{text:'',border:[false,false,false,false]},{text:'',border:[false,false,false,false]},{text:'',border:[false,false,false,false]}, {canvas:[{type:'rect',x:6,y:5,w:12,h:12,color:'#000'}],border:[false,false,false,false]} ]);
-
-                            cont.push({stack:[{columns:[settings.value.logo?{image:settings.value.logo,fit:[printConfig.value.logoSize,75]}:{text:''},{stack:[{text:settings.value.schoolName,fontSize:14,bold:true,alignment:'center'},{text:eD.title,fontSize:11,alignment:'center'},{text:`Aluno: ${s.name} | Tipo: ${vi+1}`}]}, {qr:JSON.stringify({e:eId,s:s.id,v:vi}),fit:80,alignment:'right'}]}, {text:'GABARITO',alignment:'center',margin:[0,10,0,5]},{table:{widths:[35,30,30,30,30,30],body:kr},layout:'noBorders',alignment:'center',margin:[0,0,0,20]}]});
                             qs.forEach((q,k)=>{
                                 let qB=[{text:`${k+1}. ${q.text}`,bold:true,margin:[0,5]}]; if(q.image) qB.push({image:q.image,width:150});
                                 if(q.type==='assoc'||q.type==='vf') { let ao=q.options.map(o=>`( ) ${o.text}`).join('\n'); qB.push({text:ao,margin:[0,5]}); }
@@ -1232,6 +1313,7 @@ Valores das colunas lidas da esquerda para a direita: Múltipla escolha (0, 1, 2
                     correctionMode, activeStudent, activeExam, activeVersion, studentAnswers,
                     showManualInputModal, manualConfig, startManualEntry, confirmManualEntry, saveManualCorrection,
                     triggerAICorrection, processAICorrection,
+                    correctionQueue, isProcessingQueue, processedCount, stopQueue,
 
                     // Details & Results
                     selectedResultDetails, showResultDetailsModal, openResultDetails, saveUpdatedAnswers, getAlternativeLabel,
@@ -1266,7 +1348,7 @@ Valores das colunas lidas da esquerda para a direita: Múltipla escolha (0, 1, 2
                     
                     // Global utilities
                     installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, importBackup, triggerImport, backupData, testGeminiKey,
-                    generateQuestionsAI, whatsappLink, canInstall
+                    generateQuestionsAI, whatsappLink, canInstall, formatDateTime
                 };
             }
         }).mount('#app');
