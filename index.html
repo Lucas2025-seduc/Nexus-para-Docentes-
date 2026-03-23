@@ -97,6 +97,83 @@
                     </div>
                     <div class="grid grid-cols-2 gap-3"><button @click="generateClassReportPDF" class="w-full py-4 bg-gray-900 text-white rounded-xl font-bold shadow-lg"><i class="fa-solid fa-file-pdf"></i> Ranking</button><button @click="generateGeneralReportPDF(selectedClassIdForReport)" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"><i class="fa-solid fa-table"></i> Boletim 4 Bim</button></div>
                 </div>
+                
+                <div class="mt-8 pt-6 border-t border-red-100">
+                    <h3 class="text-sm font-bold text-red-600 mb-2"><i class="fa-solid fa-triangle-exclamation"></i> Zona de Perigo</h3>
+                    <button @click="deleteAllGrades" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl font-bold border border-red-200 transition"><i class="fa-solid fa-trash-can"></i> Apagar Todas as Notas (Reset)</button>
+                </div>
+            </div>
+
+            <!-- DIÁRIO DE AULAS (FREQUÊNCIA E HORÁRIOS) -->
+            <div v-if="currentView==='diary'" class="space-y-4 animate-fade-in">
+                <div class="bg-indigo-600 p-5 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden">
+                    <div class="z-10">
+                        <h2 class="text-2xl font-black">Diário</h2>
+                        <p class="text-xs text-indigo-200">Frequência e Horários</p>
+                    </div>
+                    <i class="fa-solid fa-book-open text-5xl text-white/20"></i>
+                </div>
+
+                <div class="bg-white p-3 rounded-2xl shadow-sm border sticky top-0 z-20 space-y-3">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2"><i class="fa-solid fa-users"></i> Turma</label>
+                    <select v-model="diaryClassId" class="w-full p-3 border rounded-xl bg-gray-50 text-sm font-bold text-gray-700 outline-none">
+                        <option :value="null">Selecione uma turma...</option>
+                        <option v-for="c in classes" :value="c.id">{{c.name}}</option>
+                    </select>
+                </div>
+
+                <div v-if="diaryClassId" class="bg-white rounded-2xl shadow-sm border overflow-hidden">
+                    <div class="flex border-b">
+                        <button @click="diaryTab='attendance'" :class="diaryTab==='attendance'?'text-indigo-600 border-indigo-600 bg-indigo-50/50':'border-transparent text-gray-400'" class="flex-1 py-3 text-xs font-bold border-b-2"><i class="fa-solid fa-calendar-check mr-1"></i> Frequência</button>
+                        <button @click="diaryTab='schedule'" :class="diaryTab==='schedule'?'text-indigo-600 border-indigo-600 bg-indigo-50/50':'border-transparent text-gray-400'" class="flex-1 py-3 text-xs font-bold border-b-2"><i class="fa-solid fa-clock mr-1"></i> Horários</button>
+                    </div>
+
+                    <!-- Frequência -->
+                    <div v-if="diaryTab==='attendance'" class="p-4 space-y-4">
+                        <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border">
+                            <label class="text-xs font-bold text-gray-600">Data:</label>
+                            <input type="date" v-model="attendanceDate" class="flex-1 bg-white p-2 rounded-lg border outline-none text-sm font-medium">
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <div v-for="s in studentsInDiaryClass" :key="s.id" class="flex items-center justify-between p-3 bg-white border rounded-xl hover:bg-gray-50">
+                                <span class="text-xs font-bold text-gray-700 truncate max-w-[150px]">{{s.name}}</span>
+                                <div class="flex bg-gray-100 rounded-lg p-1">
+                                    <button @click="attendanceMap[s.id]='P'" :class="attendanceMap[s.id]==='P'?'bg-emerald-500 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">P</button>
+                                    <button @click="attendanceMap[s.id]='F'" :class="attendanceMap[s.id]==='F'?'bg-red-500 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">F</button>
+                                    <button @click="attendanceMap[s.id]='J'" :class="attendanceMap[s.id]==='J'?'bg-orange-400 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">J</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button @click="saveAttendance" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg mt-4 flex items-center justify-center gap-2"><i class="fa-solid fa-save"></i> Salvar Chamada</button>
+                    </div>
+
+                    <!-- Horários -->
+                    <div v-if="diaryTab==='schedule'" class="p-4 space-y-4 bg-gray-50/30">
+                        <div class="bg-white p-3 rounded-xl border flex flex-col gap-3">
+                            <select v-model="newSchedule.day" class="w-full p-2 bg-gray-50 rounded-lg text-sm border font-bold outline-none">
+                                <option v-for="d in ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado']" :value="d">{{d}}</option>
+                            </select>
+                            <div class="flex gap-2">
+                                <div class="flex-1"><label class="text-[10px] text-gray-500 font-bold block mb-1">Início</label><input type="time" v-model="newSchedule.start" class="w-full p-2 bg-gray-50 border rounded-lg text-sm"></div>
+                                <div class="flex-1"><label class="text-[10px] text-gray-500 font-bold block mb-1">Fim</label><input type="time" v-model="newSchedule.end" class="w-full p-2 bg-gray-50 border rounded-lg text-sm"></div>
+                            </div>
+                            <button @click="addSchedule" class="w-full py-2 bg-emerald-500 text-white rounded-lg text-xs font-bold"><i class="fa-solid fa-plus"></i> Adicionar Horário</button>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <div v-for="sch in schedulesList" :key="sch.id" class="bg-white border p-3 rounded-xl flex justify-between items-center shadow-sm">
+                                <div>
+                                    <span class="font-bold text-indigo-700 text-sm block">{{sch.day}}</span>
+                                    <span class="text-xs text-gray-500 font-medium">{{sch.start}} às {{sch.end}}</span>
+                                </div>
+                                <button @click="deleteSchedule(sch.id)" class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button>
+                            </div>
+                            <p v-if="schedulesList.length === 0" class="text-center text-xs text-gray-400 py-4 font-medium">Nenhum horário cadastrado.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- TURMAS -->
@@ -230,6 +307,57 @@
                 </div>
             </div>
         </main>
+
+        <!-- ASSISTENTE IA FLOATING BUTTON -->
+        <button @click="showAssistant=true" class="fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center text-2xl z-40 hover:scale-110 transition-transform">
+            <i class="fa-solid fa-robot"></i>
+        </button>
+
+        <!-- ASSISTENTE IA MODAL CHAT COM SUPORTE A AÇÕES -->
+        <div v-if="showAssistant" class="fixed inset-0 z-[500] flex justify-end items-end p-4 sm:p-6 bg-black/20 backdrop-blur-sm">
+            <div class="bg-gray-50 w-full max-w-sm rounded-3xl shadow-2xl flex flex-col pointer-events-auto transition-all animate-fade-in border border-gray-100" style="height: 70vh;">
+                <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 rounded-t-3xl flex justify-between items-center shadow-md z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><i class="fa-solid fa-robot text-xl"></i></div>
+                        <div><h3 class="font-bold leading-tight">Assistente IA</h3><p class="text-[10px] text-purple-200">Gerencia Notas e Faltas</p></div>
+                    </div>
+                    <button @click="showAssistant=false" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50" id="assistant-chat-box">
+                    <div v-for="(msg, i) in assistantHistory" :key="i" class="flex" :class="msg.role==='user'?'justify-end':'justify-start'">
+                        <div class="max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm" :class="msg.role==='user'?'bg-indigo-600 text-white rounded-tr-sm':'bg-white border border-gray-100 text-gray-700 rounded-tl-sm'">
+                            {{msg.text}}
+                            
+                            <!-- CARD DE AÇÃO PENDENTE -->
+                            <div v-if="msg.hasAction && !msg.actionResolved" class="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                                <p class="text-[10px] font-black text-indigo-800 mb-1.5 uppercase tracking-wide"><i class="fa-solid fa-triangle-exclamation text-orange-500"></i> Confirmação Necessária</p>
+                                <p class="text-xs text-indigo-900 mb-3 font-medium">{{ getActionDescription(msg) }}</p>
+                                <div class="flex gap-2">
+                                    <button @click="confirmAssistantAction(msg)" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-check"></i> Confirmar</button>
+                                    <button @click="cancelAssistantAction(msg)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs py-2 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-times"></i> Cancelar</button>
+                                </div>
+                            </div>
+                            
+                            <!-- CARD DE AÇÃO RESOLVIDA -->
+                            <div v-else-if="msg.actionResolved" class="mt-3 text-[10px] font-bold px-2.5 py-1.5 rounded-md flex items-center gap-1.5" :class="msg.actionResolved==='confirmed'?'bg-emerald-50 text-emerald-600':'bg-red-50 text-red-500'">
+                                <i class="fa-solid" :class="msg.actionResolved==='confirmed'?'fa-check':'fa-times'"></i> Ação {{msg.actionResolved==='confirmed'?'Executada':'Cancelada'}}
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="isAssistantThinking" class="flex justify-start">
+                        <div class="bg-white border border-gray-100 p-4 rounded-2xl rounded-tl-sm flex gap-1.5 shadow-sm">
+                            <div class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div><div class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-75"></div><div class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-150"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-3 bg-white border-t rounded-b-3xl">
+                    <div class="flex gap-2 bg-gray-100 p-1.5 rounded-2xl border border-gray-200">
+                        <input v-model="assistantQuery" @keyup.enter="askAssistant" placeholder="Ex: Mude a nota da Ana para 8..." class="flex-1 bg-transparent px-3 py-2 text-sm outline-none text-gray-700">
+                        <button @click="askAssistant" :disabled="isAssistantThinking" class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md hover:bg-indigo-700 disabled:opacity-50 transition"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- NAVEGAÇÃO BOTTOM PREMIUM -->
         <nav class="flex-none bg-white border-t border-gray-100 px-3 py-3 shadow-[0_-15px_40px_rgba(0,0,0,0.04)] relative z-50">
@@ -448,7 +576,11 @@
     <script>
         const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
         const db = new Dexie('NexusAppDB');
-        db.version(2).stores({ classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', results:'++id', settings:'id', extraPoints: '++id, studentId, bimester' });
+        db.version(3).stores({ 
+            classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
+            results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
+            schedules: '++id, classId', attendance: '++id, classId, date, studentId'
+        });
 
         createApp({
             setup() {
@@ -459,6 +591,7 @@
                 const currentView = ref('dashboard');
                 const tabs = [
                     {id:'dashboard',label:'Painel',icon:'fa-solid fa-chart-pie'},
+                    {id:'diary',label:'Diário',icon:'fa-solid fa-book-open'},
                     {id:'classes',label:'Turmas',icon:'fa-solid fa-chalkboard-user'},
                     {id:'questions',label:'Banca',icon:'fa-solid fa-layer-group'},
                     {id:'exams',label:'Provas',icon:'fa-solid fa-file-signature'},
@@ -484,7 +617,7 @@
                 const toast = ref({show:false,message:'',type:'info'});
                 const confirmModal = ref({show:false,message:'',onConfirm:null});
                 
-                // API (Gemini for Generator only)
+                // API
                 const geminiKey = ref('');
                 
                 // Filters & Forms
@@ -500,6 +633,22 @@
                 const dashboardStudentFilter = ref('');
                 const examHistoryFilter = ref('');
                 
+                // Diário
+                const diaryClassId = ref(null);
+                const diaryTab = ref('attendance');
+                const attendanceDate = ref(new Date().toISOString().split('T')[0]);
+                const attendanceMap = ref({});
+                const schedulesList = ref([]);
+                const newSchedule = ref({ day: 'Segunda', start: '', end: '' });
+
+                // Assistente Virtual IA
+                const showAssistant = ref(false);
+                const assistantQuery = ref('');
+                const isAssistantThinking = ref(false);
+                const assistantHistory = ref([
+                    {role: 'model', text: 'Olá, Professor! Eu sou o assistente virtual da caderneta. Pergunte-me sobre a frequência de hoje, as faltas de um aluno ou as notas das provas! Posso também alterar ou lançar dados para você.'}
+                ]);
+
                 // Exam & Question Modals
                 const showEditExamModal = ref(false);
                 const editingExam = ref({});
@@ -581,8 +730,7 @@
                 const showToast = (msg, type='info') => { toast.value={show:true,message:msg,type}; setTimeout(()=>toast.value.show=false,3000); };
                 const triggerConfirm = (msg, act) => { confirmModal.value={show:true,message:msg,onConfirm:act}; };
                 const handleConfirm = (res) => { confirmModal.value.show=false; if(res&&confirmModal.value.onConfirm)confirmModal.value.onConfirm(); confirmModal.value.onConfirm=null; };
-                const speak = (txt) => { if('speechSynthesis' in window){ let u=new SpeechSynthesisUtterance(txt); u.lang='pt-BR'; window.speechSynthesis.speak(u); }};
-
+                
                 const _0xabc123=async function(_1,_2){const _3="NEXUS_SECURE_KEY_2025_PRO_V1";const _4=async(_5)=>{const _6=new TextEncoder().encode(_5);const _7=await crypto.subtle.digest("SHA-256",_6);const _8=Array.from(new Uint8Array(_7));const _9=_8.map(a=>a.toString(16).padStart(2,'0')).join('').toUpperCase().substring(0,12);return `${_9.slice(0,4)}-${_9.slice(4,8)}-${_9.slice(8,12)}`;};const _b=_2.split('-');if(_b.length===3){if(_2===await _4(_1+_3))return{valid:!0,type:'permanent'};}else if(_b.length===4){const _d=_b[0],_e=_b.slice(1).join('-');if(_e===await _4(_1+_d+_3)){const _10=parseInt(_d,16);if(Math.floor(Date.now()/3600000)<=_10)return{valid:!0,type:'temporal',expireHours:_10};else return{valid:!1,expired:!0};}}return{valid:!1};};
                 
                 const initLicenseSystem = async () => {
@@ -612,11 +760,70 @@
                     if(s) { settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null}; if(s.geminiKey) geminiKey.value=s.geminiKey; }
                 };
 
+                // --- DIÁRIO FUNCIONALIDADES ---
+                const loadDiaryData = async () => {
+                    if(!diaryClassId.value) return;
+                    schedulesList.value = await db.schedules.where({classId: diaryClassId.value}).toArray();
+                    
+                    const attRecords = await db.attendance.where({classId: diaryClassId.value, date: attendanceDate.value}).toArray();
+                    const map = {};
+                    attRecords.forEach(r => { map[r.studentId] = r.status; });
+                    
+                    students.value.filter(s=>s.classId===diaryClassId.value).forEach(s => {
+                        if(!map[s.id]) map[s.id] = 'P';
+                    });
+                    attendanceMap.value = map;
+                };
+
+                watch([diaryClassId, attendanceDate], loadDiaryData);
+
+                const saveAttendance = async () => {
+                    if(!diaryClassId.value) return;
+                    const records = Object.keys(attendanceMap.value).map(sId => ({
+                        classId: diaryClassId.value,
+                        date: attendanceDate.value,
+                        studentId: Number(sId),
+                        status: attendanceMap.value[sId]
+                    }));
+                    await db.attendance.where({classId: diaryClassId.value, date: attendanceDate.value}).delete();
+                    await db.attendance.bulkAdd(records);
+                    showToast("Frequência salva!", "success");
+                };
+
+                const addSchedule = async () => {
+                    if(!diaryClassId.value || !newSchedule.value.start || !newSchedule.value.end) return showToast("Preencha todos os campos do horário", "warning");
+                    await db.schedules.add({
+                        classId: diaryClassId.value,
+                        day: newSchedule.value.day,
+                        start: newSchedule.value.start,
+                        end: newSchedule.value.end
+                    });
+                    newSchedule.value.start = ''; newSchedule.value.end = '';
+                    loadDiaryData();
+                    showToast("Horário adicionado", "success");
+                };
+
+                const deleteSchedule = async (id) => {
+                    await db.schedules.delete(id);
+                    loadDiaryData();
+                };
+
                 const saveSettings = async (silent) => {
                     try {
                         await db.settings.put(JSON.parse(JSON.stringify({...settings.value, id:'config', geminiKey: geminiKey.value})));
                         if(!silent) showToast('Configurações salvas!', 'success');
                     } catch(e){}
+                };
+
+                const deleteAllGrades = () => {
+                    triggerConfirm("ATENÇÃO: Isto apagará TODAS as notas de TODOS os alunos de forma irreversível. Tem a certeza absoluta?", async () => {
+                        await db.results.clear();
+                        await db.extraPoints.clear();
+                        results.value = [];
+                        extraPoints.value = [];
+                        showToast("Todas as notas foram apagadas com sucesso.", "success");
+                        load();
+                    });
                 };
 
                 const importBackup = async (e) => {
@@ -704,6 +911,150 @@
                     }
                 };
 
+                // --- ASSISTENTE VIRTUAL COM AÇÕES ---
+                const getActionDescription = (msg) => {
+                    const std = students.value.find(s => s.id === msg.studentId);
+                    const name = std ? std.name : 'Aluno desconhecido';
+                    if (msg.actionType === 'update_grade') {
+                        const ex = exams.value.find(e => e.id === msg.examId);
+                        const exName = ex ? ex.title : 'Prova';
+                        return `Lançar nota ${msg.score} para ${name} em '${exName}'`;
+                    }
+                    if (msg.actionType === 'delete_grade') {
+                        const ex = exams.value.find(e => e.id === msg.examId);
+                        return `Excluir nota de ${name} em '${ex ? ex.title : 'Prova'}'`;
+                    }
+                    if (msg.actionType === 'set_attendance') {
+                        const stMap = {'P':'Presença', 'F':'Falta', 'J':'Falta Justificada'};
+                        const rawDate = msg.date || new Date().toISOString().split('T')[0];
+                        const dateFormatted = rawDate.split('-').reverse().join('/');
+                        return `Registrar ${stMap[msg.status]||msg.status} para ${name} no dia ${dateFormatted}`;
+                    }
+                    return "Ação desconhecida";
+                };
+
+                const confirmAssistantAction = async (msg) => {
+                    try {
+                        if (msg.actionType === 'update_grade') {
+                            let res = results.value.find(r => r.examId === msg.examId && r.studentId === msg.studentId);
+                            if (res) {
+                                res.score = Number(msg.score).toFixed(1);
+                                await db.results.put(JSON.parse(JSON.stringify(res)));
+                            } else {
+                                const std = students.value.find(s=>s.id === msg.studentId);
+                                if(!std) throw new Error("Aluno não encontrado");
+                                await db.results.add({
+                                    examId: msg.examId, studentId: msg.studentId, studentName: std.name,
+                                    score: Number(msg.score).toFixed(1), bonus: 0, date: Date.now(), answers: {}, version: 0
+                                });
+                            }
+                        } else if (msg.actionType === 'delete_grade') {
+                            let res = results.value.find(r => r.examId === msg.examId && r.studentId === msg.studentId);
+                            if (res) await db.results.delete(res.id);
+                        } else if (msg.actionType === 'set_attendance') {
+                            const std = students.value.find(s=>s.id === msg.studentId);
+                            if(!std) throw new Error("Aluno não encontrado");
+                            const classId = std.classId;
+                            const dt = msg.date || new Date().toISOString().split('T')[0];
+                            await db.attendance.where({classId, date: dt, studentId: msg.studentId}).delete();
+                            await db.attendance.add({classId, date: dt, studentId: msg.studentId, status: msg.status});
+                        }
+                        
+                        msg.actionResolved = 'confirmed';
+                        await load();
+                        showToast("Ação executada com sucesso!", "success");
+                    } catch(e) {
+                        showToast(e.message || "Erro ao executar ação", "error");
+                    }
+                };
+
+                const cancelAssistantAction = (msg) => {
+                    msg.actionResolved = 'cancelled';
+                };
+
+                const askAssistant = async () => {
+                    if(!assistantQuery.value.trim()) return;
+                    if(!settings.value.activeModel || !geminiKey.value) return showToast("Por favor, configure a chave da IA primeiro na aba Correção", "warning");
+
+                    const userQuery = assistantQuery.value;
+                    assistantHistory.value.push({role: 'user', text: userQuery});
+                    assistantQuery.value = '';
+                    isAssistantThinking.value = true;
+                    
+                    nextTick(() => {
+                        const box = document.getElementById('assistant-chat-box');
+                        if (box) box.scrollTop = box.scrollHeight;
+                    });
+
+                    try {
+                        const c = classes.value.map(x=>({id:x.id, nome:x.name}));
+                        const s = students.value.map(x=>({id:x.id, idTurma:x.classId, nome:x.name}));
+                        const eList = exams.value.map(x=>({id:x.id, titulo:x.title}));
+                        const r = results.value.map(x=>({idAluno:x.studentId, idProva: x.examId, nota:x.score}));
+                        const attArray = await db.attendance.toArray();
+                        const att = attArray.map(x=>({idAluno:x.studentId, data:x.date, status:x.status}));
+
+                        const promptText = `Você é o assistente virtual da aplicação Nexus. Responda em português.
+CONTEXTO DA BASE DE DADOS:
+- Turmas: ${JSON.stringify(c)}
+- Alunos (Use o 'id' para ações): ${JSON.stringify(s)}
+- Provas (Use o 'id' para ações): ${JSON.stringify(eList)}
+- Notas Atuais: ${JSON.stringify(r)}
+- Frequências (P=Presente, F=Falta, J=Justificada): ${JSON.stringify(att)}
+
+AÇÃO DO USUÁRIO: "${userQuery}"
+
+REGRAS OBRIGATÓRIAS:
+1. Em 'reply', seja breve e confirme se vai preparar a ação ou responda à pergunta.
+2. SE o usuário pedir claramente para LANÇAR/ALTERAR NOTA, defina hasAction=true, actionType="update_grade", forneça studentId, examId e score.
+3. SE o usuário pedir para EXCLUIR/APAGAR NOTA, defina hasAction=true, actionType="delete_grade", forneça studentId e examId.
+4. SE o usuário pedir para DAR FALTA OU PRESENÇA, defina hasAction=true, actionType="set_attendance", forneça studentId, date (formato YYYY-MM-DD) e status ("P", "F" ou "J"). Se ele não disser o dia, use a data de hoje: ${new Date().toISOString().split('T')[0]}.
+5. SE for só uma pergunta ou bate-papo, defina hasAction=false.
+Retorne o JSON estritamente neste formato.`;
+
+                        const schema = {
+                            type: "OBJECT",
+                            properties: {
+                                reply: { type: "STRING" },
+                                hasAction: { type: "BOOLEAN" },
+                                actionType: { type: "STRING" },
+                                studentId: { type: "INTEGER" },
+                                examId: { type: "INTEGER" },
+                                score: { type: "NUMBER" },
+                                date: { type: "STRING" },
+                                status: { type: "STRING" }
+                            }
+                        };
+
+                        const aiResult = await fetchGemini(promptText, schema);
+                        
+                        if(aiResult && aiResult.reply) {
+                            assistantHistory.value.push({
+                                role: 'model',
+                                text: aiResult.reply,
+                                hasAction: aiResult.hasAction,
+                                actionType: aiResult.actionType,
+                                studentId: aiResult.studentId,
+                                examId: aiResult.examId,
+                                score: aiResult.score,
+                                date: aiResult.date,
+                                status: aiResult.status,
+                                actionResolved: null
+                            });
+                        } else {
+                            throw new Error("Resposta vazia");
+                        }
+                    } catch(e) {
+                        assistantHistory.value.push({ role: 'model', text: "Desculpe, ocorreu um erro. Verifique a base de dados ou tente formular de forma mais clara informando o nome exato da prova e do aluno." });
+                    } finally {
+                        isAssistantThinking.value = false;
+                        nextTick(() => {
+                            const box = document.getElementById('assistant-chat-box');
+                            if (box) box.scrollTop = box.scrollHeight;
+                        });
+                    }
+                };
+
                 const testGeminiKey=async()=>{
                     if(!geminiKey.value)return showToast("Insira chave","error");
                     toast.value={show:true,message:"Testando e buscando modelo...",type:"loading"};
@@ -713,7 +1064,6 @@
                         if(d.error)throw d.error;
                         let availableModels = d.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
                         
-                        // Prioriza sempre os modelos PRO mais recentes para correção inteligente, caindo para FLASH se necessário.
                         let bestModel = 
                             availableModels.find(m => m === 'gemini-2.5-pro') || 
                             availableModels.find(m => m === 'gemini-1.5-pro') || 
@@ -929,10 +1279,8 @@
                                 });
                             }
 
-                            // Salva a nota automaticamente (fila contínua)
                             await saveExamResult(exm.id, std.id, std.name, ver, ansMap);
 
-                            // Pausa para não estourar o limite de requisições da Gemini
                             if (i < correctionQueue.value.length - 1) {
                                 await new Promise(res => setTimeout(res, 2500));
                             }
@@ -990,7 +1338,6 @@
                             let vi=sm[s.id], qs=v[vi].questions;
                             let kr = [];
                             
-                            // 1. ANCORAS SUPERIORES (8 colunas)
                             kr.push([
                                 { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
                                 { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
@@ -999,7 +1346,6 @@
                                 { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
                             ]);
                             
-                            // 1.5 HEADER DE OPÇÕES
                             kr.push([
                                 { text: ' ', border: [false,false,false,false] },
                                 { text: ' ', border: [false,false,false,false] },
@@ -1011,7 +1357,6 @@
                                 { text: ' ', border: [false,false,false,false] }
                             ]);
                             
-                            // 2. CONSTRUÇÃO DAS QUESTÕES
                             qs.forEach((q, k) => {
                                 let rColor = k % 2 === 0 ? '#ffffff' : '#f3f4f6';
                                 let rw = [
@@ -1036,7 +1381,6 @@
                                 kr.push(rw);
                             });
                             
-                            // 3. ANCORAS INFERIORES
                             kr.push([
                                 { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
                                 { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
@@ -1389,6 +1733,15 @@
                     showManualInputModal, manualConfig, startManualEntry, confirmManualEntry, saveManualCorrection,
                     triggerAICorrection, processAICorrection,
                     correctionQueue, isProcessingQueue, processedCount, stopQueue,
+
+                    // Diário (Schedules & Attendance)
+                    diaryClassId, diaryTab, attendanceDate, attendanceMap, schedulesList, newSchedule,
+                    studentsInDiaryClass: computed(()=>students.value.filter(s=>s.classId===diaryClassId.value)),
+                    saveAttendance, addSchedule, deleteSchedule, deleteAllGrades,
+
+                    // Assistant IA
+                    showAssistant, assistantQuery, assistantHistory, isAssistantThinking, askAssistant,
+                    confirmAssistantAction, cancelAssistantAction, getActionDescription,
 
                     // Details & Results
                     recentCorrections: computed(() => {
