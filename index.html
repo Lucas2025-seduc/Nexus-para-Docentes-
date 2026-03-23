@@ -955,16 +955,18 @@
                 // --- ASSISTENTE VIRTUAL COM AÇÕES MULTIPLAS E PRECISAS ---
                 const getActionDescription = (act) => {
                     if (act.actionType === 'update_grade' || act.actionType === 'delete_grade' || act.actionType === 'set_attendance') {
-                        const std = students.value.find(s => s.id === act.studentId);
+                        const stdId = Number(act.studentId);
+                        const exId = Number(act.examId);
+                        const std = students.value.find(s => Number(s.id) === stdId);
                         const name = std ? std.name : 'Aluno desconhecido';
                         
                         if (act.actionType === 'update_grade') {
-                            const ex = exams.value.find(e => e.id === act.examId);
+                            const ex = exams.value.find(e => Number(e.id) === exId);
                             const exName = ex ? ex.title : 'Prova';
                             return `Lançar nota ${act.score} para ${name} em '${exName}'`;
                         }
                         if (act.actionType === 'delete_grade') {
-                            const ex = exams.value.find(e => e.id === act.examId);
+                            const ex = exams.value.find(e => Number(e.id) === exId);
                             return `Excluir nota de ${name} em '${ex ? ex.title : 'Prova'}'`;
                         }
                         if (act.actionType === 'set_attendance') {
@@ -975,7 +977,8 @@
                         }
                     }
                     if (act.actionType === 'add_schedule') {
-                        const cls = classes.value.find(c => c.id === act.classId);
+                        const cId = Number(act.classId);
+                        const cls = classes.value.find(c => Number(c.id) === cId);
                         return `Adicionar horário na turma '${cls ? cls.name : 'Desconhecida'}': ${act.day}, ${act.period}`;
                     }
                     return "Ação desconhecida";
@@ -988,68 +991,75 @@
                         let switchToDiary = false;
 
                         for (const act of msg.actions) {
+                            const stdId = act.studentId != null ? Number(act.studentId) : null;
+                            const exId = act.examId != null ? Number(act.examId) : null;
+                            const cId = act.classId != null ? Number(act.classId) : null;
+
                             if (act.actionType === 'update_grade') {
-                                let res = results.value.find(r => r.examId === act.examId && r.studentId === act.studentId);
+                                if (!stdId || !exId) throw new Error("Faltam os dados do aluno ou prova.");
+                                let res = results.value.find(r => Number(r.examId) === exId && Number(r.studentId) === stdId);
                                 if (res) {
                                     res.score = Number(act.score).toFixed(1);
                                     await db.results.put(JSON.parse(JSON.stringify(res)));
                                 } else {
-                                    const std = students.value.find(s=>s.id === act.studentId);
-                                    if(std) {
-                                        await db.results.add({
-                                            examId: act.examId, studentId: act.studentId, studentName: std.name,
-                                            score: Number(act.score).toFixed(1), bonus: 0, date: Date.now(), answers: {}, version: 0
-                                        });
-                                    }
+                                    const std = students.value.find(s => Number(s.id) === stdId);
+                                    if(!std) throw new Error(`Aluno não encontrado no sistema.`);
+                                    await db.results.add({
+                                        examId: exId, studentId: stdId, studentName: std.name,
+                                        score: Number(act.score).toFixed(1), bonus: 0, date: Date.now(), answers: {}, version: 0
+                                    });
                                 }
                             } else if (act.actionType === 'delete_grade') {
-                                let res = results.value.find(r => r.examId === act.examId && r.studentId === act.studentId);
+                                if (!stdId || !exId) throw new Error("Faltam os dados vitais para a exclusão.");
+                                let res = results.value.find(r => Number(r.examId) === exId && Number(r.studentId) === stdId);
                                 if (res) await db.results.delete(res.id);
                             } else if (act.actionType === 'set_attendance') {
-                                const std = students.value.find(s=>s.id === act.studentId);
-                                if(std) {
-                                    const classId = std.classId;
-                                    
-                                    // Normalizar e forçar o formato da data (YYYY-MM-DD)
-                                    let dt = act.date || new Date().toISOString().split('T')[0];
-                                    if (dt.includes('/')) {
-                                        const parts = dt.split('/');
-                                        if (parts.length === 3 && parts[2].length === 4) {
-                                            dt = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                                        }
-                                    }
-                                    
-                                    // Normalizar e forçar o formato do período (Ex: "1a" vira "1ª Aula")
-                                    let per = act.period || '1ª Aula';
-                                    const match = per.match(/(\d)/);
-                                    if (match) per = match[1] + 'ª Aula';
+                                if (!stdId) throw new Error("Falta o ID do aluno.");
+                                const std = students.value.find(s => Number(s.id) === stdId);
+                                if(!std) throw new Error("Aluno não encontrado para registar presença.");
 
-                                    const allClassAtt = await db.attendance.where('classId').equals(classId).toArray();
-                                    const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per && r.studentId === act.studentId).map(r => r.id);
-                                    await db.attendance.bulkDelete(toDelete);
-                                    await db.attendance.add({classId, date: dt, period: per, studentId: act.studentId, status: act.status});
-                                    
-                                    // Atualizar os filtros da UI para ver a modificação na hora
-                                    diaryClassId.value = classId;
-                                    diaryTab.value = 'attendance';
-                                    attendanceDate.value = dt;
-                                    attendancePeriod.value = per;
-                                    switchToDiary = true;
+                                const classId = Number(std.classId);
+                                
+                                // Normalizar e forçar o formato da data (YYYY-MM-DD)
+                                let dt = act.date || new Date().toISOString().split('T')[0];
+                                if (dt.includes('/')) {
+                                    const parts = dt.split('/');
+                                    if (parts.length === 3 && parts[2].length === 4) {
+                                        dt = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                    }
                                 }
+                                
+                                // Normalizar e forçar o formato do período (Ex: "1a" vira "1ª Aula")
+                                let per = act.period || '1ª Aula';
+                                const match = per.match(/(\d)/);
+                                if (match) per = match[1] + 'ª Aula';
+
+                                const allClassAtt = await db.attendance.where('classId').equals(classId).toArray();
+                                const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per && Number(r.studentId) === stdId).map(r => r.id);
+                                await db.attendance.bulkDelete(toDelete);
+                                await db.attendance.add({classId, date: dt, period: per, studentId: stdId, status: act.status});
+                                
+                                // Atualizar os filtros da UI para ver a modificação na hora
+                                diaryClassId.value = classId;
+                                diaryTab.value = 'attendance';
+                                attendanceDate.value = dt;
+                                attendancePeriod.value = per;
+                                switchToDiary = true;
                             } else if (act.actionType === 'add_schedule') {
-                                const cls = classes.value.find(c=>c.id === act.classId);
+                                if (!cId) throw new Error("Falta a referência da turma.");
+                                const cls = classes.value.find(c => Number(c.id) === cId);
                                 if(cls) {
                                     let per = act.period || '1ª Aula';
                                     const match = per.match(/(\d)/);
                                     if (match) per = match[1] + 'ª Aula';
 
                                     await db.schedules.add({
-                                        classId: act.classId,
+                                        classId: cId,
                                         day: act.day,
                                         period: per
                                     });
                                     
-                                    diaryClassId.value = act.classId;
+                                    diaryClassId.value = cId;
                                     diaryTab.value = 'schedule';
                                     switchToDiary = true;
                                 }
