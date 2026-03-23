@@ -1629,6 +1629,15 @@ Retorne o JSON estritamente neste formato.`;
                                     kr.push(rw);
                                 });
                                 
+                                // NOVA LINHA DE ESPAÇAMENTO (Separa as bolhas dos quadrados do rodapé)
+                                kr.push([
+                                    { text: ' ', border: [false,false,false,false], margin: [0, pSize ? 2 : 5] },
+                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                    { text: ' ', border: [false,false,false,false] }
+                                ]);
+
                                 kr.push([
                                     { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
                                     { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
