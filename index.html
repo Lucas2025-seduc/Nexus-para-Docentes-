@@ -165,7 +165,28 @@
                     <i class="fa-solid fa-check-double text-5xl text-white/20"></i>
                 </div>
                 
+                <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
+                    <h3 class="font-bold text-gray-700 flex items-center gap-2"><i class="fa-solid fa-microchip text-indigo-600"></i> Motor de IA (Correção)</h3>
+                    <p class="text-xs text-gray-500">Configure sua chave Gemini para processamento avançado de imagens das provas. O sistema detectará o melhor modelo disponível.</p>
+                    <div class="flex gap-2">
+                        <input type="password" v-model="geminiKey" placeholder="Colar Chave API do Gemini..." class="flex-1 bg-gray-50 border rounded-xl px-4 py-3 text-sm font-mono outline-none focus:border-indigo-500 transition" @change="saveSettings(true)">
+                        <button @click="testGeminiKey" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-xl font-bold transition flex items-center gap-2"><i class="fa-solid fa-satellite-dish"></i> Testar</button>
+                    </div>
+                    <div v-if="settings.activeModel" class="flex items-center justify-between text-xs font-bold text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                        <div class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-emerald-500"></i> Modelo Ativo: {{settings.activeModel}}</div>
+                        <span class="bg-emerald-200/50 px-2 py-0.5 rounded text-[10px] uppercase">Conectado</span>
+                    </div>
+                    <div v-else class="flex items-center gap-2 text-xs font-bold text-orange-600 bg-orange-50 p-3 rounded-xl border border-orange-200">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Nenhuma chave IA testada. Insira para ativar correção visual.
+                    </div>
+                </div>
+
                 <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+                    <input type="file" id="ai-correction-upload" accept="image/*" capture="environment" class="hidden" @change="processAICorrection">
+                    <button @click="triggerAICorrection" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xl"></i> Corrigir com IA (Foto do Gabarito)
+                    </button>
+                    
                     <button @click="startLiveQRScan" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-3">
                         <i class="fa-solid fa-qrcode text-xl"></i> Ler QR Code da Prova
                     </button>
@@ -586,9 +607,19 @@
                         const d=await r.json();
                         if(d.error)throw d.error;
                         let availableModels = d.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
-                        let bestModel = availableModels.find(m => m.includes('2.5-flash')) || availableModels.find(m => m.includes('1.5-flash')) || availableModels[0];
+                        
+                        // Prioriza sempre os modelos PRO mais recentes para correção inteligente, caindo para FLASH se necessário.
+                        let bestModel = 
+                            availableModels.find(m => m === 'gemini-2.5-pro') || 
+                            availableModels.find(m => m === 'gemini-1.5-pro') || 
+                            availableModels.find(m => m === 'gemini-2.5-flash') || 
+                            availableModels.find(m => m === 'gemini-1.5-flash') || 
+                            availableModels.find(m => m.includes('pro')) || 
+                            availableModels.find(m => m.includes('flash')) || 
+                            availableModels[0];
+                            
                         settings.value.activeModel = bestModel;
-                        showToast(`Chave válida! Modelo ativado: ${bestModel}`, "success");
+                        showToast(`Chave válida! Modelo avançado ativado: ${bestModel}`, "success");
                         saveSettings(true);
                     }catch(e){
                         showToast("Falha: "+e.message,"error");
@@ -696,6 +727,91 @@
                         });
                     } else {
                         showLiveQRScanner.value = false;
+                    }
+                };
+
+                const triggerAICorrection = () => {
+                    if (!settings.value.activeModel || !geminiKey.value) {
+                        showToast('Configure e teste a Chave API do Gemini primeiro no painel acima.', 'error');
+                        return;
+                    }
+                    document.getElementById('ai-correction-upload').click();
+                };
+
+                const processAICorrection = async (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    event.target.value = ''; // Reset
+
+                    toast.value = { show: true, message: "IA analisando a imagem...", type: "loading" };
+
+                    try {
+                        let qrData = null;
+                        try {
+                            const localScanner = new Html5Qrcode("hidden-qr-reader");
+                            const result = await localScanner.scanFile(file, false);
+                            qrData = JSON.parse(result);
+                        } catch (err) {
+                            console.log("QR Scan local falhou, delegando leitura para IA.");
+                        }
+
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        await new Promise(r => reader.onload = r);
+                        const base64Img = reader.result.split(',')[1];
+                        const mimeType = file.type;
+
+                        const prompt = `Você é um sistema OMR avançado. Analise a imagem deste gabarito impresso.
+1. O gabarito tem âncoras pretas (20x20) nos cantos para alinhamento. As linhas alternam fundos (branco/cinza).
+2. As bolhas vazias contêm letras claras. Bolhas preenchidas pelo aluno estão pintadas/escuras.
+3. Se conseguir ler o QR code visível na imagem (contém um JSON), coloque seu texto exato em 'qrText'.
+4. Extraia as respostas lendo os círculos. Retorne o array numérico 'answers'.
+Valores das colunas lidas da esquerda para a direita: Múltipla escolha (0, 1, 2, 3, 4) ou Certo/Errado (0, 1). Se o aluno deixou em branco, borrou muito ou marcou mais de uma opção na mesma linha, use o valor -1.`;
+
+                        const schema = {
+                            type: "OBJECT",
+                            properties: {
+                                qrText: { type: "STRING" },
+                                answers: { type: "ARRAY", items: { type: "INTEGER" } }
+                            }
+                        };
+
+                        const aiResult = await fetchGemini(prompt, schema, base64Img, mimeType);
+                        
+                        let finalQrText = qrData ? JSON.stringify(qrData) : aiResult.qrText;
+                        if (!finalQrText || finalQrText === "null" || finalQrText.trim() === "") {
+                            throw new Error("Não foi possível ler o QR Code da Prova. Tire uma foto que enquadre bem o topo da página.");
+                        }
+                        
+                        let qd;
+                        try {
+                            qd = typeof finalQrText === 'string' ? JSON.parse(finalQrText.replace(/`/g, '')) : finalQrText;
+                        } catch(e) {
+                            throw new Error("Os dados do aluno no QR Code estão ilegíveis.");
+                        }
+
+                        activeExam.value = exams.value.find(e => e.id === Number(qd.e));
+                        activeStudent.value = students.value.find(s => s.id === Number(qd.s));
+                        activeVersion.value = Number(qd.v) || 0;
+
+                        if(!activeExam.value || !activeStudent.value) throw new Error("A prova ou o aluno lidos na imagem não existem no banco de dados.");
+
+                        studentAnswers.value = {};
+                        if (aiResult.answers && Array.isArray(aiResult.answers)) {
+                            // Limita ao número de questões reais da prova para evitar alucinações de linhas extras
+                            const maxQ = getVersionQuestions(activeExam.value, activeVersion.value).length;
+                            aiResult.answers.slice(0, maxQ).forEach((ans, idx) => {
+                                if(ans !== -1 && ans !== null && ans !== undefined) {
+                                    studentAnswers.value[idx] = ans;
+                                }
+                            });
+                        }
+
+                        correctionMode.value = true;
+                        showToast("Extração Concluída! Revise as marcações na tela.", "success");
+
+                    } catch(e) {
+                        showToast(e.message || "Falha na análise da IA. Verifique a chave ou tire nova foto.", "error");
                     }
                 };
 
@@ -1115,6 +1231,7 @@
                     showLiveQRScanner, startLiveQRScan, stopLiveQRScan,
                     correctionMode, activeStudent, activeExam, activeVersion, studentAnswers,
                     showManualInputModal, manualConfig, startManualEntry, confirmManualEntry, saveManualCorrection,
+                    triggerAICorrection, processAICorrection,
 
                     // Details & Results
                     selectedResultDetails, showResultDetailsModal, openResultDetails, saveUpdatedAnswers, getAlternativeLabel,
