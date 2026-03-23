@@ -735,7 +735,70 @@
 
                         let cont=[];
                         stds.forEach((s,i)=>{
-                            let vi=sm[s.id], qs=v[vi].questions, kr=[[{canvas:[{type:'rect',x:12,y:5,w:12,h:12,color:'#000'}],border:[false,false,false,false]}, {text:'',border:[false,false,false,false]},{text:'',border:[false,false,false,false]},{text:'',border:[false,false,false,false]},{text:'',border:[false,false,false,false]}, {canvas:[{type:'rect',x:6,y:5,w:12,h:12,color:'#000'}],border:[false,false,false,false]}], [{text:'Q',bold:true,color:'#9ca3af',alignment:'center',margin:[0,4],border:[false,false,false,false]}, {text:'A',bold:true,color:'#d1d5db',alignment:'center',margin:[0,4],border:[false,false,false,false]},{text:'B',bold:true,color:'#d1d5db',alignment:'center',margin:[0,4],border:[false,false,false,false]},{text:'C',bold:true,color:'#d1d5db',alignment:'center',margin:[0,4],border:[false,false,false,false]},{text:'D',bold:true,color:'#d1d5db',alignment:'center',margin:[0,4],border:[false,false,false,false]},{text:'E',bold:true,color:'#d1d5db',alignment:'center',margin:[0,4],border:[false,false,false,false]}]];
+                            let vi=sm[s.id], qs=v[vi].questions;
+                            
+                            let kr = [];
+                            
+                            // 1. ANCORAS SUPERIORES (Fiducial Markers para IA não distorcer)
+                            kr.push([
+                                { canvas: [{ type: 'rect', x: 7, y: 5, w: 20, h: 20, color: '#000' }], border: [false,false,false,false] },
+                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
+                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
+                                { canvas: [{ type: 'rect', x: 3, y: 5, w: 20, h: 20, color: '#000' }], border: [false,false,false,false] }
+                            ]);
+                            
+                            // 2. CONSTRUÇÃO DAS LINHAS DE QUESTÕES (Alto Contraste + Zebra Striping)
+                            qs.forEach((q, k) => {
+                                let rw = [{ text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 8] }], l = (q.type === 'ce') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'];
+                                let rColor = k % 2 === 0 ? '#ffffff' : '#f3f4f6';
+                                rw[0].fillColor = rColor;
+                                for (let j = 0; j < 5; j++) {
+                                    if (j < l.length) rw.push({ stack: [{ canvas: [{ type: 'ellipse', x: 15, y: 14, r1: 11, r2: 11, lineWidth: 1.5, lineColor: '#000', color: rColor }], alignment: 'center' }, { text: l[j], fontSize: 11, bold: true, color: '#d1d5db', alignment: 'center', relativePosition: { x: 0, y: -15.5 } }], margin: [0, 2], fillColor: rColor });
+                                    else rw.push({ text: '', fillColor: rColor });
+                                }
+                                kr.push(rw);
+                            });
+                            
+                            // 3. ANCORAS INFERIORES
+                            kr.push([
+                                { canvas: [{ type: 'rect', x: 7, y: 5, w: 20, h: 20, color: '#000' }], border: [false,false,false,false] },
+                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
+                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
+                                { canvas: [{ type: 'rect', x: 3, y: 5, w: 20, h: 20, color: '#000' }], border: [false,false,false,false] }
+                            ]);
+
+                            cont.push({
+                                stack:[
+                                    {
+                                        columns:[
+                                            settings.value.logo?{image:settings.value.logo,fit:[printConfig.value.logoSize,75]}:{text:''},
+                                            {
+                                                stack:[
+                                                    {text:settings.value.schoolName,fontSize:14,bold:true,alignment:'center'},
+                                                    {text:eD.title,fontSize:11,alignment:'center'},
+                                                    {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, alignment:'center'}
+                                                ]
+                                            },
+                                            {qr:JSON.stringify({e:eId,s:s.id,v:vi}),fit:80,alignment:'right'}
+                                        ]
+                                    },
+                                    {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0,10,0,2], bold:true, fontSize:12},
+                                    {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0,8], fontSize:9, color:'#4b5563'},
+                                    {
+                                        table:{ widths:[35,30,30,30,30,30], body:kr },
+                                        layout: {
+                                            hLineWidth: function(i, node) { return (i > 1 && i < node.table.body.length - 1) ? 1 : 0; },
+                                            vLineWidth: function(i, node) { return 0; },
+                                            hLineColor: function(i, node) { return '#e5e7eb'; },
+                                            paddingTop: function(i, node) { return 3; },
+                                            paddingBottom: function(i, node) { return 3; }
+                                        },
+                                        alignment:'center',
+                                        margin:[0,0,0,20]
+                                    }
+                                ]
+                            });
+                            
                             qs.forEach((q,k)=>{
                                 let rw=[{text:k+1,bold:true,alignment:'center',color:'#9ca3af',margin:[0,4],border:[false,false,false,false]}], l=(q.type==='ce')?['C','E']:['A','B','C','D','E'];
                                 for(let j=0;j<5;j++){ if(j<l.length) rw.push({stack:[{canvas:[{type:'ellipse',x:8,y:8,r1:6,r2:6,lineWidth:1,lineColor:'#d1d5db'}],alignment:'center'},{text:l[j],fontSize:7,color:'#d1d5db',alignment:'center',relativePosition:{x:0,y:-10}}],margin:[0,1],border:[false,false,false,false]}); else rw.push({text:'',border:[false,false,false,false]}); } kr.push(rw);
