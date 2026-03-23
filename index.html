@@ -45,6 +45,18 @@
 
         <transition name="fade"><div v-if="confirmModal.show" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 max-w-xs w-full animate-fade-in border border-gray-100"><div class="text-center mb-4 text-indigo-600"><i class="fa-solid fa-circle-question text-4xl"></i></div><h3 class="text-lg font-bold text-center text-gray-800 mb-2">Confirmação</h3><p class="text-gray-500 text-center mb-6 text-sm">{{ confirmModal.message }}</p><div class="flex gap-3"><button @click="handleConfirm(false)" class="flex-1 py-2.5 rounded-xl border border-gray-200 font-bold text-gray-500 hover:bg-gray-50">Cancelar</button><button @click="handleConfirm(true)" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold shadow-lg hover:bg-indigo-700">Sim</button></div></div></div></transition>
 
+        <!-- FILA DE CORREÇÃO MODAL -->
+        <div v-if="isProcessingQueue" class="fixed inset-0 z-[9999] bg-gray-900/95 backdrop-blur flex flex-col items-center justify-center p-6 text-white text-center animate-fade-in">
+            <div class="w-24 h-24 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+            <h3 class="text-2xl font-black mb-2">Analisando Lote...</h3>
+            <p class="text-indigo-300 font-bold mb-6 text-lg">{{ processedCount }} de {{ correctionQueue.length }} gabaritos</p>
+            <div class="w-full max-w-xs bg-gray-800 rounded-full h-4 mb-8 shadow-inner overflow-hidden border border-gray-700">
+                <div class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all duration-500 ease-out" :style="{width: (processedCount/correctionQueue.length)*100 + '%'}"></div>
+            </div>
+            <div class="text-xs text-gray-400 max-w-sm mb-8"><i class="fa-solid fa-robot mr-1"></i> A IA está extraindo as notas automaticamente em plano de fundo.</div>
+            <button @click="stopQueue" class="px-8 py-3 rounded-full border border-red-500/50 text-red-400 font-bold hover:bg-red-500 hover:text-white transition"><i class="fa-solid fa-stop mr-2"></i> Interromper</button>
+        </div>
+
         <!-- HEADER E NAVEGAÇÃO -->
         <header class="bg-white shadow-sm z-50 flex-none border-b border-gray-200 relative">
             <div class="px-4 py-3 flex justify-between items-center">
@@ -59,7 +71,7 @@
         </header>
 
         <!-- DASHBOARD -->
-        <main class="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
+        <main class="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full pb-24 sm:pb-4">
             <!-- PAINEL -->
             <div v-if="currentView==='dashboard'" class="space-y-6 animate-fade-in">
                  <div class="text-center py-8 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl shadow-xl text-white relative overflow-hidden">
@@ -191,6 +203,30 @@
                     <button @click="startManualEntry" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-4 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-3 border border-gray-200">
                         <i class="fa-solid fa-keyboard text-xl"></i> Lançamento Manual (Sem QR)
                     </button>
+                </div>
+
+                <!-- NOVA ÁREA DE REVISÃO E DEMONSTRATIVO -->
+                <div v-if="recentCorrections.length > 0" class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-bold text-gray-700 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> Últimos Lançamentos</h3>
+                        <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-md font-bold uppercase">Revisão Rápida</span>
+                    </div>
+                    <div class="space-y-2">
+                        <div v-for="r in recentCorrections" :key="r.id" @click="openResultDetails(r)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl flex justify-between items-center cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition group shadow-sm">
+                            <div class="flex-1 pr-2 overflow-hidden">
+                                <p class="font-bold text-sm text-gray-800 truncate">{{r.studentName}}</p>
+                                <p class="text-[10px] text-gray-500 truncate mt-0.5">{{r.examTitle}} • {{formatDateTime(r.date)}}</p>
+                            </div>
+                            <div class="flex items-center gap-3 pl-2 border-l border-gray-200">
+                                <div class="text-right min-w-[36px]">
+                                    <span class="text-xl font-black leading-none block" :class="parseFloat(r.score) >= 6 ? 'text-emerald-600' : 'text-red-500'">{{r.score}}</span>
+                                </div>
+                                <div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 group-hover:text-indigo-600 group-hover:shadow-sm transition">
+                                    <i class="fa-solid fa-eye text-sm"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -336,14 +372,48 @@
             </div>
         </div>
 
-        <!-- DETALHES RESULTADO (APENAS LISTA DE RESPOSTAS PARA EDIÇÃO MANUAL/VISUALIZAÇÃO) -->
-        <div v-if="showResultDetailsModal" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4">
-            <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
-                <div class="p-4 bg-indigo-600 text-white flex justify-between rounded-t-2xl"><h3 class="font-bold">{{selectedResultDetails?.studentName}} - {{selectedResultDetails?.score}}</h3><button @click="showResultDetailsModal=false"><i class="fa-solid fa-times text-xl"></i></button></div>
+        <!-- DETALHES RESULTADO (DEMONSTRATIVO IA/MANUAL E REVISÃO) -->
+        <div v-if="showResultDetailsModal" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
+                <div class="p-5 bg-indigo-600 text-white flex justify-between items-center">
+                    <div class="flex-1 pr-4">
+                        <h3 class="font-black text-lg leading-tight">{{selectedResultDetails?.studentName}}</h3>
+                        <p class="text-xs text-indigo-200 mt-1">{{selectedResultDetails?.title}}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-center bg-black/20 px-3 py-1.5 rounded-xl border border-white/10">
+                            <span class="block text-[9px] uppercase font-bold text-indigo-200 mb-0.5">Nota Final</span>
+                            <span class="text-2xl font-black leading-none">{{selectedResultDetails?.score}}</span>
+                        </div>
+                        <button @click="showResultDetailsModal=false" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"><i class="fa-solid fa-times text-lg"></i></button>
+                    </div>
+                </div>
+                <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center text-xs font-bold text-indigo-800">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-user-check"></i> Revisão do Gabarito</span>
+                    <span class="text-[9px] bg-indigo-200/50 px-2 py-1 rounded text-indigo-700">Edite se houver falha de leitura</span>
+                </div>
                 <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-2">
-                    <div v-for="(q, idx) in selectedResultDetails?.questions" class="bg-white p-3 rounded-xl border flex justify-between items-center" :class="selectedResultDetails.answers[idx]===q.correctIndex?'border-emerald-200':'border-red-200'">
-                        <div class="flex gap-3"><span class="font-bold text-gray-400 w-5">#{{idx+1}}</span><div class="text-[9px] uppercase font-bold text-gray-400">Gab: <span class="text-emerald-600 text-base">{{getAlternativeLabel(q.type, q.correctIndex)}}</span></div></div>
-                        <div><select v-model="selectedResultDetails.answers[idx]" @change="saveUpdatedAnswers" class="font-black text-right outline-none bg-transparent" :class="selectedResultDetails.answers[idx]===q.correctIndex?'text-emerald-600':'text-red-500'"><option :value="null">-</option><template v-if="q.type==='ce'"><option :value="0">C</option><option :value="1">E</option></template><template v-else><option v-for="(lbl,i) in ['A','B','C','D','E']" :value="i">{{lbl}}</option></template></select></div>
+                    <div v-for="(q, idx) in selectedResultDetails?.questions" class="bg-white p-3 rounded-xl border flex justify-between items-center transition-all" :class="selectedResultDetails.answers[idx]===q.correctIndex?'border-emerald-200 shadow-sm':'border-red-200 shadow-sm'">
+                        <div class="flex items-center gap-4">
+                            <span class="font-black text-gray-400 w-6 text-right text-lg">#{{idx+1}}</span>
+                            <div class="flex flex-col">
+                                <span class="text-[9px] uppercase font-bold text-gray-400">Oficial</span>
+                                <span class="font-black text-emerald-600 text-base">{{getAlternativeLabel(q.type, q.correctIndex)}}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 bg-gray-50 px-3 py-1.5 rounded-lg border shadow-inner">
+                            <span class="text-[9px] uppercase font-bold text-gray-500">Marcou:</span>
+                            <select v-model="selectedResultDetails.answers[idx]" @change="saveUpdatedAnswers" class="font-black text-lg outline-none bg-transparent cursor-pointer text-center min-w-[20px]" :class="selectedResultDetails.answers[idx]===q.correctIndex?'text-emerald-600':'text-red-500'">
+                                <option :value="null">Nulo</option>
+                                <template v-if="q.type==='ce'">
+                                    <option :value="0">Certo</option>
+                                    <option :value="1">Errado</option>
+                                </template>
+                                <template v-else>
+                                    <option v-for="(lbl,i) in ['A','B','C','D','E']" :value="i">{{lbl}}</option>
+                                </template>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -686,7 +756,7 @@
                     const ex=exams.value.find(e=>e.id===examId), qArr=getVersionQuestions(ex,vIdx);
                     const bScr=calculateExamScore(ans,qArr), exst=results.value.find(r=>r.examId===examId&&r.studentId===sId);
                     const bns=exst?parseFloat(exst.bonus||0):0, fScr=(parseFloat(bScr)+bns).toFixed(1);
-                    const dt={examId, studentId:sId, studentName:sName, score:fScr, bonus:bns, date:exst?exst.date:Date.now(), answers:ans, maxScore:qArr.length, version:vIdx};
+                    const dt={examId, studentId:sId, studentName:sName, score:fScr, bonus:bns, date:Date.now(), answers:ans, maxScore:qArr.length, version:vIdx};
                     let id=exst?exst.id:await db.results.add(JSON.parse(JSON.stringify(dt)));
                     if(exst) await db.results.put({...dt,id}); results.value=await db.results.toArray(); return id;
                 };
@@ -922,30 +992,30 @@
                             
                             // 1. ANCORAS SUPERIORES (8 colunas)
                             kr.push([
-                                { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }], border: [false,false,false,false] },
-                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }], border: [false,false,false,false] }
+                                { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
+                                { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
                             ]);
                             
                             // 1.5 HEADER DE OPÇÕES
                             kr.push([
-                                { text: '', border: [false,false,false,false] },
-                                { text: '', border: [false,false,false,false] },
+                                { text: ' ', border: [false,false,false,false] },
+                                { text: ' ', border: [false,false,false,false] },
                                 { text: 'A', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
                                 { text: 'B', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
                                 { text: 'C', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
                                 { text: 'D', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
                                 { text: 'E', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
-                                { text: '', border: [false,false,false,false] }
+                                { text: ' ', border: [false,false,false,false] }
                             ]);
                             
                             // 2. CONSTRUÇÃO DAS QUESTÕES
                             qs.forEach((q, k) => {
                                 let rColor = k % 2 === 0 ? '#ffffff' : '#f3f4f6';
                                 let rw = [
-                                    { canvas: [{ type: 'rect', x: 2, y: 6, w: 10, h: 6, color: '#000' }], fillColor: rColor, border: [false,false,false,false] },
+                                    { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 2, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] },
                                     { text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 4], fillColor: rColor }
                                 ];
                                 let l = (q.type === 'ce') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'];
@@ -959,20 +1029,20 @@
                                             margin: [0, 2], fillColor: rColor 
                                         });
                                     } else {
-                                        rw.push({ text: '', fillColor: rColor });
+                                        rw.push({ text: ' ', fillColor: rColor });
                                     }
                                 }
-                                rw.push({ canvas: [{ type: 'rect', x: 3, y: 6, w: 10, h: 6, color: '#000' }], fillColor: rColor, border: [false,false,false,false] });
+                                rw.push({ stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 3, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] });
                                 kr.push(rw);
                             });
                             
                             // 3. ANCORAS INFERIORES
                             kr.push([
-                                { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }], border: [false,false,false,false] },
-                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }], border: [false,false,false,false] }
+                                { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
+                                { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
                             ]);
 
                             cont.push({
@@ -993,7 +1063,7 @@
                                     {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0,10,0,2], bold:true, fontSize:12},
                                     {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0,8], fontSize:9, color:'#4b5563'},
                                     {
-                                        table:{ widths:[15, 20, 25, 25, 25, 25, 25, 15], body:kr },
+                                        table:{ widths:[16, 24, 28, 28, 28, 28, 28, 16], body:kr },
                                         layout: {
                                             hLineWidth: function(i, node) { return (i === 1 || i === node.table.body.length - 1) ? 2 : (i > 1 && i < node.table.body.length - 1) ? 1 : 0; },
                                             vLineWidth: function(i, node) { return (i === 1 || i === node.table.widths.length - 1) ? 2 : 0; },
@@ -1321,6 +1391,12 @@
                     correctionQueue, isProcessingQueue, processedCount, stopQueue,
 
                     // Details & Results
+                    recentCorrections: computed(() => {
+                        return [...results.value].sort((a, b) => (b.date || 0) - (a.date || 0)).slice(0, 15).map(r => {
+                            const ex = exams.value.find(e => e.id === r.examId);
+                            return { ...r, examTitle: ex ? ex.title : 'Prova Desconhecida' };
+                        });
+                    }),
                     selectedResultDetails, showResultDetailsModal, openResultDetails, saveUpdatedAnswers, getAlternativeLabel,
                     
                     // Classes & Students
