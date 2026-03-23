@@ -1273,19 +1273,81 @@ Retorne o JSON estritamente neste formato.`;
                 };
 
                 const generateQuestionsAI=async()=>{
-                    if(!aiGenConfig.value.topic)return showToast('Preencha tópico','error');
+                    if(!settings.value.activeModel || !geminiKey.value) return showToast('Por favor, teste a Chave API primeiro.', 'error');
+                    if(!aiGenConfig.value.subject || !aiGenConfig.value.topic)return showToast('Preencha a disciplina e o tópico','error');
+                    
                     let t=(aiGenConfig.value.counts.mc||0)+(aiGenConfig.value.counts.ce||0)+(aiGenConfig.value.counts.vf||0)+(aiGenConfig.value.counts.assoc||0);
-                    if(t<1)return showToast('Min 1 questão','warning');
-                    isGeneratingAI.value=true;showToast(`Gerando ${t} questões...`,'loading');
+                    if(t<1)return showToast('Selecione pelo menos 1 questão','warning');
+                    
+                    isGeneratingAI.value=true;
+                    showToast(`Gerando ${t} questões...`,'loading');
+                    
                     try{
-                        let promptText = `Crie ${t} questões de ${aiGenConfig.value.subject} (${aiGenConfig.value.topic}). Nível: ${aiGenConfig.value.difficulty}. ${aiGenConfig.value.counts.mc} multi (5 opt). ${aiGenConfig.value.counts.ce} C/E. ${aiGenConfig.value.counts.vf} V/F. ${aiGenConfig.value.counts.assoc} assoc. JSON Array puro!`;
-                        let gq=await fetchGemini(promptText, null);
-                        if(!Array.isArray(gq))throw new Error("Erro formatação");
-                        await db.questions.bulkAdd(gq);await load();showAIGenModal.value=false;showToast("Concluído!","success");
+                        let promptText = `Crie ${t} questões para uma prova escolar.
+Disciplina: ${aiGenConfig.value.subject}
+Tópico: ${aiGenConfig.value.topic}
+Dificuldade: ${aiGenConfig.value.difficulty}
+Estilo: ${aiGenConfig.value.style}
+
+Distribuição OBRIGATÓRIA:
+- ${aiGenConfig.value.counts.mc} questões do tipo "mc" (Múltipla Escolha com 5 opções. Campo 'correct' de 0 a 4).
+- ${aiGenConfig.value.counts.ce} questões do tipo "ce" (Certo/Errado com 2 opções 'Certo' e 'Errado'. Campo 'correct' 0 ou 1).
+- ${aiGenConfig.value.counts.vf} questões do tipo "vf" (Verdadeiro/Falso. As 'options' DEVEM ter o campo booleano 'isTrue').
+- ${aiGenConfig.value.counts.assoc} questões do tipo "assoc" (Associação. As 'options' DEVEM ter o texto principal em 'text' e a correspondência no campo 'match').
+
+IMPORTANTE: O retorno DEVE ser EXATAMENTE um Array JSON. Cada objeto de questão deve ter os campos: type, subject, topic, text, options e correct (quando aplicável para 'mc' e 'ce').`;
+
+                        const schema = {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    type: { type: "STRING" },
+                                    subject: { type: "STRING" },
+                                    topic: { type: "STRING" },
+                                    text: { type: "STRING" },
+                                    options: {
+                                        type: "ARRAY",
+                                        items: {
+                                            type: "OBJECT",
+                                            properties: {
+                                                text: { type: "STRING" },
+                                                isTrue: { type: "BOOLEAN" },
+                                                match: { type: "STRING" }
+                                            }
+                                        }
+                                    },
+                                    correct: { type: "INTEGER" }
+                                }
+                            }
+                        };
+
+                        let gq=await fetchGemini(promptText, schema);
+                        
+                        // Fallback de segurança caso a IA encapsule o array num objeto
+                        if(gq && !Array.isArray(gq) && gq.items) gq = gq.items;
+                        if(gq && !Array.isArray(gq) && gq.questions) gq = gq.questions;
+                        
+                        if(!Array.isArray(gq)) throw new Error("O formato retornado pela IA é inválido.");
+                        
+                        // Normalização: Garante que os dados estão completos antes de salvar no banco
+                        gq = gq.map(q => {
+                            q.subject = aiGenConfig.value.subject;
+                            q.topic = aiGenConfig.value.topic;
+                            if (q.type === 'ce' && (!q.options || q.options.length < 2)) {
+                                q.options = [{text: 'Certo'}, {text: 'Errado'}];
+                            }
+                            return q;
+                        });
+
+                        await db.questions.bulkAdd(gq);
+                        await load();
+                        showAIGenModal.value=false;
+                        showToast("Questões geradas com sucesso!","success");
                     }catch(e){
-                        showToast(e.message,"error")
+                        showToast(e.message || "Erro na geração. Tente novamente.","error");
                     }finally{
-                        isGeneratingAI.value=false
+                        isGeneratingAI.value=false;
                     }
                 };
 
