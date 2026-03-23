@@ -143,6 +143,10 @@
                             </div>
                         </div>
                         
+                        <div v-if="!isCurrentSelectionValidSchedule && attendanceDate && attendancePeriod" class="bg-orange-50 text-orange-700 p-3 rounded-xl border border-orange-200 text-xs font-bold flex items-center gap-2 mb-3">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Aviso: Você não tem horário cadastrado nesta turma para este dia e aula.
+                        </div>
+
                         <div class="space-y-2">
                             <div v-for="s in studentsInDiaryClass" :key="s.id" class="flex items-center justify-between p-3 bg-white border rounded-xl hover:bg-gray-50">
                                 <span class="text-xs font-bold text-gray-700 truncate max-w-[150px]">{{s.name}}</span>
@@ -831,8 +835,16 @@
 
                 watch([diaryClassId, attendanceDate, attendancePeriod], loadDiaryData);
 
-                const saveAttendance = async () => {
-                    if(!diaryClassId.value) return;
+                const isCurrentSelectionValidSchedule = computed(() => {
+                    if (!attendanceDate.value || !attendancePeriod.value || !schedulesList.value) return false;
+                    const dateObj = new Date(attendanceDate.value + "T12:00:00");
+                    const dayOfWeekIndex = dateObj.getDay();
+                    const daysMap = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+                    const dayName = daysMap[dayOfWeekIndex];
+                    return schedulesList.value.some(sch => sch.day === dayName && sch.period === attendancePeriod.value);
+                });
+
+                const executeSaveAttendance = async () => {
                     const records = Object.keys(attendanceMap.value).map(sId => ({
                         classId: diaryClassId.value,
                         date: attendanceDate.value,
@@ -848,6 +860,15 @@
                     await db.attendance.bulkDelete(toDeleteIds);
                     await db.attendance.bulkAdd(records);
                     showToast("Frequência salva!", "success");
+                };
+
+                const saveAttendance = async () => {
+                    if(!diaryClassId.value) return;
+                    if (!isCurrentSelectionValidSchedule.value) {
+                        triggerConfirm("Aviso: Você não tem horário cadastrado nesta turma para este dia/aula. Deseja lançar a frequência mesmo assim (ex: reposição)?", executeSaveAttendance);
+                        return;
+                    }
+                    executeSaveAttendance();
                 };
 
                 const addSchedule = async () => {
@@ -1061,6 +1082,15 @@
                                 let per = act.period || '1ª Aula';
                                 const match = per.match(/(\d)/);
                                 if (match) per = match[1] + 'ª Aula';
+
+                                // Validação de Horário (Aviso/Bloqueio se não houver horário)
+                                const dateObj = new Date(dt + "T12:00:00");
+                                const dayName = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"][dateObj.getDay()];
+                                const schArray = await db.schedules.where({classId: classId}).toArray();
+                                const hasSch = schArray.some(s => s.day === dayName && s.period === per);
+                                if (!hasSch) {
+                                     throw new Error(`Aviso: Você não tem horário na ${dayName} (${per}) para a turma do aluno(a). Cadastre o horário no Diário primeiro.`);
+                                }
 
                                 const allClassAtt = await db.attendance.where('classId').equals(classId).toArray();
                                 const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per && Number(r.studentId) === stdId).map(r => r.id);
@@ -2091,7 +2121,7 @@ Siga as instruções ESTRITAMENTE:
                     // Diário (Schedules & Attendance)
                     periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceMap, schedulesList, newSchedule,
                     studentsInDiaryClass: computed(()=>students.value.filter(s=>s.classId===diaryClassId.value)),
-                    saveAttendance, addSchedule, deleteSchedule, deleteAllGrades,
+                    isCurrentSelectionValidSchedule, saveAttendance, addSchedule, deleteSchedule, deleteAllGrades,
 
                     // Assistant IA
                     showAssistant, assistantQuery, assistantHistory, isAssistantThinking, askAssistant,
