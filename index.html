@@ -911,25 +911,25 @@
                             for(let i=0;i<nV;i++){ let qs=JSON.parse(JSON.stringify(examCart.value)).map(q=>({...q,correctIndex:q.correct})); if(i>0||examConfig.value.variationMode!=='standard'){qs.sort(()=>Math.random()-0.5); qs.forEach(q=>{if(q.type!=='ce'){let o=q.options.map((op,x)=>({...op,isc:x===q.correctIndex})).sort(()=>Math.random()-0.5); q.options=o; q.correctIndex=o.findIndex(x=>x.isc)}})} v.push({id:i, questions:qs}) }
                             stds.forEach((s,i)=>sm[s.id]=i%nV);
                         }
-                        let eD={title:examConfig.value.title || `Avaliação - ${new Date().toLocaleDateString('pt-BR')}`, classId:examConfig.value.classId, type:examConfig.value.type, weight:examConfig.value.weight, bimester:examConfig.value.bimester, teacher:examConfig.value.teacher, variationMode:examConfig.value.variationMode, versions:v, studentMap:sm, date:Date.now()};
+                        let titleFallback = examConfig.value.title || `Avaliação - ${new Date().toLocaleDateString('pt-BR')}`;
+                        let eD={title:titleFallback, classId:examConfig.value.classId, type:examConfig.value.type, weight:examConfig.value.weight, bimester:examConfig.value.bimester, teacher:examConfig.value.teacher, variationMode:examConfig.value.variationMode, versions:v, studentMap:sm, date:Date.now()};
                         let eId=editingExamId.value?editingExamId.value:await db.exams.add(eD); if(editingExamId.value)await db.exams.put({...eD,id:eId}); editingExamId.value=null; load();
 
                         let cont=[];
                         stds.forEach((s,i)=>{
                             let vi=sm[s.id], qs=v[vi].questions;
-                            
                             let kr = [];
                             
-                            // 1. ANCORAS SUPERIORES (8 colunas agora, com a ancoragem nos extremos)
+                            // 1. ANCORAS SUPERIORES (8 colunas)
                             kr.push([
-                                { canvas: [{ type: 'rect', x: 2, y: 5, w: 16, h: 16, color: '#000' }], border: [false,false,false,false] },
+                                { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }], border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { canvas: [{ type: 'rect', x: 2, y: 5, w: 16, h: 16, color: '#000' }], border: [false,false,false,false] }
+                                { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }], border: [false,false,false,false] }
                             ]);
                             
-                            // 1.5 HEADER DE OPÇÕES PARA ALINHAMENTO DO PDFMAKE
+                            // 1.5 HEADER DE OPÇÕES
                             kr.push([
                                 { text: '', border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] },
@@ -941,32 +941,38 @@
                                 { text: '', border: [false,false,false,false] }
                             ]);
                             
-                            // 2. CONSTRUÇÃO COM TRILHAS DE SINCRONIZAÇÃO E BORDAS MAIS FORTES
+                            // 2. CONSTRUÇÃO DAS QUESTÕES
                             qs.forEach((q, k) => {
                                 let rColor = k % 2 === 0 ? '#ffffff' : '#f3f4f6';
                                 let rw = [
-                                    // Trilha esquerda (Timing Mark)
-                                    { canvas: [{ type: 'rect', x: 6, y: 8, w: 8, h: 8, color: '#000' }], fillColor: rColor, border: [false,false,false,false] },
-                                    // Numero Zero-padded
-                                    { text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 8], fillColor: rColor }
+                                    { canvas: [{ type: 'rect', x: 2, y: 6, w: 10, h: 6, color: '#000' }], fillColor: rColor, border: [false,false,false,false] },
+                                    { text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 4], fillColor: rColor }
                                 ];
                                 let l = (q.type === 'ce') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'];
                                 for (let j = 0; j < 5; j++) {
-                                    if (j < l.length) rw.push({ stack: [{ canvas: [{ type: 'ellipse', x: 15, y: 14, r1: 11, r2: 11, lineWidth: 1.5, lineColor: '#000', color: rColor }], alignment: 'center' }, { text: l[j], fontSize: 11, bold: true, color: '#d1d5db', alignment: 'center', relativePosition: { x: 0, y: -15.5 } }], margin: [0, 2], fillColor: rColor });
-                                    else rw.push({ text: '', fillColor: rColor });
+                                    if (j < l.length) {
+                                        rw.push({ 
+                                            stack: [
+                                                { canvas: [{ type: 'ellipse', x: 12.5, y: 9, r1: 8, r2: 8, lineWidth: 1.5, lineColor: '#000', color: rColor }] }, 
+                                                { text: l[j], fontSize: 9, bold: true, color: '#d1d5db', alignment: 'center', relativePosition: { x: 0, y: -13.5 } }
+                                            ], 
+                                            margin: [0, 2], fillColor: rColor 
+                                        });
+                                    } else {
+                                        rw.push({ text: '', fillColor: rColor });
+                                    }
                                 }
-                                // Trilha direita (Timing Mark)
-                                rw.push({ canvas: [{ type: 'rect', x: 6, y: 8, w: 8, h: 8, color: '#000' }], fillColor: rColor, border: [false,false,false,false] });
+                                rw.push({ canvas: [{ type: 'rect', x: 3, y: 6, w: 10, h: 6, color: '#000' }], fillColor: rColor, border: [false,false,false,false] });
                                 kr.push(rw);
                             });
                             
                             // 3. ANCORAS INFERIORES
                             kr.push([
-                                { canvas: [{ type: 'rect', x: 2, y: 5, w: 16, h: 16, color: '#000' }], border: [false,false,false,false] },
+                                { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }], border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
                                 { text: '', border: [false,false,false,false] }, { text: '', border: [false,false,false,false] },
-                                { canvas: [{ type: 'rect', x: 2, y: 5, w: 16, h: 16, color: '#000' }], border: [false,false,false,false] }
+                                { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }], border: [false,false,false,false] }
                             ]);
 
                             cont.push({
@@ -976,7 +982,7 @@
                                             settings.value.logo?{image:settings.value.logo,fit:[printConfig.value.logoSize,75]}:{text:''},
                                             {
                                                 stack:[
-                                                    {text:settings.value.schoolName,fontSize:14,bold:true,alignment:'center'},
+                                                    {text:settings.value.schoolName || 'ESCOLA',fontSize:14,bold:true,alignment:'center'},
                                                     {text:eD.title,fontSize:11,alignment:'center'},
                                                     {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, alignment:'center'}
                                                 ]
@@ -987,11 +993,10 @@
                                     {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0,10,0,2], bold:true, fontSize:12},
                                     {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0,8], fontSize:9, color:'#4b5563'},
                                     {
-                                        // Matriz de 8 Colunas Ajustadas
                                         table:{ widths:[15, 20, 25, 25, 25, 25, 25, 15], body:kr },
                                         layout: {
-                                            hLineWidth: function(i, node) { return (i === 1 || i === node.table.body.length - 1) ? 2 : (i > 1 && i < node.table.body.length - 1) ? 1 : 0; }, // Bordas super grossas no topo/fundo da grade real
-                                            vLineWidth: function(i, node) { return (i === 1 || i === node.table.widths.length - 1) ? 2 : 0; }, // Bordas grossas fechando as laterais
+                                            hLineWidth: function(i, node) { return (i === 1 || i === node.table.body.length - 1) ? 2 : (i > 1 && i < node.table.body.length - 1) ? 1 : 0; },
+                                            vLineWidth: function(i, node) { return (i === 1 || i === node.table.widths.length - 1) ? 2 : 0; },
                                             hLineColor: function(i, node) { return (i === 1 || i === node.table.body.length - 1) ? '#000' : '#e5e7eb'; },
                                             vLineColor: function(i, node) { return '#000'; },
                                             paddingTop: function(i, node) { return 3; },
