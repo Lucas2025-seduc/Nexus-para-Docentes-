@@ -147,8 +147,15 @@
                             <i class="fa-solid fa-triangle-exclamation"></i> Aviso: Você não tem horário cadastrado nesta turma para este dia e aula.
                         </div>
 
+                        <!-- NOVA BARRA DE PESQUISA DE ALUNOS NA CHAMADA -->
+                        <div class="flex gap-2 bg-white p-2.5 rounded-xl border shadow-sm items-center focus-within:border-indigo-500 transition-colors">
+                            <i class="fa-solid fa-search text-gray-400 ml-1"></i>
+                            <input v-model="attendanceStudentFilter" placeholder="Buscar aluno na chamada..." class="w-full bg-transparent outline-none text-sm font-medium">
+                            <button v-if="attendanceStudentFilter" @click="attendanceStudentFilter=''" class="text-gray-400 hover:text-red-500 px-2 transition"><i class="fa-solid fa-times"></i></button>
+                        </div>
+
                         <div class="space-y-2">
-                            <div v-for="s in studentsInDiaryClass" :key="s.id" class="flex items-center justify-between p-3 bg-white border rounded-xl hover:bg-gray-50">
+                            <div v-for="s in filteredStudentsInDiaryClass" :key="s.id" class="flex items-center justify-between p-3 bg-white border rounded-xl hover:bg-gray-50">
                                 <span class="text-xs font-bold text-gray-700 truncate max-w-[150px]">{{s.name}}</span>
                                 <div class="flex bg-gray-100 rounded-lg p-1">
                                     <button @click="attendanceMap[s.id]='P'" :class="attendanceMap[s.id]==='P'?'bg-emerald-500 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">P</button>
@@ -336,18 +343,21 @@
                         <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-md font-bold uppercase">Revisão Rápida</span>
                     </div>
                     <div class="space-y-2">
-                        <div v-for="r in recentCorrections" :key="r.id" @click="openResultDetails(r)" class="p-3 bg-gray-50 border border-gray-100 rounded-xl flex justify-between items-center cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition group shadow-sm">
-                            <div class="flex-1 pr-2 overflow-hidden">
+                        <div v-for="r in recentCorrections" :key="r.id" class="p-3 bg-gray-50 border border-gray-100 rounded-xl flex justify-between items-center hover:bg-indigo-50 hover:border-indigo-200 transition group shadow-sm">
+                            <div class="flex-1 pr-2 overflow-hidden cursor-pointer" @click="openResultDetails(r)">
                                 <p class="font-bold text-sm text-gray-800 truncate">{{r.studentName}}</p>
                                 <p class="text-[10px] text-gray-500 truncate mt-0.5">{{r.examTitle}} • {{formatDateTime(r.date)}}</p>
                             </div>
-                            <div class="flex items-center gap-3 pl-2 border-l border-gray-200">
-                                <div class="text-right min-w-[36px]">
+                            <div class="flex items-center gap-2 pl-2 border-l border-gray-200">
+                                <div class="text-right min-w-[36px] mr-1">
                                     <span class="text-xl font-black leading-none block" :class="parseFloat(r.score) >= 6 ? 'text-emerald-600' : 'text-red-500'">{{r.score}}</span>
                                 </div>
-                                <div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 group-hover:text-indigo-600 group-hover:shadow-sm transition">
+                                <button @click="openResultDetails(r)" class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:shadow-sm transition" title="Ver Detalhes">
                                     <i class="fa-solid fa-eye text-sm"></i>
-                                </div>
+                                </button>
+                                <button @click="deleteStudentResult(r.id)" class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition" title="Excluir Nota">
+                                    <i class="fa-solid fa-trash-can text-sm"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -498,7 +508,7 @@
                     <div class="bg-white p-4 rounded-xl border flex justify-between items-center mb-4"><div><p class="text-[10px] font-bold text-gray-400">Média</p><div class="text-3xl font-black text-indigo-700">{{studentBimesterAverage}}</div></div></div>
                     <div v-for="ex in studentExamsList" :key="ex.id" class="bg-white p-3 rounded-xl border flex justify-between items-center mb-2">
                         <div class="flex-1 font-bold text-sm">{{ex.title}}</div>
-                        <div v-if="editingResultId!==ex.id" class="flex items-center gap-1"><div class="font-bold text-lg mr-2" :class="ex.score>=6?'text-emerald-600':'text-red-500'">{{ex.score}}</div><button @click="openResultDetails(ex)" class="text-blue-500 p-1.5"><i class="fa-solid fa-eye"></i></button><button @click="startEditingGrade(ex)" class="text-gray-400 p-1.5"><i class="fa-solid fa-pencil"></i></button></div>
+                        <div v-if="editingResultId!==ex.id" class="flex items-center gap-1"><div class="font-bold text-lg mr-2" :class="ex.score>=6?'text-emerald-600':'text-red-500'">{{ex.score}}</div><button @click="openResultDetails(ex)" class="text-blue-500 hover:bg-blue-50 rounded-lg p-1.5 transition" title="Ver Gabarito"><i class="fa-solid fa-eye"></i></button><button @click="startEditingGrade(ex)" class="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg p-1.5 transition" title="Editar Nota"><i class="fa-solid fa-pencil"></i></button><button @click="deleteStudentResult(ex.id)" class="text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg p-1.5 transition" title="Excluir Nota"><i class="fa-solid fa-trash-can"></i></button></div>
                         <div v-else class="flex items-center gap-1"><input v-model="tempScore" type="number" class="w-14 p-1 border text-center text-xs font-bold"><button @click="saveEditedGrade" class="text-emerald-500 p-1"><i class="fa-solid fa-check"></i></button><button @click="cancelEditingGrade" class="text-red-500 p-1"><i class="fa-solid fa-times"></i></button></div>
                     </div>
                 </div>
@@ -565,7 +575,8 @@
                             <span class="block text-[9px] uppercase font-bold text-indigo-200 mb-0.5">Nota Final</span>
                             <span class="text-2xl font-black leading-none">{{selectedResultDetails?.score}}</span>
                         </div>
-                        <button @click="showResultDetailsModal=false" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"><i class="fa-solid fa-times text-lg"></i></button>
+                        <button @click="deleteStudentResultAndClose(selectedResultDetails.resultId)" class="w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white transition" title="Excluir Nota"><i class="fa-solid fa-trash-can text-sm"></i></button>
+                        <button @click="showResultDetailsModal=false" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition" title="Fechar"><i class="fa-solid fa-times text-lg"></i></button>
                     </div>
                 </div>
                 <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center text-xs font-bold text-indigo-800">
@@ -691,6 +702,7 @@
                 const diaryTab = ref('attendance');
                 const attendanceDate = ref(new Date().toISOString().split('T')[0]);
                 const attendancePeriod = ref('1ª Aula');
+                const attendanceStudentFilter = ref('');
                 const attendanceMap = ref({});
                 const schedulesList = ref([]);
                 const newSchedule = ref({ day: 'Segunda', period: '1ª Aula' });
@@ -2136,6 +2148,15 @@ Siga as instruções ESTRITAMENTE:
                     editingResultId.value = null;
                 };
 
+                const deleteStudentResultAndClose = (id) => {
+                    triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?", async () => {
+                        await db.results.delete(id);
+                        showResultDetailsModal.value = false;
+                        load();
+                        showToast("Nota removida com sucesso.", "success");
+                    });
+                };
+
                 const getStudentCount = id => students.value.filter(s=>s.classId===id).length;
                 const getFilteredStudents = id => students.value.filter(s=>s.classId===id&&s.name.toLowerCase().includes(studentFilter.value.toLowerCase()));
                 const getClassName = id => classes.value.find(c=>c.id===id)?.name;
@@ -2162,8 +2183,9 @@ Siga as instruções ESTRITAMENTE:
                     correctionQueue, isProcessingQueue, processedCount, stopQueue,
 
                     // Diário (Schedules & Attendance)
-                    periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceMap, schedulesList, newSchedule,
+                    periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter, attendanceMap, schedulesList, newSchedule,
                     studentsInDiaryClass: computed(()=>students.value.filter(s=>s.classId===diaryClassId.value)),
+                    filteredStudentsInDiaryClass: computed(()=>students.value.filter(s=>s.classId===diaryClassId.value && (!attendanceStudentFilter.value || s.name.toLowerCase().includes(attendanceStudentFilter.value.toLowerCase())))),
                     isCurrentSelectionValidSchedule, saveAttendance, addSchedule, deleteSchedule, deleteAllGrades,
 
                     // Assistant IA
@@ -2206,7 +2228,8 @@ Siga as instruções ESTRITAMENTE:
                     selectedExamVersions: computed(()=>exams.value.find(e=>e.id===manualConfig.value.examId)?.versions||[{}]),
                     studentExamsList, studentExtraPointsList, studentTotalExtraPoints, studentBimesterAverage,
                     getClassRanking, getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution, openStudentProfile: id=>{studentDetails.value=students.value.find(s=>s.id===id);showStudentModal.value=true},
-                    addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade, deleteStudentResult: id=>triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?",async()=>{await db.results.delete(id);load()}),
+                    addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade, deleteStudentResultAndClose,
+                    deleteStudentResult: id=>triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?",async()=>{await db.results.delete(id);load();showToast("Nota removida com sucesso.", "success");}),
                     
                     // Global utilities
                     installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, importBackup, triggerImport, backupData, testGeminiKey,
