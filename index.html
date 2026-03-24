@@ -1362,16 +1362,59 @@ IMPORTANTE: O retorno DEVE ser UM OBJETO JSON contendo a propriedade "questions"
                         
                         if(!Array.isArray(gq)) throw new Error("O formato retornado pela IA é inválido.");
                         
-                        // Normalização: Garante que os dados estão completos e os nomes dos campos estão certos
+                        // Normalização: Garante que os dados estão completos e corrige os formatos teimosos da IA para TODOS OS TIPOS
                         gq = gq.map(q => {
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
-                            // Rede de segurança: caso a IA chame "enunciado" em vez de "text"
+                            // Rede de segurança principal
                             q.text = q.text || q.enunciado || q.pergunta || "Enunciado não gerado";
+                            if (!q.options) q.options = [];
                             
-                            if (q.type === 'ce' && (!q.options || q.options.length < 2)) {
-                                q.options = [{text: 'Certo'}, {text: 'Errado'}];
+                            if (q.type === 'ce') {
+                                if (q.options.length < 2) q.options = [{text: 'Certo'}, {text: 'Errado'}];
+                                // Filtro corretivo para Certo/Errado
+                                if (typeof q.correct === 'string') {
+                                    const cTxt = q.correct.toLowerCase();
+                                    if (cTxt.includes('certo') || cTxt.includes('v') || cTxt === 'c' || cTxt === '0') q.correct = 0;
+                                    else if (cTxt.includes('errado') || cTxt.includes('f') || cTxt === 'e' || cTxt === '1') q.correct = 1;
+                                    else q.correct = parseInt(q.correct) || 0;
+                                }
+                            } else if (q.type === 'mc') {
+                                // Filtro corretivo para Múltipla Escolha
+                                if (typeof q.correct === 'string') {
+                                    const match = q.correct.toUpperCase().match(/[A-E]/);
+                                    if (match) q.correct = match[0].charCodeAt(0) - 65;
+                                    else q.correct = parseInt(q.correct) || 0;
+                                }
+                            } else if (q.type === 'vf') {
+                                // Normalização para Verdadeiro/Falso
+                                q.options.forEach(opt => {
+                                    if (typeof opt.isTrue === 'string') {
+                                        const t = opt.isTrue.toLowerCase();
+                                        opt.isTrue = (t === 'true' || t === 'v' || t === 'verdadeiro' || t === '1');
+                                    } else if (opt.isTrue === undefined || opt.isTrue === null) {
+                                        opt.isTrue = false;
+                                    } else {
+                                        opt.isTrue = !!opt.isTrue; // Força conversão para verdadeiro Booleano
+                                    }
+                                });
+                                // Preenche mock se a IA não gerou opções
+                                if (q.options.length === 0) q.options = [{text: 'Item 1', isTrue: true}, {text: 'Item 2', isTrue: false}];
+                            } else if (q.type === 'assoc') {
+                                // Normalização para Associação
+                                q.options.forEach(opt => {
+                                    // Protege caso a IA use sinónimos como chave de correspondência
+                                    opt.match = opt.match || opt.correspondencia || opt.corresp || opt.resposta || "";
+                                    if (typeof opt.match !== 'string') opt.match = String(opt.match);
+                                });
+                                if (q.options.length === 0) q.options = [{text: 'Conceito 1', match: 'Definição 1'}, {text: 'Conceito 2', match: 'Definição 2'}];
                             }
+                            
+                            // Garante que o correct é numérico (para ce e mc)
+                            if (q.correct !== undefined && q.correct !== null) {
+                                q.correct = Number(q.correct);
+                            }
+
                             return q;
                         });
 
