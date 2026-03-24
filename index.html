@@ -25,6 +25,8 @@
         .q-type-btn { @apply flex-1 py-3 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border border-transparent; }
         .q-type-btn.active { @apply bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm ring-1 ring-indigo-200; }
         .q-type-btn.inactive { @apply bg-white text-gray-400 border-gray-100 hover:bg-gray-50 hover:text-gray-600; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden select-none">
@@ -1325,19 +1327,35 @@ Retorne o JSON estritamente neste formato.`;
                     showToast(`Gerando ${t} questões...`,'loading');
                     
                     try{
-                        let promptText = `Crie ${t} questões para uma prova escolar.
+                        let promptText = `Atue como um professor especialista criando questões para uma prova.
 Disciplina: ${aiGenConfig.value.subject}
 Tópico: ${aiGenConfig.value.topic}
 Dificuldade: ${aiGenConfig.value.difficulty}
 Estilo: ${aiGenConfig.value.style}
 
-Distribuição OBRIGATÓRIA:
-- ${aiGenConfig.value.counts.mc} questões do tipo "mc" (Múltipla Escolha com 5 opções. Campo 'correct' de 0 a 4).
-- ${aiGenConfig.value.counts.ce} questões do tipo "ce" (Certo/Errado com 2 opções 'Certo' e 'Errado'. Campo 'correct' 0 ou 1).
-- ${aiGenConfig.value.counts.vf} questões do tipo "vf" (Verdadeiro/Falso. As 'options' DEVEM ter o campo booleano 'isTrue').
-- ${aiGenConfig.value.counts.assoc} questões do tipo "assoc" (Associação. As 'options' DEVEM ter o texto principal em 'text' e a correspondência no campo 'match').
+Você DEVE gerar exatamente a seguinte quantidade de questões de cada tipo:
+- ${aiGenConfig.value.counts.mc} questões do tipo "mc" (Múltipla Escolha).
+- ${aiGenConfig.value.counts.ce} questões do tipo "ce" (Certo ou Errado).
+- ${aiGenConfig.value.counts.vf} questões do tipo "vf" (Verdadeiro ou Falso).
+- ${aiGenConfig.value.counts.assoc} questões do tipo "assoc" (Associação).
 
-IMPORTANTE: O retorno DEVE ser UM OBJETO JSON contendo a propriedade "questions" (que é um array). Cada questão dentro do array deve ter estritamente as chaves: 'type', 'text' (para o enunciado), 'options' (array de objetos) e 'correct' (inteiro, quando aplicável).`;
+FORMATO JSON OBRIGATÓRIO:
+Você deve retornar UM ÚNICO OBJETO JSON com a chave "questions" contendo o array de questões.
+Exemplos ESTRITOS de como CADA TIPO deve ser estruturado (USE EXATAMENTE ESTES NOMES DE CHAVES):
+
+Para "mc" (Múltipla Escolha - 5 opções obrigatórias):
+{"type": "mc", "text": "Qual a capital de Portugal?", "options": [{"text": "Porto"}, {"text": "Coimbra"}, {"text": "Lisboa"}, {"text": "Faro"}, {"text": "Braga"}], "correct": 2}
+
+Para "ce" (Certo/Errado - Atenção: correct 0 = Certo, correct 1 = Errado):
+{"type": "ce", "text": "A água ferve a 100 graus Celsius ao nível do mar.", "correct": 0}
+
+Para "vf" (Verdadeiro/Falso - Deve incluir o array 'options' com a chave booleana 'isTrue'):
+{"type": "vf", "text": "Julgue as afirmativas sobre biologia:", "options": [{"text": "O DNA tem fita dupla.", "isTrue": true}, {"text": "O RNA tem timina.", "isTrue": false}, {"text": "A mitocôndria produz energia.", "isTrue": true}]}
+
+Para "assoc" (Associação - Deve incluir o array 'options' com a chave de texto 'match'):
+{"type": "assoc", "text": "Relacione as organelas com suas funções:", "options": [{"text": "Mitocôndria", "match": "Respiração celular"}, {"text": "Ribossomo", "match": "Síntese de proteínas"}]}
+
+ATENÇÃO MÁXIMA: NUNCA DEIXE O CAMPO "text" VAZIO. Crie enunciados reais e opções reais baseadas no tópico. NUNCA gere opções chamadas "Item 1" ou "Conceito 1", gere conteúdo educacional verdadeiro e inteligente.`;
 
                         const schema = {
                             type: "OBJECT",
