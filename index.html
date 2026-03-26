@@ -47,6 +47,16 @@
 
         <transition name="fade"><div v-if="confirmModal.show" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 max-w-xs w-full animate-fade-in border border-gray-100"><div class="text-center mb-4 text-indigo-600"><i class="fa-solid fa-circle-question text-4xl"></i></div><h3 class="text-lg font-bold text-center text-gray-800 mb-2">Confirmação</h3><p class="text-gray-500 text-center mb-6 text-sm">{{ confirmModal.message }}</p><div class="flex gap-3"><button @click="handleConfirm(false)" class="flex-1 py-2.5 rounded-xl border border-gray-200 font-bold text-gray-500 hover:bg-gray-50">Cancelar</button><button @click="handleConfirm(true)" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold shadow-lg hover:bg-indigo-700">Sim</button></div></div></div></transition>
 
+        <!-- VISUALIZADOR DE IMAGEM EM TELA CHEIA (NOVO) -->
+        <transition name="fade">
+            <div v-if="showFullScreenImage" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm" @click="showFullScreenImage=false">
+                <button @click.stop="showFullScreenImage=false" class="absolute top-4 right-4 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full text-white flex items-center justify-center transition z-50">
+                    <i class="fa-solid fa-times text-2xl"></i>
+                </button>
+                <img :src="fullScreenImageUrl" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl border border-white/10" @click.stop>
+            </div>
+        </transition>
+
         <!-- FILA DE CORREÇÃO MODAL -->
         <div v-if="isProcessingQueue" class="fixed inset-0 z-[9999] bg-gray-900/95 backdrop-blur flex flex-col items-center justify-center p-6 text-white text-center animate-fade-in">
             <div class="w-24 h-24 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6"></div>
@@ -594,17 +604,21 @@
              <div class="bg-white w-full rounded-2xl max-w-lg h-[90vh] flex flex-col">
                 <div class="bg-indigo-600 p-5 text-white flex items-center justify-between">
                     <div class="flex items-center gap-4">
-                        <div class="relative group cursor-pointer w-14 h-14 rounded-full overflow-hidden border-2 border-white/50 shadow-inner bg-white/20 flex items-center justify-center">
-                            <img v-if="studentDetails.photo" :src="studentDetails.photo" class="w-full h-full object-cover">
-                            <i v-else class="fa-solid fa-user text-2xl text-white/70"></i>
-                            <label class="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                <i class="fa-solid fa-camera text-white text-sm"></i>
+                        <div class="relative w-16 h-16">
+                            <!-- Avatar que abre em tela cheia -->
+                            <div @click="viewFullScreen(studentDetails.photo)" class="w-full h-full rounded-full overflow-hidden border-2 border-white/50 shadow-inner bg-white/20 flex items-center justify-center" :class="{'cursor-pointer hover:opacity-80 transition-opacity': studentDetails.photo}">
+                                <img v-if="studentDetails.photo" :src="studentDetails.photo" class="w-full h-full object-cover">
+                                <i v-else class="fa-solid fa-user text-2xl text-white/70"></i>
+                            </div>
+                            <!-- Botão da Câmara Isolado -->
+                            <label class="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 hover:bg-emerald-400 text-white rounded-full flex items-center justify-center cursor-pointer shadow-lg border-2 border-indigo-600 transition-colors" title="Atualizar Foto">
+                                <i class="fa-solid fa-camera text-xs"></i>
                                 <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadStudentPhoto($event, studentDetails.id)">
                             </label>
                         </div>
                         <div>
                             <h3 class="font-black text-lg leading-tight">{{studentDetails.name}}</h3>
-                            <p class="text-[10px] text-indigo-200 mt-0.5"><i class="fa-solid fa-camera mr-1"></i> Toque na foto para alterar</p>
+                            <p class="text-[10px] text-indigo-200 mt-0.5"><i class="fa-solid fa-camera mr-1"></i> Toque na câmara para alterar</p>
                         </div>
                     </div>
                     <button @click="showStudentModal=false" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition self-start"><i class="fa-solid fa-times"></i></button>
@@ -636,6 +650,7 @@
                             </div>
                         </div>
                         <div class="flex gap-1.5">
+                            <button @click="reprintExamPDF(e)" class="w-10 h-10 rounded-xl bg-blue-50 hover:bg-blue-500 hover:text-white text-blue-600 transition flex items-center justify-center" title="Reimprimir Prova (PDF)"><i class="fa-solid fa-print"></i></button>
                             <button @click="openFixKey(e)" class="w-10 h-10 rounded-xl bg-orange-50 hover:bg-orange-500 hover:text-white text-orange-600 transition flex items-center justify-center" title="Corrigir Gabarito"><i class="fa-solid fa-list-check"></i></button>
                             <button @click="generateKeyPDF(e)" class="w-10 h-10 rounded-xl bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Gabarito PDF"><i class="fa-solid fa-key"></i></button>
                             <button @click="deleteExam(e.id)" class="w-10 h-10 rounded-xl bg-red-50 hover:bg-red-500 hover:text-white text-red-500 transition flex items-center justify-center" title="Excluir"><i class="fa-solid fa-trash"></i></button>
@@ -673,7 +688,8 @@
             <div class="bg-white rounded-3xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
                 <div class="p-5 bg-indigo-600 text-white flex justify-between items-center">
                     <div class="flex items-center gap-3 flex-1 pr-4">
-                        <img v-if="getStudent(selectedResultDetails?.studentId)?.photo" :src="getStudent(selectedResultDetails?.studentId).photo" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 flex-none">
+                        <!-- Clique na foto para ver maior -->
+                        <img v-if="getStudent(selectedResultDetails?.studentId)?.photo" :src="getStudent(selectedResultDetails?.studentId).photo" @click="viewFullScreen(getStudent(selectedResultDetails?.studentId).photo)" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 flex-none cursor-pointer hover:opacity-80 transition">
                         <div v-else class="w-12 h-12 rounded-full bg-white/20 text-white/70 flex items-center justify-center border-2 border-white/50 flex-none"><i class="fa-solid fa-user text-xl"></i></div>
                         <div class="overflow-hidden">
                             <h3 class="font-black text-lg leading-tight truncate">{{selectedResultDetails?.studentName}}</h3>
@@ -724,7 +740,8 @@
         <div v-if="correctionMode" class="fixed inset-0 z-[300] bg-gray-50 flex flex-col animate-fade-in">
             <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
                 <div class="flex items-center gap-3">
-                    <img v-if="activeStudent?.photo" :src="activeStudent.photo" class="w-10 h-10 rounded-full object-cover border-2 border-white/30 flex-none">
+                    <!-- Clique na foto para ver maior -->
+                    <img v-if="activeStudent?.photo" :src="activeStudent.photo" @click="viewFullScreen(activeStudent?.photo)" class="w-10 h-10 rounded-full object-cover border-2 border-white/30 flex-none cursor-pointer hover:opacity-80 transition">
                     <div v-else class="w-10 h-10 rounded-full bg-white/20 text-white/70 flex items-center justify-center border-2 border-white/30 flex-none"><i class="fa-solid fa-user"></i></div>
                     <div>
                         <h2 class="font-bold leading-tight">{{activeStudent?.name}}</h2>
@@ -884,6 +901,15 @@
                 const processedCount = ref(0);
                 const stopQueueFlag = ref(false);
                 const stopQueue = () => { stopQueueFlag.value = true; };
+
+                // Image Viewer (Tela Cheia)
+                const showFullScreenImage = ref(false);
+                const fullScreenImageUrl = ref('');
+                const viewFullScreen = (url) => {
+                    if (!url) return;
+                    fullScreenImageUrl.value = url;
+                    showFullScreenImage.value = true;
+                };
 
                 // Fix Key
                 const showFixKeyModal = ref(false);
@@ -2210,6 +2236,151 @@ Siga as instruções ESTRITAMENTE:
                     });
                 };
 
+                const reprintExamPDF = (exam) => {
+                    let cont=[];
+                    const pSize = printConfig.value.paperSaving;
+                    const fSizeQ = pSize ? 9 : 11;
+                    const fSizeOpt = pSize ? 8 : 10;
+                    const optMarg = pSize ? [0, 1] : [0, 2];
+                    const imgWidth = pSize ? 120 : 150;
+
+                    let stds = students.value.filter(s => s.classId === exam.classId);
+                    if (stds.length === 0) return showToast("Esta turma já não tem alunos cadastrados.", "error");
+
+                    let v = exam.versions;
+                    let sm = exam.studentMap;
+
+                    stds.forEach((s, i) => {
+                        let vi = sm[s.id];
+                        if (vi === undefined) vi = 0; // Fail-safe
+                        let qs = v[vi]?.questions || [];
+                        if(!qs.length) return;
+
+                        let kr = [];
+                        
+                        kr.push([
+                            { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                            { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
+                        ]);
+                        
+                        kr.push([
+                            { text: ' ', border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] },
+                            { text: 'A', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                            { text: 'B', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                            { text: 'C', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                            { text: 'D', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                            { text: 'E', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }
+                        ]);
+                        
+                        qs.forEach((q, k) => {
+                            let rColor = k % 2 === 0 ? '#ffffff' : '#f3f4f6';
+                            let rw = [
+                                { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 2, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] },
+                                { text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 4], fillColor: rColor }
+                            ];
+                            let l = (q.type === 'ce') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'];
+                            for (let j = 0; j < 5; j++) {
+                                if (j < l.length) {
+                                    rw.push({ 
+                                        stack: [
+                                            { canvas: [{ type: 'ellipse', x: 12.5, y: 9, r1: 8, r2: 8, lineWidth: 1.5, lineColor: '#000', color: rColor }] }, 
+                                            { text: l[j], fontSize: 9, bold: true, color: '#d1d5db', alignment: 'center', relativePosition: { x: 0, y: -13.5 } }
+                                        ], 
+                                        margin: [0, 2], fillColor: rColor 
+                                    });
+                                } else {
+                                    rw.push({ text: ' ', fillColor: rColor });
+                                }
+                            }
+                            rw.push({ stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 3, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] });
+                            kr.push(rw);
+                        });
+                        
+                        kr.push([
+                            { text: ' ', border: [false,false,false,false], margin: [0, pSize ? 2 : 5] },
+                            { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }
+                        ]);
+
+                        kr.push([
+                            { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                            { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                            { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
+                        ]);
+
+                        cont.push({
+                            stack:[
+                                {
+                                    columns:[
+                                        settings.value.logo?{image:settings.value.logo,fit:[printConfig.value.logoSize,75]}:{text:''},
+                                        {
+                                            stack:[
+                                                {text:settings.value.schoolName || 'ESCOLA',fontSize:pSize?12:14,bold:true,alignment:'center'},
+                                                {text:exam.title,fontSize:pSize?10:11,alignment:'center'},
+                                                {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
+                                            ]
+                                        },
+                                        {qr:JSON.stringify({e:exam.id,s:s.id,v:vi}),fit:80,alignment:'right'}
+                                    ]
+                                },
+                                {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0, pSize?6:10, 0, 2], bold:true, fontSize:pSize?10:12},
+                                {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0, pSize?4:8], fontSize:pSize?8:9, color:'#4b5563'},
+                                {
+                                    table:{ widths:[16, 24, 28, 28, 28, 28, 28, 16], body:kr },
+                                    layout: {
+                                        hLineWidth: function(idx, node) { return (idx === 1 || idx === node.table.body.length - 1) ? 2 : (idx > 1 && idx < node.table.body.length - 1) ? 1 : 0; },
+                                        vLineWidth: function(idx, node) { return (idx === 1 || idx === node.table.widths.length - 1) ? 2 : 0; },
+                                        hLineColor: function(idx, node) { return (idx === 1 || idx === node.table.body.length - 1) ? '#000' : '#e5e7eb'; },
+                                        vLineColor: function(idx, node) { return '#000'; },
+                                        paddingTop: function(idx, node) { return pSize?2:3; },
+                                        paddingBottom: function(idx, node) { return pSize?2:3; }
+                                    },
+                                    alignment:'center',
+                                    margin:[0,0,0,pSize?10:20]
+                                }
+                            ]
+                        });
+                        
+                        qs.forEach((q,k)=>{
+                            let qB=[{text:`${k+1}. ${q.text}`,bold:true, fontSize: fSizeQ, margin: pSize ? [0,3,0,1] : [0,5]}]; 
+                            if(q.image) qB.push({image:q.image,width:imgWidth});
+                            if(q.type==='assoc'||q.type==='vf') { let ao=q.options.map(o=>`( ) ${o.text}`).join('\n'); qB.push({text:ao, fontSize: fSizeOpt, margin: pSize ? [0,2] : [0,5]}); }
+                            q.options.forEach((o,x)=>{if(q.type==='mc')qB.push({text:`${['a','b','c','d','e'][x]}) ${o.text}`, fontSize: fSizeOpt, margin:optMarg})});
+                            cont.push({stack:qB,margin: pSize ? [0,0,0,5] : [0,0,0,10]});
+                        });
+                        
+                        if (printConfig.value.addBlankPage) {
+                            cont.push({ text: '', pageBreak: 'after' });
+                            cont.push({ text: 'Verso em branco intencional', color: '#f3f4f6', alignment: 'center', margin: [0, 300], italics: true });
+                        }
+                        
+                        cont.push({text:'',pageBreak:'after'});
+                    });
+
+                    if (cont.length > 0) cont.pop(); // Remove extra page break
+
+                    let now = new Date();
+                    let dStr = now.toLocaleDateString('pt-BR').replace(/\//g, '-');
+                    let safeTitle = (exam.title || "Avaliacao").replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_');
+                    let fileName = `${safeTitle}_Reimpressao_${dStr}.pdf`;
+
+                    pdfMake.createPdf({
+                        pageMargins: pSize ? [20, 20, 20, 20] : [40, 40, 40, 40],
+                        content: cont
+                    }).download(fileName);
+                    
+                    showToast("Reimpressão iniciada", "success");
+                };
+
                 const generateClassReportPDF = () => {
                     const cls = classes.value.find(c => c.id === selectedClassIdForReport.value); if(!cls) return;
                     const ranking = getClassRanking(selectedClassIdForReport.value);
@@ -2504,7 +2675,7 @@ Siga as instruções ESTRITAMENTE:
                     // UI & Globals
                     currentView, tabs, classes, students, questions, exams, results, settings, extraPoints,
                     appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal,
-                    toast, confirmModal, geminiKey,
+                    toast, confirmModal, geminiKey, showFullScreenImage, fullScreenImageUrl, viewFullScreen,
                     
                     // Filters & State
                     qFilter, filterType, filterSubject, filterTopic, examFilterSubject, examFilterTopic, examFilter, examTab,
@@ -2555,7 +2726,7 @@ Siga as instruções ESTRITAMENTE:
                     examCart, examConfig, editingExamId, printConfig,
                     filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilterSubject.value || (q.subject && q.subject.toLowerCase().includes(examFilterSubject.value.toLowerCase()))) && (!examFilterTopic.value || (q.topic && q.topic.toLowerCase().includes(examFilterTopic.value.toLowerCase()))) && (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase()) || (q.subject && q.subject.toLowerCase().includes(examFilter.value.toLowerCase())) || (q.topic && q.topic.toLowerCase().includes(examFilter.value.toLowerCase()))))),
                     filteredHistoryExams: computed(()=>exams.value.filter(e=>!examHistoryFilter.value||e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()))),
-                    openEditExam, saveEditedExam, generatePDF, generateClassReportPDF, generateGeneralReportPDF, generateKeyPDF, generateCommentedKeyPDF,
+                    openEditExam, saveEditedExam, generatePDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF, generateKeyPDF, generateCommentedKeyPDF,
                     toggleExamQ: q=>{let i=examCart.value.findIndex(x=>x.id===q.id);i>-1?examCart.value.splice(i,1):examCart.value.push(q)}, isQInExam: id=>examCart.value.some(q=>q.id===id), deleteExam: id=>triggerConfirm("Tem certeza que deseja apagar esta prova e os seus resultados?",async()=>{await db.exams.delete(id);load()}),
                     
                     // Fix Key
