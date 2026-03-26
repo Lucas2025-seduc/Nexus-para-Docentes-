@@ -178,7 +178,7 @@
                         <div class="space-y-2">
                             <div v-for="s in filteredStudentsInDiaryClass" :key="s.id" class="flex items-center justify-between p-3 bg-white border rounded-xl hover:bg-gray-50 transition">
                                 <div class="flex items-center gap-2 overflow-hidden pr-2">
-                                    <img v-if="s.photo" :src="s.photo" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-none shadow-sm">
+                                    <img v-if="s.photo" :src="s.photo" @click.stop="viewFullScreen(s.photo)" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-none shadow-sm cursor-pointer hover:opacity-80 transition" title="Ver Foto">
                                     <div v-else class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center border border-gray-200 flex-none shadow-sm"><i class="fa-solid fa-user text-xs"></i></div>
                                     <span class="text-xs font-bold text-gray-700 truncate max-w-[120px]">{{s.name}}</span>
                                 </div>
@@ -2390,8 +2390,26 @@ Siga as instruções ESTRITAMENTE:
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 18, bold: true, alignment: 'center' },
                             { text: `RELATÓRIO - ${cls.name}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 10, 0, 20] },
                             { table: { widths: ['*', '*'], body: [ [{ text: 'Média da Turma', bold: true, fillColor: '#eee' }, { text: avg, alignment: 'right' }], [{ text: 'Alunos Avaliados', bold: true, fillColor: '#eee' }, { text: ranking.length.toString(), alignment: 'right' }] ] }, margin: [0, 0, 0, 20] },
-                            { text: 'Ranking', fontSize: 12, bold: true, color: '#4f46e5' },
-                            { table: { headerRows: 1, widths: ['auto', '*', 'auto'], body: [ [{ text: '#', bold: true, fillColor: '#4f46e5', color: 'white' }, { text: 'Aluno', bold: true, fillColor: '#4f46e5', color: 'white' }, { text: 'Média', bold: true, fillColor: '#4f46e5', color: 'white' }], ...ranking.map((r, i) => [i + 1, r.name, r.average]) ] }, layout: 'lightHorizontalLines' }
+                            { text: 'Ranking', fontSize: 12, bold: true, color: '#4f46e5', margin: [0, 0, 0, 5] },
+                            { 
+                                table: { 
+                                    headerRows: 1, 
+                                    widths: ['auto', '*', 'auto'], 
+                                    body: [ 
+                                        [{ text: '#', bold: true, fillColor: '#4f46e5', color: 'white', margin: [0, 5] }, { text: 'Aluno', bold: true, fillColor: '#4f46e5', color: 'white', margin: [0, 5] }, { text: 'Média', bold: true, fillColor: '#4f46e5', color: 'white', alignment: 'center', margin: [0, 5] }], 
+                                        ...ranking.map((r, i) => {
+                                            const std = getStudent(r.studentId);
+                                            const photoCol = std && std.photo ? { image: std.photo, width: 22, height: 22 } : { canvas: [{ type: 'rect', x: 0, y: 0, w: 22, h: 22, color: '#f3f4f6' }] };
+                                            return [
+                                                { text: i + 1, margin: [0, 6] }, 
+                                                { columns: [ { width: 28, ...photoCol }, { width: '*', text: r.name, margin: [0, 5, 0, 0] } ] }, 
+                                                { text: r.average, alignment: 'center', bold: true, margin: [0, 6] }
+                                            ];
+                                        }) 
+                                    ] 
+                                }, 
+                                layout: 'lightHorizontalLines' 
+                            }
                         ]
                     };
                     pdfMake.createPdf(doc).download(`Relatorio_${cls.name}.pdf`);
@@ -2418,7 +2436,15 @@ Siga as instruções ESTRITAMENTE:
                     ];
 
                     for (const s of classStudents) {
-                        const row = [{ text: s.name, fontSize: 10, alignment: 'left' }];
+                        const photoCol = s.photo ? { image: s.photo, width: 22, height: 22 } : { canvas: [{ type: 'rect', x: 0, y: 0, w: 22, h: 22, color: '#f3f4f6' }] };
+                        const row = [
+                            { 
+                                columns: [
+                                    { width: 28, ...photoCol },
+                                    { width: '*', text: s.name, fontSize: 10, alignment: 'left', margin: [0, 5, 0, 0] }
+                                ] 
+                            }
+                        ];
                         let annualSum = 0; let annualCount = 0;
 
                         for (let b = 1; b <= 4; b++) {
@@ -2443,14 +2469,14 @@ Siga as instruções ESTRITAMENTE:
 
                             if (weightSum > 0 || extraPts > 0) {
                                 annualSum += bimAvg; annualCount++;
-                                row.push({ text: bimAvg.toFixed(1), alignment: 'center', fontSize: 10 });
+                                row.push({ text: bimAvg.toFixed(1), alignment: 'center', fontSize: 10, margin: [0, 6, 0, 0] });
                             } else {
-                                row.push({ text: '-', alignment: 'center', fontSize: 10, color: '#ccc' });
+                                row.push({ text: '-', alignment: 'center', fontSize: 10, color: '#ccc', margin: [0, 6, 0, 0] });
                             }
                         }
 
                         const finalAvg = annualCount > 0 ? (annualSum / annualCount).toFixed(1) : '-';
-                        row.push({ text: finalAvg, alignment: 'center', bold: true, fontSize: 10, fillColor: '#f5f7ff' });
+                        row.push({ text: finalAvg, alignment: 'center', bold: true, fontSize: 10, fillColor: '#f5f7ff', margin: [0, 6, 0, 0] });
                         tableBody.push(row);
                     }
 
@@ -2463,12 +2489,12 @@ Siga as instruções ESTRITAMENTE:
                                 layout: {
                                     hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 1 : 1,
                                     vLineWidth: () => 0, hLineColor: () => '#e5e7eb',
-                                    paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 8, paddingBottom: () => 8,
+                                    paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 4, paddingBottom: () => 4,
                                 }
                             },
                             { text: 'Gerado por Nexus Docente', style: 'footer', alignment: 'center', margin: [0, 20], color: 'gray', fontSize: 8 }
                         ],
-                        styles: { footer: { italics: true }, tableHeader: { fontSize: 10, margin: [0, 2] } },
+                        styles: { footer: { italics: true }, tableHeader: { fontSize: 10, margin: [0, 6] } },
                         defaultStyle: { font: 'Roboto' }
                     };
                     pdfMake.createPdf(doc).download(`Boletim_Geral_${className}.pdf`);
