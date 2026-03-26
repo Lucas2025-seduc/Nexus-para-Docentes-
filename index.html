@@ -1051,28 +1051,40 @@
                     const modelToUse = settings.value.activeModel;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${geminiKey.value}`;
 
-                    const payload = { contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0, responseMimeType:"application/json"} };
+                    const payload = { contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.2, responseMimeType:"application/json"} };
                     if(base64Img) payload.contents[0].parts.push({inlineData:{mimeType, data:base64Img}});
-                    if(schema) payload.generationConfig.responseSchema = schema;
 
                     let retries=3, delay=2000;
                     while(retries>0) {
                         try {
                             const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
                             const d = await res.json();
+                            
                             if(d.error) {
-                                if (d.error.status === 'NOT_FOUND' || d.error.code === 404) {
-                                     settings.value.activeModel = null;
+                                if (d.error.code === 400 || d.error.code === 403 || d.error.code === 404) {
+                                    throw new Error(`Erro API Google (${d.error.code}): ${d.error.message}`);
                                 }
                                 throw d.error;
                             }
+                            
+                            if (!d.candidates || d.candidates.length === 0 || !d.candidates[0].content) {
+                                throw new Error("Erro API: A Geração foi bloqueada por Segurança ou retornou vazia.");
+                            }
+
                             return JSON.parse(d.candidates[0].content.parts[0].text.replace(/```json/gi,'').replace(/```/g,'').trim());
                         } catch(e) {
-                            if(e.code===429 || (e.message && e.message.includes('429'))) { retries--; await new Promise(r=>setTimeout(r,delay)); delay*=1.5; continue; }
+                            if(e.message && (e.message.includes('Erro API Google') || e.message.includes('Segurança'))) {
+                                throw e;
+                            }
+
+                            if(e.code===429 || (e.message && e.message.includes('429'))) { 
+                                retries--; await new Promise(r=>setTimeout(r,delay)); delay*=1.5; continue; 
+                            }
+                            
                             retries--;
                             if(retries===0) {
                                 settings.value.activeModel = null;
-                                throw new Error(e.message||"Falha IA");
+                                throw new Error(e.message||"Falha de comunicação com a IA");
                             }
                             await new Promise(r=>setTimeout(r,delay)); delay*=1.5;
                         }
@@ -1102,6 +1114,14 @@
                             const dateFormatted = rawDate.split('-').reverse().join('/');
                             return `Registrar ${stMap[act.status]||act.status} para ${name} no dia ${dateFormatted} (${act.period || 'Aula Desconhecida'})`;
                         }
+                    }
+                    if (act.actionType === 'bulk_attendance') {
+                        const cls = classes.value.find(c => Number(c.id) === Number(act.classId));
+                        const className = cls ? cls.name : 'Turma Desconhecida';
+                        const absentCount = act.absentStudentIds ? act.absentStudentIds.length : 0;
+                        const rawDate = act.date || new Date().toISOString().split('T')[0];
+                        const dateFormatted = rawDate.split('-').reverse().join('/');
+                        return `Registrar chamada da turma inteira '${className}' (${dateFormatted} - ${act.period}): ${absentCount} falta(s) e o resto com Presença.`;
                     }
                     if (act.actionType === 'add_schedule') {
                         const cId = Number(act.classId);
@@ -1147,7 +1167,6 @@
 
                                 const classId = Number(std.classId);
                                 
-                                // Normalizar e forçar o formato da data (YYYY-MM-DD)
                                 let dt = act.date || new Date().toISOString().split('T')[0];
                                 if (dt.includes('/')) {
                                     const parts = dt.split('/');
@@ -1156,12 +1175,10 @@
                                     }
                                 }
                                 
-                                // Normalizar e forçar o formato do período (Ex: "1a" vira "1ª Aula")
                                 let per = act.period || '1ª Aula';
                                 const match = per.match(/(\d)/);
                                 if (match) per = match[1] + 'ª Aula';
 
-                                // Validação de Horário (Aviso/Bloqueio se não houver horário)
                                 const dateObj = new Date(dt + "T12:00:00");
                                 const dayName = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"][dateObj.getDay()];
                                 const schArray = await db.schedules.where({classId: classId}).toArray();
@@ -1175,12 +1192,52 @@
                                 await db.attendance.bulkDelete(toDelete);
                                 await db.attendance.add({classId, date: dt, period: per, studentId: stdId, status: act.status});
                                 
-                                // Atualizar os filtros da UI para ver a modificação na hora
                                 diaryClassId.value = classId;
                                 diaryTab.value = 'attendance';
                                 attendanceDate.value = dt;
                                 attendancePeriod.value = per;
                                 switchToDiary = true;
+                                
+                            } else if (act.actionType === 'bulk_attendance') {
+                                // NOVA LÓGICA DE CHAMADA COMPLETA RÁPIDA
+                                if (!cId) throw new Error("Não foi possível identificar a turma para a chamada.");
+                                
+                                let dt = act.date || new Date().toISOString().split('T')[0];
+                                let per = act.period;
+                                if (!per) throw new Error("A IA não conseguiu identificar em qual aula registrar a chamada. Informe a aula (ex: 1ª Aula).");
+
+                                const dateObj = new Date(dt + "T12:00:00");
+                                const dayName = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"][dateObj.getDay()];
+                                const schArray = await db.schedules.where({classId: cId}).toArray();
+                                const hasSch = schArray.some(s => s.day === dayName && s.period === per);
+                                if (!hasSch) {
+                                     throw new Error(`Aviso: Você não tem horário cadastrado na ${dayName} (${per}) para esta turma. Por favor, adicione o horário no Diário primeiro.`);
+                                }
+
+                                const classStudents = students.value.filter(s => Number(s.classId) === cId);
+                                const absentIds = act.absentStudentIds ? act.absentStudentIds.map(Number) : [];
+
+                                // Prepara a presença em massa (Presente para todos, exceto os que faltaram)
+                                const records = classStudents.map(s => ({
+                                    classId: cId,
+                                    date: dt,
+                                    period: per,
+                                    studentId: s.id,
+                                    status: absentIds.includes(s.id) ? 'F' : 'P'
+                                }));
+
+                                const allClassAtt = await db.attendance.where('classId').equals(cId).toArray();
+                                const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per).map(r => r.id);
+                                
+                                await db.attendance.bulkDelete(toDelete); // Limpa chamada anterior deste dia/aula
+                                await db.attendance.bulkAdd(records); // Salva nova chamada
+
+                                diaryClassId.value = cId;
+                                diaryTab.value = 'attendance';
+                                attendanceDate.value = dt;
+                                attendancePeriod.value = per;
+                                switchToDiary = true;
+
                             } else if (act.actionType === 'add_schedule') {
                                 if (!cId) throw new Error("Falta a referência da turma.");
                                 const cls = classes.value.find(c => Number(c.id) === cId);
@@ -1278,32 +1335,44 @@
                         const sch = schArray.map(x=>({idTurma:x.classId, dia:x.day, aula:x.period}));
 
                         const chatContext = assistantHistory.value
-                            .slice(-10) // Memoriza as últimas 10 interações
+                            .slice(-10) 
                             .map(m => `${m.role === 'user' ? 'Professor' : 'Assistente'}: ${m.text}`)
                             .join('\n');
 
-                        const promptText = `Você é o assistente virtual da aplicação Nexus. Responda em português.
+                        const today = new Date();
+                        const daysMap = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+                        const todayName = daysMap[today.getDay()];
+                        const todayDate = today.toISOString().split('T')[0];
+
+                        const promptText = `Você é o assistente virtual da aplicação Nexus. Responda em português de forma clara e amigável.
+DADOS DE HOJE: Dia da semana: ${todayName}, Data: ${todayDate}.
+
 CONTEXTO DA BASE DE DADOS:
 - Turmas (Use o 'id' para ações): ${JSON.stringify(c)}
 - Alunos (Use o 'id' para ações): ${JSON.stringify(s)}
 - Provas cadastradas: ${JSON.stringify(eList)}
 - Notas Atuais: ${JSON.stringify(r)}
-- Frequências (P=Presente, F=Falta, J=Justificada): ${JSON.stringify(att)}
-- Horários Atuais: ${JSON.stringify(sch)}
+- Frequências: ${JSON.stringify(att)}
+- Horários do Professor: ${JSON.stringify(sch)}
 
 HISTÓRICO DA CONVERSA RECENTE:
 ${chatContext}
 
-NOVA AÇÃO/PERGUNTA DO USUÁRIO: "${userQuery}"
+NOVA AÇÃO DO USUÁRIO: "${userQuery}"
 
 REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
 1. Em 'reply', seja breve e confirme se vai preparar as ações ou responda à pergunta do usuário.
-2. SE o usuário pedir para LANÇAR/ALTERAR NOTA, você PRECISA saber o aluno e qual é a prova. Para identificar a prova, o usuário deve dizer o bimestre e o tipo (ex: Mensal, Bimestral) ou o título exato. Se ele NÃO disser, NÃO gere a ação e responda perguntando "Para qual prova e bimestre é essa nota?". Se ele disser, ache o examId em 'Provas cadastradas' e gere actionType="update_grade", preenchendo studentId, examId e score.
-3. EXCLUIR NOTA: Mesma regra. Se não souber qual prova, pergunte. Se souber, actionType="delete_grade", fornecendo studentId e examId.
-4. FREQUÊNCIA: Você PRECISA saber o aluno, a data e a AULA (ex: "1ª Aula", "2ª Aula", etc). Se ele não disser qual é a aula (ex: "O João faltou hoje"), NÃO gere a ação e pergunte "Em qual aula o João faltou?". Se tiver a aula e a data (assuma hoje: ${new Date().toISOString().split('T')[0]} se ele não disser dia), gere actionType="set_attendance", fornecendo studentId, date (FORMATO OBRIGATÓRIO: YYYY-MM-DD), period (FORMATO OBRIGATÓRIO EXATO: "1ª Aula", "2ª Aula", etc) e status ("P", "F" ou "J").
-5. HORÁRIO: actionType="add_schedule", forneça classId (ache pelo nome exato, ex '3a' = 3º Ano A), day (Ex: "Segunda", "Terça") e period (FORMATO OBRIGATÓRIO EXATO: "2ª Aula", "9ª Aula").
-6. SE for só uma pergunta genérica ou estiverem a faltar dados cruciais para a ação, defina hasAction=false e converse naturalmente.
-Retorne o JSON estritamente neste formato.`;
+2. NOTAS (Lançar/Apagar): Se o usuário falar em notas, você precisa de studentId, examId e score (se for lançar). Se faltar saber a prova, pergunte. Use actionType "update_grade" ou "delete_grade".
+3. CHAMADA RÁPIDA EM LOTE (NOVO SUPER PODER): Se o professor disser algo como "Faltaram João e Maria" ou "Ninguém faltou na turma X hoje", ele quer lançar a caderneta de uma vez.
+   - Encontre de qual turma os alunos citados são (olhando o contexto de Alunos).
+   - Descubra qual aula o professor tem HOJE (${todayName}) nessa turma olhando os "Horários do Professor".
+   - Se houver mais de uma aula (ex: 1ª Aula e 2ª Aula), tente inferir pelo contexto ou pergunte.
+   - Gere a ação com actionType="bulk_attendance", preencha 'classId', 'date' (${todayDate}), 'period' (ex: "1ª Aula") e forneça a lista dos IDs dos alunos ausentes em 'absentStudentIds' (array de inteiros). Se ninguém faltou, envie []. O aplicativo vai cuidar de dar presença automática para os demais.
+4. FREQUÊNCIA INDIVIDUAL: Se quiser apenas corrigir uma falta antiga de alguém sem mexer no resto, use actionType="set_attendance" informando studentId, date, period e status ("P", "F" ou "J").
+5. HORÁRIO: actionType="add_schedule", forneça classId, day (ex: "Segunda") e period (ex: "2ª Aula").
+6. Se não conseguir identificar os parâmetros essenciais ou houver conflito de nomes de alunos, responda (reply) pedindo esclarecimentos e envie hasAction=false.
+
+RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
 
                         const schema = {
                             type: "OBJECT",
@@ -1323,7 +1392,11 @@ Retorne o JSON estritamente neste formato.`;
                                             date: { type: "STRING" },
                                             status: { type: "STRING" },
                                             day: { type: "STRING" },
-                                            period: { type: "STRING" }
+                                            period: { type: "STRING" },
+                                            absentStudentIds: {
+                                                type: "ARRAY",
+                                                items: { type: "INTEGER" }
+                                            }
                                         }
                                     }
                                 }
@@ -1344,7 +1417,7 @@ Retorne o JSON estritamente neste formato.`;
                             throw new Error("Resposta vazia");
                         }
                     } catch(e) {
-                        assistantHistory.value.push({ role: 'model', text: "Desculpe, ocorreu um erro. Verifique a base de dados ou tente formular de forma mais clara informando o nome exato da prova/aula e do aluno." });
+                        assistantHistory.value.push({ role: 'model', text: "Desculpe, ocorreu um erro. Verifique a base de dados ou tente formular de forma mais clara informando o nome exato da turma/aluno." });
                     } finally {
                         isAssistantThinking.value = false;
                         nextTick(() => {
@@ -1363,17 +1436,16 @@ Retorne o JSON estritamente neste formato.`;
                         if(d.error)throw d.error;
                         let availableModels = d.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
                         
+                        // PRIORIZAR MODELOS FLASH: Muito mais rápidos e evitam travar com limites gratuitos (429 Rate Limit)
                         let bestModel = 
-                            availableModels.find(m => m === 'gemini-2.5-pro') || 
-                            availableModels.find(m => m === 'gemini-1.5-pro') || 
                             availableModels.find(m => m === 'gemini-2.5-flash') || 
                             availableModels.find(m => m === 'gemini-1.5-flash') || 
-                            availableModels.find(m => m.includes('pro')) || 
-                            availableModels.find(m => m.includes('flash')) || 
+                            availableModels.find(m => m === 'gemini-2.5-pro') || 
+                            availableModels.find(m => m === 'gemini-1.5-pro') || 
                             availableModels[0];
                             
                         settings.value.activeModel = bestModel;
-                        showToast(`Chave válida! Modelo avançado ativado: ${bestModel}`, "success");
+                        showToast(`Chave válida! Modelo ativado: ${bestModel}`, "success");
                         saveSettings(true);
                     }catch(e){
                         showToast("Falha: "+e.message,"error");
@@ -1384,7 +1456,8 @@ Retorne o JSON estritamente neste formato.`;
                     if(!settings.value.activeModel || !geminiKey.value) return showToast('Por favor, teste a Chave API primeiro.', 'error');
                     if(!aiGenConfig.value.subject || !aiGenConfig.value.topic)return showToast('Preencha a disciplina e o tópico','error');
                     
-                    let t=(aiGenConfig.value.counts.mc||0)+(aiGenConfig.value.counts.ce||0)+(aiGenConfig.value.counts.vf||0)+(aiGenConfig.value.counts.assoc||0);
+                    // Cálculo corrigido usando Number() para evitar que o código some textos (ex: "1"+"0" virar 10)
+                    let t = Number(aiGenConfig.value.counts.mc||0) + Number(aiGenConfig.value.counts.ce||0) + Number(aiGenConfig.value.counts.vf||0) + Number(aiGenConfig.value.counts.assoc||0);
                     if(t<1)return showToast('Selecione pelo menos 1 questão','warning');
                     
                     isGeneratingAI.value=true;
