@@ -62,7 +62,7 @@
         <!-- HEADER E NAVEGAÇÃO -->
         <header class="bg-white shadow-sm z-50 flex-none border-b border-gray-200 relative">
             <div class="px-4 py-3 flex justify-between items-center">
-                <div class="flex items-center gap-3 text-indigo-700 select-none"><div class="w-12 h-12 rounded-xl object-cover shadow-md border border-gray-100 bg-white flex items-center justify-center"><i class="fa-solid fa-school text-xl"></i></div><div><h1 class="font-black text-xl leading-none">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1><p class="text-[9px] font-medium text-gray-400 mt-0.5">Gestão Escolar</p></div></div>
+                <div class="flex items-center gap-3 text-indigo-700 select-none"><img src="logo-principal.png" class="w-20 h-20 rounded-xl object-cover shadow-md border border-gray-100 bg-white"><div><h1 class="font-black text-xl leading-none">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1><p class="text-[9px] font-medium text-gray-400 mt-0.5">Gestão Escolar</p></div></div>
                 <div class="flex gap-1 text-gray-400 items-center">
                     <button v-if="canInstall" @click="installPWA" class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-download"></i></button>
                     <button v-if="!isLicensed" @click="showLicenseModal=true" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-key"></i></button>
@@ -93,7 +93,16 @@
                         <div class="divide-y divide-gray-50">
                             <details v-for="(group, range) in getClassGradeDistribution(selectedClassIdForReport)" :key="range" class="group open:bg-indigo-50/30" :open="!!dashboardStudentFilter && group.length>0">
                                 <summary class="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50"><div class="flex gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-sm bg-blue-500">{{group.length}}</div><div><h4 class="font-bold text-sm">Entre {{range.replace('-',' e ')}}</h4></div></div><i class="fa-solid fa-chevron-down text-gray-300 text-xs group-open:rotate-180"></i></summary>
-                                <div class="px-4 pb-4 grid grid-cols-2 gap-2"><div v-for="s in group" :key="s.name" @click="openStudentProfile(s.studentId)" class="bg-white border p-2 rounded-lg flex justify-between cursor-pointer shadow-sm"><span class="text-xs font-bold truncate">{{s.name}}</span><span class="text-xs font-black" :class="s.avg>=6?'text-emerald-600':'text-red-500'">{{s.avg}}</span></div></div>
+                                <div class="px-4 pb-4 grid grid-cols-2 gap-2">
+                                    <div v-for="s in group" :key="s.name" @click="openStudentProfile(s.studentId)" class="bg-white border p-2 rounded-lg flex justify-between items-center cursor-pointer shadow-sm hover:shadow transition">
+                                        <div class="flex items-center gap-2 overflow-hidden pr-1">
+                                            <img v-if="getStudent(s.studentId)?.photo" :src="getStudent(s.studentId).photo" class="w-6 h-6 rounded-full object-cover border border-gray-100 flex-none">
+                                            <div v-else class="w-6 h-6 rounded-full bg-indigo-50 text-indigo-400 flex items-center justify-center border border-indigo-100 flex-none"><i class="fa-solid fa-user text-[10px]"></i></div>
+                                            <span class="text-xs font-bold truncate">{{s.name}}</span>
+                                        </div>
+                                        <span class="text-xs font-black flex-none" :class="s.avg>=6?'text-emerald-600':'text-red-500'">{{s.avg}}</span>
+                                    </div>
+                                </div>
                             </details>
                         </div>
                     </div>
@@ -157,9 +166,13 @@
                         </div>
 
                         <div class="space-y-2">
-                            <div v-for="s in filteredStudentsInDiaryClass" :key="s.id" class="flex items-center justify-between p-3 bg-white border rounded-xl hover:bg-gray-50">
-                                <span class="text-xs font-bold text-gray-700 truncate max-w-[150px]">{{s.name}}</span>
-                                <div class="flex bg-gray-100 rounded-lg p-1">
+                            <div v-for="s in filteredStudentsInDiaryClass" :key="s.id" class="flex items-center justify-between p-3 bg-white border rounded-xl hover:bg-gray-50 transition">
+                                <div class="flex items-center gap-2 overflow-hidden pr-2">
+                                    <img v-if="s.photo" :src="s.photo" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-none shadow-sm">
+                                    <div v-else class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center border border-gray-200 flex-none shadow-sm"><i class="fa-solid fa-user text-xs"></i></div>
+                                    <span class="text-xs font-bold text-gray-700 truncate max-w-[120px]">{{s.name}}</span>
+                                </div>
+                                <div class="flex bg-gray-100 rounded-lg p-1 flex-none">
                                     <button @click="attendanceMap[s.id]='P'" :class="attendanceMap[s.id]==='P'?'bg-emerald-500 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">P</button>
                                     <button @click="attendanceMap[s.id]='F'" :class="attendanceMap[s.id]==='F'?'bg-red-500 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">F</button>
                                     <button @click="attendanceMap[s.id]='J'" :class="attendanceMap[s.id]==='J'?'bg-orange-400 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">J</button>
@@ -215,7 +228,14 @@
                     <div v-if="c.expanded||studentFilter" class="px-4 pb-4 bg-gray-50/50 border-t pt-2 space-y-3">
                         <div class="flex gap-2"><button @click="generateGeneralReportPDF(c.id)" class="flex-1 py-2 bg-white border text-indigo-700 rounded-xl text-xs font-bold"><i class="fa-solid fa-file-invoice"></i> Boletim PDF</button><button @click="deleteClass(c.id)" class="px-4 py-2 bg-white border text-red-500 rounded-xl"><i class="fa-solid fa-trash"></i></button></div>
                         <div class="bg-white p-3 rounded-xl border shadow-sm"><textarea v-model="bulkStudents[c.id]" placeholder="Nomes dos alunos (1 por linha)" class="w-full text-sm outline-none min-h-[80px] font-medium resize-none"></textarea><button @click="saveStudents(c.id)" class="w-full mt-2 bg-emerald-500 text-white py-2 rounded-lg text-xs font-bold"><i class="fa-solid fa-check"></i> Salvar</button></div>
-                        <div class="flex flex-wrap gap-2"><span v-for="s in getFilteredStudents(c.id)" :key="s.id" class="bg-white border text-xs px-3 py-1.5 rounded-full flex items-center gap-2 cursor-pointer font-bold" @click="openStudentProfile(s.id)">{{s.name}} <i class="fa-solid fa-times text-gray-300 hover:text-red-500" @click.stop="deleteStudent(s.id)"></i></span></div>
+                        <div class="flex flex-wrap gap-2">
+                            <span v-for="s in getFilteredStudents(c.id)" :key="s.id" class="bg-white border text-xs pr-3 pl-1 py-1 rounded-full flex items-center gap-2 cursor-pointer font-bold shadow-sm hover:bg-gray-50 transition" @click="openStudentProfile(s.id)">
+                                <img v-if="s.photo" :src="s.photo" class="w-6 h-6 rounded-full object-cover border border-gray-100 flex-none">
+                                <div v-else class="w-6 h-6 rounded-full bg-indigo-50 text-indigo-400 flex items-center justify-center border border-indigo-100 flex-none"><i class="fa-solid fa-user text-[10px]"></i></div>
+                                {{s.name}} 
+                                <i class="fa-solid fa-times text-gray-300 hover:text-red-500 ml-1" @click.stop="deleteStudent(s.id)"></i>
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -390,9 +410,13 @@
                     </div>
                     <div class="space-y-2">
                         <div v-for="r in recentCorrections" :key="r.id" class="p-3 bg-gray-50 border border-gray-100 rounded-xl flex justify-between items-center hover:bg-indigo-50 hover:border-indigo-200 transition group shadow-sm">
-                            <div class="flex-1 pr-2 overflow-hidden cursor-pointer" @click="openResultDetails(r)">
-                                <p class="font-bold text-sm text-gray-800 truncate">{{r.studentName}}</p>
-                                <p class="text-[10px] text-gray-500 truncate mt-0.5">{{r.examTitle}} • {{formatDateTime(r.date)}}</p>
+                            <div class="flex items-center gap-3 flex-1 pr-2 overflow-hidden cursor-pointer" @click="openResultDetails(r)">
+                                <img v-if="getStudent(r.studentId)?.photo" :src="getStudent(r.studentId).photo" class="w-9 h-9 rounded-full object-cover border border-gray-200 shadow-sm flex-none">
+                                <div v-else class="w-9 h-9 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center border border-gray-200 shadow-sm flex-none"><i class="fa-solid fa-user text-xs"></i></div>
+                                <div class="overflow-hidden">
+                                    <p class="font-bold text-sm text-gray-800 truncate">{{r.studentName}}</p>
+                                    <p class="text-[10px] text-gray-500 truncate mt-0.5">{{r.examTitle}} • {{formatDateTime(r.date)}}</p>
+                                </div>
                             </div>
                             <div class="flex items-center gap-2 pl-2 border-l border-gray-200">
                                 <div class="text-right min-w-[36px] mr-1">
@@ -568,7 +592,23 @@
         <!-- MODAL BOLETIM ALUNO -->
         <div v-if="showStudentModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
              <div class="bg-white w-full rounded-2xl max-w-lg h-[90vh] flex flex-col">
-                <div class="bg-indigo-600 p-5 text-white flex justify-between"><h3 class="font-bold">{{studentDetails.name}}</h3><button @click="showStudentModal=false"><i class="fa-solid fa-times"></i></button></div>
+                <div class="bg-indigo-600 p-5 text-white flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="relative group cursor-pointer w-14 h-14 rounded-full overflow-hidden border-2 border-white/50 shadow-inner bg-white/20 flex items-center justify-center">
+                            <img v-if="studentDetails.photo" :src="studentDetails.photo" class="w-full h-full object-cover">
+                            <i v-else class="fa-solid fa-user text-2xl text-white/70"></i>
+                            <label class="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                <i class="fa-solid fa-camera text-white text-sm"></i>
+                                <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadStudentPhoto($event, studentDetails.id)">
+                            </label>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-lg leading-tight">{{studentDetails.name}}</h3>
+                            <p class="text-[10px] text-indigo-200 mt-0.5"><i class="fa-solid fa-camera mr-1"></i> Toque na foto para alterar</p>
+                        </div>
+                    </div>
+                    <button @click="showStudentModal=false" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition self-start"><i class="fa-solid fa-times"></i></button>
+                </div>
                 <div class="flex border-b"><button v-for="b in 4" @click="selectedBimester=b" :class="selectedBimester===b?'text-indigo-600 border-indigo-600':'text-gray-400'" class="flex-1 py-3 text-xs font-bold border-b-2">{{b}}º BIM</button></div>
                 <div class="flex-1 overflow-y-auto p-4 bg-gray-50/50">
                     <div class="bg-white p-4 rounded-xl border flex justify-between items-center mb-4"><div><p class="text-[10px] font-bold text-gray-400">Média</p><div class="text-3xl font-black text-indigo-700">{{studentBimesterAverage}}</div></div></div>
@@ -632,17 +672,21 @@
         <div v-if="showResultDetailsModal" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="bg-white rounded-3xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
                 <div class="p-5 bg-indigo-600 text-white flex justify-between items-center">
-                    <div class="flex-1 pr-4">
-                        <h3 class="font-black text-lg leading-tight">{{selectedResultDetails?.studentName}}</h3>
-                        <p class="text-xs text-indigo-200 mt-1">{{selectedResultDetails?.title}}</p>
+                    <div class="flex items-center gap-3 flex-1 pr-4">
+                        <img v-if="getStudent(selectedResultDetails?.studentId)?.photo" :src="getStudent(selectedResultDetails?.studentId).photo" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 flex-none">
+                        <div v-else class="w-12 h-12 rounded-full bg-white/20 text-white/70 flex items-center justify-center border-2 border-white/50 flex-none"><i class="fa-solid fa-user text-xl"></i></div>
+                        <div class="overflow-hidden">
+                            <h3 class="font-black text-lg leading-tight truncate">{{selectedResultDetails?.studentName}}</h3>
+                            <p class="text-xs text-indigo-200 mt-1 truncate">{{selectedResultDetails?.title}}</p>
+                        </div>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="text-center bg-black/20 px-3 py-1.5 rounded-xl border border-white/10">
                             <span class="block text-[9px] uppercase font-bold text-indigo-200 mb-0.5">Nota Final</span>
                             <span class="text-2xl font-black leading-none">{{selectedResultDetails?.score}}</span>
                         </div>
-                        <button @click="deleteStudentResultAndClose(selectedResultDetails.resultId)" class="w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white transition" title="Excluir Nota"><i class="fa-solid fa-trash-can text-sm"></i></button>
-                        <button @click="showResultDetailsModal=false" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition" title="Fechar"><i class="fa-solid fa-times text-lg"></i></button>
+                        <button @click="deleteStudentResultAndClose(selectedResultDetails.resultId)" class="w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white transition flex-none" title="Excluir Nota"><i class="fa-solid fa-trash-can text-sm"></i></button>
+                        <button @click="showResultDetailsModal=false" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition flex-none" title="Fechar"><i class="fa-solid fa-times text-lg"></i></button>
                     </div>
                 </div>
                 <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center text-xs font-bold text-indigo-800">
@@ -678,7 +722,17 @@
 
         <!-- ECRÃ MANUAL CORREÇÃO -->
         <div v-if="correctionMode" class="fixed inset-0 z-[300] bg-gray-50 flex flex-col animate-fade-in">
-            <div class="bg-blue-600 text-white p-4 flex justify-between items-center"><h2 class="font-bold">{{activeStudent?.name}} (Tipo {{activeVersion+1}})</h2><button @click="correctionMode=false"><i class="fa-solid fa-times"></i></button></div>
+            <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <img v-if="activeStudent?.photo" :src="activeStudent.photo" class="w-10 h-10 rounded-full object-cover border-2 border-white/30 flex-none">
+                    <div v-else class="w-10 h-10 rounded-full bg-white/20 text-white/70 flex items-center justify-center border-2 border-white/30 flex-none"><i class="fa-solid fa-user"></i></div>
+                    <div>
+                        <h2 class="font-bold leading-tight">{{activeStudent?.name}}</h2>
+                        <p class="text-[10px] text-blue-200">Tipo {{activeVersion+1}}</p>
+                    </div>
+                </div>
+                <button @click="correctionMode=false"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
             <div class="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
                 <div v-for="(q, idx) in activeExam?.versions[activeVersion].questions" class="bg-white p-4 rounded-xl shadow-sm border"><div class="flex justify-between mb-2"><span class="font-black">Questão {{idx+1}}</span></div><div class="flex gap-2 justify-center"><template v-if="q.type==='ce'"><button v-for="(lbl,i) in ['Certo','Errado']" @click="studentAnswers[idx]=i" :class="studentAnswers[idx]===i?'bg-blue-600 text-white':'bg-white text-gray-500 border-gray-200'" class="flex-1 py-3 border rounded-xl font-bold">{{lbl}}</button></template><template v-else><button v-for="(lbl,i) in ['A','B','C','D','E']" @click="studentAnswers[idx]=i" :class="studentAnswers[idx]===i?'bg-blue-600 text-white scale-110':'bg-gray-50 border-gray-200'" class="w-12 h-12 border-2 rounded-full font-black flex items-center justify-center transition-all">{{lbl}}</button></template></div></div>
             </div>
@@ -891,6 +945,52 @@
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
                     extraPoints.value=await db.extraPoints.toArray(); const s=await db.settings.get('config');
                     if(s) { settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null}; if(s.geminiKey) geminiKey.value=s.geminiKey; }
+                };
+
+                const getStudent = (id) => students.value.find(s => s.id === id);
+
+                // --- UPLOAD DE FOTO DE ALUNO (COMPRESSÃO AUTOMÁTICA) ---
+                const uploadStudentPhoto = async (event, studentId) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    showToast("Processando foto...", "loading");
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = async () => {
+                            const canvas = document.createElement('canvas');
+                            const MAX_SIZE = 250;
+                            
+                            // Calcula o corte quadrado perfeito a partir do centro
+                            let size = Math.min(img.width, img.height);
+                            let offsetX = (img.width - size) / 2;
+                            let offsetY = (img.height - size) / 2;
+
+                            canvas.width = MAX_SIZE;
+                            canvas.height = MAX_SIZE;
+                            const ctx = canvas.getContext('2d');
+                            
+                            ctx.drawImage(img, offsetX, offsetY, size, size, 0, 0, MAX_SIZE, MAX_SIZE);
+
+                            // Comprime para JPG reduzindo peso na BD para ~15KB
+                            const base64Photo = canvas.toDataURL('image/jpeg', 0.7); 
+                            
+                            let s = await db.students.get(studentId);
+                            if(s) {
+                                s.photo = base64Photo;
+                                await db.students.put(JSON.parse(JSON.stringify(s)));
+                                const sIndex = students.value.findIndex(x => x.id === studentId);
+                                if(sIndex > -1) students.value[sIndex] = s;
+                                if (studentDetails.value && studentDetails.value.id === studentId) {
+                                    studentDetails.value.photo = base64Photo;
+                                }
+                                showToast('Foto do aluno atualizada!', 'success');
+                            }
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
                 };
 
                 // --- DIÁRIO FUNCIONALIDADES (Por Aula) ---
@@ -1697,7 +1797,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     if (!ex) { showToast('Prova não encontrada.', 'error'); return; }
                     let v = getVersionQuestions(ex, r.version || 0);
                     selectedResultDetails.value = {
-                        resultId: r.id, score: r.score, title: ex.title, studentName: r.studentName,
+                        resultId: r.id, studentId: r.studentId, score: r.score, title: ex.title, studentName: r.studentName,
                         answers: JSON.parse(JSON.stringify(r.answers || {})),
                         questions: v.map(q => ({ ...q, correctIndex: (q.type === 'vf' || q.type === 'assoc') ? (q.id || 0) % 5 : q.correctIndex }))
                     };
@@ -2442,6 +2542,7 @@ Siga as instruções ESTRITAMENTE:
                     // Classes & Students
                     newClass, bulkStudents, addClass, saveStudents, getStudentCount, getFilteredStudents, studentFilter, filteredClasses:computed(()=>classes.value.filter(c=>c.name.toLowerCase().includes(studentFilter.value.toLowerCase()))), getClassName,
                     deleteStudent:(id)=>{triggerConfirm("Tem certeza que deseja apagar este aluno?",async()=>{await db.students.delete(id);load()})}, deleteClass,
+                    getStudent, uploadStudentPhoto,
                     
                     // Questions
                     uniqueTopics: computed(() => [...new Set(questions.value.map(q => q.topic).filter(Boolean))].sort()),
