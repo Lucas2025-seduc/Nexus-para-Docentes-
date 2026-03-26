@@ -116,7 +116,11 @@
                             </details>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-3"><button @click="generateClassReportPDF" class="w-full py-4 bg-gray-900 text-white rounded-xl font-bold shadow-lg"><i class="fa-solid fa-file-pdf"></i> Ranking</button><button @click="generateGeneralReportPDF(selectedClassIdForReport)" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"><i class="fa-solid fa-table"></i> Boletim 4 Bim</button></div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button @click="generateClassReportPDF" class="w-full py-3 bg-gray-900 text-white rounded-xl font-bold shadow-lg flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-file-pdf text-lg"></i> <span class="text-xs">Ranking</span></button>
+                        <button @click="generateGeneralReportPDF(selectedClassIdForReport)" class="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-table text-lg"></i> <span class="text-xs">Boletim Final</span></button>
+                        <button @click="generateAttendanceReportPDF(selectedClassIdForReport)" class="col-span-2 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-user-xmark text-lg"></i> <span>Relatório de Faltas</span></button>
+                    </div>
                 </div>
                 
                 <div class="mt-8 pt-6 border-t border-red-100">
@@ -2500,6 +2504,71 @@ Siga as instruções ESTRITAMENTE:
                     pdfMake.createPdf(doc).download(`Boletim_Geral_${className}.pdf`);
                 };
 
+                const generateAttendanceReportPDF = async (classIdParam = null) => {
+                    const cid = (typeof classIdParam === 'number' || typeof classIdParam === 'string') ? classIdParam : selectedClassIdForReport.value;
+                    if (!cid) return showToast('Selecione uma turma', 'error');
+                    
+                    const classStudents = students.value.filter(s => s.classId === cid).sort((a,b) => a.name.localeCompare(b.name));
+                    const cls = classes.value.find(c => c.id === cid);
+                    const className = cls ? cls.name : 'Turma';
+
+                    if (classStudents.length === 0) return showToast('Turma sem alunos!', 'error');
+
+                    const allAtt = await db.attendance.where('classId').equals(cid).toArray();
+
+                    const tableBody = [
+                        [
+                            { text: 'Aluno', bold: true, fillColor: '#eee', style: 'tableHeader' },
+                            { text: 'Faltas (F)', bold: true, fillColor: '#eee', alignment: 'center', style: 'tableHeader' },
+                            { text: 'Faltas Just. (J)', bold: true, fillColor: '#eee', alignment: 'center', style: 'tableHeader' },
+                            { text: 'Total de Ausências', bold: true, fillColor: '#f97316', color: 'white', alignment: 'center', style: 'tableHeader' }
+                        ]
+                    ];
+
+                    for (const s of classStudents) {
+                        const sAtt = allAtt.filter(a => a.studentId === s.id);
+                        const faltas = sAtt.filter(a => a.status === 'F').length;
+                        const justificadas = sAtt.filter(a => a.status === 'J').length;
+                        const total = faltas + justificadas;
+
+                        const photoCol = s.photo ? { image: s.photo, width: 22, height: 22 } : { canvas: [{ type: 'rect', x: 0, y: 0, w: 22, h: 22, color: '#f3f4f6' }] };
+                        
+                        tableBody.push([
+                            { 
+                                columns: [
+                                    { width: 28, ...photoCol },
+                                    { width: '*', text: s.name, fontSize: 10, alignment: 'left', margin: [0, 5, 0, 0] }
+                                ] 
+                            },
+                            { text: faltas.toString(), alignment: 'center', fontSize: 10, margin: [0, 6, 0, 0] },
+                            { text: justificadas.toString(), alignment: 'center', fontSize: 10, margin: [0, 6, 0, 0] },
+                            { text: total.toString(), alignment: 'center', bold: true, fontSize: 10, fillColor: '#fff7ed', color: total > 0 ? '#ea580c' : '#9ca3af', margin: [0, 6, 0, 0] }
+                        ]);
+                    }
+
+                    const doc = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 18, bold: true, alignment: 'center' },
+                            { text: `RELATÓRIO DE FALTAS E PRESENÇAS - ${className}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
+                            {
+                                table: { headerRows: 1, widths: ['*', 70, 70, 90], body: tableBody },
+                                layout: {
+                                    hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 1 : 1,
+                                    vLineWidth: () => 0, hLineColor: () => '#e5e7eb',
+                                    paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 4, paddingBottom: () => 4,
+                                }
+                            },
+                            { text: 'Gerado por Nexus Docente', style: 'footer', alignment: 'center', margin: [0, 20], color: 'gray', fontSize: 8 }
+                        ],
+                        styles: { footer: { italics: true }, tableHeader: { fontSize: 10, margin: [0, 6] } },
+                        defaultStyle: { font: 'Roboto' }
+                    };
+                    
+                    let now = new Date();
+                    let dStr = now.toLocaleDateString('pt-BR').replace(/\//g, '-');
+                    pdfMake.createPdf(doc).download(`Relatorio_Faltas_${className}_${dStr}.pdf`);
+                };
+
                 const generateKeyPDF = (exam) => {
                     const keyBody = [[{text:'#', bold:true, fillColor:'#eee'}, ...exam.versions.map((v, i) => ({text: `TIPO ${i+1}`, bold: true, fillColor:'#eee'}))]];
                     if (exam.versions[0].questions.length > 0) {
@@ -2752,7 +2821,7 @@ Siga as instruções ESTRITAMENTE:
                     examCart, examConfig, editingExamId, printConfig,
                     filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilterSubject.value || (q.subject && q.subject.toLowerCase().includes(examFilterSubject.value.toLowerCase()))) && (!examFilterTopic.value || (q.topic && q.topic.toLowerCase().includes(examFilterTopic.value.toLowerCase()))) && (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase()) || (q.subject && q.subject.toLowerCase().includes(examFilter.value.toLowerCase())) || (q.topic && q.topic.toLowerCase().includes(examFilter.value.toLowerCase()))))),
                     filteredHistoryExams: computed(()=>exams.value.filter(e=>!examHistoryFilter.value||e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()))),
-                    openEditExam, saveEditedExam, generatePDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF, generateKeyPDF, generateCommentedKeyPDF,
+                    openEditExam, saveEditedExam, generatePDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF, generateKeyPDF, generateCommentedKeyPDF,
                     toggleExamQ: q=>{let i=examCart.value.findIndex(x=>x.id===q.id);i>-1?examCart.value.splice(i,1):examCart.value.push(q)}, isQInExam: id=>examCart.value.some(q=>q.id===id), deleteExam: id=>triggerConfirm("Tem certeza que deseja apagar esta prova e os seus resultados?",async()=>{await db.exams.delete(id);load()}),
                     
                     // Fix Key
