@@ -734,11 +734,49 @@
                         </div>
                     </div>
                     <div v-else class="animate-fade-in">
-                        <div class="bg-white p-4 rounded-xl border flex justify-between items-center mb-4"><div><p class="text-[10px] font-bold text-gray-400">Média</p><div class="text-3xl font-black text-indigo-700">{{studentBimesterAverage}}</div></div></div>
-                        <div v-for="ex in studentExamsList" :key="ex.id" class="bg-white p-3 rounded-xl border flex justify-between items-center mb-2">
-                            <div class="flex-1 font-bold text-sm">{{ex.title}}</div>
-                            <div v-if="editingResultId!==ex.id" class="flex items-center gap-1"><div class="font-bold text-lg mr-2" :class="ex.score>=6?'text-emerald-600':'text-red-500'">{{ex.score}}</div><button @click="openResultDetails(ex)" class="text-blue-500 hover:bg-blue-50 rounded-lg p-1.5 transition" title="Ver Gabarito"><i class="fa-solid fa-eye"></i></button><button @click="startEditingGrade(ex)" class="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg p-1.5 transition" title="Editar Nota"><i class="fa-solid fa-pencil"></i></button><button @click="deleteStudentResult(ex.id)" class="text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg p-1.5 transition" title="Excluir Nota"><i class="fa-solid fa-trash-can"></i></button></div>
-                            <div v-else class="flex items-center gap-1"><input v-model="tempScore" type="number" class="w-14 p-1 border text-center text-xs font-bold"><button @click="saveEditedGrade" class="text-emerald-500 p-1"><i class="fa-solid fa-check"></i></button><button @click="cancelEditingGrade" class="text-red-500 p-1"><i class="fa-solid fa-times"></i></button></div>
+                        <!-- Média e Botão Ponto Extra -->
+                        <div class="bg-white p-4 rounded-xl border flex justify-between items-center mb-4 shadow-sm">
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Média do Bimestre</p>
+                                <div class="text-3xl font-black" :class="studentBimesterAverage >= 6 ? 'text-emerald-600' : 'text-red-500'">{{studentBimesterAverage}}</div>
+                            </div>
+                            <button @click="showExtraPointForm = !showExtraPointForm" class="px-3 py-2.5 bg-amber-50 text-amber-600 rounded-xl text-xs font-bold hover:bg-amber-100 transition shadow-sm border border-amber-200 flex items-center gap-1.5"><i class="fa-solid fa-star"></i> Ponto Extra</button>
+                        </div>
+
+                        <!-- Formulário Ponto Extra -->
+                        <div v-if="showExtraPointForm" class="bg-amber-50 p-3 rounded-xl border border-amber-200 mb-4 flex gap-2 animate-fade-in shadow-sm">
+                            <input v-model="newExtraPoint.reason" placeholder="Motivo (ex: Trabalho, Participação)" class="flex-1 p-2 rounded-lg text-xs border outline-none font-medium text-amber-900 bg-white focus:border-amber-400">
+                            <input v-model="newExtraPoint.val" type="number" step="0.1" placeholder="+0.5" class="w-16 p-2 rounded-lg text-xs border outline-none text-center font-black text-amber-700 bg-white focus:border-amber-400">
+                            <button @click="addExtraPoint" class="bg-amber-500 hover:bg-amber-600 text-white w-9 rounded-lg flex items-center justify-center transition shadow"><i class="fa-solid fa-check"></i></button>
+                        </div>
+
+                        <!-- Lista de Pontos Extras -->
+                        <div v-for="ep in studentExtraPointsList" :key="'ep-'+ep.id" class="bg-gradient-to-r from-amber-50 to-white p-3 rounded-xl border border-amber-100 flex justify-between items-center mb-2 shadow-sm">
+                            <div class="flex-1 text-xs font-bold text-amber-800"><i class="fa-solid fa-star text-amber-400 mr-1.5"></i> {{ep.reason}}</div>
+                            <div class="flex items-center gap-2">
+                                <div class="font-black text-sm text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">+{{ep.points}}</div>
+                                <button @click="deleteExtraPoint(ep.id)" class="text-gray-300 hover:text-red-500 p-1.5 transition"><i class="fa-solid fa-times"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Lista de Provas Detalhadas -->
+                        <div v-if="studentExamsList.length > 0" class="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-5 mb-2 ml-1">Avaliações e Notas</div>
+                        <div v-for="ex in studentExamsList" :key="ex.id" class="bg-white p-3 rounded-xl border flex justify-between items-center mb-2 shadow-sm hover:shadow transition">
+                            <div class="flex-1 font-bold text-sm text-gray-700">{{ex.title}}</div>
+                            <div v-if="editingResultId!==ex.id" class="flex items-center gap-1">
+                                <div class="font-black text-lg mr-2" :class="ex.score>=6?'text-emerald-600':'text-red-500'">{{ex.score}}</div>
+                                <button @click="openResultDetails(ex)" class="text-blue-500 hover:bg-blue-50 rounded-lg p-1.5 transition" title="Ver Gabarito Oficial vs Respostas do Aluno"><i class="fa-solid fa-eye"></i></button>
+                                <button @click="startEditingGrade(ex)" class="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg p-1.5 transition" title="Editar Nota Manualmente"><i class="fa-solid fa-pencil"></i></button>
+                                <button @click="deleteStudentResult(ex.id)" class="text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg p-1.5 transition" title="Excluir Nota"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                            <div v-else class="flex items-center gap-1">
+                                <input v-model="tempScore" type="number" step="0.1" class="w-16 p-2 border border-indigo-300 bg-indigo-50 rounded-lg text-center text-sm font-black text-indigo-700 outline-none">
+                                <button @click="saveEditedGrade" class="text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg p-2 shadow-sm transition"><i class="fa-solid fa-check"></i></button>
+                                <button @click="cancelEditingGrade" class="text-gray-400 hover:bg-gray-100 rounded-lg p-2 transition"><i class="fa-solid fa-times"></i></button>
+                            </div>
+                        </div>
+                        <div v-if="studentExamsList.length === 0" class="text-center p-6 text-gray-400 text-xs font-medium border-2 border-dashed border-gray-200 rounded-xl mt-4">
+                            Nenhuma avaliação registada neste bimestre.
                         </div>
                     </div>
                 </div>
@@ -2772,7 +2810,8 @@ Siga as instruções ESTRITAMENTE:
                             { text: 'Aluno', bold: true, fillColor: '#eee', style: 'tableHeader' },
                             { text: 'Faltas (F)', bold: true, fillColor: '#eee', alignment: 'center', style: 'tableHeader' },
                             { text: 'Faltas Just. (J)', bold: true, fillColor: '#eee', alignment: 'center', style: 'tableHeader' },
-                            { text: 'Total de Ausências', bold: true, fillColor: '#f97316', color: 'white', alignment: 'center', style: 'tableHeader' }
+                            { text: 'Total de Ausências', bold: true, fillColor: '#f97316', color: 'white', alignment: 'center', style: 'tableHeader' },
+                            { text: 'Média Atual', bold: true, fillColor: '#4f46e5', color: 'white', alignment: 'center', style: 'tableHeader' }
                         ]
                     ];
 
@@ -2781,6 +2820,35 @@ Siga as instruções ESTRITAMENTE:
                         const faltas = sAtt.filter(a => a.status === 'F').length;
                         const justificadas = sAtt.filter(a => a.status === 'J').length;
                         const total = faltas + justificadas;
+
+                        // Cálculo da Média Geral do aluno para exibir no relatório
+                        let annualSum = 0; let annualCount = 0;
+                        for (let b = 1; b <= 4; b++) {
+                            const bimResults = results.value.filter(r => r.studentId === s.id);
+                            const bimExams = bimResults.map(r => {
+                                const e = exams.value.find(ex => ex.id === r.examId);
+                                return e && parseInt(e.bimester) === b ? { ...r, weight: parseFloat(e.weight) || 1 } : null;
+                            }).filter(x => x);
+
+                            let weightedSum = 0; let weightSum = 0;
+                            bimExams.forEach(bx => {
+                                const scoreVal = parseFloat(bx.score);
+                                weightedSum += scoreVal * bx.weight;
+                                weightSum += bx.weight;
+                            });
+
+                            const extraPts = extraPoints.value.filter(ep => ep.studentId === s.id && parseInt(ep.bimester) === b).reduce((acc, ep) => acc + parseFloat(ep.points), 0);
+
+                            let bimAvg = weightSum > 0 ? (weightedSum / weightSum) : 0;
+                            bimAvg += extraPts;
+                            if (bimAvg > 10) bimAvg = 10;
+
+                            if (weightSum > 0 || extraPts > 0) {
+                                annualSum += bimAvg; annualCount++;
+                            }
+                        }
+                        const finalAvg = annualCount > 0 ? (annualSum / annualCount).toFixed(1) : '-';
+                        const isAvgLow = annualCount > 0 && (annualSum / annualCount) < 6;
 
                         const photoCol = s.photo ? { image: s.photo, width: 22, height: 22 } : { canvas: [{ type: 'rect', x: 0, y: 0, w: 22, h: 22, color: '#f3f4f6' }] };
                         
@@ -2793,7 +2861,8 @@ Siga as instruções ESTRITAMENTE:
                             },
                             { text: faltas.toString(), alignment: 'center', fontSize: 10, margin: [0, 6, 0, 0] },
                             { text: justificadas.toString(), alignment: 'center', fontSize: 10, margin: [0, 6, 0, 0] },
-                            { text: total.toString(), alignment: 'center', bold: true, fontSize: 10, fillColor: '#fff7ed', color: total > 0 ? '#ea580c' : '#9ca3af', margin: [0, 6, 0, 0] }
+                            { text: total.toString(), alignment: 'center', bold: true, fontSize: 10, fillColor: '#fff7ed', color: total > 0 ? '#ea580c' : '#9ca3af', margin: [0, 6, 0, 0] },
+                            { text: finalAvg, alignment: 'center', bold: true, fontSize: 10, color: isAvgLow ? '#ef4444' : '#10b981', margin: [0, 6, 0, 0] }
                         ]);
                     }
 
@@ -2802,7 +2871,7 @@ Siga as instruções ESTRITAMENTE:
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 18, bold: true, alignment: 'center' },
                             { text: `RELATÓRIO DE FALTAS E PRESENÇAS - ${className}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
                             {
-                                table: { headerRows: 1, widths: ['*', 70, 70, 90], body: tableBody },
+                                table: { headerRows: 1, widths: ['*', 60, 70, 80, 60], body: tableBody },
                                 layout: {
                                     hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 1 : 1,
                                     vLineWidth: () => 0, hLineColor: () => '#e5e7eb',
