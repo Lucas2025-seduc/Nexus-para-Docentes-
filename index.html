@@ -62,7 +62,7 @@
         <!-- HEADER E NAVEGAÇÃO -->
         <header class="bg-white shadow-sm z-50 flex-none border-b border-gray-200 relative">
             <div class="px-4 py-3 flex justify-between items-center">
-                <div class="flex items-center gap-3 text-indigo-700 select-none"><img src="logo-principal.png" class="w-20 h-20 rounded-xl object-cover shadow-md border border-gray-100 bg-white"><div><h1 class="font-black text-xl leading-none">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1><p class="text-[9px] font-medium text-gray-400 mt-0.5">Gestão Escolar</p></div></div>
+                <div class="flex items-center gap-3 text-indigo-700 select-none"><div class="w-12 h-12 rounded-xl object-cover shadow-md border border-gray-100 bg-white flex items-center justify-center"><i class="fa-solid fa-school text-xl"></i></div><div><h1 class="font-black text-xl leading-none">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1><p class="text-[9px] font-medium text-gray-400 mt-0.5">Gestão Escolar</p></div></div>
                 <div class="flex gap-1 text-gray-400 items-center">
                     <button v-if="canInstall" @click="installPWA" class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-download"></i></button>
                     <button v-if="!isLicensed" @click="showLicenseModal=true" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-key"></i></button>
@@ -228,9 +228,53 @@
                 </div>
                 <div class="space-y-3 pb-20">
                     <div v-for="q in filteredQuestions" :key="q.id" class="bg-white p-4 rounded-2xl shadow-sm border transition">
-                        <div class="flex justify-between items-start mb-2"><div class="flex flex-wrap gap-1.5"><span class="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold uppercase border">{{q.subject}}</span><span v-if="q.topic" class="text-[9px] bg-gray-50 text-gray-500 px-2 py-0.5 rounded-md border uppercase font-bold">{{q.topic}}</span></div><div class="flex gap-1"><button @click="editQuestion(q)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-pencil text-xs"></i></button><button @click="deleteQuestion(q.id)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-red-500 flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button></div></div>
-                        <p class="text-sm font-medium text-gray-700">{{q.text}}</p>
-                        <img v-if="q.image" :src="q.image" class="h-16 mt-2 rounded border object-cover">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex flex-wrap gap-1.5">
+                                <span class="text-[9px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-black uppercase border border-purple-100 shadow-sm">{{ q.type === 'mc' ? 'Múltipla' : q.type === 'ce' ? 'Certo/Errado' : q.type === 'vf' ? 'V/F' : q.type === 'assoc' ? 'Associação' : q.type }}</span>
+                                <span class="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold uppercase border">{{q.subject}}</span>
+                                <span v-if="q.topic" class="text-[9px] bg-gray-50 text-gray-500 px-2 py-0.5 rounded-md border uppercase font-bold">{{q.topic}}</span>
+                            </div>
+                            <div class="flex gap-1"><button @click="editQuestion(q)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-pencil text-xs"></i></button><button @click="deleteQuestion(q.id)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-red-500 flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button></div>
+                        </div>
+                        <p class="text-sm font-medium text-gray-700 mb-2">{{q.text}}</p>
+                        <img v-if="q.image" :src="q.image" class="h-16 mt-2 rounded border object-cover mb-2">
+                        
+                        <!-- VISUALIZAÇÃO DETALHADA DAS OPÇÕES E GABARITOS -->
+                        <div class="mt-3 border-t border-gray-100 pt-3 space-y-1.5">
+                            <!-- Múltipla Escolha -->
+                            <div v-if="q.type==='mc'" class="text-xs text-gray-600 space-y-1">
+                                <div v-for="(opt, i) in q.options" :key="i" class="flex gap-2 p-1.5 rounded-lg border transition-colors" :class="q.correct === i ? 'bg-emerald-50 border-emerald-200 text-emerald-800 font-bold shadow-sm' : 'border-transparent'">
+                                    <span class="w-5 font-black" :class="q.correct === i ? 'text-emerald-600' : 'text-gray-400'">{{['A)','B)','C)','D)','E)'][i]}}</span>
+                                    <span class="flex-1">{{opt.text}}</span>
+                                    <i v-if="q.correct === i" class="fa-solid fa-check-circle text-emerald-500 text-sm"></i>
+                                </div>
+                            </div>
+                            <!-- Certo ou Errado -->
+                            <div v-else-if="q.type==='ce'" class="text-xs flex gap-2 items-center p-2 bg-gray-50 rounded-lg border border-gray-100">
+                                <span class="font-bold text-gray-500">Gabarito Oficial:</span> 
+                                <span class="px-3 py-1 rounded-md text-white font-black shadow-sm" :class="q.correct === 0 ? 'bg-blue-500' : 'bg-red-500'">{{ q.correct === 0 ? 'CERTO' : 'ERRADO' }}</span>
+                            </div>
+                            <!-- Verdadeiro ou Falso -->
+                            <div v-else-if="q.type==='vf'" class="text-xs text-gray-600 space-y-1.5">
+                                <div v-for="(opt, i) in q.options" :key="i" class="flex gap-2 items-start p-1.5 bg-gray-50 rounded-lg border border-gray-100">
+                                    <span class="font-black px-1.5 py-0.5 rounded text-[10px] text-white shadow-sm flex-none" :class="opt.isTrue ? 'bg-emerald-500' : 'bg-red-500'">{{ opt.isTrue ? 'V' : 'F' }}</span>
+                                    <span class="pt-0.5">{{ opt.text }}</span>
+                                </div>
+                            </div>
+                            <!-- Associação -->
+                            <div v-else-if="q.type==='assoc'" class="text-xs text-gray-600 space-y-1.5">
+                                <div v-for="(opt, i) in q.options" :key="i" class="flex flex-col bg-blue-50/40 p-2 rounded-lg border border-blue-100/50">
+                                    <div class="flex gap-2 mb-1 items-start">
+                                        <span class="font-black text-blue-700 mt-0.5">{{i+1}}.</span>
+                                        <span class="font-bold text-gray-700 leading-tight">{{ opt.text }}</span>
+                                    </div>
+                                    <div class="flex gap-2 pl-4 text-gray-500 items-start mt-1">
+                                        <i class="fa-solid fa-arrow-turn-up rotate-90 text-blue-300 mt-1 flex-none"></i>
+                                        <span class="italic leading-tight">{{ opt.match }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -473,31 +517,51 @@
                         </div>
                     </div>
                     <button @click="generateQuestionsAI" :disabled="isGeneratingAI" class="w-full py-3.5 bg-purple-600 text-white rounded-xl font-bold"><i :class="isGeneratingAI?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-wand-magic-sparkles'"></i> Gerar</button>
+                    <button @click="simulateAIGeneration" class="w-full mt-2 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold text-sm transition-colors"><i class="fa-solid fa-flask"></i> Testar Visualização (Sem Chave API)</button>
                 </div>
             </div>
         </div>
 
         <!-- EDITOR DE QUESTÃO -->
         <div v-if="showQFormModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-            <div class="bg-white w-full rounded-2xl max-w-lg max-h-[90vh] flex flex-col">
-                <div class="p-4 border-b flex justify-between bg-gray-50"><h3 class="font-bold"><i class="fa-solid fa-pen"></i> Editar Questão</h3><button @click="showQFormModal=false"><i class="fa-solid fa-times"></i></button></div>
-                <div class="overflow-y-auto p-5 flex-1">
-                    <div class="grid grid-cols-4 gap-2 mb-4"><button v-for="t in [{id:'mc',lbl:'Multi'},{id:'vf',lbl:'V/F'},{id:'assoc',lbl:'Assoc'},{id:'ce',lbl:'C/E'}]" @click="changeQType(t.id)" :class="qType===t.id?'active':'inactive'" class="q-type-btn">{{t.lbl}}</button></div>
-                    <div class="grid grid-cols-2 gap-3 mb-3"><input list="dl-subjects" v-model="newQ.subject" placeholder="Disciplina" class="p-2.5 border rounded-lg bg-gray-50 text-sm"><input list="dl-topics" v-model="newQ.topic" placeholder="Tópico" class="p-2.5 border rounded-lg bg-gray-50 text-sm"></div>
-                    <textarea v-model="newQ.text" rows="3" class="w-full p-3 border rounded-xl bg-gray-50 text-sm mb-3" placeholder="Enunciado..."></textarea>
+            <div class="bg-white w-full rounded-2xl max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+                <div class="p-5 border-b flex justify-between bg-white rounded-t-2xl">
+                    <h3 class="font-bold text-gray-800"><i class="fa-solid fa-pen text-gray-800 mr-2"></i> Editar Questão</h3>
+                    <button @click="showQFormModal=false" class="text-gray-800 hover:text-gray-600"><i class="fa-solid fa-times text-lg"></i></button>
+                </div>
+                <div class="overflow-y-auto p-6 flex-1">
+                    <div class="flex justify-around mb-6 text-sm font-medium text-gray-600">
+                        <button v-for="t in [{id:'mc',lbl:'Multi'},{id:'vf',lbl:'V/F'},{id:'assoc',lbl:'Assoc'},{id:'ce',lbl:'C/E'}]" @click="changeQType(t.id)" :class="qType===t.id?'text-gray-800':'text-gray-500 hover:text-gray-700'" class="pb-1 transition-colors">{{t.lbl}}</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <input list="dl-subjects" v-model="newQ.subject" placeholder="Disciplina" class="p-3 border border-gray-200 rounded-lg bg-white outline-none focus:border-indigo-500 text-sm">
+                        <input list="dl-topics" v-model="newQ.topic" placeholder="Tópico" class="p-3 border border-gray-200 rounded-lg bg-white outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <textarea v-model="newQ.text" rows="4" class="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none focus:border-indigo-500 text-sm mb-4 resize-y" placeholder="Enunciado..."></textarea>
                     
-                    <div v-if="qType==='mc'" class="space-y-2"><div v-for="(o,i) in newQ.options" class="flex gap-2"><button @click="newQ.correct=i" :class="newQ.correct===i?'bg-emerald-500 text-white':'bg-gray-100 text-gray-400'" class="w-10 h-10 rounded-lg font-bold">{{['A','B','C','D','E'][i]}}</button><input v-model="o.text" class="flex-1 p-2 border rounded-lg text-xs"></div></div>
-                    <div v-if="qType==='ce'" class="flex gap-4 justify-center py-4"><button v-for="(lbl,i) in ['CERTO','ERRADO']" @click="newQ.correct=i" :class="newQ.correct===i?'bg-blue-600 text-white':'bg-gray-100 text-gray-500'" class="px-6 py-3 rounded-xl font-bold">{{lbl}}</button></div>
-                    <div v-if="qType==='vf'||qType==='assoc'" class="space-y-2">
-                        <div v-for="(o,i) in newQ.options" class="flex gap-2">
-                            <button v-if="qType==='vf'" @click="o.isTrue=!o.isTrue" :class="o.isTrue?'bg-emerald-500':'bg-red-500'" class="w-10 h-10 rounded-lg text-white font-bold">{{o.isTrue?'V':'F'}}</button>
-                            <input v-model="o.text" class="flex-1 p-2 border rounded-lg text-xs" placeholder="Item">
-                            <input v-if="qType==='assoc'" v-model="o.match" class="flex-1 p-2 border rounded-lg text-xs" placeholder="Corresp.">
-                            <button @click="newQ.options.splice(i,1)" class="w-8 text-red-500"><i class="fa-solid fa-trash"></i></button>
-                        </div><button @click="newQ.options.push(qType==='vf'?{text:'',isTrue:true}:{text:'',match:''})" class="w-full py-2 border-2 border-dashed rounded-xl text-xs font-bold text-gray-400">+ Add</button>
+                    <div v-if="qType==='mc'" class="space-y-3">
+                        <div v-for="(o,i) in newQ.options" class="flex gap-3 items-center">
+                            <button @click="newQ.correct=i" :class="newQ.correct===i?'bg-emerald-500 text-white':'bg-gray-100 text-gray-400'" class="w-10 h-10 rounded-lg font-bold flex-none transition-colors">{{['A','B','C','D','E'][i]}}</button>
+                            <input v-model="o.text" class="flex-1 p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 transition-colors" placeholder="Opção">
+                        </div>
+                    </div>
+                    <div v-if="qType==='ce'" class="flex gap-4 justify-center py-4">
+                        <button v-for="(lbl,i) in ['CERTO','ERRADO']" @click="newQ.correct=i" :class="newQ.correct===i?'bg-blue-600 text-white shadow-md':'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="px-8 py-3.5 rounded-xl font-bold transition-all">{{lbl}}</button>
+                    </div>
+                    <div v-if="qType==='vf'||qType==='assoc'" class="space-y-3">
+                        <div v-for="(o,i) in newQ.options" class="flex gap-3 items-center">
+                            <button v-if="qType==='vf'" @click="o.isTrue=!o.isTrue" :class="o.isTrue?'bg-emerald-500':'bg-red-500'" class="w-10 h-10 rounded-lg text-white font-bold flex-none transition-colors">{{o.isTrue?'V':'F'}}</button>
+                            <span v-if="qType==='assoc'" class="w-10 font-black text-gray-500 text-center">{{i+1}}.</span>
+                            <input v-model="o.text" class="flex-1 p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 transition-colors" placeholder="Item">
+                            <input v-if="qType==='assoc'" v-model="o.match" class="flex-1 p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 transition-colors" placeholder="Corresp.">
+                            <button @click="newQ.options.splice(i,1)" class="w-8 h-10 flex items-center justify-center text-red-500 hover:text-red-700 transition-colors flex-none"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        <button @click="newQ.options.push(qType==='vf'?{text:'',isTrue:true}:{text:'',match:''})" class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-bold text-gray-400 hover:border-indigo-300 hover:text-indigo-500 transition-colors">+ Add</button>
                     </div>
                 </div>
-                <div class="p-4 border-t flex gap-3"><button @click="saveQuestion(false)" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Salvar</button></div>
+                <div class="p-5 border-t bg-white rounded-b-2xl">
+                    <button @click="saveQuestion(false)" class="w-full bg-[#5448de] hover:bg-[#4338ca] text-white py-3.5 rounded-xl font-bold text-base transition-colors shadow-sm">Salvar</button>
+                </div>
             </div>
         </div>
 
@@ -1324,48 +1388,53 @@ Retorne o JSON estritamente neste formato.`;
                     if(t<1)return showToast('Selecione pelo menos 1 questão','warning');
                     
                     isGeneratingAI.value=true;
-                    showToast(`Gerando ${t} questões...`,'loading');
+                    showToast(`Gerando ${t} questões com conteúdo real...`,'loading');
                     
                     try{
-                        let promptText = `Atue como um professor especialista. Crie ${t} questões para uma prova escolar.
-Disciplina: ${aiGenConfig.value.subject}
-Tópico: ${aiGenConfig.value.topic}
-Dificuldade: ${aiGenConfig.value.difficulty}
+                        let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
 
-Distribuição OBRIGATÓRIA:
-- ${aiGenConfig.value.counts.mc} de Múltipla Escolha ("mc")
-- ${aiGenConfig.value.counts.ce} de Certo/Errado ("ce")
-- ${aiGenConfig.value.counts.vf} de Verdadeiro/Falso ("vf")
-- ${aiGenConfig.value.counts.assoc} de Associação ("assoc")
+Gere exatamente ${t} questões: ${aiGenConfig.value.counts.mc} "mc" (5 opções), ${aiGenConfig.value.counts.ce} "ce" (Certo=0/Errado=1), ${aiGenConfig.value.counts.vf} "vf" (4 itens com isTrue), ${aiGenConfig.value.counts.assoc} "assoc" (4 pares text/match).
 
-RETORNO OBRIGATÓRIO (Use estritamente este formato JSON):
+O retorno deve ser ESTRITAMENTE um JSON. Siga o formato abaixo, MAS CRIE CONTEÚDO REAL E PROFUNDO SOBRE: ${aiGenConfig.value.topic}.
+
+EXEMPLO DE COMO PREENCHER (Se o tema fosse Biologia Celular):
 {
   "questions": [
     {
       "type": "mc",
-      "text": "Enunciado da questão aqui...",
-      "options": [{"text": "Alternativa A"}, {"text": "Alternativa B"}, {"text": "Alternativa C"}, {"text": "Alternativa D"}, {"text": "Alternativa E"}],
-      "correct": 2
+      "text": "Qual das seguintes estruturas é responsável pela síntese de proteínas?",
+      "options": [{"text": "Mitocôndria"}, {"text": "Ribossomo"}, {"text": "Lisossomo"}, {"text": "Centríolo"}, {"text": "Peroxissomo"}],
+      "correct": 1
     },
     {
       "type": "ce",
-      "text": "Enunciado da afirmativa aqui...",
-      "correct": 0
+      "text": "As células procariontes possuem núcleo delimitado por membrana (carioteca).",
+      "correct": 1
     },
     {
       "type": "vf",
-      "text": "Julgue as afirmativas abaixo:",
-      "options": [{"text": "Primeira afirmativa", "isTrue": true}, {"text": "Segunda afirmativa", "isTrue": false}]
+      "text": "Julgue as afirmativas sobre divisão celular:",
+      "options": [
+        {"text": "A mitose gera duas células filhas idênticas.", "isTrue": true},
+        {"text": "A meiose ocorre em células somáticas.", "isTrue": false},
+        {"text": "O crossing-over aumenta a variabilidade genética.", "isTrue": true},
+        {"text": "A fase S da interfase é marcada pela duplicação do DNA.", "isTrue": true}
+      ]
     },
     {
       "type": "assoc",
-      "text": "Relacione os conceitos:",
-      "options": [{"text": "Conceito 1", "match": "Definição do conceito 1"}, {"text": "Conceito 2", "match": "Definição do conceito 2"}]
+      "text": "Associe as organelas às suas funções:",
+      "options": [
+        {"text": "Cloroplasto", "match": "Realiza a fotossíntese em plantas."},
+        {"text": "Complexo de Golgi", "match": "Modifica, empacota e secreta proteínas."},
+        {"text": "Lisossomo", "match": "Digestão intracelular."},
+        {"text": "Retículo Liso", "match": "Síntese de lipídios e desintoxicação."}
+      ]
     }
   ]
 }
 
-NUNCA DEIXE OS CAMPOS VAZIOS. PREENCHA COM CONTEÚDO REAL E DETALHADO.`;
+REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecimento real sobre ${aiGenConfig.value.subject} - ${aiGenConfig.value.topic}.`;
 
                         const schema = {
                             type: "OBJECT",
@@ -1389,29 +1458,28 @@ NUNCA DEIXE OS CAMPOS VAZIOS. PREENCHA COM CONTEÚDO REAL E DETALHADO.`;
                                                 }
                                             },
                                             correct: { type: "INTEGER" }
-                                        }
+                                        },
+                                        required: ["type", "text"]
                                     }
                                 }
-                            }
+                            },
+                            required: ["questions"]
                         };
 
                         let aiResult = await fetchGemini(promptText, schema);
                         
-                        // Extrai as questões dependendo de como a IA estruturou o JSON final
                         let gq = aiResult.questions || aiResult.items || aiResult;
                         if (typeof gq === 'object' && !Array.isArray(gq)) {
                             const arrKey = Object.keys(gq).find(k => Array.isArray(gq[k]));
                             gq = arrKey ? gq[arrKey] : [gq];
                         }
-                        if(!Array.isArray(gq)) throw new Error("O formato retornado pela IA é inválido.");
+                        if(!Array.isArray(gq) || gq.length === 0) throw new Error("A IA não gerou conteúdo. Tente novamente.");
                         
-                        // Normalização Robusta: Garante que os dados estão completos e corrige os formatos teimosos da IA para TODOS OS TIPOS
                         gq = gq.map(q => {
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
                             q.text = q.text || q.enunciado || q.pergunta || q.question || "Enunciado não gerado";
                             
-                            // Tenta encontrar opções mesmo que a IA use outro nome (opcoes, itens, alternativas)
                             let opts = q.options || q.opcoes || q.itens || q.alternativas || [];
                             if (typeof opts === 'object' && !Array.isArray(opts) && opts !== null) {
                                 opts = Object.values(opts).map(val => typeof val === 'object' ? val : { text: String(val) });
@@ -1420,21 +1488,24 @@ NUNCA DEIXE OS CAMPOS VAZIOS. PREENCHA COM CONTEÚDO REAL E DETALHADO.`;
                             
                             if (q.type === 'ce') {
                                 q.options = [{text: 'Certo'}, {text: 'Errado'}];
-                                
                                 let c = q.correct !== undefined ? q.correct : q.correto !== undefined ? q.correto : q.resposta;
                                 if (typeof c === 'string') {
                                     const cTxt = c.toLowerCase();
                                     if (cTxt.includes('errado') || cTxt.includes('f') || cTxt === 'e' || cTxt === '1' || cTxt === 'false') c = 1;
                                     else c = 0;
                                 } else if (typeof c === 'boolean') {
-                                    c = c ? 0 : 1; // true = Certo (0), false = Errado (1)
+                                    c = c ? 0 : 1; 
                                 }
                                 q.correct = Number(c);
                                 if (isNaN(q.correct) || q.correct < 0 || q.correct > 1) q.correct = 0;
                                 
                             } else if (q.type === 'mc') {
-                                q.options = opts.map(o => typeof o === 'string' ? {text: o} : o);
-                                while(q.options.length < 5) q.options.push({text: `Opção ${q.options.length + 1}`});
+                                q.options = opts.map(o => {
+                                    if (typeof o === 'string') return { text: o };
+                                    if (o && o.text) return { text: o.text };
+                                    return { text: "Opção omitida pela IA" };
+                                });
+                                while(q.options.length < 5) q.options.push({text: `Opção complementar automática`});
                                 
                                 let c = q.correct !== undefined ? q.correct : q.correto !== undefined ? q.correto : q.resposta;
                                 if (typeof c === 'string') {
@@ -1448,7 +1519,6 @@ NUNCA DEIXE OS CAMPOS VAZIOS. PREENCHA COM CONTEÚDO REAL E DETALHADO.`;
                             } else if (q.type === 'vf') {
                                 q.options = opts.map((opt, i) => {
                                     if (typeof opt === 'string') return { text: opt, isTrue: i%2===0 };
-                                    
                                     let isTrue = opt.isTrue !== undefined ? opt.isTrue : opt.verdadeiro !== undefined ? opt.verdadeiro : opt.correto !== undefined ? opt.correto : opt.resposta;
                                     if (typeof isTrue === 'string') {
                                         const t = isTrue.toLowerCase();
@@ -1458,7 +1528,7 @@ NUNCA DEIXE OS CAMPOS VAZIOS. PREENCHA COM CONTEÚDO REAL E DETALHADO.`;
                                     }
                                     return { text: opt.text || opt.item || opt.afirmacao || `Afirmativa ${i+1}`, isTrue: isTrue };
                                 });
-                                if (q.options.length === 0) q.options = [{text: 'Afirmativa 1', isTrue: true}, {text: 'Afirmativa 2', isTrue: false}];
+                                while (q.options.length < 4) q.options.push({text: `Afirmativa automática complementar`, isTrue: false});
                                 
                             } else if (q.type === 'assoc') {
                                 q.options = opts.map((opt, i) => {
@@ -1466,7 +1536,7 @@ NUNCA DEIXE OS CAMPOS VAZIOS. PREENCHA COM CONTEÚDO REAL E DETALHADO.`;
                                     let match = opt.match || opt.correspondencia || opt.corresp || opt.resposta || opt.definicao || `Definição ${i+1}`;
                                     return { text: opt.text || opt.conceito || opt.item || `Conceito ${i+1}`, match: String(match) };
                                 });
-                                if (q.options.length === 0) q.options = [{text: 'Conceito 1', match: 'Definição 1'}, {text: 'Conceito 2', match: 'Definição 2'}];
+                                while (q.options.length < 4) q.options.push({text: `Conceito complementar`, match: `Definição complementar correspondente`});
                             }
                             
                             return q;
@@ -1481,6 +1551,58 @@ NUNCA DEIXE OS CAMPOS VAZIOS. PREENCHA COM CONTEÚDO REAL E DETALHADO.`;
                     }finally{
                         isGeneratingAI.value=false;
                     }
+                };
+
+                const simulateAIGeneration = async () => {
+                    showToast("Simulando retorno da IA...", "loading");
+                    setTimeout(async () => {
+                        const mockQuestions = [
+                            {
+                                subject: aiGenConfig.value.subject || "Biologia",
+                                topic: aiGenConfig.value.topic || "Citologia",
+                                type: "mc",
+                                text: "Qual organela celular é conhecida como a 'usina de energia' da célula, sendo a principal responsável pela produção de ATP através da respiração celular?",
+                                options: [{text: "Complexo de Golgi"}, {text: "Mitocôndria"}, {text: "Ribossomo"}, {text: "Lisossomo"}, {text: "Retículo Endoplasmático"}],
+                                correct: 1
+                            },
+                            {
+                                subject: aiGenConfig.value.subject || "Biologia",
+                                topic: aiGenConfig.value.topic || "Citologia",
+                                type: "ce",
+                                text: "As células vegetais diferenciam-se das células animais por possuírem parede celular celulósica e cloroplastos, organelas responsáveis pela fotossíntese.",
+                                correct: 0,
+                                options: [{text: "Certo"}, {text: "Errado"}]
+                            },
+                            {
+                                subject: aiGenConfig.value.subject || "Biologia",
+                                topic: aiGenConfig.value.topic || "Citologia",
+                                type: "vf",
+                                text: "Julgue as afirmativas a seguir sobre a estrutura e função da membrana plasmática:",
+                                options: [
+                                    {text: "A membrana plasmática é formada por uma bicamada lipídica com proteínas nela inseridas.", isTrue: true},
+                                    {text: "Ela é totalmente impermeável, não permitindo a passagem de nenhuma substância.", isTrue: false},
+                                    {text: "O modelo do mosaico fluido descreve a estrutura dinâmica e flexível da membrana plasmática.", isTrue: true},
+                                    {text: "O transporte ativo de substâncias através da membrana ocorre sempre a favor do gradiente, sem gasto de energia (ATP).", isTrue: false}
+                                ]
+                            },
+                            {
+                                subject: aiGenConfig.value.subject || "Biologia",
+                                topic: aiGenConfig.value.topic || "Citologia",
+                                type: "assoc",
+                                text: "Associe corretamente as seguintes organelas citoplasmáticas com suas respectivas funções principais dentro da célula:",
+                                options: [
+                                    {text: "Lisossomo", match: "Responsável pela digestão intracelular de partículas e organelas envelhecidas."},
+                                    {text: "Complexo de Golgi", match: "Atua na modificação, empacotamento e secreção de proteínas e lipídios."},
+                                    {text: "Retículo Endoplasmático Rugoso", match: "Possui ribossomos aderidos à sua membrana e atua ativamente na síntese de proteínas."},
+                                    {text: "Ribossomo", match: "Pequena estrutura não membranosa responsável pela tradução e síntese de proteínas."}
+                                ]
+                            }
+                        ];
+                        await db.questions.bulkAdd(mockQuestions.reverse());
+                        await load();
+                        showAIGenModal.value = false;
+                        showToast("Simulação concluída! Verifique a aba Banca.", "success");
+                    }, 1200);
                 };
 
                 // --- SCORES & RESULTS ---
@@ -2222,7 +2344,7 @@ Siga as instruções ESTRITAMENTE:
                     correctionMode, activeStudent, activeExam, activeVersion, studentAnswers,
                     showManualInputModal, manualConfig, startManualEntry, confirmManualEntry, saveManualCorrection,
                     triggerAICorrection, processAICorrection,
-                    correctionQueue, isProcessingQueue, processedCount, stopQueue,
+                    correctionQueue, isProcessingQueue, processedCount, stopQueue, simulateAIGeneration,
 
                     // Diário (Schedules & Attendance)
                     periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter, attendanceMap, schedulesList, newSchedule,
