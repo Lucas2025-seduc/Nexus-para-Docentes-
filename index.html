@@ -2489,9 +2489,89 @@ Siga as instruções ESTRITAMENTE:
                                 
                                 qs.forEach((q,k)=>{
                                     let qB=[{text:`${k+1}. ${q.text}`,bold:true, fontSize: fSizeQ, margin: pSize ? [0,3,0,1] : [0,5]}]; 
+                                    
+                                    if (q.type === 'vf') {
+                                        qB[0].text += ' (Marque V ou F e assinale a alternativa com a sequência correta)';
+                                    } else if (q.type === 'assoc') {
+                                        qB[0].text += ' (Associe as colunas e assinale a alternativa com a sequência correta)';
+                                    }
+
                                     if(q.image) qB.push({image:q.image,width:imgWidth});
-                                    if(q.type==='assoc'||q.type==='vf') { let ao=q.options.map(o=>`( ) ${o.text}`).join('\n'); qB.push({text:ao, fontSize: fSizeOpt, margin: pSize ? [0,2] : [0,5]}); }
-                                    q.options.forEach((o,x)=>{if(q.type==='mc')qB.push({text:`${['a','b','c','d','e'][x]}) ${o.text}`, fontSize: fSizeOpt, margin:optMarg})});
+                                    
+                                    if (q.type === 'mc') {
+                                        q.options.forEach((o,x)=>{
+                                            qB.push({text:`${['A','B','C','D','E'][x]}) ${o.text}`, fontSize: fSizeOpt, margin:optMarg});
+                                        });
+                                    } else if (q.type === 'ce') {
+                                        qB.push({text:`A) Certo`, fontSize: fSizeOpt, margin:optMarg});
+                                        qB.push({text:`B) Errado`, fontSize: fSizeOpt, margin:optMarg});
+                                    } else if (q.type === 'vf') {
+                                        q.options.forEach(o => {
+                                            qB.push({ text: `(   ) ${o.text}`, fontSize: fSizeOpt, margin: pSize ? [10,2,0,2] : [10,4,0,4] });
+                                        });
+                                        let correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
+                                        let correctIdx = (q.id || 0) % 5;
+                                        let generatedSeqs = [];
+                                        let seed = (q.id || 1) + k;
+                                        let rand = () => { let x = Math.sin(seed++) * 10000; return x - Math.floor(x); };
+                                        
+                                        for(let i=0; i<5; i++){
+                                            if(i === correctIdx) generatedSeqs.push(correctSeq);
+                                            else {
+                                                let seq, att = 0;
+                                                do {
+                                                    seq = q.options.map(() => rand() > 0.5 ? 'V' : 'F').join(', ');
+                                                    att++;
+                                                } while ((seq === correctSeq || generatedSeqs.includes(seq)) && att < 20);
+                                                generatedSeqs.push(seq);
+                                            }
+                                        }
+                                        qB.push({ text: ' ', fontSize: 4 });
+                                        generatedSeqs.forEach((seq, x) => {
+                                            qB.push({ text: `${['A','B','C','D','E'][x]}) ${seq}`, fontSize: fSizeOpt, margin:optMarg });
+                                        });
+                                    } else if (q.type === 'assoc') {
+                                        let seed = (q.id || 2) + k;
+                                        let rand = () => { let x = Math.sin(seed++) * 10000; return x - Math.floor(x); };
+                                        
+                                        let defs = q.options.map((o, idx) => ({ match: o.match, originalIdx: idx + 1 }));
+                                        defs.sort(() => rand() - 0.5);
+                                        
+                                        let correctSeq = defs.map(d => d.originalIdx).join(', ');
+                                        let correctIdx = (q.id || 0) % 5;
+                                        
+                                        let leftCol = q.options.map((o, idx) => `${idx + 1}. ${o.text}`).join('\n\n');
+                                        let rightCol = defs.map((d) => `(   ) ${d.match}`).join('\n\n');
+                                        
+                                        qB.push({
+                                            columns: [
+                                                { text: leftCol, width: '45%', fontSize: fSizeOpt, margin: [10, 2] },
+                                                { text: rightCol, width: '55%', fontSize: fSizeOpt, margin: [5, 2] }
+                                            ],
+                                            margin: pSize ? [0,2] : [0,5]
+                                        });
+                                        
+                                        let generatedSeqs = [];
+                                        let nOpts = q.options.length;
+                                        for(let i=0; i<5; i++) {
+                                            if(i === correctIdx) generatedSeqs.push(correctSeq);
+                                            else {
+                                                let seqArr = Array.from({length: nOpts}, (_, i) => i + 1);
+                                                let seq, att = 0;
+                                                do {
+                                                    seqArr.sort(() => rand() - 0.5);
+                                                    seq = seqArr.join(', ');
+                                                    att++;
+                                                } while ((seq === correctSeq || generatedSeqs.includes(seq)) && att < 20);
+                                                generatedSeqs.push(seq);
+                                            }
+                                        }
+                                        qB.push({ text: ' ', fontSize: 4 });
+                                        generatedSeqs.forEach((seq, x) => {
+                                            qB.push({ text: `${['A','B','C','D','E'][x]}) ${seq}`, fontSize: fSizeOpt, margin:optMarg });
+                                        });
+                                    }
+
                                     cont.push({stack:qB,margin: pSize ? [0,0,0,5] : [0,0,0,10]});
                                 });
                                 
@@ -2645,9 +2725,89 @@ Siga as instruções ESTRITAMENTE:
                         
                         qs.forEach((q,k)=>{
                             let qB=[{text:`${k+1}. ${q.text}`,bold:true, fontSize: fSizeQ, margin: pSize ? [0,3,0,1] : [0,5]}]; 
+                            
+                            if (q.type === 'vf') {
+                                qB[0].text += ' (Marque V ou F e assinale a alternativa com a sequência correta)';
+                            } else if (q.type === 'assoc') {
+                                qB[0].text += ' (Associe as colunas e assinale a alternativa com a sequência correta)';
+                            }
+
                             if(q.image) qB.push({image:q.image,width:imgWidth});
-                            if(q.type==='assoc'||q.type==='vf') { let ao=q.options.map(o=>`( ) ${o.text}`).join('\n'); qB.push({text:ao, fontSize: fSizeOpt, margin: pSize ? [0,2] : [0,5]}); }
-                            q.options.forEach((o,x)=>{if(q.type==='mc')qB.push({text:`${['a','b','c','d','e'][x]}) ${o.text}`, fontSize: fSizeOpt, margin:optMarg})});
+                            
+                            if (q.type === 'mc') {
+                                q.options.forEach((o,x)=>{
+                                    qB.push({text:`${['A','B','C','D','E'][x]}) ${o.text}`, fontSize: fSizeOpt, margin:optMarg});
+                                });
+                            } else if (q.type === 'ce') {
+                                qB.push({text:`A) Certo`, fontSize: fSizeOpt, margin:optMarg});
+                                qB.push({text:`B) Errado`, fontSize: fSizeOpt, margin:optMarg});
+                            } else if (q.type === 'vf') {
+                                q.options.forEach(o => {
+                                    qB.push({ text: `(   ) ${o.text}`, fontSize: fSizeOpt, margin: pSize ? [10,2,0,2] : [10,4,0,4] });
+                                });
+                                let correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
+                                let correctIdx = (q.id || 0) % 5;
+                                let generatedSeqs = [];
+                                let seed = (q.id || 1) + k;
+                                let rand = () => { let x = Math.sin(seed++) * 10000; return x - Math.floor(x); };
+                                
+                                for(let i=0; i<5; i++){
+                                    if(i === correctIdx) generatedSeqs.push(correctSeq);
+                                    else {
+                                        let seq, att = 0;
+                                        do {
+                                            seq = q.options.map(() => rand() > 0.5 ? 'V' : 'F').join(', ');
+                                            att++;
+                                        } while ((seq === correctSeq || generatedSeqs.includes(seq)) && att < 20);
+                                        generatedSeqs.push(seq);
+                                    }
+                                }
+                                qB.push({ text: ' ', fontSize: 4 });
+                                generatedSeqs.forEach((seq, x) => {
+                                    qB.push({ text: `${['A','B','C','D','E'][x]}) ${seq}`, fontSize: fSizeOpt, margin:optMarg });
+                                });
+                            } else if (q.type === 'assoc') {
+                                let seed = (q.id || 2) + k;
+                                let rand = () => { let x = Math.sin(seed++) * 10000; return x - Math.floor(x); };
+                                
+                                let defs = q.options.map((o, idx) => ({ match: o.match, originalIdx: idx + 1 }));
+                                defs.sort(() => rand() - 0.5);
+                                
+                                let correctSeq = defs.map(d => d.originalIdx).join(', ');
+                                let correctIdx = (q.id || 0) % 5;
+                                
+                                let leftCol = q.options.map((o, idx) => `${idx + 1}. ${o.text}`).join('\n\n');
+                                let rightCol = defs.map((d) => `(   ) ${d.match}`).join('\n\n');
+                                
+                                qB.push({
+                                    columns: [
+                                        { text: leftCol, width: '45%', fontSize: fSizeOpt, margin: [10, 2] },
+                                        { text: rightCol, width: '55%', fontSize: fSizeOpt, margin: [5, 2] }
+                                    ],
+                                    margin: pSize ? [0,2] : [0,5]
+                                });
+                                
+                                let generatedSeqs = [];
+                                let nOpts = q.options.length;
+                                for(let i=0; i<5; i++) {
+                                    if(i === correctIdx) generatedSeqs.push(correctSeq);
+                                    else {
+                                        let seqArr = Array.from({length: nOpts}, (_, i) => i + 1);
+                                        let seq, att = 0;
+                                        do {
+                                            seqArr.sort(() => rand() - 0.5);
+                                            seq = seqArr.join(', ');
+                                            att++;
+                                        } while ((seq === correctSeq || generatedSeqs.includes(seq)) && att < 20);
+                                        generatedSeqs.push(seq);
+                                    }
+                                }
+                                qB.push({ text: ' ', fontSize: 4 });
+                                generatedSeqs.forEach((seq, x) => {
+                                    qB.push({ text: `${['A','B','C','D','E'][x]}) ${seq}`, fontSize: fSizeOpt, margin:optMarg });
+                                });
+                            }
+
                             cont.push({stack:qB,margin: pSize ? [0,0,0,5] : [0,0,0,10]});
                         });
                         
@@ -3142,22 +3302,21 @@ Siga as instruções ESTRITAMENTE:
                     
                     // Exams
                     examCart, examConfig, editingExamId, printConfig,
-                    filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilterSubject.value || (q.subject && q.subject.toLowerCase().includes(examFilterSubject.value.toLowerCase()))) && (!examFilterTopic.value || (q.topic && q.topic.toLowerCase().includes(examFilterTopic.value.toLowerCase()))) && (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase()) || (q.subject && q.subject.toLowerCase().includes(examFilter.value.toLowerCase())) || (q.topic && q.topic.toLowerCase().includes(examFilter.value.toLowerCase()))))),
-                    filteredHistoryExams: computed(()=>exams.value.filter(e=>!examHistoryFilter.value||e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()))),
-                    openEditExam, saveEditedExam, generatePDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF, generateKeyPDF, generateCommentedKeyPDF,
-                    toggleExamQ: q=>{let i=examCart.value.findIndex(x=>x.id===q.id);i>-1?examCart.value.splice(i,1):examCart.value.push(q)}, isQInExam: id=>examCart.value.some(q=>q.id===id), deleteExam: id=>triggerConfirm("Tem certeza que deseja apagar esta prova e os seus resultados?",async()=>{await db.exams.delete(id);load()}),
-                    
-                    // Fix Key
+                    filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilterSubject.value || (q.subject && q.subject.toLowerCase().includes(examFilterSubject.value.toLowerCase()))) && (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase())))),
+                    isQInExam: (id) => examCart.value.some(q => q.id === id),
+                    toggleExamQ: (q) => { const idx = examCart.value.findIndex(x => x.id === q.id); if (idx > -1) examCart.value.splice(idx, 1); else examCart.value.push(JSON.parse(JSON.stringify(q))); },
+                    openEditExam, saveEditedExam, generatePDF, reprintExamPDF, generateKeyPDF, generateCommentedKeyPDF,
+                    generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF,
                     showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, loadFixKeyQuestions, openFixKey, saveFixedKey,
                     
-                    // Reports
-                    manualStudents: computed(()=>students.value.filter(s=>s.classId===exams.value.find(e=>e.id===manualConfig.value.examId)?.classId)),
-                    selectedExamVersions: computed(()=>exams.value.find(e=>e.id===manualConfig.value.examId)?.versions||[{}]),
+                    filteredHistoryExams: computed(() => exams.value.filter(e => !examHistoryFilter.value || e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()))),
+                    deleteExam: (id) => { triggerConfirm("Tem certeza que deseja apagar esta prova?", async () => { await db.results.where('examId').equals(id).delete(); await db.exams.delete(id); load(); showToast("Prova excluída", "success"); }); },
+                    
+                    getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution,
                     studentExamsList, studentExtraPointsList, studentTotalExtraPoints, studentBimesterAverage,
-                    getClassRanking, getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution, 
-                    openStudentProfile: id => {
-                        studentDetails.value = { ...students.value.find(s=>s.id===id) };
-                        if (!studentDetails.value.notes) studentDetails.value.notes = '';
+                    
+                    openStudentProfile: async (studentId) => {
+                        studentDetails.value = getStudent(studentId);
                         selectedBimester.value = 'notes';
                         showStudentModal.value = true;
                     },
