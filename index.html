@@ -1101,6 +1101,29 @@
                 const triggerConfirm = (msg, act) => { confirmModal.value={show:true,message:msg,onConfirm:act}; };
                 const handleConfirm = (res) => { confirmModal.value.show=false; if(res&&confirmModal.value.onConfirm)confirmModal.value.onConfirm(); confirmModal.value.onConfirm=null; };
                 
+                // Helper para Mobile (Corrige falha silenciosa de download em telemóveis)
+                const downloadPDF = (pdfMakeInstance, fileName) => {
+                    showToast("Processando documento...", "loading");
+                    pdfMakeInstance.getBlob((blob) => {
+                        try {
+                            const url = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = fileName;
+                            link.style.display = 'none';
+                            document.body.appendChild(link);
+                            link.click();
+                            setTimeout(() => {
+                                document.body.removeChild(link);
+                                window.URL.revokeObjectURL(url);
+                                showToast("Transferência concluída!", "success");
+                            }, 500);
+                        } catch (err) {
+                            showToast("Falha ao salvar. Verifique as permissões.", "error");
+                        }
+                    });
+                };
+                
                 const _0xabc123=async function(_1,_2){const _3="NEXUS_SECURE_KEY_2025_PRO_V1";const _4=async(_5)=>{const _6=new TextEncoder().encode(_5);const _7=await crypto.subtle.digest("SHA-256",_6);const _8=Array.from(new Uint8Array(_7));const _9=_8.map(a=>a.toString(16).padStart(2,'0')).join('').toUpperCase().substring(0,12);return `${_9.slice(0,4)}-${_9.slice(4,8)}-${_9.slice(8,12)}`;};const _b=_2.split('-');if(_b.length===3){if(_2===await _4(_1+_3))return{valid:!0,type:'permanent'};}else if(_b.length===4){const _d=_b[0],_e=_b.slice(1).join('-');if(_e===await _4(_1+_d+_3)){const _10=parseInt(_d,16);if(Math.floor(Date.now()/3600000)<=_10)return{valid:!0,type:'temporal',expireHours:_10};else return{valid:!1,expired:!0};}}return{valid:!1};};
                 
                 const initLicenseSystem = async () => {
@@ -1308,7 +1331,7 @@
                         defaultStyle: { font: 'Roboto' }
                     };
                     let now = new Date();
-                    pdfMake.createPdf(doc).download(`Mapa_Sala_${getClassName(seatingClassId.value)}_${now.toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
+                    downloadPDF(pdfMake.createPdf(doc), `Mapa_Sala_${getClassName(seatingClassId.value)}_${now.toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
                 };
 
                 // --- DIÁRIO FUNCIONALIDADES (Por Aula) ---
@@ -2600,12 +2623,10 @@ Siga as instruções ESTRITAMENTE:
                         if (!safeTitle) safeTitle = "Avaliacao";
                         let fileName = `${safeTitle}_${dStr}_${tStr}.pdf`;
 
-                        pdfMake.createPdf({
+                        downloadPDF(pdfMake.createPdf({
                             pageMargins: pSize ? [20, 20, 20, 20] : [40, 40, 40, 40],
                             content: cont
-                        }).download(fileName);
-                        
-                        showToast("Gerado","success");
+                        }), fileName);
                     });
                 };
 
@@ -2826,12 +2847,10 @@ Siga as instruções ESTRITAMENTE:
                     let safeTitle = (exam.title || "Avaliacao").replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_');
                     let fileName = `${safeTitle}_Reimpressao_${dStr}.pdf`;
 
-                    pdfMake.createPdf({
+                    downloadPDF(pdfMake.createPdf({
                         pageMargins: pSize ? [20, 20, 20, 20] : [40, 40, 40, 40],
                         content: cont
-                    }).download(fileName);
-                    
-                    showToast("Reimpressão iniciada", "success");
+                    }), fileName);
                 };
 
                 const generateClassReportPDF = () => {
@@ -2865,7 +2884,7 @@ Siga as instruções ESTRITAMENTE:
                             }
                         ]
                     };
-                    pdfMake.createPdf(doc).download(`Relatorio_${cls.name}.pdf`);
+                    downloadPDF(pdfMake.createPdf(doc), `Relatorio_${cls.name}.pdf`);
                 };
 
                 const generateGeneralReportPDF = async (classIdParam = null) => {
@@ -2950,7 +2969,7 @@ Siga as instruções ESTRITAMENTE:
                         styles: { footer: { italics: true }, tableHeader: { fontSize: 10, margin: [0, 6] } },
                         defaultStyle: { font: 'Roboto' }
                     };
-                    pdfMake.createPdf(doc).download(`Boletim_Geral_${className}.pdf`);
+                    downloadPDF(pdfMake.createPdf(doc), `Boletim_Geral_${className}.pdf`);
                 };
 
                 const generateAttendanceReportPDF = async (classIdParam = null) => {
@@ -3046,7 +3065,7 @@ Siga as instruções ESTRITAMENTE:
                     
                     let now = new Date();
                     let dStr = now.toLocaleDateString('pt-BR').replace(/\//g, '-');
-                    pdfMake.createPdf(doc).download(`Relatorio_Faltas_${className}_${dStr}.pdf`);
+                    downloadPDF(pdfMake.createPdf(doc), `Relatorio_Faltas_${className}_${dStr}.pdf`);
                 };
 
                 const generateKeyPDF = (exam) => {
@@ -3071,13 +3090,13 @@ Siga as instruções ESTRITAMENTE:
                             keyBody.push(row);
                         }
                     }
-                    pdfMake.createPdf({
+                    downloadPDF(pdfMake.createPdf({
                         content: [
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: `GABARITO - ${exam.title}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 10, 0, 20] },
                             { table: { headerRows: 1, widths: ['auto', ...exam.versions.map(()=>'*')], body: keyBody }, layout: 'lightHorizontalLines' }
                         ]
-                    }).download(`Gabarito_${exam.title}.pdf`);
+                    }), `Gabarito_${exam.title}.pdf`);
                 };
 
                 const generateCommentedKeyPDF = (exam) => {
@@ -3125,7 +3144,7 @@ Siga as instruções ESTRITAMENTE:
                     } else {
                         content.push({ text: 'Nenhuma questão encontrada.', alignment: 'center', italics: true });
                     }
-                    pdfMake.createPdf({ content, styles: {} }).download(`Gabarito_Comentado_${exam.title}.pdf`);
+                    downloadPDF(pdfMake.createPdf({ content, styles: {} }), `Gabarito_Comentado_${exam.title}.pdf`);
                 };
 
                 const getClassRanking = (classId, order = 'desc') => {
