@@ -3291,22 +3291,22 @@ Siga as instruções ESTRITAMENTE:
                     // Classes & Students
                     newClass, bulkStudents, addClass, saveStudents, getStudentCount, getFilteredStudents, studentFilter, filteredClasses:computed(()=>classes.value.filter(c=>c.name.toLowerCase().includes(studentFilter.value.toLowerCase()))), getClassName,
                     deleteStudent:(id)=>{triggerConfirm("Tem certeza que deseja apagar este aluno?",async()=>{await db.students.delete(id);load()})}, deleteClass,
-                    getStudent, uploadStudentPhoto,
+                    filteredHistoryExams: computed(()=>exams.value.filter(e=>!examHistoryFilter.value||e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()))),
+                    openEditExam, saveEditedExam, generatePDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF, generateKeyPDF, generateCommentedKeyPDF,
+                    toggleExamQ: q=>{let i=examCart.value.findIndex(x=>x.id===q.id);i>-1?examCart.value.splice(i,1):examCart.value.push(q)}, isQInExam: id=>examCart.value.some(q=>q.id===id), 
+                    deleteExam: id=>triggerConfirm("Tem certeza que deseja apagar esta prova e os seus resultados?", async () => {
+                        try {
+                            const resultsToDelete = results.value.filter(r => r.examId === id).map(r => r.id);
+                            if (resultsToDelete.length > 0) await db.results.bulkDelete(resultsToDelete);
+                            await db.exams.delete(id);
+                            await load();
+                            showToast("Prova apagada com sucesso!", "success");
+                        } catch (err) {
+                            showToast("Erro ao apagar prova", "error");
+                        }
+                    }),
                     
-                    // Questions
-                    uniqueTopics: computed(() => [...new Set(questions.value.map(q => q.topic).filter(Boolean))].sort()),
-                    uniqueSubjects: computed(() => [...new Set(questions.value.map(q => q.subject).filter(Boolean))].sort()),
-                    filteredQuestions: computed(() => questions.value.filter(q => (!qFilter.value || q.text.toLowerCase().includes(qFilter.value.toLowerCase()) || (q.topic && q.topic.toLowerCase().includes(qFilter.value.toLowerCase()))) && (!filterType.value || q.type === filterType.value) && (!filterSubject.value || (q.subject && q.subject.toLowerCase().includes(filterSubject.value.toLowerCase()))) && (!filterTopic.value || (q.topic && q.topic.toLowerCase().includes(filterTopic.value.toLowerCase()))))),
-                    changeQType, openQForm, saveQuestion, editQuestion, deleteQuestion: id=>triggerConfirm("Tem certeza que deseja apagar esta questão?",async()=>{await db.questions.delete(id);load()}), deleteAllQuestions,
-                    qType, newQ, showQFormModal, formSource, handleImageUpload: e=>{let r=new FileReader();r.onload=ev=>newQ.value.image=ev.target.result;r.readAsDataURL(e.target.files[0])},
-                    
-                    // Exams
-                    examCart, examConfig, editingExamId, printConfig,
-                    filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilterSubject.value || (q.subject && q.subject.toLowerCase().includes(examFilterSubject.value.toLowerCase()))) && (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase())))),
-                    isQInExam: (id) => examCart.value.some(q => q.id === id),
-                    toggleExamQ: (q) => { const idx = examCart.value.findIndex(x => x.id === q.id); if (idx > -1) examCart.value.splice(idx, 1); else examCart.value.push(JSON.parse(JSON.stringify(q))); },
-                    openEditExam, saveEditedExam, generatePDF, reprintExamPDF, generateKeyPDF, generateCommentedKeyPDF,
-                    generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF,
+                    // Fix Key
                     showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, loadFixKeyQuestions, openFixKey, saveFixedKey,
                     
                     filteredHistoryExams: computed(() => exams.value.filter(e => !examHistoryFilter.value || e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()))),
