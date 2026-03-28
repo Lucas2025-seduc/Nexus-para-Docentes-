@@ -1855,7 +1855,7 @@ ${chatContext}
 NOVA AÇÃO DO USUÁRIO: "${userQuery}"
 
 REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
-1. Em 'reply', seja breve e confirme se vai preparar as ações ou responda à pergunta do usuário.
+1. Em 'reply', NUNCA diga que já executou, fez ou alterou os dados. Você não tem permissão para alterar nada diretamente. Diga SEMPRE algo como: "Preparei a ação solicitada. Por favor, clique no botão 'Confirmar Tudo' abaixo para aplicar as mudanças de forma segura."
 2. NOTAS (Lançar/Apagar): Se o usuário falar em notas, você precisa de studentId, examId e score (se for lançar). Se faltar saber a prova, pergunte. Use actionType "update_grade" ou "delete_grade".
 3. CHAMADA RÁPIDA EM LOTE (NOVO SUPER PODER): Se o professor disser algo como "Faltaram João e Maria" ou "Ninguém faltou na turma X hoje", ele quer lançar a caderneta de uma vez.
    - Encontre de qual turma os alunos citados são (olhando o contexto de Alunos).
@@ -1864,7 +1864,8 @@ REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
    - Gere a ação com actionType="bulk_attendance", preencha 'classId', 'date' (${todayDate}), 'period' (ex: "1ª Aula") e forneça a lista dos IDs dos alunos ausentes em 'absentStudentIds' (array de inteiros). Se ninguém faltou, envie []. O aplicativo vai cuidar de dar presença automática para os demais.
 4. FREQUÊNCIA INDIVIDUAL: Se quiser apenas corrigir uma falta antiga de alguém sem mexer no resto, use actionType="set_attendance" informando studentId, date, period e status ("P", "F" ou "J").
 5. HORÁRIO: actionType="add_schedule", forneça classId, day (ex: "Segunda") e period (ex: "2ª Aula").
-6. Se não conseguir identificar os parâmetros essenciais ou houver conflito de nomes de alunos, responda (reply) pedindo esclarecimentos e envie hasAction=false.
+6. Se não conseguir identificar os parâmetros essenciais ou houver conflito de nomes de alunos, responda (reply) pedindo esclarecimentos e envie hasAction=false e a lista de actions vazia.
+7. OBRIGATÓRIO: Se enviar qualquer item no array 'actions', defina 'hasAction' como true.
 
 RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
 
@@ -1898,6 +1899,11 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                         };
 
                         const aiResult = await fetchGemini(promptText, schema);
+                        
+                        // Trava de segurança: Forçar exibição do botão caso a IA crie as ações mas esqueça de ligar a flag
+                        if (aiResult && aiResult.actions && aiResult.actions.length > 0) {
+                            aiResult.hasAction = true;
+                        }
                         
                         if(aiResult && aiResult.reply) {
                             assistantHistory.value.push({
