@@ -2507,7 +2507,7 @@ Siga as instruções ESTRITAMENTE:
                                         { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 2, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] },
                                         { text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 4], fillColor: rColor }
                                     ];
-                                    let l = (q.type === 'ce') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'];
+                                    let l = (q.type === 'ce') ? ['A', 'B'] : ['A', 'B', 'C', 'D', 'E'];
                                     for (let j = 0; j < 5; j++) {
                                         if (j < l.length) {
                                             rw.push({ 
@@ -2742,7 +2742,7 @@ Siga as instruções ESTRITAMENTE:
                                 { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 2, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] },
                                 { text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 4], fillColor: rColor }
                             ];
-                            let l = (q.type === 'ce') ? ['C', 'E'] : ['A', 'B', 'C', 'D', 'E'];
+                            let l = (q.type === 'ce') ? ['A', 'B'] : ['A', 'B', 'C', 'D', 'E'];
                             for (let j = 0; j < 5; j++) {
                                 if (j < l.length) {
                                     rw.push({ 
@@ -3142,7 +3142,7 @@ Siga as instruções ESTRITAMENTE:
                                 const q = exam.versions[v].questions[i];
                                 let label = '-';
                                 if (q) {
-                                    if (q.type === 'ce') label = ['C', 'E'][q.correctIndex] || '?';
+                                    if (q.type === 'ce') label = ['A', 'B'][q.correctIndex] || '?';
                                     else if (q.type === 'vf' || q.type === 'assoc') {
                                         const correctPos = (q.id || 0) % 5;
                                         label = ['A', 'B', 'C', 'D', 'E'][correctPos];
