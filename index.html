@@ -323,7 +323,13 @@
                  <div class="bg-white p-5 rounded-2xl shadow-sm border">
                     <div class="flex items-center gap-4 border-b pb-4 mb-4"><label class="w-14 h-14 rounded-xl border-2 border-dashed bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer"><img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-cover"><i v-else class="fa-solid fa-school text-gray-300 text-xl"></i><input type="file" @change="e => {const r=new FileReader(); r.onload=ev=>{settings.logo=ev.target.result; saveSettings(true)}; r.readAsDataURL(e.target.files[0])}" class="hidden"></label><div class="flex-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Instituição</label><input v-model="settings.schoolName" placeholder="Escola" class="font-bold text-indigo-700 text-lg w-full outline-none bg-transparent" @change="saveSettings(true)"></div></div>
                     <div class="space-y-3">
-                        <div v-if="editingExamId" class="bg-blue-50 border border-blue-200 text-blue-700 p-3 rounded-xl mb-2 text-[10px]"><div class="flex justify-between font-bold mb-1"><span><i class="fa-solid fa-pen-to-square"></i> Edição Segura Ativa</span><button @click="editingExamId=null; examCart=[]" class="text-blue-400"><i class="fa-solid fa-times"></i></button></div><p>Se corrigir apenas textos, os gabaritos impressos continuarão válidos.</p></div>
+                        <div v-if="editingExamId" class="bg-indigo-50 border border-indigo-200 text-indigo-800 p-3 rounded-xl mb-3 text-xs shadow-inner">
+                            <div class="flex justify-between font-black mb-1 text-sm items-center">
+                                <span class="flex items-center gap-2"><i class="fa-solid fa-shield-halved text-indigo-500 text-lg"></i> EDIÇÃO SEGURA ATIVA</span>
+                                <button @click="editingExamId=null; examCart=[]" class="text-indigo-400 hover:text-indigo-700 bg-white rounded-full w-6 h-6 flex items-center justify-center shadow-sm transition"><i class="fa-solid fa-times"></i></button>
+                            </div>
+                            <p class="leading-tight mt-1 font-medium text-indigo-600">A estrutura desta prova está <strong class="uppercase text-indigo-800">trancada</strong> para proteger os QR Codes impressos. <br>Você só pode corrigir erros de digitação. Se precisar adicionar/remover questões, cancele e use a opção <strong class="text-purple-600"><i class="fa-solid fa-copy"></i> Duplicar</strong> no histórico.</p>
+                        </div>
                         <input v-model="examConfig.title" placeholder="Título da Avaliação" class="w-full font-bold border-b outline-none pb-2">
                         
                         <div>
@@ -366,14 +372,17 @@
                 </div>
 
                 <div class="flex-1 bg-white rounded-2xl shadow-sm flex flex-col overflow-hidden border min-h-[300px]">
-                    <div class="flex border-b"><button @click="examTab='all'" :class="examTab==='all'?'text-indigo-600 border-indigo-600 bg-indigo-50/50':'border-transparent text-gray-400'" class="flex-1 py-3 text-xs font-bold border-b-2">BANCO</button><button @click="examTab='selected'" :class="examTab==='selected'?'text-indigo-600 border-indigo-600 bg-indigo-50/50':'border-transparent text-gray-400'" class="flex-1 py-3 text-xs font-bold border-b-2">SELEC. ({{examCart.length}})</button></div>
+                    <div class="flex border-b">
+                        <button v-if="!editingExamId" @click="examTab='all'" :class="examTab==='all'?'text-indigo-600 border-indigo-600 bg-indigo-50/50':'border-transparent text-gray-400'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">BANCO</button>
+                        <button @click="examTab='selected'" :class="examTab==='selected'?'text-indigo-600 border-indigo-600 bg-indigo-50/50':'border-transparent text-gray-400'" class="flex-1 py-3 text-xs font-bold border-b-2 transition">SELEC. ({{examCart.length}})</button>
+                    </div>
                     <div v-if="examTab==='all'" class="p-2 bg-gray-50 flex gap-2"><input list="dl-subjects" v-model="examFilterSubject" placeholder="Disciplina" class="w-1/3 border rounded-lg px-2 text-xs outline-none"><input v-model="examFilter" placeholder="Buscar..." class="flex-1 border rounded-lg px-2 text-xs outline-none"><button @click="openQForm('exam')" class="bg-gray-800 text-white px-2 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus"></i></button></div>
                     <div class="flex-1 overflow-y-auto p-2 bg-gray-50/30">
                         <div v-if="examTab==='all'">
                             <div v-for="q in filteredExamQuestions" :key="q.id" class="p-3 rounded-xl border mb-2 cursor-pointer flex gap-3 bg-white" @click="toggleExamQ(q)" :class="isQInExam(q.id)?'border-indigo-500 bg-indigo-50/30':''"><i :class="isQInExam(q.id)?'fa-solid fa-check-square text-indigo-600':'fa-regular fa-square text-gray-300'"></i><div class="flex-1"><div class="flex justify-between mb-1"><span class="text-[9px] bg-gray-100 px-1.5 rounded font-bold uppercase">{{q.subject}}</span><button @click.stop="editQuestion(q)" class="text-[9px] text-gray-400 hover:text-indigo-600"><i class="fa-solid fa-pencil"></i> Editar</button></div><p class="text-xs text-gray-700">{{q.text}}</p></div></div>
                         </div>
                         <div v-if="examTab==='selected'">
-                            <div v-for="(q, idx) in examCart" :key="q.id" class="p-3 rounded-xl border bg-white mb-2 flex gap-3"><span class="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold">{{idx+1}}</span><div class="flex-1"><p class="text-xs">{{q.text}}</p></div><div class="flex flex-col gap-1"><button @click="toggleExamQ(q)" class="text-red-400"><i class="fa-solid fa-trash-can"></i></button></div></div>
+                            <div v-for="(q, idx) in examCart" :key="q.id" class="p-3 rounded-xl border bg-white mb-2 flex gap-3"><span class="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-none">{{idx+1}}</span><div class="flex-1"><p class="text-xs">{{q.text}}</p></div><div class="flex flex-col gap-1"><button v-if="!editingExamId" @click="toggleExamQ(q)" class="text-red-400 hover:text-red-600 transition"><i class="fa-solid fa-trash-can"></i></button></div></div>
                         </div>
                     </div>
                 </div>
@@ -788,20 +797,22 @@
             <div class="bg-white rounded-3xl w-full max-w-lg h-[80vh] flex flex-col shadow-2xl overflow-hidden">
                 <div class="p-5 border-b flex justify-between bg-gray-50"><h3 class="font-black text-gray-800"><i class="fa-solid fa-clock-rotate-left text-indigo-600 mr-2"></i> Histórico de Provas</h3><button @click="showHistory=false" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button></div>
                 <div class="overflow-y-auto p-4 space-y-3 bg-gray-50/50 flex-1">
-                    <div v-for="e in filteredHistoryExams" :key="e.id" class="bg-white border border-gray-100 rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow transition">
-                        <div class="flex-1 pr-3">
-                            <div class="font-bold text-sm text-gray-800">{{e.title}}</div>
-                            <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-1.5 mb-2"><i class="fa-regular fa-calendar-check text-indigo-400"></i> Editada em: <span class="font-bold text-gray-600">{{formatDateTime(e.date)}}</span></div>
+                    <div v-for="e in filteredHistoryExams" :key="e.id" class="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col gap-3 shadow-sm hover:shadow transition">
+                        <div>
+                            <div class="font-bold text-sm text-gray-800">{{e?.title}}</div>
+                            <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-1.5 mb-2"><i class="fa-regular fa-calendar-check text-indigo-400"></i> Editada em: <span class="font-bold text-gray-600">{{formatDateTime(e?.date)}}</span></div>
                             <div class="text-[9px] font-black uppercase tracking-widest flex gap-1.5">
-                                <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">{{getClassName(e.classId)}}</span>
-                                <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md border border-gray-200">{{e.bimester}}º Bim</span>
+                                <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">{{getClassName(e?.classId)}}</span>
+                                <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md border border-gray-200">{{e?.bimester}}º Bim</span>
                             </div>
                         </div>
-                        <div class="flex gap-1.5">
-                            <button @click="reprintExamPDF(e)" class="w-10 h-10 rounded-xl bg-blue-50 hover:bg-blue-500 hover:text-white text-blue-600 transition flex items-center justify-center" title="Reimprimir Prova (PDF)"><i class="fa-solid fa-print"></i></button>
-                            <button @click="openFixKey(e)" class="w-10 h-10 rounded-xl bg-orange-50 hover:bg-orange-500 hover:text-white text-orange-600 transition flex items-center justify-center" title="Corrigir Gabarito"><i class="fa-solid fa-list-check"></i></button>
-                            <button @click="generateKeyPDF(e)" class="w-10 h-10 rounded-xl bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Gabarito PDF"><i class="fa-solid fa-key"></i></button>
-                            <button @click="deleteExam(e.id)" class="w-10 h-10 rounded-xl bg-red-50 hover:bg-red-500 hover:text-white text-red-500 transition flex items-center justify-center" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                        <div class="flex gap-1.5 flex-wrap">
+                            <button @click="reprintExamPDF(e)" class="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-500 hover:text-white text-blue-600 transition flex items-center justify-center" title="Reimprimir Prova (PDF)"><i class="fa-solid fa-print"></i></button>
+                            <button @click="openEditExam(e)" class="w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-600 transition flex items-center justify-center" title="Revisar Textos (Seguro)"><i class="fa-solid fa-pen"></i></button>
+                            <button @click="duplicateExam(e)" class="w-8 h-8 rounded-lg bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-600 transition flex items-center justify-center" title="Duplicar Prova (Cria Nova)"><i class="fa-solid fa-copy"></i></button>
+                            <button @click="openFixKey(e)" class="w-8 h-8 rounded-lg bg-orange-50 hover:bg-orange-500 hover:text-white text-orange-600 transition flex items-center justify-center" title="Corrigir Gabarito"><i class="fa-solid fa-list-check"></i></button>
+                            <button @click="generateKeyPDF(e)" class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Gabarito PDF"><i class="fa-solid fa-key"></i></button>
+                            <button @click="deleteExam(e.id)" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-500 hover:text-white text-red-500 transition flex items-center justify-center" title="Excluir"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     </div>
                     <div v-if="filteredHistoryExams.length === 0" class="text-center py-12 text-gray-400 flex flex-col items-center justify-center">
@@ -2383,7 +2394,20 @@ Siga as instruções ESTRITAMENTE:
                 const openEditExam = (e) => {
                     examConfig.value = { ...e, classIds: [e.classId] };
                     examCart.value = JSON.parse(JSON.stringify(getVersionQuestions(e, 0)));
-                    editingExamId.value = e.id; currentView.value = 'exams'; showHistory.value = false;
+                    editingExamId.value = e.id; 
+                    examTab.value = 'selected';
+                    currentView.value = 'exams'; 
+                    showHistory.value = false;
+                };
+
+                const duplicateExam = (e) => {
+                    examConfig.value = { title: e.title + ' (Cópia)', bimester: e.bimester, type: e.type, variationMode: e.variationMode, teacher: e.teacher, date: new Date().toISOString().split('T')[0], classIds: [] };
+                    examCart.value = JSON.parse(JSON.stringify(getVersionQuestions(e, 0)));
+                    editingExamId.value = null; 
+                    examTab.value = 'selected';
+                    currentView.value = 'exams';
+                    showHistory.value = false;
+                    showToast('Prova duplicada! Selecione a(s) turma(s) e gere.', 'success');
                 };
 
                 const saveEditedExam = async () => { await db.exams.put(JSON.parse(JSON.stringify(editingExam.value))); showEditExamModal.value = false; load(); };
@@ -3339,7 +3363,7 @@ Siga as instruções ESTRITAMENTE:
                     filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilterSubject.value || (q.subject && q.subject.toLowerCase().includes(examFilterSubject.value.toLowerCase()))) && (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase())))),
                     isQInExam: (id) => examCart.value.some(q => q.id === id),
                     toggleExamQ: (q) => { const idx = examCart.value.findIndex(x => x.id === q.id); if (idx > -1) examCart.value.splice(idx, 1); else examCart.value.push(JSON.parse(JSON.stringify(q))); },
-                    openEditExam, saveEditedExam, generatePDF, reprintExamPDF, generateKeyPDF, generateCommentedKeyPDF,
+                    openEditExam, duplicateExam, saveEditedExam, generatePDF, reprintExamPDF, generateKeyPDF, generateCommentedKeyPDF,
                     generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF,
                     showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, loadFixKeyQuestions, openFixKey, saveFixedKey,
                     
