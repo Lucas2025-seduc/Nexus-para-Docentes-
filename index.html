@@ -379,10 +379,36 @@
                     <div v-if="examTab==='all'" class="p-2 bg-gray-50 flex gap-2"><input list="dl-subjects" v-model="examFilterSubject" placeholder="Disciplina" class="w-1/3 border rounded-lg px-2 text-xs outline-none"><input v-model="examFilter" placeholder="Buscar..." class="flex-1 border rounded-lg px-2 text-xs outline-none"><button @click="openQForm('exam')" class="bg-gray-800 text-white px-2 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus"></i></button></div>
                     <div class="flex-1 overflow-y-auto p-2 bg-gray-50/30">
                         <div v-if="examTab==='all'">
-                            <div v-for="q in filteredExamQuestions" :key="q.id" class="p-3 rounded-xl border mb-2 cursor-pointer flex gap-3 bg-white" @click="toggleExamQ(q)" :class="isQInExam(q.id)?'border-indigo-500 bg-indigo-50/30':''"><i :class="isQInExam(q.id)?'fa-solid fa-check-square text-indigo-600':'fa-regular fa-square text-gray-300'"></i><div class="flex-1"><div class="flex justify-between mb-1"><span class="text-[9px] bg-gray-100 px-1.5 rounded font-bold uppercase">{{q.subject}}</span><button @click.stop="editQuestion(q)" class="text-[9px] text-gray-400 hover:text-indigo-600"><i class="fa-solid fa-pencil"></i> Editar</button></div><p class="text-xs text-gray-700">{{q.text}}</p></div></div>
+                            <div v-for="q in filteredExamQuestions" :key="q.id" class="p-3 rounded-xl border mb-2 cursor-pointer flex gap-3 bg-white hover:bg-gray-50 transition" @click="toggleExamQ(q)" :class="isQInExam(q.id)?'border-indigo-500 bg-indigo-50/50':''">
+                                <i :class="isQInExam(q.id)?'fa-solid fa-check-square text-indigo-600':'fa-regular fa-square text-gray-300'" class="mt-1"></i>
+                                <div class="flex-1">
+                                    <div class="flex justify-between mb-1.5 items-start">
+                                        <div class="flex flex-wrap gap-1">
+                                            <span class="text-[9px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-100 font-bold uppercase leading-none shadow-sm">{{ q.type === 'mc' ? 'Multi' : q.type === 'ce' ? 'C/E' : q.type === 'vf' ? 'V/F' : q.type === 'assoc' ? 'Assoc' : q.type }}</span>
+                                            <span class="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100 font-bold uppercase leading-none shadow-sm">{{q.subject}}</span>
+                                            <span v-if="q.topic" class="text-[9px] bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded border font-bold uppercase leading-none">{{q.topic}}</span>
+                                        </div>
+                                        <button @click.stop="editQuestion(q)" class="text-[9px] text-gray-400 hover:text-indigo-600 flex-none ml-2"><i class="fa-solid fa-pencil"></i> Editar</button>
+                                    </div>
+                                    <p class="text-xs text-gray-700">{{q.text}}</p>
+                                </div>
+                            </div>
                         </div>
                         <div v-if="examTab==='selected'">
-                            <div v-for="(q, idx) in examCart" :key="q.id" class="p-3 rounded-xl border bg-white mb-2 flex gap-3"><span class="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-none">{{idx+1}}</span><div class="flex-1"><p class="text-xs">{{q.text}}</p></div><div class="flex flex-col gap-1"><button v-if="!editingExamId" @click="toggleExamQ(q)" class="text-red-400 hover:text-red-600 transition"><i class="fa-solid fa-trash-can"></i></button></div></div>
+                            <div v-for="(q, idx) in examCart" :key="q.id" class="p-3 rounded-xl border bg-white mb-2 flex gap-3 shadow-sm hover:shadow transition">
+                                <span class="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-none mt-0.5">{{idx+1}}</span>
+                                <div class="flex-1">
+                                    <div class="flex flex-wrap gap-1 mb-1.5">
+                                        <span class="text-[9px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-100 font-bold uppercase leading-none shadow-sm">{{ q.type === 'mc' ? 'Multi' : q.type === 'ce' ? 'C/E' : q.type === 'vf' ? 'V/F' : q.type === 'assoc' ? 'Assoc' : q.type }}</span>
+                                        <span class="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100 font-bold uppercase leading-none shadow-sm">{{q.subject}}</span>
+                                        <span v-if="q.topic" class="text-[9px] bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded border font-bold uppercase leading-none">{{q.topic}}</span>
+                                    </div>
+                                    <p class="text-xs text-gray-800">{{q.text}}</p>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <button v-if="!editingExamId" @click="toggleExamQ(q)" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg flex items-center justify-center transition"><i class="fa-solid fa-trash-can"></i></button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
