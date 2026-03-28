@@ -1836,7 +1836,12 @@
                         const today = new Date();
                         const daysMap = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
                         const todayName = daysMap[today.getDay()];
-                        const todayDate = today.toISOString().split('T')[0];
+                        
+                        // Resolve o bug de fuso horário do toISOString() que causava datas adiantadas à noite
+                        const yyyy = today.getFullYear();
+                        const mm = String(today.getMonth() + 1).padStart(2, '0');
+                        const dd = String(today.getDate()).padStart(2, '0');
+                        const todayDate = `${yyyy}-${mm}-${dd}`;
 
                         const promptText = `Você é o assistente virtual da aplicação Nexus. Responda em português de forma clara e amigável.
 DADOS DE HOJE: Dia da semana: ${todayName}, Data: ${todayDate}.
@@ -1857,14 +1862,13 @@ NOVA AÇÃO DO USUÁRIO: "${userQuery}"
 REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
 1. Em 'reply', NUNCA diga que já executou, fez ou alterou os dados. Você não tem permissão para alterar nada diretamente. Diga SEMPRE algo como: "Preparei a ação solicitada. Por favor, clique no botão 'Confirmar Tudo' abaixo para aplicar as mudanças de forma segura."
 2. NOTAS (Lançar/Apagar): Se o usuário falar em notas, você precisa de studentId, examId e score (se for lançar). Se faltar saber a prova, pergunte. Use actionType "update_grade" ou "delete_grade".
-3. CHAMADA RÁPIDA EM LOTE (NOVO SUPER PODER): Se o professor disser algo como "Faltaram João e Maria" ou "Ninguém faltou na turma X hoje", ele quer lançar a caderneta de uma vez.
-   - Encontre de qual turma os alunos citados são (olhando o contexto de Alunos).
+3. CHAMADA RÁPIDA EM LOTE: Se o professor disser algo como "Faltaram João e Maria" ou "Ninguém faltou na turma X hoje".
+   - Encontre de qual turma os alunos citados são.
    - Descubra qual aula o professor tem HOJE (${todayName}) nessa turma olhando os "Horários do Professor".
-   - Se houver mais de uma aula (ex: 1ª Aula e 2ª Aula), tente inferir pelo contexto ou pergunte.
-   - Gere a ação com actionType="bulk_attendance", preencha 'classId', 'date' (${todayDate}), 'period' (ex: "1ª Aula") e forneça a lista dos IDs dos alunos ausentes em 'absentStudentIds' (array de inteiros). Se ninguém faltou, envie []. O aplicativo vai cuidar de dar presença automática para os demais.
-4. FREQUÊNCIA INDIVIDUAL: Se quiser apenas corrigir uma falta antiga de alguém sem mexer no resto, use actionType="set_attendance" informando studentId, date, period e status ("P", "F" ou "J").
+   - Gere a ação com actionType="bulk_attendance", preencha 'classId', 'date' (${todayDate}), 'period' e a lista 'absentStudentIds'.
+4. FREQUÊNCIA INDIVIDUAL (Para um só aluno): Se quiser colocar falta ou presença em alguém HOJE: encontre a turma do aluno, olhe os "Horários do Professor" para HOJE (${todayName}) e descubra qual é o 'period' (ex: "1ª Aula"). Use actionType="set_attendance" informando studentId, date (${todayDate}), period e status ("P", "F" ou "J"). Se o professor tem 2 ou mais aulas hoje na mesma turma, gere um objeto de ação separado para cada aula!
 5. HORÁRIO: actionType="add_schedule", forneça classId, day (ex: "Segunda") e period (ex: "2ª Aula").
-6. Se não conseguir identificar os parâmetros essenciais ou houver conflito de nomes de alunos, responda (reply) pedindo esclarecimentos e envie hasAction=false e a lista de actions vazia.
+6. Se não conseguir identificar os parâmetros essenciais, responda pedindo esclarecimentos e envie hasAction=false e a lista de actions vazia.
 7. OBRIGATÓRIO: Se enviar qualquer item no array 'actions', defina 'hasAction' como true.
 
 RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
