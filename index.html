@@ -1101,25 +1101,40 @@
                 const triggerConfirm = (msg, act) => { confirmModal.value={show:true,message:msg,onConfirm:act}; };
                 const handleConfirm = (res) => { confirmModal.value.show=false; if(res&&confirmModal.value.onConfirm)confirmModal.value.onConfirm(); confirmModal.value.onConfirm=null; };
                 
-                // Helper para Mobile (Corrige falha silenciosa de download em telemóveis)
+                // Helper para Mobile (Usa a Web Share API para evitar bloqueios de download em telemóveis)
                 const downloadPDF = (pdfMakeInstance, fileName) => {
                     showToast("Processando documento...", "loading");
-                    pdfMakeInstance.getBlob((blob) => {
+                    pdfMakeInstance.getBlob(async (blob) => {
                         try {
-                            const url = window.URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = fileName;
-                            link.style.display = 'none';
-                            document.body.appendChild(link);
-                            link.click();
-                            setTimeout(() => {
-                                document.body.removeChild(link);
-                                window.URL.revokeObjectURL(url);
-                                showToast("Transferência concluída!", "success");
-                            }, 500);
+                            const file = new File([blob], fileName, { type: 'application/pdf' });
+                            
+                            // Se for um telemóvel compatível, abre o menu nativo de partilha/guardar do sistema
+                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                await navigator.share({
+                                    files: [file],
+                                    title: fileName
+                                });
+                                showToast("Documento acedido com sucesso!", "success");
+                            } else {
+                                // Fallback clássico para PC ou navegadores antigos
+                                const url = window.URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = fileName;
+                                link.style.display = 'none';
+                                document.body.appendChild(link);
+                                link.click();
+                                setTimeout(() => {
+                                    document.body.removeChild(link);
+                                    window.URL.revokeObjectURL(url);
+                                    showToast("Transferência concluída!", "success");
+                                }, 500);
+                            }
                         } catch (err) {
-                            showToast("Falha ao salvar. Verifique as permissões.", "error");
+                            if (err.name !== 'AbortError') { // Ignorar cancelamentos voluntários do utilizador
+                                showToast("Falha ao processar o ficheiro.", "error");
+                                console.error(err);
+                            }
                         }
                     });
                 };
