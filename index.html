@@ -348,7 +348,7 @@
                             <div><label class="text-[9px] font-bold text-gray-400 uppercase">Data</label><input v-model="examConfig.date" type="date" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"></div>
                         </div>
                         <div class="bg-gray-50/80 p-3 rounded-xl border space-y-3">
-                            <div class="grid grid-cols-2 gap-3"><div><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Variação</p><select v-model="examConfig.variationMode" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border"><option value="standard">Padrão A/B</option><option value="unique">1 por Aluno</option></select></div><div><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Tipo</p><select v-model="examConfig.type" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border"><option v-for="t in ['Mensal','Bimestral','Simulado']" :value="t">{{t}}</option></select></div></div>
+                            <div class="grid grid-cols-2 gap-3"><div><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Variações</p><select v-model.number="examConfig.variationMode" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border"><option v-for="i in 10" :value="i">{{i}} {{ i === 1 ? 'Tipo (Igual p/ todos)' : 'Tipos (Embaralhados)' }}</option></select></div><div><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Tipo</p><select v-model="examConfig.type" class="w-full p-1.5 bg-white rounded-lg text-xs outline-none border"><option v-for="t in ['Mensal','Bimestral','Simulado']" :value="t">{{t}}</option></select></div></div>
                             <div class="flex gap-3"><div class="flex-1"><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Professor(a)</p><input v-model="examConfig.teacher" class="w-full p-1.5 bg-white rounded-lg text-xs border outline-none"></div></div>
                             <div class="mt-3 border-t pt-2">
                                 <p class="text-[9px] font-bold text-gray-400 uppercase mb-2"><i class="fa-solid fa-print"></i> Layout</p>
@@ -1050,7 +1050,7 @@
                 const showQFormModal = ref(false);
                 const formSource = ref('');
                 const examCart = ref([]);
-                const examConfig = ref({bimester:1, variationMode:'standard', date:new Date().toISOString().split('T')[0], classIds:[]});
+                const examConfig = ref({bimester:1, variationMode:2, date:new Date().toISOString().split('T')[0], classIds:[]});
                 const editingExamId = ref(null);
                 const printConfig = ref({layout:'standard', logoSize:50, qImageSize:'medium', fontSize:'10', addBlankPage:false, paperSaving: false});
                 
@@ -2466,7 +2466,17 @@ Siga as instruções ESTRITAMENTE:
                             let v=[], sm={}, stds=students.value.filter(s=>s.classId===cid);
                             if (stds.length === 0) continue;
                             
-                            let nV=(examConfig.value.variationMode==='unique')?stds.length:(examConfig.value.variationMode==='1_10'?Math.ceil(stds.length/10):2);
+                            // Suporte a provas antigas (string) e novas (number)
+                            let nV = 2;
+                            if (typeof examConfig.value.variationMode === 'number') {
+                                nV = Math.min(examConfig.value.variationMode, stds.length);
+                            } else {
+                                if (examConfig.value.variationMode === 'single') nV = 1;
+                                else if (examConfig.value.variationMode === 'unique') nV = stds.length;
+                                else if (examConfig.value.variationMode === '1_3') nV = Math.ceil(stds.length / 3);
+                                else if (examConfig.value.variationMode === '1_5') nV = Math.ceil(stds.length / 5);
+                                else if (examConfig.value.variationMode === '1_10') nV = Math.ceil(stds.length / 10);
+                            }
 
                             if(editingExamRecord && editingExamRecord.classId === cid) {
                                 let e=editingExamRecord;
@@ -2475,7 +2485,7 @@ Siga as instruções ESTRITAMENTE:
                                 }
                             }
                             if(!v.length) {
-                                for(let i=0;i<nV;i++){ let qs=JSON.parse(JSON.stringify(examCart.value)).map(q=>({...q,correctIndex:q.correct})); if(i>0||examConfig.value.variationMode!=='standard'){qs.sort(()=>Math.random()-0.5); qs.forEach(q=>{if(q.type!=='ce'){let o=q.options.map((op,x)=>({...op,isc:x===q.correctIndex})).sort(()=>Math.random()-0.5); q.options=o; q.correctIndex=o.findIndex(x=>x.isc)}})} v.push({id:i, questions:qs}) }
+                                for(let i=0;i<nV;i++){ let qs=JSON.parse(JSON.stringify(examCart.value)).map(q=>({...q,correctIndex:q.correct})); if(i>0){qs.sort(()=>Math.random()-0.5); qs.forEach(q=>{if(q.type!=='ce'){let o=q.options.map((op,x)=>({...op,isc:x===q.correctIndex})).sort(()=>Math.random()-0.5); q.options=o; q.correctIndex=o.findIndex(x=>x.isc)}})} v.push({id:i, questions:qs}) }
                                 stds.forEach((s,i)=>sm[s.id]=i%nV);
                             }
                             let eD={title:titleFallback, classId:cid, type:examConfig.value.type, weight:examConfig.value.weight, bimester:examConfig.value.bimester, teacher:examConfig.value.teacher, variationMode:examConfig.value.variationMode, versions:v, studentMap:sm, date:Date.now()};
@@ -3183,253 +3193,300 @@ Siga as instruções ESTRITAMENTE:
                     const baseVersion = exam.versions ? exam.versions[0] : { questions: exam.questions || [] };
 
                     if (baseVersion.questions.length > 0) {
-                        baseVersion.questions.forEach((q, i) => {
-                            let correctAnswerText = '';
-                            if (q.type === 'ce') {
-                                correctAnswerText = ['Certo', 'Errado'][q.correctIndex] || '?';
-                            } else if (q.type === 'vf') {
-                                const correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F').join(' - ');
-                                const correctPos = (q.id || 0) % 5;
-                                correctAnswerText = `Alternativa ${['A', 'B', 'C', 'D', 'E'][correctPos]} (${correctSeq})`;
-                            } else if (q.type === 'assoc') {
-                                const matches = q.options.map(o => o.match).filter(m => m);
-                                const shuffledMatches = [...matches].sort((a, b) => a.localeCompare(b));
-                                const correctNumbersSequence = shuffledMatches.map(matchText => {
-                                    const originalIndex = q.options.findIndex(opt => opt.match === matchText);
-                                    return originalIndex + 1;
-                                });
-                                const correctSeq = correctNumbersSequence.join(' - ');
-                                const correctPos = (q.id || 0) % 5;
-                                correctAnswerText = `Alternativa ${['A', 'B', 'C', 'D', 'E'][correctPos]} (${correctSeq})`;
-                            } else {
-                                const opt = q.options[q.correctIndex];
-                                correctAnswerText = `Alternativa ${['A', 'B', 'C', 'D', 'E'][q.correctIndex]} (${opt ? opt.text : '?'})`;
-                            }
-
-                            content.push({ text: `Questão ${i + 1} - ${q.subject} (${q.topic})`, bold: true, fontSize: 11, margin: [0, 15, 0, 5], color: '#4f46e5' });
+                        baseVersion.questions.forEach((q, k) => {
+                            content.push({ text: `Questão ${k + 1}`, bold: true, fontSize: 12, margin: [0, 10, 0, 5] });
                             content.push({ text: q.text, fontSize: 10, margin: [0, 0, 0, 5] });
-                            if(q.image && typeof q.image === 'string' && q.image.startsWith('data:image')) {
-                                content.push({image: q.image, width: 150, margin: [0, 5, 0, 5]});
+                            
+                            let answerText = '';
+                            if (q.type === 'mc') {
+                                answerText = `Alternativa Correta: ${['A', 'B', 'C', 'D', 'E'][q.correctIndex]}`;
+                            } else if (q.type === 'ce') {
+                                answerText = `Gabarito: ${['Certo', 'Errado'][q.correctIndex]}`;
+                            } else if (q.type === 'vf') {
+                                answerText = `Gabarito: ${q.options.map(o => o.isTrue ? 'V' : 'F').join(', ')}`;
+                            } else if (q.type === 'assoc') {
+                                answerText = `Gabarito: Associação correta das colunas conforme gerado.`;
                             }
-                            content.push({ text: `Resposta Correta: ${correctAnswerText}`, fontSize: 10, bold: true, color: '#059669', margin: [0, 5, 0, 5] });
-                            content.push({ text: `Resolução / Comentário:`, fontSize: 10, bold: true, margin: [0, 5, 0, 2] });
-                            content.push({ text: q.comment || 'Nenhum comentário.', fontSize: 10, italics: !q.comment, color: q.comment ? '#374151' : '#9ca3af', margin: [0, 0, 0, 10] });
-                            content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e5e7eb' }], margin: [0, 5, 0, 5] });
+                            
+                            content.push({ text: answerText, bold: true, color: '#4f46e5', fontSize: 10, margin: [0, 0, 0, 10] });
                         });
-                    } else {
-                        content.push({ text: 'Nenhuma questão encontrada.', alignment: 'center', italics: true });
                     }
-                    downloadPDF(pdfMake.createPdf({ content, styles: {} }), `Gabarito_Comentado_${exam.title}.pdf`);
+
+                    downloadPDF(pdfMake.createPdf({ content }), `Gabarito_Comentado_${exam.title}.pdf`);
                 };
 
-                const getClassRanking = (classId, order = 'desc') => {
-                    const classStudents = students.value.filter(s => s.classId === classId);
-                    const rankings = classStudents.map(student => {
-                        const studentResults = results.value.filter(r => r.studentId === student.id);
-                        if (studentResults.length === 0) return null;
-                        const avg = (studentResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / studentResults.length).toFixed(1);
-                        return { studentId: student.id, name: student.name, average: avg };
-                    }).filter(r => r !== null);
-                    return rankings.sort((a, b) => order === 'desc' ? parseFloat(b.average) - parseFloat(a.average) : parseFloat(a.average) - parseFloat(b.average));
-                };
-
-                const getClassAverage = (classId) => {
-                    const classResults = results.value.filter(r => { const exam = exams.value.find(e => e.id === r.examId); return exam && exam.classId === classId; });
-                    if (classResults.length === 0) return '-';
-                    return (classResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / classResults.length).toFixed(1);
-                };
-
-                const getEvaluatedStudentCount = (classId) => {
-                    const classResults = results.value.filter(r => { const exam = exams.value.find(e => e.id === r.examId); return exam && exam.classId === classId; });
-                    return new Set(classResults.map(r => r.studentId)).size;
-                };
-
-                const getClassGradeDistribution = (classId) => {
-                    if (!classId) return {};
-                    const studentsInClass = students.value.filter(s => s.classId === classId);
-                    const distribution = { '8-10': [], '6-8': [], '4-6': [], '2-4': [], '0-2': [] };
-                    studentsInClass.forEach(student => {
-                        const studentResults = results.value.filter(r => r.studentId === student.id);
-                        if (studentResults.length === 0) return;
-                        let avg = (studentResults.reduce((acc, r) => acc + parseFloat(r.score), 0) / studentResults.length);
-                        if (isNaN(avg)) avg = 0;
-                        avg = parseFloat(avg.toFixed(1));
-                        if (avg >= 8) distribution['8-10'].push({name: student.name, avg, studentId: student.id});
-                        else if (avg >= 6) distribution['6-8'].push({name: student.name, avg, studentId: student.id});
-                        else if (avg >= 4) distribution['4-6'].push({name: student.name, avg, studentId: student.id});
-                        else if (avg >= 2) distribution['2-4'].push({name: student.name, avg, studentId: student.id});
-                        else distribution['0-2'].push({name: student.name, avg, studentId: student.id});
+                const getClassAverage = (cid) => {
+                    if (!cid) return '-';
+                    const stds = students.value.filter(s => s.classId === cid);
+                    if (!stds.length) return '-';
+                    let total = 0, count = 0;
+                    stds.forEach(s => {
+                        let sSum = 0, sCnt = 0;
+                        results.value.filter(r => r.studentId === s.id).forEach(r => {
+                            sSum += parseFloat(r.score);
+                            sCnt++;
+                        });
+                        if (sCnt > 0) { total += (sSum / sCnt); count++; }
                     });
-                    Object.keys(distribution).forEach(key => { distribution[key].sort((a,b) => b.avg - a.avg); });
-                    return distribution;
+                    return count > 0 ? (total / count).toFixed(1) : '-';
                 };
 
-                const studentExamsList = computed(() => {
-                    if (!studentDetails.value.id) return [];
-                    const sId = studentDetails.value.id; const bim = selectedBimester.value;
-                    const myResults = results.value.filter(r => r.studentId === sId);
-                    return myResults.map(r => {
-                        const exam = exams.value.find(e => e.id === r.examId); if (!exam) return null;
-                        return { ...r, title: exam.title, type: exam.type, weight: exam.weight || 1, bimester: exam.bimester || 1 };
-                    }).filter(x => x && parseInt(x.bimester) === parseInt(bim));
-                });
+                const getEvaluatedStudentCount = (cid) => {
+                    if (!cid) return 0;
+                    const stds = students.value.filter(s => s.classId === cid).map(s => s.id);
+                    const evaluatedStds = new Set(results.value.filter(r => stds.includes(r.studentId)).map(r => r.studentId));
+                    return evaluatedStds.size;
+                };
 
-                const studentExtraPointsList = computed(() => {
-                    if (!studentDetails.value.id) return [];
-                    return extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && parseInt(ep.bimester) === parseInt(selectedBimester.value));
-                });
+                const getClassRanking = (cid) => {
+                    if (!cid) return [];
+                    const stds = students.value.filter(s => s.classId === cid);
+                    return stds.map(s => {
+                        const sResults = results.value.filter(r => r.studentId === s.id);
+                        const avg = sResults.length ? (sResults.reduce((a, r) => a + parseFloat(r.score), 0) / sResults.length).toFixed(1) : '-';
+                        return { studentId: s.id, name: s.name, average: avg };
+                    }).filter(s => s.average !== '-').sort((a, b) => parseFloat(b.average) - parseFloat(a.average));
+                };
 
-                const studentTotalExtraPoints = computed(() => studentExtraPointsList.value.reduce((acc, ep) => acc + parseFloat(ep.points), 0).toFixed(1));
+                const getClassGradeDistribution = (cid) => {
+                    const ranking = getClassRanking(cid);
+                    const dist = { '9.0-10.0': [], '7.0-8.9': [], '5.0-6.9': [], '0.0-4.9': [] };
+                    ranking.forEach(r => {
+                        const score = parseFloat(r.average);
+                        if (score >= 9) dist['9.0-10.0'].push({studentId: r.studentId, name: r.name, avg: r.average});
+                        else if (score >= 7) dist['7.0-8.9'].push({studentId: r.studentId, name: r.name, avg: r.average});
+                        else if (score >= 5) dist['5.0-6.9'].push({studentId: r.studentId, name: r.name, avg: r.average});
+                        else dist['0.0-4.9'].push({studentId: r.studentId, name: r.name, avg: r.average});
+                    });
+                    
+                    if (dashboardStudentFilter.value) {
+                        const f = dashboardStudentFilter.value.toLowerCase();
+                        for (let k in dist) dist[k] = dist[k].filter(s => s.name.toLowerCase().includes(f));
+                    }
+                    return dist;
+                };
 
-                const studentBimesterAverage = computed(() => {
-                    const examsList = studentExamsList.value;
-                    if (examsList.length === 0) return '0.0';
-                    let weightedSum = 0; let weightSum = 0;
-                    examsList.forEach(ex => { const w = parseFloat(ex.weight) || 1; weightedSum += parseFloat(ex.score) * w; weightSum += w; });
-                    const avg = ((weightSum > 0 ? (weightedSum / weightSum) : 0) + parseFloat(studentTotalExtraPoints.value));
-                    return (avg > 10 ? 10 : avg).toFixed(1);
-                });
+                const openStudentProfile = async (id) => {
+                    const s = students.value.find(x => x.id === id);
+                    if (s) {
+                        studentDetails.value = { ...s };
+                        selectedBimester.value = 'notes';
+                        showStudentModal.value = true;
+                    }
+                };
+
+                const saveStudentNotes = async () => {
+                    let s = await db.students.get(studentDetails.value.id);
+                    if (s) {
+                        s.notes = studentDetails.value.notes;
+                        s.needsFrontSeat = studentDetails.value.needsFrontSeat;
+                        await db.students.put(JSON.parse(JSON.stringify(s)));
+                        const sIndex = students.value.findIndex(x => x.id === studentDetails.value.id);
+                        if(sIndex > -1) students.value[sIndex] = s;
+                        showToast('Biografia salva!', 'success');
+                    }
+                };
 
                 const addExtraPoint = async () => {
-                    if (!newExtraPoint.value.val || !newExtraPoint.value.reason) return showToast('Preencha tudo', 'error');
-                    await db.extraPoints.add(JSON.parse(JSON.stringify({ studentId: studentDetails.value.id, bimester: parseInt(selectedBimester.value), points: parseFloat(newExtraPoint.value.val), reason: newExtraPoint.value.reason })));
-                    newExtraPoint.value = {val:'', reason:''}; showExtraPointForm.value = false; load();
-                };
-
-                const deleteExtraPoint = (epId) => {
-                    triggerConfirm("Tem certeza que deseja apagar este ponto extra?", async () => {
-                        await db.extraPoints.delete(epId);
-                        extraPoints.value = await db.extraPoints.toArray();
-                        showToast("Ponto extra removido com sucesso.", "success");
+                    if (!newExtraPoint.value.val || !newExtraPoint.value.reason) return showToast('Preencha valor e motivo', 'warning');
+                    await db.extraPoints.add({
+                        studentId: studentDetails.value.id,
+                        bimester: selectedBimester.value,
+                        points: parseFloat(newExtraPoint.value.val),
+                        reason: newExtraPoint.value.reason,
+                        date: Date.now()
                     });
+                    newExtraPoint.value = {val: '', reason: ''};
+                    showExtraPointForm.value = false;
+                    extraPoints.value = await db.extraPoints.toArray();
+                    showToast('Ponto extra adicionado!', 'success');
                 };
 
-                const startEditingGrade = (r) => {
-                    editingResultId.value = r.id;
-                    tempScore.value = r.score;
-                    tempBonus.value = r.bonus || 0;
+                const deleteExtraPoint = async (id) => {
+                    await db.extraPoints.delete(id);
+                    extraPoints.value = await db.extraPoints.toArray();
+                    showToast('Ponto extra removido', 'success');
+                };
+
+                const startEditingGrade = (ex) => {
+                    editingResultId.value = ex.id;
+                    tempScore.value = ex.score;
                 };
 
                 const saveEditedGrade = async () => {
-                    let r = results.value.find(x => x.id === editingResultId.value);
-                    const baseScore = parseFloat(tempScore.value);
-                    const bonus = parseFloat(tempBonus.value || 0);
-                    r.score = (baseScore + bonus).toFixed(1);
-                    r.bonus = bonus;
-                    await db.results.put(JSON.parse(JSON.stringify(r)));
-                    editingResultId.value = null;
-                    load();
-                };
-
-                const cancelEditingGrade = () => {
+                    let res = results.value.find(r => r.id === editingResultId.value);
+                    if (res) {
+                        res.score = parseFloat(tempScore.value).toFixed(1);
+                        await db.results.put(JSON.parse(JSON.stringify(res)));
+                        results.value = await db.results.toArray();
+                        showToast('Nota atualizada!', 'success');
+                    }
                     editingResultId.value = null;
                 };
 
-                const deleteStudentResultAndClose = (id) => {
+                const cancelEditingGrade = () => { editingResultId.value = null; };
+
+                const deleteStudentResultAndClose = async (id) => {
                     triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?", async () => {
                         await db.results.delete(id);
+                        await load();
                         showResultDetailsModal.value = false;
-                        load();
+                        showToast("Nota removida com sucesso.", "success");
+                    });
+                };
+                
+                const deleteStudentResult = async (id) => {
+                    triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?", async () => {
+                        await db.results.delete(id);
+                        await load();
                         showToast("Nota removida com sucesso.", "success");
                     });
                 };
 
-                const getStudentCount = id => students.value.filter(s=>s.classId===id).length;
-                const getFilteredStudents = id => students.value.filter(s=>s.classId===id&&s.name.toLowerCase().includes(studentFilter.value.toLowerCase()));
+                const getStudentCount = (cid) => students.value.filter(s => s.classId === cid).length;
+                const getFilteredStudents = (cid) => students.value.filter(s => s.classId === cid && s.name.toLowerCase().includes(studentFilter.value.toLowerCase())).sort((a,b)=>a.name.localeCompare(b.name));
+                const deleteStudent = (id) => { triggerConfirm("Apagar aluno e suas notas?", async () => { await db.students.delete(id); await db.results.where('studentId').equals(id).delete(); load(); }); };
 
-                onMounted(()=>{initLicenseSystem(); load();});
+                const isQInExam = (id) => examCart.value.some(q => q.id === id);
+                const toggleExamQ = (q) => { const idx = examCart.value.findIndex(x => x.id === q.id); if(idx > -1) examCart.value.splice(idx, 1); else examCart.value.push(JSON.parse(JSON.stringify(q))); };
+
+                const deleteExam = (id) => { triggerConfirm("Apagar prova e TODAS as notas vinculadas?", async () => { await db.exams.delete(id); await db.results.where('examId').equals(id).delete(); load(); showToast("Prova excluída", "success"); }); };
+
+                // Computed
+                const uniqueSubjects = computed(() => [...new Set(questions.value.map(q => q.subject).filter(Boolean))].sort());
+                const uniqueTopics = computed(() => [...new Set(questions.value.map(q => q.topic).filter(Boolean))].sort());
+                
+                const filteredClasses = computed(() => classes.value.filter(c => !studentFilter.value || getFilteredStudents(c.id).length > 0));
+                
+                const filteredQuestions = computed(() => {
+                    return questions.value.filter(q => {
+                        const mText = !qFilter.value || q.text.toLowerCase().includes(qFilter.value.toLowerCase());
+                        const mType = !filterType.value || q.type === filterType.value;
+                        const mSubj = !filterSubject.value || (q.subject && q.subject.toLowerCase().includes(filterSubject.value.toLowerCase()));
+                        const mTopi = !filterTopic.value || (q.topic && q.topic.toLowerCase().includes(filterTopic.value.toLowerCase()));
+                        return mText && mType && mSubj && mTopi;
+                    });
+                });
+
+                const filteredExamQuestions = computed(() => {
+                    return questions.value.filter(q => {
+                        const mText = !examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase());
+                        const mSubj = !examFilterSubject.value || (q.subject && q.subject.toLowerCase().includes(examFilterSubject.value.toLowerCase()));
+                        return mText && mSubj;
+                    });
+                });
+
+                const manualStudents = computed(() => {
+                    if(!manualConfig.value.examId) return [];
+                    const ex = exams.value.find(e => e.id === manualConfig.value.examId);
+                    if(!ex) return [];
+                    return students.value.filter(s => s.classId === ex.classId).sort((a,b)=>a.name.localeCompare(b.name));
+                });
+                
+                const selectedExamVersions = computed(() => {
+                    if(!manualConfig.value.examId) return [];
+                    const ex = exams.value.find(e => e.id === manualConfig.value.examId);
+                    return ex ? (ex.versions || []) : [];
+                });
+
+                const filteredHistoryExams = computed(() => {
+                    return exams.value.filter(e => !examHistoryFilter.value || e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()));
+                });
+
+                const studentExamsList = computed(() => {
+                    if (selectedBimester.value === 'notes') return [];
+                    const b = parseInt(selectedBimester.value);
+                    const myResults = results.value.filter(r => r.studentId === studentDetails.value.id);
+                    return myResults.map(r => {
+                        const ex = exams.value.find(e => e.id === r.examId);
+                        if (ex && parseInt(ex.bimester) === b) return { ...r, title: ex.title, date: ex.date };
+                        return null;
+                    }).filter(x => x).sort((a,b) => b.date - a.date);
+                });
+
+                const studentExtraPointsList = computed(() => {
+                    if (selectedBimester.value === 'notes') return [];
+                    const b = parseInt(selectedBimester.value);
+                    return extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && parseInt(ep.bimester) === b).sort((a,b) => b.date - a.date);
+                });
+
+                const studentBimesterAverage = computed(() => {
+                    if (selectedBimester.value === 'notes') return '-';
+                    const b = parseInt(selectedBimester.value);
+                    const sId = studentDetails.value.id;
+                    const myResults = results.value.filter(r => r.studentId === sId);
+                    const myExams = myResults.map(r => {
+                        const e = exams.value.find(ex => ex.id === r.examId);
+                        return e && parseInt(e.bimester) === b ? { score: parseFloat(r.score), weight: parseFloat(e.weight) || 1 } : null;
+                    }).filter(x => x);
+
+                    let weightedSum = 0; let weightSum = 0;
+                    myExams.forEach(bx => {
+                        weightedSum += bx.score * bx.weight;
+                        weightSum += bx.weight;
+                    });
+                    
+                    const extraPts = extraPoints.value.filter(ep => ep.studentId === sId && parseInt(ep.bimester) === b).reduce((acc, ep) => acc + parseFloat(ep.points), 0);
+
+                    let avg = weightSum > 0 ? (weightedSum / weightSum) : 0;
+                    avg += extraPts;
+                    if (avg > 10) avg = 10;
+                    
+                    return (weightSum > 0 || extraPts > 0) ? avg.toFixed(1) : '-';
+                });
+
+                const filteredStudentsInDiaryClass = computed(() => {
+                    if (!diaryClassId.value) return [];
+                    let sList = students.value.filter(s => s.classId === diaryClassId.value);
+                    if (attendanceStudentFilter.value) {
+                        sList = sList.filter(s => s.name.toLowerCase().includes(attendanceStudentFilter.value.toLowerCase()));
+                    }
+                    return sList.sort((a,b) => a.name.localeCompare(b.name));
+                });
+
+                const recentCorrections = computed(() => {
+                    return [...results.value].sort((a, b) => b.date - a.date).slice(0, 10).map(r => {
+                        const ex = exams.value.find(e => e.id === r.examId);
+                        return { ...r, examTitle: ex ? ex.title : 'Prova Removida' };
+                    });
+                });
+
+                onMounted(async () => {
+                    await initLicenseSystem();
+                    await load();
+                });
 
                 return {
-                    // UI & Globals
-                    currentView, tabs, classes, students, questions, exams, results, settings, extraPoints,
+                    currentView, tabs, classes, students, questions, exams, results, settings,
                     appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal,
-                    toast, confirmModal, geminiKey, showFullScreenImage, fullScreenImageUrl, viewFullScreen,
-                    
-                    // Filters & State
+                    toast, confirmModal, geminiKey, testGeminiKey,
                     qFilter, filterType, filterSubject, filterTopic, examFilterSubject, examFilterTopic, examFilter, examTab,
-                    showEditExamModal, editingExam, showHistory, examHistoryFilter, selectedClassIdForReport, dashboardStudentFilter,
-                    showStudentModal, studentDetails, selectedBimester, showExtraPointForm, newExtraPoint, editingResultId, tempScore, tempBonus,
-                    showAIGenModal, isGeneratingAI, aiGenConfig,
-                    
-                    // Mapa Sala
-                    showSeatingModal, seatingClassId, seatingRows, seatingCols, seatingGrid, seatingSelectedIdx, seatingStudents,
-                    openSeatingPlan, generateSeatingPlan, handleSeatClick, saveSeatingPlan, printSeatingPlan,
-                    
-                    // Manual Input & QR
-                    showLiveQRScanner, startLiveQRScan, stopLiveQRScan,
-                    correctionMode, activeStudent, activeExam, activeVersion, studentAnswers,
-                    showManualInputModal, manualConfig, startManualEntry, confirmManualEntry, saveManualCorrection,
-                    triggerAICorrection, processAICorrection,
-                    correctionQueue, isProcessingQueue, processedCount, stopQueue, simulateAIGeneration,
-
-                    // Diário (Schedules & Attendance)
-                    periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter, attendanceMap, schedulesList, newSchedule,
-                    studentsInDiaryClass: computed(()=>students.value.filter(s=>s.classId===diaryClassId.value)),
-                    filteredStudentsInDiaryClass: computed(()=>students.value.filter(s=>s.classId===diaryClassId.value && (!attendanceStudentFilter.value || s.name.toLowerCase().includes(attendanceStudentFilter.value.toLowerCase())))),
-                    isCurrentSelectionValidSchedule, saveAttendance, addSchedule, deleteSchedule, deleteAllGrades,
-
-                    // Assistant IA
-                    showAssistant, assistantQuery, assistantHistory, isAssistantThinking, askAssistant,
+                    studentFilter, dashboardStudentFilter, examHistoryFilter,
+                    diaryClassId, diaryTab, attendanceDate, attendancePeriod, periodsList, attendanceMap, schedulesList, newSchedule,
+                    attendanceStudentFilter, filteredStudentsInDiaryClass,
+                    showAssistant, assistantQuery, isAssistantThinking, isDictating, assistantHistory, toggleDictation, askAssistant,
                     confirmAssistantAction, cancelAssistantAction, getActionDescription,
-                    isDictating, toggleDictation,
-
-                    // Details & Results
-                    recentCorrections: computed(() => {
-                        return [...results.value].sort((a, b) => (b.date || 0) - (a.date || 0)).slice(0, 15).map(r => {
-                            const ex = exams.value.find(e => e.id === r.examId);
-                            return { ...r, examTitle: ex ? ex.title : 'Prova Desconhecida' };
-                        });
-                    }),
-                    selectedResultDetails, showResultDetailsModal, openResultDetails, saveUpdatedAnswers, getAlternativeLabel,
-                    
-                    // Classes & Students
-                    newClass, bulkStudents, addClass, saveStudents, getStudentCount, getFilteredStudents, studentFilter, filteredClasses:computed(()=>classes.value.filter(c=>c.name.toLowerCase().includes(studentFilter.value.toLowerCase()))), getClassName,
-                    deleteStudent:(id)=>{triggerConfirm("Tem certeza que deseja apagar este aluno?",async()=>{await db.students.delete(id);load()})}, deleteClass,
-                    getStudent, uploadStudentPhoto,
-                    
-                    // Questions
-                    uniqueTopics: computed(() => [...new Set(questions.value.map(q => q.topic).filter(Boolean))].sort()),
-                    uniqueSubjects: computed(() => [...new Set(questions.value.map(q => q.subject).filter(Boolean))].sort()),
-                    filteredQuestions: computed(() => questions.value.filter(q => (!qFilter.value || q.text.toLowerCase().includes(qFilter.value.toLowerCase()) || (q.topic && q.topic.toLowerCase().includes(qFilter.value.toLowerCase()))) && (!filterType.value || q.type === filterType.value) && (!filterSubject.value || (q.subject && q.subject.toLowerCase().includes(filterSubject.value.toLowerCase()))) && (!filterTopic.value || (q.topic && q.topic.toLowerCase().includes(filterTopic.value.toLowerCase()))))),
-                    changeQType, openQForm, saveQuestion, editQuestion, deleteQuestion: id=>triggerConfirm("Tem certeza que deseja apagar esta questão?",async()=>{await db.questions.delete(id);load()}), deleteAllQuestions,
-                    qType, newQ, showQFormModal, formSource, handleImageUpload: e=>{let r=new FileReader();r.onload=ev=>newQ.value.image=ev.target.result;r.readAsDataURL(e.target.files[0])},
-                    
-                    // Exams
-                    examCart, examConfig, editingExamId, printConfig,
-                    filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilterSubject.value || (q.subject && q.subject.toLowerCase().includes(examFilterSubject.value.toLowerCase()))) && (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase())))),
-                    isQInExam: (id) => examCart.value.some(q => q.id === id),
-                    toggleExamQ: (q) => { const idx = examCart.value.findIndex(x => x.id === q.id); if (idx > -1) examCart.value.splice(idx, 1); else examCart.value.push(JSON.parse(JSON.stringify(q))); },
-                    openEditExam, duplicateExam, saveEditedExam, generatePDF, reprintExamPDF, generateKeyPDF, generateCommentedKeyPDF,
-                    generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF,
-                    showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, loadFixKeyQuestions, openFixKey, saveFixedKey,
-                    
-                    filteredHistoryExams: computed(() => exams.value.filter(e => !examHistoryFilter.value || e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()))),
-                    deleteExam: (id) => { triggerConfirm("Tem certeza que deseja apagar esta prova e as respetivas notas?", async () => { try { const resultsToDelete = results.value.filter(r => r.examId === id).map(r => r.id); if (resultsToDelete.length > 0) { await db.results.bulkDelete(resultsToDelete); } await db.exams.delete(id); await load(); showToast("Prova apagada com sucesso!", "success"); } catch (err) { showToast("Erro ao apagar prova", "error"); } }); },
-                    
-                    getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution,
-                    studentExamsList, studentExtraPointsList, studentTotalExtraPoints, studentBimesterAverage,
-                    
-                    openStudentProfile: async (studentId) => {
-                        studentDetails.value = getStudent(studentId);
-                        selectedBimester.value = 'notes';
-                        showStudentModal.value = true;
-                    },
-                    saveStudentNotes: async () => {
-                        let s = await db.students.get(studentDetails.value.id);
-                        if (s) {
-                            s.notes = studentDetails.value.notes;
-                            await db.students.put(JSON.parse(JSON.stringify(s)));
-                            const sIndex = students.value.findIndex(x => x.id === studentDetails.value.id);
-                            if(sIndex > -1) students.value[sIndex] = s;
-                            showToast('Biografia salva!', 'success');
-                        }
-                    },
-                    addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade, deleteStudentResultAndClose,
-                    deleteStudentResult: id=>triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?",async()=>{await db.results.delete(id);load();showToast("Nota removida com sucesso.", "success");}),
-                    
-                    // Global utilities
-                    installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, importBackup, triggerImport, backupData, testGeminiKey,
-                    generateQuestionsAI, whatsappLink, canInstall, formatDateTime
+                    showEditExamModal, editingExam, showHistory, selectedClassIdForReport, newClass, bulkStudents,
+                    qType, newQ, showQFormModal, formSource, examCart, examConfig, editingExamId, printConfig,
+                    showStudentModal, studentDetails, selectedBimester, showExtraPointForm, newExtraPoint,
+                    editingResultId, tempScore, tempBonus, selectedResultDetails, showResultDetailsModal,
+                    showSeatingModal, seatingClassId, seatingRows, seatingCols, seatingGrid, seatingSelectedIdx, seatingStudents, openSeatingPlan, generateSeatingPlan, handleSeatClick, saveSeatingPlan, printSeatingPlan,
+                    showAIGenModal, isGeneratingAI, aiGenConfig, generateQuestionsAI, simulateAIGeneration,
+                    activeStudent, activeExam, activeVersion, studentAnswers, correctionMode, showManualInputModal, manualConfig,
+                    correctionQueue, isProcessingQueue, processedCount, stopQueue, triggerAICorrection, processAICorrection, startManualEntry, confirmManualEntry, saveManualCorrection,
+                    showFullScreenImage, fullScreenImageUrl, viewFullScreen,
+                    showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, openFixKey, loadFixKeyQuestions, saveFixedKey,
+                    canInstall, installPWA, showLiveQRScanner, startLiveQRScan, stopLiveQRScan,
+                    uploadStudentPhoto, saveUpdatedAnswers, recentCorrections,
+                    uniqueSubjects, uniqueTopics, filteredClasses, filteredQuestions, filteredExamQuestions, manualStudents, selectedExamVersions, filteredHistoryExams,
+                    studentExamsList, studentExtraPointsList, studentBimesterAverage,
+                    addClass, deleteClass, saveStudents, getStudentCount, getFilteredStudents, deleteStudent,
+                    deleteAllQuestions, deleteAllGrades, changeQType, openQForm, saveQuestion, editQuestion, handleImageUpload,
+                    openEditExam, duplicateExam, saveEditedExam, generatePDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF, generateKeyPDF, generateCommentedKeyPDF,
+                    getClassAverage, getEvaluatedStudentCount, getClassRanking, getClassGradeDistribution, openStudentProfile, saveStudentNotes,
+                    addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade, deleteStudentResultAndClose, deleteStudentResult,
+                    isQInExam, toggleExamQ, deleteExam, getStudent, getClassName, getAlternativeLabel, formatDateTime,
+                    copyDeviceId, validateLicense, handleConfirm, saveSettings, importBackup, triggerImport, backupData, whatsappLink, loadDiaryData, saveAttendance, addSchedule, deleteSchedule, isCurrentSelectionValidSchedule
                 };
             }
         }).mount('#app');
