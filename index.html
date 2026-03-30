@@ -2380,8 +2380,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const openResultDetails = (r) => {
                     if (!r) return;
                     
-                    // Deteta se 'r' é um objeto Result direto ou se veio do Perfil do Aluno (onde tem apenas o resultId)
-                    let resObj = r.examId !== undefined ? r : results.value.find(res => res.id === r.resultId);
+                    // Busca o resultId de forma segura e direta da base de dados principal
+                    let realResultId = r.resultId !== undefined ? r.resultId : r.id;
+                    let resObj = results.value.find(res => res.id === realResultId);
+                    
                     if (!resObj) { 
                         showToast('Resultado não encontrado.', 'error'); 
                         return; 
@@ -2406,7 +2408,22 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     showResultDetailsModal.value = true;
                 };
 
-                const saveUpdatedAnswers=async()=>{let rd=selectedResultDetails.value; if(!rd)return; let r=results.value.find(x=>x.id===rd.resultId); await saveExamResult(r.examId,r.studentId,r.studentName,r.version,rd.answers); let u=results.value.find(x=>x.id===rd.resultId); rd.score=u.score; showToast("Atualizado!","success");};
+                const saveUpdatedAnswers=async()=>{
+                    let rd=selectedResultDetails.value; 
+                    if(!rd)return; 
+                    let r=results.value.find(x=>x.id===rd.resultId); 
+                    
+                    // Converte estritamente para números para não bugar a cor da interface
+                    let cleanAns = {};
+                    for (let key in rd.answers) {
+                        cleanAns[key] = rd.answers[key] !== null ? parseInt(rd.answers[key]) : null;
+                    }
+                    
+                    await saveExamResult(r.examId,r.studentId,r.studentName,r.version,cleanAns); 
+                    let u=results.value.find(x=>x.id===rd.resultId); 
+                    rd.score=u.score; 
+                    showToast("Atualizado!","success");
+                };
 
                 const openExternalExamForm = () => {
                     externalConfig.value = { title: '', classId: '', bimester: 1, date: new Date().toISOString().split('T')[0] };
@@ -2463,7 +2480,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const saveManualCorrection=async()=>{
                     let pa={}; 
                     getVersionQuestions(activeExam.value,activeVersion.value).forEach((q,i)=>{
-                        if(studentAnswers.value[i]!=null)pa[i]=studentAnswers.value[i]
+                        if(studentAnswers.value[i]!=null) pa[i]=parseInt(studentAnswers.value[i]);
                     }); 
                     let sid=await saveExamResult(activeExam.value.id,activeStudent.value.id,activeStudent.value.name,activeVersion.value,pa); 
                     showToast(`Salvo! Nota: ${results.value.find(r=>r.id===sid).score}`,'success'); 
@@ -2701,9 +2718,9 @@ Siga as instruções ESTRITAMENTE:
                             if (aiResult.answers && Array.isArray(aiResult.answers)) {
                                 const maxQ = getVersionQuestions(exm, ver).length;
                                 aiResult.answers.forEach(ansObj => {
-                                    const qIndex = ansObj.q - 1;
+                                    const qIndex = parseInt(ansObj.q) - 1;
                                     if (qIndex >= 0 && qIndex < maxQ && ansObj.v !== -1 && ansObj.v !== null && ansObj.v !== undefined) {
-                                        ansMap[qIndex] = ansObj.v;
+                                        ansMap[qIndex] = parseInt(ansObj.v);
                                     }
                                 });
                             }
