@@ -2668,18 +2668,18 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const mimeType = file.type;
 
                             const prompt = `SISTEMA DE VISÃO COMPUTACIONAL OMR ATIVADO (MODO DRACONIANO DE ALTA PRECISÃO).
-A imagem tem baixa resolução, sombras profundas e/ou perspetiva distorcida. A sua tolerância a falhas deve ser ZERO.
+A imagem tem baixa resolução, sombras profundas, perspetiva distorcida OU MARCAÇÕES DIGITAIS COLORIDAS. A sua tolerância a falhas deve ser ZERO.
 
 ALGORITMO DE TRIANGULAÇÃO (OBRIGATÓRIO):
-1. ANCORAGEM: Encontre os 4 quadrados pretos delimitadores nos cantos. A prova só existe DENTRO deles. Ignore o resto.
-2. DESENTORTAMENTO MENTAL: A folha pode estar torta. Use a linha vertical contínua de retângulos pretos grossos (na margem esquerda) como o seu VERDADEIRO EIXO Y. Cada retângulo preto alinha com UMA linha de questões.
-3. FILTRO DE SOMBRAS: Sombras criam manchas graduais. Marcações de alunos são escuras, sólidas e com bordas definidas dentro do círculo geométrico. Ignore manchas de luz, desfoques ou borracha mal apagada.
+1. ANCORAGEM: Encontre os 4 quadrados pretos delimitadores nos cantos. A prova só existe DENTRO deles. Ignore fotos de alunos e o resto do papel.
+2. DESENTORTAMENTO MENTAL: A folha pode estar torta. Use a linha vertical de retângulos pretos grossos (na margem esquerda) como o seu VERDADEIRO EIXO Y. Cada retângulo alinha com UMA linha de questões.
+3. RECONHECIMENTO DE TINTA MULTICOR (CRÍTICO): Atenção máxima! Os alunos podem preencher as bolhas com caneta escura OU com ferramentas digitais (cores vibrantes como verde-neon, azul, vermelho, etc.). Considere a bolha preenchida se houver QUALQUER cor sólida ou saturação evidente que cubra o fundo branco, independentemente de ser preto ou colorido. Ignore apenas sombras cinzentas graduais.
 
 TRIPLA CHECAGEM DE MARCAÇÃO (Para cada linha Y):
-Encontre a bolha mais preenchida e valide-a RIGOROSAMENTE cruzando 3 fatores em simultâneo:
+Encontre a bolha com a cor ou preenchimento intencional mais evidente e valide-a RIGOROSAMENTE cruzando 3 fatores em simultâneo:
 [FATOR 1] Posição Horizontal da esquerda para a direita (Coluna 1, 2, 3, 4 ou 5).
 [FATOR 2] Letra do CABEÇALHO (A, B, C, D, E) perfeitamente alinhada acima dessa coluna vertical.
-[FATOR 3] Letra INTERNA (A, B, C, D, E) desenhada em cinza por baixo do próprio grafite/tinta do aluno.
+[FATOR 3] Letra INTERNA (A, B, C, D, E) coberta pela cor/tinta.
 
 ÍNDICES DE SAÍDA ESTRITOS (v):
 * Bolha A (ou Certo) = 0
@@ -2690,7 +2690,7 @@ Encontre a bolha mais preenchida e valide-a RIGOROSAMENTE cruzando 3 fatores em 
 * Anulada (duas marcações fortes na mesma linha) = -1
 * Linha 100% Branca/Vazia = -1
 
-PASSO 1: Descreva rapidamente a geometria, a rotação da foto e onde encontrou sombras no campo "analysis" para recalibrar a sua visão.
+PASSO 1: Descreva rapidamente em "analysis" a cor usada nas marcações (ex: "verde digital", "caneta preta") e valide os alinhamentos.
 PASSO 2: Leia o QR Code e coloque o JSON exato em "qrText".
 PASSO 3: Extraia a matriz final e infalível em "answers".`;
 
@@ -2699,7 +2699,7 @@ PASSO 3: Extraia a matriz final e infalível em "answers".`;
                                 properties: {
                                     analysis: { 
                                         type: "STRING", 
-                                        description: "Raciocínio interno da IA sobre alinhamento e detecção de sombras antes de ler as bolhas." 
+                                        description: "Raciocínio interno da IA sobre a cor das marcações e detecção de sombras antes de ler as bolhas." 
                                     },
                                     qrText: { type: "STRING" },
                                     answers: {
