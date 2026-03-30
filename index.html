@@ -2667,29 +2667,40 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `INSTRUÇÃO DE MÁQUINA: ATUE COMO UM SCANNER OMR DE TOLERÂNCIA ZERO.
-Sua única função é processar a grelha de bolhas de resposta.
+                            const prompt = `SISTEMA DE VISÃO COMPUTACIONAL OMR ATIVADO (MODO DRACONIANO DE ALTA PRECISÃO).
+A imagem tem baixa resolução, sombras profundas e/ou perspetiva distorcida. A sua tolerância a falhas deve ser ZERO.
 
-REGRAS DE ISOLAMENTO ABSOLUTO:
-- IGNORE rostos, fotografias, logótipos e texto do cabeçalho.
-- Foque EXCLUSIVAMENTE na área delimitada pelos 4 quadrados pretos grossos.
+ALGORITMO DE TRIANGULAÇÃO (OBRIGATÓRIO):
+1. ANCORAGEM: Encontre os 4 quadrados pretos delimitadores nos cantos. A prova só existe DENTRO deles. Ignore o resto.
+2. DESENTORTAMENTO MENTAL: A folha pode estar torta. Use a linha vertical contínua de retângulos pretos grossos (na margem esquerda) como o seu VERDADEIRO EIXO Y. Cada retângulo preto alinha com UMA linha de questões.
+3. FILTRO DE SOMBRAS: Sombras criam manchas graduais. Marcações de alunos são escuras, sólidas e com bordas definidas dentro do círculo geométrico. Ignore manchas de luz, desfoques ou borracha mal apagada.
 
-ALGORITMO DE LEITURA (LINHA A LINHA):
-1. ANCORAGEM: Siga os pequenos retângulos pretos laterais (marcas fiduciais) para traçar uma linha reta imaginária sobre cada questão.
-2. MAPEAMENTO: Em cada linha, existem bolhas. Os índices são estritamente: A/Certo=0, B/Errado=1, C=2, D=3, E=4.
-3. AVALIAÇÃO DE TINTA (CRÍTICO): Calcule a densidade de pixels escuros APENAS DENTRO dos círculos. A bolha com a MAIOR MANCHA ESCURA é a resposta.
-4. IGNORAR RUÍDO: Ignore marcas de borracha, traços finos de lápis e letras fora das bolhas. Não deduza respostas com base num "X" fraco se outra bolha estiver totalmente pintada.
-5. EXCEÇÕES: Se o aluno pintou duas bolhas fortemente (anulou), devolva o índice da mais escura. Se a linha estiver 100% em branco, devolva -1.
+TRIPLA CHECAGEM DE MARCAÇÃO (Para cada linha Y):
+Encontre a bolha mais preenchida e valide-a RIGOROSAMENTE cruzando 3 fatores em simultâneo:
+[FATOR 1] Posição Horizontal da esquerda para a direita (Coluna 1, 2, 3, 4 ou 5).
+[FATOR 2] Letra do CABEÇALHO (A, B, C, D, E) perfeitamente alinhada acima dessa coluna vertical.
+[FATOR 3] Letra INTERNA (A, B, C, D, E) desenhada em cinza por baixo do próprio grafite/tinta do aluno.
 
-QR CODE:
-Leia o QR Code no canto superior direito e extraia o texto JSON exato para o campo "qrText". Se estiver cortado ou ilegível, retorne null.
+ÍNDICES DE SAÍDA ESTRITOS (v):
+* Bolha A (ou Certo) = 0
+* Bolha B (ou Errado) = 1
+* Bolha C = 2
+* Bolha D = 3
+* Bolha E = 4
+* Anulada (duas marcações fortes na mesma linha) = -1
+* Linha 100% Branca/Vazia = -1
 
-SAÍDA FINAL:
-Retorne ESTRITAMENTE o JSON solicitado, mapeando o número da linha impressa (q) e o índice da bolha assinalada (v).`;
+PASSO 1: Descreva rapidamente a geometria, a rotação da foto e onde encontrou sombras no campo "analysis" para recalibrar a sua visão.
+PASSO 2: Leia o QR Code e coloque o JSON exato em "qrText".
+PASSO 3: Extraia a matriz final e infalível em "answers".`;
 
                             const schema = {
                                 type: "OBJECT",
                                 properties: {
+                                    analysis: { 
+                                        type: "STRING", 
+                                        description: "Raciocínio interno da IA sobre alinhamento e detecção de sombras antes de ler as bolhas." 
+                                    },
                                     qrText: { type: "STRING" },
                                     answers: {
                                         type: "ARRAY",
