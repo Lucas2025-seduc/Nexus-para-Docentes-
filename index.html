@@ -2672,17 +2672,17 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `Você é um sistema OMR baseado em Inteligência Artificial em MODO DE SOBREVIVÊNCIA.
-AVISO DE MÁ QUALIDADE: A imagem fornecida pode ser uma fotografia tirada a um ecrã/tela de telemóvel (contendo reflexos de luz extremos, padrão moiré e perspetiva severa). Faça o possível para "ver através" do clarão.
+                            const prompt = `Você é um sistema OMR (Optical Mark Recognition) avançado baseado em Inteligência Artificial.
+AVISO DE MÁ QUALIDADE: A imagem fornecida pode ter reflexos de luz, padrão moiré, ou perspetiva torta.
 Siga as instruções ESTRITAMENTE:
-1. ALINHAMENTO ROBUSTO: Tente usar os 4 quadrados pretos grandes nos cantos. SE algum estiver cortado/fora da foto, deduza a geometria da grelha usando os restantes e os pequenos retângulos pretos laterais.
-2. LEITURA COMPLETA: Verifique TODAS as linhas numeradas do início ao fim (mesmo as que estão na base). Não ignore a última questão!
-3. ORIENTAÇÃO: O topo é indicado pelo QR Code e pelo texto "GABARITO OFICIAL". Se o texto estiver rasurado/tapado por desenhos digitais, guie-se exclusivamente pelo QR Code para saber onde é o topo.
-4. MARCAÇÕES (Físicas ou Digitais): O aluno pode ter preenchido com caneta ou com desenhos digitais (ex: manchas azuis, verdes). Considere a bolha com a cor mais forte ou preenchimento evidente como a resposta correta. Use a letra impressa no cabeçalho ou dentro da bolha para confirmar (A, B, C, D, E).
+1. ALINHAMENTO POR MARCAS FIDUCIAIS: Use rigorosamente os 4 quadrados pretos grandes nos cantos e os pequenos retângulos pretos laterais (guias de sincronização de linha) para deduzir a geometria e alinhar a grelha de leitura perfeitamente.
+2. LEITURA COMPLETA: Verifique TODAS as linhas numeradas do início ao fim (mesmo as que estão na base da folha). Não ignore NENHUMA questão!
+3. ORIENTAÇÃO: O topo é indicado pelo QR Code e pelo texto "GABARITO OFICIAL".
+4. MARCAÇÕES E LETRAS DAS ALTERNATIVAS: Para determinar qual opção foi assinalada (onde 0=A/Certo, 1=B/Errado, 2=C, 3=D, 4=E), guie-se OBRIGATORIAMENTE pelas letras cinzentas impressas **DENTRO** das próprias bolinhas e pelas letras de cabeçalho **FORA** (logo acima da coluna da questão 1). Considere a bolha com a cor mais forte ou preenchimento evidente como a resposta marcada.
 5. SINCRONIZAÇÃO: Siga os retângulos pretos laterais estritamente linha a linha, da esquerda para a direita.
-6. REGRAS DE FALHA: Retorne o valor -1 APENAS se a linha estiver 100% vazia ou impossível de ler devido a um clarão de luz branco absoluto.
-7. QR CODE: Tente ler o QR no canto superior e extraia o JSON em qrText.
-8. SAÍDA FINAL: Extraia a resposta como um array de objetos associando o NÚMERO DA LINHA impresso na grelha (q) e o índice marcado (v). Sendo v: 0=A/Certo, 1=B/Errado, 2=C, 3=D, 4=E. Retorne apenas o JSON.`;
+6. REGRAS DE FALHA: Retorne o valor -1 APENAS se a linha estiver 100% vazia ou absolutamente ilegível.
+7. QR CODE: Tente ler o QR no canto superior direito e extraia o JSON exato em qrText.
+8. SAÍDA FINAL: Extraia a resposta como um array de objetos associando o NÚMERO DA LINHA impresso na grelha (q) e o índice marcado (v). Retorne apenas o JSON.`;
 
                             const schema = {
                                 type: "OBJECT",
