@@ -3207,28 +3207,42 @@ Siga as instruções ESTRITAMENTE:
                                         { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
                                     ]);
 
+                                    // Força as colunas laterais a terem exatamente a mesma largura (no mínimo 75px)
+                                    // Isso garante que o cabeçalho fique PERFEITAMENTE CENTRALIZADO na folha
+                                    const sideWidth = Math.max(Number(printConfig.value.logoSize) || 50, 75);
+
+                                    let leftStack = settings.value.logo 
+                                        ? [{image: settings.value.logo, fit: [Number(printConfig.value.logoSize) || 50, 75], alignment: 'left'}] 
+                                        : [{text: '', alignment: 'left'}];
+
+                                    let rightStack = [
+                                        { qr: JSON.stringify({e:eId,s:std.id,v:vi}), fit: 70, alignment: 'right' }
+                                    ];
+                                    
+                                    if (printConfig.value.showStudentPhoto && std.photo) {
+                                        // Margem inferior negativa (-65) impede que a altura da foto afete/desloque a grelha
+                                        rightStack.push({ image: std.photo, fit: [50, 60], alignment: 'right', margin: [0, 5, 0, -65] });
+                                    }
+
                                     let headerCols = [
-                                        settings.value.logo ? {image:settings.value.logo,fit:[printConfig.value.logoSize,75]} : {text:'', width: printConfig.value.logoSize},
+                                        { width: sideWidth, stack: leftStack },
                                         {
+                                            width: '*',
                                             stack:[
                                                 {text:settings.value.schoolName || 'ESCOLA',fontSize:pSize?12:14,bold:true,alignment:'center'},
                                                 {text:eD.title,fontSize:pSize?10:11,alignment:'center'},
-                                                {text:`Turma: ${getClassName(cid)}`, fontSize:pSize?9:10, alignment:'center', bold:true, color: '#4f46e5'},
-                                                {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
-                                            ],
-                                            width: '*'
-                                        }
+                                                {text:`Turma: ${getClassName(eD.classId)}`, fontSize:pSize?9:10, alignment:'center', bold:true, color: '#4f46e5'},
+                                                {text:`Aluno: ${std.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
+                                            ]
+                                        },
+                                        { width: sideWidth, stack: rightStack }
                                     ];
-
-                                    if (s.photo) {
-                                        headerCols.push({image: s.photo, fit: [50, 60], margin: [0, 5, 10, 0], alignment: 'right', width: 50});
-                                    }
-
-                                    headerCols.push({qr:JSON.stringify({e:eId,s:s.id,v:vi}),fit:70,alignment:'right', width: 70});
 
                                     cont.push({
                                         stack:[
-                                            { columns: headerCols },
+                                            {
+                                                columns: headerCols
+                                            },
                                             {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0, pSize?6:10, 0, 2], bold:true, fontSize:pSize?10:12},
                                             {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0, pSize?4:8], fontSize:pSize?8:9, color:'#4b5563'},
                                             {
