@@ -2667,32 +2667,34 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `SISTEMA DE VISÃO COMPUTACIONAL OMR ATIVADO (MODO DRACONIANO DE ALTA PRECISÃO).
-A imagem tem baixa resolução, sombras profundas, perspetiva distorcida OU MARCAÇÕES DIGITAIS COLORIDAS. A sua tolerância a falhas deve ser ZERO.
+                            const prompt = `SISTEMA DE VISÃO COMPUTACIONAL OMR ATIVADO (MODO INFALÍVEL DE ALTA PRECISÃO).
+A imagem apresenta baixa resolução, sombras cruzadas, perspetiva distorcida e/ou MARCAÇÕES DIGITAIS MULTICOR (ex: verde-neon). Tolerância a falhas: ZERO.
 
-ALGORITMO DE TRIANGULAÇÃO (OBRIGATÓRIO):
-1. ANCORAGEM: Encontre os 4 quadrados pretos delimitadores nos cantos. A prova só existe DENTRO deles. Ignore fotos de alunos e o resto do papel.
-2. DESENTORTAMENTO MENTAL: A folha pode estar torta. Use a linha vertical de retângulos pretos grossos (na margem esquerda) como o seu VERDADEIRO EIXO Y. Cada retângulo alinha com UMA linha de questões.
-3. RECONHECIMENTO DE TINTA MULTICOR (CRÍTICO): Atenção máxima! Os alunos podem preencher as bolhas com caneta escura OU com ferramentas digitais (cores vibrantes como verde-neon, azul, vermelho, etc.). Considere a bolha preenchida se houver QUALQUER cor sólida ou saturação evidente que cubra o fundo branco, independentemente de ser preto ou colorido. Ignore apenas sombras cinzentas graduais.
+ALGORITMO DE TRIANGULAÇÃO (EXECUÇÃO OBRIGATÓRIA):
+1. ANCORAGEM ESPACIAL: Fixe a geometria usando os 4 quadrados pretos nos cantos. Ignore TUDO o que estiver fora.
+2. EIXO Y (LINHAS): Siga rigidamente os pequenos retângulos pretos do lado esquerdo. Eles ditam a linha reta de cada questão.
+3. EIXO X (COLUNAS) E DETEÇÃO DE TINTA: Percorra cada linha procurando manchas sólidas de grafite/caneta OU marcações digitais (verde, vermelho, azul, etc.). Ignore sombras acinzentadas e gradientes de luz naturais da fotografia.
 
-TRIPLA CHECAGEM DE MARCAÇÃO (Para cada linha Y):
-Encontre a bolha com a cor ou preenchimento intencional mais evidente e valide-a RIGOROSAMENTE cruzando 3 fatores em simultâneo:
-[FATOR 1] Posição Horizontal da esquerda para a direita (Coluna 1, 2, 3, 4 ou 5).
-[FATOR 2] Letra do CABEÇALHO (A, B, C, D, E) perfeitamente alinhada acima dessa coluna vertical.
-[FATOR 3] Letra INTERNA (A, B, C, D, E) coberta pela cor/tinta.
+A LEI DA TRIPLA CHECAGEM MATEMÁTICA (O SEGREDO DA PRECISÃO):
+Para cada bolha que pareça preenchida, você DEVE cruzar 3 coordenadas antes de a validar como resposta oficial:
+[FATOR 1 - POSIÇÃO HORIZONTAL]: A mancha está na posição 1, 2, 3, 4 ou 5 da linha?
+[FATOR 2 - CABEÇALHO VERTICAL]: A linha vertical imaginária desta bolha bate exatamente na letra (A, B, C, D, E) do topo da grelha?
+[FATOR 3 - LETRA INTERNA]: A mancha está a cobrir a letra cinza exata (A, B, C, D, E) impressa dentro da bolha?
+Se os 3 fatores não convergirem perfeitamente, considere como sombra/ruído e ignore.
 
 ÍNDICES DE SAÍDA ESTRITOS (v):
-* Bolha A (ou Certo) = 0
-* Bolha B (ou Errado) = 1
-* Bolha C = 2
-* Bolha D = 3
-* Bolha E = 4
-* Anulada (duas marcações fortes na mesma linha) = -1
-* Linha 100% Branca/Vazia = -1
+* Bolha A (ou Certo) -> v: 0
+* Bolha B (ou Errado) -> v: 1
+* Bolha C -> v: 2
+* Bolha D -> v: 3
+* Bolha E -> v: 4
+* Dupla marcação intencional (rasura) -> v: -1
+* Linha 100% vazia -> v: -1
 
-PASSO 1: Descreva rapidamente em "analysis" a cor usada nas marcações (ex: "verde digital", "caneta preta") e valide os alinhamentos.
-PASSO 2: Leia o QR Code e coloque o JSON exato em "qrText".
-PASSO 3: Extraia a matriz final e infalível em "answers".`;
+PASSOS FINAIS:
+"analysis": Antes de gerar as respostas, escreva uma frase técnica descrevendo a cor da tinta encontrada e a inclinação da folha. Isso forçará o seu motor visual a calibrar a imagem matematicamente.
+"qrText": O JSON contido no QR Code no topo.
+"answers": Array com o número impresso na folha (q) e o índice calculado (v).`;
 
                             const schema = {
                                 type: "OBJECT",
