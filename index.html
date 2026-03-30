@@ -1368,7 +1368,7 @@
                     if(s) { 
                         settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null}; 
                         if(s.geminiKey) geminiKey.value=s.geminiKey; 
-                        if(s.printConfig) printConfig.value = s.printConfig;
+                        if(s.printConfig) printConfig.value = { ...printConfig.value, ...s.printConfig };
                     }
                 };
 
@@ -2803,18 +2803,15 @@ Siga as instruções ESTRITAMENTE:
                                     if(i > 0 || (examConfig.value.variationMode === 'unique' && i > 0)) {
                                         qs.sort(()=>Math.random()-0.5); 
                                         qs.forEach(q=>{
-                                            if(q.type!=='ce'){
-                                                let o=q.options.map((op,x)=>({...op,isc:x===q.correctIndex})).sort(()=>Math.random()-0.5); 
-                                                q.options=o; 
-                                                q.correctIndex=o.findIndex(x=>x.isc)
-                                            }
+                                            if(q.type!=='ce'){ let o=q.options.map((op,x)=>({...op,isc:x===q.correctIndex})).sort(()=>Math.random()-0.5); q.options=o; q.correctIndex=o.findIndex(x=>x.isc) }
                                         })
                                     } 
                                     v.push({id:i, questions:qs}) 
                                 }
                                 stds.forEach((s,i)=>sm[s.id]=i%nV);
                             }
-                            let eD={title:titleFallback, classId:cid, type:examConfig.value.type, weight:examConfig.value.weight, bimester:examConfig.value.bimester, teacher:examConfig.value.teacher, variationMode:examConfig.value.variationMode, versions:v, studentMap:sm, date:Date.now()};
+                            
+                            let eD={title:titleFallback, classId:cid, type:examConfig.value.type, weight:examConfig.value.weight, bimester:examConfig.value.bimester, teacher:examConfig.value.teacher, variationMode:examConfig.value.variationMode, versions:v, studentMap:sm, date:Date.now(), paperSaving: pSize};
                             
                             let eId;
                             if(editingExamRecord && editingExamRecord.classId === cid) {
@@ -3093,14 +3090,6 @@ Siga as instruções ESTRITAMENTE:
 
                     triggerConfirm(`Tem certeza que deseja gerar um PDF único com as ${selectedHistoryExams.value.length} provas selecionadas?`, async () => {
                         try {
-                            let cont = [];
-                            const pSize = printConfig.value.paperSaving;
-                            const fSizeQ = pSize ? 9 : 11;
-                            const fSizeOpt = pSize ? 8 : 10;
-                            const optMarg = pSize ? [0, 0] : [0, 2];
-                            let baseImgW = printConfig.value.qImageSize === 'large' ? 250 : 130;
-                            const imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
-
                             // Ignora provas "Externas" que não possuem questões formatadas
                             const examsToPrint = selectedHistoryExams.value
                                 .map(id => exams.value.find(e => e.id === id))
@@ -3111,6 +3100,19 @@ Siga as instruções ESTRITAMENTE:
                                 selectedHistoryExams.value = [];
                                 return;
                             }
+
+                            // Restaura o modo de economia de papel da primeira prova selecionada (se existir)
+                            if (examsToPrint[0].paperSaving !== undefined) {
+                                printConfig.value.paperSaving = examsToPrint[0].paperSaving;
+                            }
+
+                            let cont = [];
+                            const pSize = printConfig.value.paperSaving;
+                            const fSizeQ = pSize ? 9 : 11;
+                            const fSizeOpt = pSize ? 8 : 10;
+                            const optMarg = pSize ? [0, 0] : [0, 2];
+                            let baseImgW = printConfig.value.qImageSize === 'large' ? 250 : 130;
+                            const imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
 
                             for (const eD of examsToPrint) {
                                 let cid = eD.classId;
@@ -3394,6 +3396,12 @@ Siga as instruções ESTRITAMENTE:
                     examConfig.value = { ...exam, classIds: [exam.classId] };
                     examCart.value = JSON.parse(JSON.stringify(getVersionQuestions(exam, 0)));
                     editingExamId.value = exam.id;
+                    
+                    // Restaura a configuração de economia de papel original desta prova
+                    if (exam.paperSaving !== undefined) {
+                        printConfig.value.paperSaving = exam.paperSaving;
+                    }
+                    
                     generatePDF(action);
                 };
 
