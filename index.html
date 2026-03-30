@@ -899,13 +899,15 @@
                         <div class="flex gap-1.5 flex-wrap pl-8">
                             <template v-if="!e.isExternal">
                                 <button @click="reprintExamPDF(e, 'view')" class="w-8 h-8 rounded-lg bg-sky-50 hover:bg-sky-500 hover:text-white text-sky-600 transition flex items-center justify-center" title="Visualizar Prova na Tela"><i class="fa-solid fa-eye"></i></button>
-                                <button @click="reprintExamPDF(e, 'share')" class="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-500 hover:text-white text-blue-600 transition flex items-center justify-center" title="Baixar / Partilhar Prova"><i class="fa-solid fa-download"></i></button>
-                                <button @click="openEditExam(e)" class="w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-600 transition flex items-center justify-center" title="Revisar Textos (Seguro)"><i class="fa-solid fa-pen"></i></button>
+                                <button @click="reprintExamPDF(e, 'download')" class="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-500 hover:text-white text-blue-600 transition flex items-center justify-center" title="Baixar Prova PDF"><i class="fa-solid fa-download"></i></button>
+                                <button @click="reprintExamPDF(e, 'share')" class="w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-600 transition flex items-center justify-center" title="Partilhar Prova PDF"><i class="fa-solid fa-share-nodes"></i></button>
+                                <button @click="openEditExam(e)" class="w-8 h-8 rounded-lg bg-cyan-50 hover:bg-cyan-500 hover:text-white text-cyan-600 transition flex items-center justify-center" title="Revisar Textos (Seguro)"><i class="fa-solid fa-pen"></i></button>
                                 <button @click="duplicateExam(e)" class="w-8 h-8 rounded-lg bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-600 transition flex items-center justify-center" title="Duplicar Prova (Cria Nova)"><i class="fa-solid fa-copy"></i></button>
                                 <button @click="openItemAnalysis(e)" class="w-8 h-8 rounded-lg bg-pink-50 hover:bg-pink-500 hover:text-white text-pink-600 transition flex items-center justify-center" title="Relatório de Erros da Turma"><i class="fa-solid fa-chart-pie"></i></button>
                                 <button @click="openFixKey(e)" class="w-8 h-8 rounded-lg bg-orange-50 hover:bg-orange-500 hover:text-white text-orange-600 transition flex items-center justify-center" title="Corrigir Gabarito"><i class="fa-solid fa-list-check"></i></button>
                                 <button @click="generateKeyPDF(e, 'view')" class="w-8 h-8 rounded-lg bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-600 transition flex items-center justify-center" title="Visualizar Gabarito"><i class="fa-solid fa-file-contract"></i></button>
-                                <button @click="generateKeyPDF(e, 'share')" class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Baixar Gabarito PDF"><i class="fa-solid fa-key"></i></button>
+                                <button @click="generateKeyPDF(e, 'download')" class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Baixar Gabarito PDF"><i class="fa-solid fa-download"></i></button>
+                                <button @click="generateKeyPDF(e, 'share')" class="w-8 h-8 rounded-lg bg-lime-50 hover:bg-lime-500 hover:text-white text-lime-600 transition flex items-center justify-center" title="Partilhar Gabarito PDF"><i class="fa-solid fa-share-nodes"></i></button>
                             </template>
                             <template v-else>
                                 <span class="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded font-bold border border-blue-100 flex items-center"><i class="fa-solid fa-file-pen mr-1"></i> Prova Externa (Apenas Notas)</span>
@@ -1331,6 +1333,11 @@
                                 }, 500);
                             };
                             
+                            if (action === 'download') {
+                                forceDownload();
+                                return;
+                            }
+                            
                             // Tenta abrir o menu nativo de partilha do sistema
                             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                                 try {
@@ -1338,7 +1345,7 @@
                                         files: [file],
                                         title: fileName
                                     });
-                                    showToast("Documento acedido com sucesso!", "success");
+                                    showToast("Documento partilhado com sucesso!", "success");
                                 } catch (shareErr) {
                                     // Se o utilizador não cancelou, mas o sistema bloqueou a partilha, força o download!
                                     if (shareErr.name !== 'AbortError') {
@@ -2672,30 +2679,25 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `ATUE COMO UM SCANNER OMR (Optical Mark Recognition) DE ALTA PRECISÃO.
-Seu único objetivo é ler a Grelha de Respostas na metade inferior da imagem.
+                            const prompt = `INSTRUÇÃO DE MÁQUINA: ATUE COMO UM SCANNER OMR DE TOLERÂNCIA ZERO.
+Sua única função é processar a grelha de bolhas de resposta.
 
-REGRAS DE FOCO (CRÍTICO):
-1. IGNORE COMPLETAMENTE a fotografia do aluno abaixo do QR Code. Ela não contém respostas. Não deixe que o rosto distraia a sua leitura.
-2. IGNORE os textos do cabeçalho.
+REGRAS DE ISOLAMENTO ABSOLUTO:
+- IGNORE rostos, fotografias, logótipos e texto do cabeçalho.
+- Foque EXCLUSIVAMENTE na área delimitada pelos 4 quadrados pretos grossos.
 
-PASSO A PASSO PARA A LEITURA (Siga rigorosamente):
-1. ANCORAGEM: Encontre os 4 quadrados pretos grossos que delimitam os cantos da grelha de bolhas.
-2. SINCRONIZAÇÃO: Use os pequenos retângulos pretos (marcas fiduciais) nas margens esquerda e direita da grelha. Eles indicam a linha reta exata de cada questão.
-3. LEITURA HORIZONTAL: Desça linha a linha (do número 1 até à última questão).
-4. MAPEAMENTO DE ÍNDICES: Em cada linha, olhe para as bolinhas da esquerda para a direita. As letras cinzentas DENTRO das bolhas confirmam o índice:
-   - 1ª bolha (A ou Certo) = Índice 0
-   - 2ª bolha (B ou Errado) = Índice 1
-   - 3ª bolha (C) = Índice 2
-   - 4ª bolha (D) = Índice 3
-   - 5ª bolha (E) = Índice 4
-5. DETEÇÃO DE TINTA: Considere a bolha que estiver mais preenchida, escura ou com marcas de caneta/lápis. Se a linha estiver totalmente vazia e em branco, o índice será -1.
+ALGORITMO DE LEITURA (LINHA A LINHA):
+1. ANCORAGEM: Siga os pequenos retângulos pretos laterais (marcas fiduciais) para traçar uma linha reta imaginária sobre cada questão.
+2. MAPEAMENTO: Em cada linha, existem bolhas. Os índices são estritamente: A/Certo=0, B/Errado=1, C=2, D=3, E=4.
+3. AVALIAÇÃO DE TINTA (CRÍTICO): Calcule a densidade de pixels escuros APENAS DENTRO dos círculos. A bolha com a MAIOR MANCHA ESCURA é a resposta.
+4. IGNORAR RUÍDO: Ignore marcas de borracha, traços finos de lápis e letras fora das bolhas. Não deduza respostas com base num "X" fraco se outra bolha estiver totalmente pintada.
+5. EXCEÇÕES: Se o aluno pintou duas bolhas fortemente (anulou), devolva o índice da mais escura. Se a linha estiver 100% em branco, devolva -1.
 
 QR CODE:
-Leia o QR Code no canto superior direito e extraia o texto JSON exato para o campo "qrText". Se estiver ilegível, retorne null.
+Leia o QR Code no canto superior direito e extraia o texto JSON exato para o campo "qrText". Se estiver cortado ou ilegível, retorne null.
 
 SAÍDA FINAL:
-Retorne ESTRITAMENTE o JSON no formato solicitado, mapeando o número da questão (q) e o índice da resposta marcada (v). Não inclua nenhum outro texto na resposta.`;
+Retorne ESTRITAMENTE o JSON solicitado, mapeando o número da linha impressa (q) e o índice da bolha assinalada (v).`;
 
                             const schema = {
                                 type: "OBJECT",
