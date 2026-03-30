@@ -3200,18 +3200,7 @@ PASSOS FINAIS:
                                 return;
                             }
 
-                            // Restaura o modo de economia de papel da primeira prova selecionada (se existir)
-                            if (examsToPrint[0].paperSaving !== undefined) {
-                                printConfig.value.paperSaving = examsToPrint[0].paperSaving;
-                            }
-
                             let cont = [];
-                            const pSize = printConfig.value.paperSaving;
-                            const fSizeQ = pSize ? 9 : 11;
-                            const fSizeOpt = pSize ? 8 : 10;
-                            const optMarg = pSize ? [0, 0] : [0, 2];
-                            let baseImgW = printConfig.value.qImageSize === 'large' ? 250 : 130;
-                            const imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
 
                             for (const eD of examsToPrint) {
                                 let cid = eD.classId;
@@ -3221,6 +3210,14 @@ PASSOS FINAIS:
                                 let v = eD.versions && eD.versions.length > 0 ? eD.versions : [{ id: 0, questions: eD.questions || [] }];
                                 let sm = eD.studentMap || {};
                                 let eId = eD.id;
+
+                                // CRÍTICO: Variáveis de layout agora avaliadas INDIVIDUALMENTE para CADA prova do lote!
+                                let pSize = eD.paperSaving !== undefined ? eD.paperSaving : false;
+                                const fSizeQ = pSize ? 9 : 11;
+                                const fSizeOpt = pSize ? 8 : 10;
+                                const optMarg = pSize ? [0, 0] : [0, 2];
+                                let baseImgW = printConfig.value.qImageSize === 'large' ? 250 : 130;
+                                const imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
 
                                 stds.forEach((s, i) => {
                                     let vi = sm[s.id] !== undefined ? sm[s.id] : 0;
@@ -3289,7 +3286,7 @@ PASSOS FINAIS:
                                         { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
                                     ]);
 
-                                    const sideWidth = 85; // Simetria perfeita para centrar o texto
+                                    const sideWidth = 85; 
 
                                     let leftStack = settings.value.logo 
                                         ? [{image: settings.value.logo, fit: [sideWidth, 75], alignment: 'left'}] 
@@ -3318,6 +3315,8 @@ PASSOS FINAIS:
                                     ];
 
                                     cont.push({
+                                        // Ajuste de margem virtual para proteger o layout em lotes mistos
+                                        margin: pSize ? [0,0,0,0] : [20,0,20,0],
                                         stack:[
                                             {
                                                 columns: headerCols
@@ -3461,7 +3460,8 @@ PASSOS FINAIS:
                                             }
                                         }
 
-                                        qBlocks.push({stack:qB, margin: pSize ? [0,0,0,5] : [0,0,0,15], unbreakable: true});
+                                        // Ajuste de margem virtual inferior para as questões
+                                        qBlocks.push({stack:qB, margin: pSize ? [0,0,0,5] : [20,0,20,15], unbreakable: true});
                                     });
 
                                     cont.push(...qBlocks);
@@ -3488,8 +3488,9 @@ PASSOS FINAIS:
                             let tStr = now.getHours().toString().padStart(2, '0') + 'h' + now.getMinutes().toString().padStart(2, '0') + 'min';
                             let fileName = `Lote_Provas_${dStr}_${tStr}.pdf`;
 
+                            // Margem Fixa Global para garantir flexibilidade em lotes híbridos
                             downloadPDF(pdfMake.createPdf({
-                                pageMargins: pSize ? [20, 20, 20, 20] : [40, 40, 40, 40],
+                                pageMargins: [20, 20, 20, 20],
                                 content: cont
                             }), fileName, action);
 
