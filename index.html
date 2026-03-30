@@ -65,7 +65,7 @@
             <div class="w-full max-w-xs bg-gray-800 rounded-full h-4 mb-8 shadow-inner overflow-hidden border border-gray-700">
                 <div class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all duration-500 ease-out" :style="{width: (processedCount/correctionQueue.length)*100 + '%'}"></div>
             </div>
-            <div class="text-xs text-gray-400 max-w-sm mb-8"><i class="fa-solid fa-robot mr-1"></i> A IA está a extrair as notas em modo de saturação cromática de alta precisão.</div>
+            <div class="text-xs text-gray-400 max-w-sm mb-8"><i class="fa-solid fa-robot mr-1"></i> A IA está a extrair as notas em modo de saturação cromática de alta precisão com Tripla Checagem Geométrica.</div>
             <button @click="stopQueue" class="px-8 py-3 rounded-full border border-red-500/50 text-red-400 font-bold hover:bg-red-500 hover:text-white transition"><i class="fa-solid fa-stop mr-2"></i> Interromper</button>
         </div>
 
@@ -128,10 +128,7 @@
                 </div>
             </div>
 
-            <!-- OUTRAS VIEWS (DIÁRIO, TURMAS, BANCA, PROVAS) -->
-            <!-- ... Manter o código original nestas abas para brevidade ... -->
-            
-            <!-- CORREÇÃO LIGEIRA & MANUAL (ABREVIADA PARA MOSTRAR A ATUALIZAÇÃO) -->
+            <!-- CORREÇÃO LIGEIRA & MANUAL -->
             <div v-if="currentView==='correction'" class="max-w-xl mx-auto space-y-4 animate-fade-in pb-20">
                 <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden">
                     <div class="z-10">
@@ -143,7 +140,7 @@
                 
                 <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
                     <h3 class="font-bold text-gray-700 flex items-center gap-2"><i class="fa-solid fa-microchip text-indigo-600"></i> Motor de IA (Correção)</h3>
-                    <p class="text-xs text-gray-500">Configure a sua chave Gemini. O motor Nexus opera agora em <b>Modo de Saturação Cromática</b> para detectar marcações físicas ou digitais.</p>
+                    <p class="text-xs text-gray-500">Configure a sua chave Gemini. O motor Nexus opera agora em <b>Modo de Saturação Cromática</b> com <b>Tripla Checagem Geométrica</b>.</p>
                     <div class="flex gap-2">
                         <input type="password" v-model="geminiKey" placeholder="Colar Chave API do Gemini..." class="flex-1 bg-gray-50 border rounded-xl px-4 py-3 text-sm font-mono outline-none focus:border-indigo-500 transition" @change="saveSettings(true)">
                         <button @click="testGeminiKey" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-xl font-bold transition flex items-center gap-2"><i class="fa-solid fa-satellite-dish"></i> Testar</button>
@@ -212,7 +209,7 @@
         <!-- HIDDEN QR READER -->
         <div id="hidden-qr-reader" style="display:none;"></div>
         
-        <!-- MODAL DETALHES RESULTADO (REVISÃO DO ESPELHO) -->
+        <!-- MODAL DETALHES RESULTADO -->
         <div v-if="showResultDetailsModal" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="bg-white rounded-3xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
                 <div class="p-5 bg-indigo-600 text-white flex justify-between items-center">
@@ -353,7 +350,6 @@
 
                         const file = correctionQueue.value[i];
                         try {
-                            // Tenta ler o QR code localmente primeiro
                             let qrData = null;
                             try {
                                 const localScanner = new Html5Qrcode("hidden-qr-reader");
@@ -367,22 +363,23 @@
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `SISTEMA OMR DE ALTA PRECISÃO (MODO SATURAÇÃO CROMÁTICA).
-Este sistema processa gabaritos com marcações de caneta tradicional OU marcações DIGITAIS COLORIDAS (ex: verde-neon, azul, vermelho).
+                            const prompt = `SISTEMA OMR DE ALTA PRECISÃO (MODO INFALÍVEL).
+Este sistema processa gabaritos com marcações físicas ou DIGITAIS COLORIDAS (ex: verde-neon, azul, vermelho).
 
-REGRAS DE VISÃO OBRIGATÓRIAS:
-1. ANCORAGEM: Localize os 4 quadrados pretos nos cantos. Foque a leitura APENAS dentro deste perímetro. Ignore rostos ou cabeçalhos externos.
-2. DETECÇÃO DE TINTA (CRÍTICO): Não procure apenas por escuridão (preto/cinza). Identifique SATURAÇÃO. Qualquer bolha que contenha um preenchimento sólido de cor vibrante (como o verde neon digital) contra o fundo branco deve ser lida como "Marcada".
-3. LEI DA TRIPLA CHECAGEM: Uma resposta só é válida se a mancha:
-   - Estiver na posição horizontal correta da esquerda para a direita (0 a 4).
-   - Estiver alinhada com a letra do cabeçalho (A-E) no topo da grelha.
-   - Cobrir a letra cinza interna da bolha.
-4. RUÍDO: Ignore sombras suaves, desfoque e luz refletida. Marcações reais (físicas ou digitais) têm bordas nítidas e preenchimento sólido.
+REGRAS DE VISÃO OBRIGATÓRIAS (TRIANGULAÇÃO MATEMÁTICA):
+1. ANCORAGEM: Isole o gabarito usando os 4 quadrados pretos nos cantos.
+2. DETECÇÃO DE TINTA (CRÍTICO): Procure por SATURAÇÃO. Qualquer bolha com cor sólida (vibrante ou escura) contra o fundo branco é uma marcação. Ignore sombras e luz.
+3. LEI DA TRIPLA CHECAGEM (INFALÍVEL): Uma resposta só é validada se o preenchimento converter perfeitamente nestes 3 fatores:
+   [FATOR 1 - POSIÇÃO]: Estiver na posição horizontal correta da esquerda para a direita (Índice 0 a 4).
+   [FATOR 2 - ÂNCORA VERTICAL]: Estiver perfeitamente alinhado com a letra do cabeçalho (A, B, C, D, E) impressa no topo de cada coluna. Use estas letras como guia de prumo vertical.
+   [FATOR 3 - VALIDAÇÃO INTERNA]: Estiver a cobrir a letra cinza interna (A, B, C, D, E) da própria bolha.
+
+Se os 3 fatores (Posição, Letra do Topo e Letra Interna) não convergirem matematicamente, ignore como ruído/sombra.
 
 FORMATO DE RETORNO (JSON):
-- "analysis": Descreva brevemente em uma frase a cor da tinta detectada (ex: "Verde digital detectado") e se a foto está inclinada.
-- "qrText": Extraia o conteúdo JSON integral do QR Code no topo direito.
-- "answers": Array de objetos com "q" (número da linha) e "v" (índice 0-4). Se vazia ou rasurada, v: -1.`;
+- "analysis": Frase técnica descrevendo a cor da tinta (ex: "Verde neon digital") e confirmando o alinhamento com as letras do cabeçalho.
+- "qrText": Conteúdo JSON integral do QR Code.
+- "answers": Array de objetos com "q" (questão) e "v" (índice 0-4). Se vazia ou rasurada, v: -1.`;
 
                             const schema = {
                                 type: "OBJECT",
@@ -408,21 +405,21 @@ FORMATO DE RETORNO (JSON):
                             
                             let finalQrText = qrData ? JSON.stringify(qrData) : aiResult.qrText;
                             if (!finalQrText || finalQrText === "null" || finalQrText.trim() === "") {
-                                throw new Error(`Arq ${i+1}: QR Code ilegível. Melhore o foco ou luz no topo da folha.`);
+                                throw new Error(`Arq ${i+1}: QR Code ilegível. Melhore o foco ou luz.`);
                             }
                             
                             let qd;
                             try {
                                 qd = typeof finalQrText === 'string' ? JSON.parse(finalQrText.replace(/`/g, '')) : finalQrText;
                             } catch(e) {
-                                throw new Error(`Arq ${i+1}: Dados do QR Code corrompidos.`);
+                                throw new Error(`Arq ${i+1}: QR Code inválido.`);
                             }
 
                             const exm = exams.value.find(e => e.id === Number(qd.e));
                             const std = students.value.find(s => s.id === Number(qd.s));
                             const ver = Number(qd.v) || 0;
 
-                            if(!exm || !std) throw new Error(`Arq ${i+1}: Prova/Aluno não encontrados no banco.`);
+                            if(!exm || !std) throw new Error(`Arq ${i+1}: Prova/Aluno não encontrados.`);
 
                             let ansMap = {};
                             if (aiResult.answers && Array.isArray(aiResult.answers)) {
@@ -445,7 +442,7 @@ FORMATO DE RETORNO (JSON):
                                     let t = 0;
                                     let timer = setInterval(() => {
                                         t += 100;
-                                        if (stopQueueFlag.value || t >= 1500) { clearInterval(timer); res(); }
+                                        if (stopQueueFlag.value || t >= 1200) { clearInterval(timer); res(); }
                                     }, 100);
                                 });
                             }
@@ -466,12 +463,12 @@ FORMATO DE RETORNO (JSON):
                         await load(); 
                         
                         if (successCount > 0) {
-                            showToast(`Correção concluída: ${successCount} sucesso(s)!`, "success");
+                            showToast(`Concluído: ${successCount} sucesso(s)!`, "success");
                             if (lastSavedId) {
                                 setTimeout(() => openResultDetails({ id: lastSavedId }), 600);
                             }
                         } else {
-                            showToast("Falha Geral: Melhore a luz/foco ou verifique se o QR Code está visível.", "error");
+                            showToast("Falha Geral: Melhore a luz/foco ou verifique o QR Code.", "error");
                         }
                     }
                 };
