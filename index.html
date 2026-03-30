@@ -2672,29 +2672,30 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `ATENÇÃO: MODO DE VISÃO COMPUTACIONAL ESTRITA (OMR ALGORÍTMICO).
-Desative a interpretação semântica e visual humana. Atue EXCLUSIVAMENTE como um avaliador de matriz de pixels matemáticos.
+                            const prompt = `ATUE COMO UM SCANNER OMR (Optical Mark Recognition) DE ALTA PRECISÃO.
+Seu único objetivo é ler a Grelha de Respostas na metade inferior da imagem.
 
-OBJETIVO DO ALGORITMO:
-Extrair índices numéricos da matriz delimitada pelos 4 quadrados pretos sólidos nos cantos da folha.
+REGRAS DE FOCO (CRÍTICO):
+1. IGNORE COMPLETAMENTE a fotografia do aluno abaixo do QR Code. Ela não contém respostas. Não deixe que o rosto distraia a sua leitura.
+2. IGNORE os textos do cabeçalho.
 
-ALGORITMO DE VARREDURA E AVALIAÇÃO BINÁRIA:
-1. ANCORAGEM: Isole a imagem usando os 4 quadrados pretos gigantes. Ignore TUDO o que estiver fora desse quadrilátero (rostos, logótipos, textos).
-2. EIXO Y (Linhas): Siga os pequenos retângulos pretos na borda esquerda. Cada retângulo representa o eixo Y exato de uma questão.
-3. EIXO X (Colunas): Em cada linha Y, existem 5 círculos concêntricos (Índices: 0, 1, 2, 3, 4).
-4. CÁLCULO DE DENSIDADE (CRÍTICO):
-   - Calcule a densidade de pixels pretos/escuros APENAS no interior da área geométrica de cada círculo.
-   - O círculo com a densidade de saturação matemática mais alta (>60% de preenchimento) é o selecionado.
-   - Sombra, ruído ou grafite apagado (cinza claro) devem ser matematicamente descartados como <20% de densidade.
-5. CONFLITOS MATEMÁTICOS:
-   - Se a linha inteira tiver densidade baixa em todos os círculos (linha em branco), retorne v: -1.
-   - Se 2 círculos tiverem densidade máxima igual (aluno rasurou/anulou), retorne o índice matematicamente mais escuro.
+PASSO A PASSO PARA A LEITURA (Siga rigorosamente):
+1. ANCORAGEM: Encontre os 4 quadrados pretos grossos que delimitam os cantos da grelha de bolhas.
+2. SINCRONIZAÇÃO: Use os pequenos retângulos pretos (marcas fiduciais) nas margens esquerda e direita da grelha. Eles indicam a linha reta exata de cada questão.
+3. LEITURA HORIZONTAL: Desça linha a linha (do número 1 até à última questão).
+4. MAPEAMENTO DE ÍNDICES: Em cada linha, olhe para as bolinhas da esquerda para a direita. As letras cinzentas DENTRO das bolhas confirmam o índice:
+   - 1ª bolha (A ou Certo) = Índice 0
+   - 2ª bolha (B ou Errado) = Índice 1
+   - 3ª bolha (C) = Índice 2
+   - 4ª bolha (D) = Índice 3
+   - 5ª bolha (E) = Índice 4
+5. DETEÇÃO DE TINTA: Considere a bolha que estiver mais preenchida, escura ou com marcas de caneta/lápis. Se a linha estiver totalmente vazia e em branco, o índice será -1.
 
 QR CODE:
-Decodifique a matriz de dados do QR Code no topo. Extraia o JSON exato para o campo "qrText". Se ilegível, retorne null.
+Leia o QR Code no canto superior direito e extraia o texto JSON exato para o campo "qrText". Se estiver ilegível, retorne null.
 
-SAÍDA FINAL (JSON STRICT):
-Retorne apenas um array de objetos associando o número da linha (q) e o índice calculado da bolha (v).`;
+SAÍDA FINAL:
+Retorne ESTRITAMENTE o JSON no formato solicitado, mapeando o número da questão (q) e o índice da resposta marcada (v). Não inclua nenhum outro texto na resposta.`;
 
                             const schema = {
                                 type: "OBJECT",
