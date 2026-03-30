@@ -1305,38 +1305,25 @@
                 // Helper para Mobile (Usa a Web Share API para evitar bloqueios de download em telemóveis)
                 const downloadPDF = (pdfMakeInstance, fileName, action = 'share') => {
                     showToast("Processando documento...", "loading");
+                    
+                    if (action === 'view') {
+                        // A função nativa open() lida melhor com as abas de visualização nos telemóveis
+                        pdfMakeInstance.open();
+                        showToast("Visualização aberta!", "success");
+                        return;
+                    }
+
+                    if (action === 'download') {
+                        // A função nativa download() é mais estável no Android e iOS
+                        pdfMakeInstance.download(fileName);
+                        showToast("Baixado! Verifique a pasta Downloads ou Notificações do celular.", "success");
+                        return;
+                    }
+
+                    // Apenas para a ação de "Partilhar" (WhatsApp, Email, etc)
                     pdfMakeInstance.getBlob(async (blob) => {
                         try {
-                            const url = window.URL.createObjectURL(blob);
-                            
-                            if (action === 'view') {
-                                window.open(url, '_blank');
-                                showToast("Visualização aberta!", "success");
-                                setTimeout(() => window.URL.revokeObjectURL(url), 30000); // Cleanup após 30s
-                                return;
-                            }
-
                             const file = new File([blob], fileName, { type: 'application/pdf' });
-                            
-                            // Função de fallback para garantir o download caso a partilha falhe
-                            const forceDownload = () => {
-                                const link = document.createElement('a');
-                                link.href = url;
-                                link.download = fileName;
-                                link.style.display = 'none';
-                                document.body.appendChild(link);
-                                link.click();
-                                setTimeout(() => {
-                                    document.body.removeChild(link);
-                                    window.URL.revokeObjectURL(url);
-                                    showToast("Transferência concluída!", "success");
-                                }, 500);
-                            };
-                            
-                            if (action === 'download') {
-                                forceDownload();
-                                return;
-                            }
                             
                             // Tenta abrir o menu nativo de partilha do sistema
                             if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1347,15 +1334,16 @@
                                     });
                                     showToast("Documento partilhado com sucesso!", "success");
                                 } catch (shareErr) {
-                                    // Se o utilizador não cancelou, mas o sistema bloqueou a partilha, força o download!
                                     if (shareErr.name !== 'AbortError') {
                                         console.warn("Falha no share nativo, forçando download direto.", shareErr);
-                                        forceDownload();
+                                        pdfMakeInstance.download(fileName);
+                                        showToast("Baixado! Verifique a pasta Downloads ou Notificações.", "success");
                                     }
                                 }
                             } else {
-                                // Se o dispositivo não suporta partilha (ex: PC), transfere diretamente
-                                forceDownload();
+                                // Fallback para PC ou browsers sem partilha
+                                pdfMakeInstance.download(fileName);
+                                showToast("Baixado! Verifique a pasta Downloads.", "success");
                             }
                         } catch (err) {
                             showToast("Falha crítica ao processar o ficheiro.", "error");
