@@ -2726,7 +2726,20 @@ Siga as instruções ESTRITAMENTE:
 
                 const changeQType=t=>{qType.value=t; newQ.value.options=(t==='vf')?[{text:'',isTrue:true},{text:'',isTrue:false}]:(t==='assoc'?[{text:'',match:''},{text:'',match:''}]:[{text:''},{text:''},{text:''},{text:''},{text:''}])};
                 const openQForm=src=>{formSource.value=src; newQ.value={subject:'',topic:'',text:'',options:[]}; changeQType('mc'); showQFormModal.value=true};
-                const saveQuestion=async(add)=>{let q={...newQ.value, type:qType.value}; if(qType.value==='ce')q.options=[{text:'Certo'},{text:'Errado'}]; if(q.id)await db.questions.put(q); else {let id=await db.questions.add(q); if(formSource.value==='exam')examCart.value.push(await db.questions.get(id))} if(!add)showQFormModal.value=false; else openQForm(formSource.value); load();};
+                const saveQuestion=async(add)=>{
+                    let q={...newQ.value, type:qType.value}; 
+                    if(qType.value==='ce')q.options=[{text:'Certo'},{text:'Errado'}]; 
+                    if(q.id) {
+                        await db.questions.put(q);
+                        const cartIdx = examCart.value.findIndex(x => x.id === q.id);
+                        if (cartIdx > -1) examCart.value[cartIdx] = JSON.parse(JSON.stringify(q));
+                    } else {
+                        let id=await db.questions.add(q); 
+                        if(formSource.value==='exam')examCart.value.push(await db.questions.get(id));
+                    } 
+                    if(!add)showQFormModal.value=false; else openQForm(formSource.value); 
+                    await load();
+                };
                 const editQuestion = (q) => { formSource.value = 'bank'; newQ.value = JSON.parse(JSON.stringify(q)); qType.value = q.type || 'mc'; showQFormModal.value = true; };
                 const handleImageUpload=e=>{let r=new FileReader();r.onload=ev=>newQ.value.image=ev.target.result;r.readAsDataURL(e.target.files[0])};
 
@@ -3066,6 +3079,8 @@ Siga as instruções ESTRITAMENTE:
                             pageMargins: pSize ? [20, 20, 20, 20] : [40, 40, 40, 40],
                             content: cont
                         }), fileName, action);
+                        
+                        await load();
                     });
                 };
 
@@ -3412,7 +3427,8 @@ Siga as instruções ESTRITAMENTE:
                 const deleteQuestion = (id) => {
                     triggerConfirm("Apagar questão do banco?", async () => {
                         await db.questions.delete(id);
-                        load();
+                        examCart.value = examCart.value.filter(q => q.id !== id);
+                        await load();
                     });
                 };
 
