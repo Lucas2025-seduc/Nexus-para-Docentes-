@@ -432,7 +432,13 @@
                         </div>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-3 pb-24 sm:pb-0"><button @click="generatePDF" :disabled="!examCart.length||!examConfig.classIds||examConfig.classIds.length===0" class="bg-indigo-600 text-white py-3.5 rounded-xl font-bold shadow-lg disabled:opacity-50"><i class="fa-solid fa-print"></i> {{editingExamId?'Atualizar PDF':'Gerar Prova'}}</button><button @click="showHistory=true" class="bg-white border text-gray-700 py-3.5 rounded-xl font-bold"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</button></div>
+                <div class="grid grid-cols-2 gap-3 pb-24 sm:pb-0">
+                    <div class="flex gap-2 w-full">
+                        <button @click="generatePDF('view')" :disabled="!examCart.length||!examConfig.classIds||examConfig.classIds.length===0" class="w-14 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 py-3.5 rounded-xl font-bold shadow-sm disabled:opacity-50 transition flex items-center justify-center" title="Visualizar na Tela"><i class="fa-solid fa-eye text-lg"></i></button>
+                        <button @click="generatePDF('share')" :disabled="!examCart.length||!examConfig.classIds||examConfig.classIds.length===0" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold shadow-lg disabled:opacity-50 transition"><i class="fa-solid fa-share-nodes"></i> {{editingExamId?'Atualizar':'Partilhar / Baixar'}}</button>
+                    </div>
+                    <button @click="showHistory=true" class="bg-white hover:bg-gray-50 border text-gray-700 py-3.5 rounded-xl font-bold transition"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</button>
+                </div>
             </div>
 
             <!-- CORREÇÃO LIGEIRA & MANUAL -->
@@ -859,12 +865,14 @@
                         </div>
                         <div class="flex gap-1.5 flex-wrap">
                             <template v-if="!e.isExternal">
-                                <button @click="reprintExamPDF(e)" class="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-500 hover:text-white text-blue-600 transition flex items-center justify-center" title="Reimprimir Prova (PDF)"><i class="fa-solid fa-print"></i></button>
+                                <button @click="reprintExamPDF(e, 'view')" class="w-8 h-8 rounded-lg bg-sky-50 hover:bg-sky-500 hover:text-white text-sky-600 transition flex items-center justify-center" title="Visualizar Prova na Tela"><i class="fa-solid fa-eye"></i></button>
+                                <button @click="reprintExamPDF(e, 'share')" class="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-500 hover:text-white text-blue-600 transition flex items-center justify-center" title="Baixar / Partilhar Prova"><i class="fa-solid fa-download"></i></button>
                                 <button @click="openEditExam(e)" class="w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-600 transition flex items-center justify-center" title="Revisar Textos (Seguro)"><i class="fa-solid fa-pen"></i></button>
                                 <button @click="duplicateExam(e)" class="w-8 h-8 rounded-lg bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-600 transition flex items-center justify-center" title="Duplicar Prova (Cria Nova)"><i class="fa-solid fa-copy"></i></button>
                                 <button @click="openItemAnalysis(e)" class="w-8 h-8 rounded-lg bg-pink-50 hover:bg-pink-500 hover:text-white text-pink-600 transition flex items-center justify-center" title="Relatório de Erros da Turma"><i class="fa-solid fa-chart-pie"></i></button>
                                 <button @click="openFixKey(e)" class="w-8 h-8 rounded-lg bg-orange-50 hover:bg-orange-500 hover:text-white text-orange-600 transition flex items-center justify-center" title="Corrigir Gabarito"><i class="fa-solid fa-list-check"></i></button>
-                                <button @click="generateKeyPDF(e)" class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Gabarito PDF"><i class="fa-solid fa-key"></i></button>
+                                <button @click="generateKeyPDF(e, 'view')" class="w-8 h-8 rounded-lg bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-600 transition flex items-center justify-center" title="Visualizar Gabarito"><i class="fa-solid fa-file-contract"></i></button>
+                                <button @click="generateKeyPDF(e, 'share')" class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Baixar Gabarito PDF"><i class="fa-solid fa-key"></i></button>
                             </template>
                             <template v-else>
                                 <span class="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded font-bold border border-blue-100 flex items-center"><i class="fa-solid fa-file-pen mr-1"></i> Prova Externa (Apenas Notas)</span>
@@ -1252,10 +1260,19 @@
                 const handleConfirm = (res) => { confirmModal.value.show=false; if(res&&confirmModal.value.onConfirm)confirmModal.value.onConfirm(); confirmModal.value.onConfirm=null; };
                 
                 // Helper para Mobile (Usa a Web Share API para evitar bloqueios de download em telemóveis)
-                const downloadPDF = (pdfMakeInstance, fileName) => {
+                const downloadPDF = (pdfMakeInstance, fileName, action = 'share') => {
                     showToast("Processando documento...", "loading");
                     pdfMakeInstance.getBlob(async (blob) => {
                         try {
+                            const url = window.URL.createObjectURL(blob);
+                            
+                            if (action === 'view') {
+                                window.open(url, '_blank');
+                                showToast("Visualização aberta!", "success");
+                                setTimeout(() => window.URL.revokeObjectURL(url), 30000); // Cleanup após 30s
+                                return;
+                            }
+
                             const file = new File([blob], fileName, { type: 'application/pdf' });
                             
                             // Se for um telemóvel compatível, abre o menu nativo de partilha/guardar do sistema
@@ -1267,7 +1284,6 @@
                                 showToast("Documento acedido com sucesso!", "success");
                             } else {
                                 // Fallback clássico para PC ou navegadores antigos
-                                const url = window.URL.createObjectURL(blob);
                                 const link = document.createElement('a');
                                 link.href = url;
                                 link.download = fileName;
@@ -2701,7 +2717,7 @@ Siga as instruções ESTRITAMENTE:
 
                 const saveEditedExam = async () => { await db.exams.put(JSON.parse(JSON.stringify(editingExam.value))); showEditExamModal.value = false; load(); };
 
-                const generatePDF=async()=>{
+                const generatePDF=async(action = 'share')=>{
                     if (!examConfig.value.classIds || examConfig.value.classIds.length === 0) return showToast("Selecione pelo menos uma turma", "warning");
 
                     triggerConfirm("Tem certeza que deseja gerar o PDF desta(s) prova(s)?",async()=>{
@@ -2713,7 +2729,10 @@ Siga as instruções ESTRITAMENTE:
                         const fSizeQ = pSize ? 9 : 11;
                         const fSizeOpt = pSize ? 8 : 10;
                         const optMarg = pSize ? [0, 0] : [0, 2];
-                        const imgWidth = pSize ? 120 : 150;
+                        
+                        // Adequar tamanho da imagem da questão baseado na interface UI e economia de papel
+                        let baseImgW = printConfig.value.qImageSize === 'large' ? 250 : 130;
+                        const imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
 
                         for (const cid of examConfig.value.classIds) {
                             let v=[], sm={}, stds=students.value.filter(s=>s.classId===cid);
@@ -2818,20 +2837,29 @@ Siga as instruções ESTRITAMENTE:
                                     { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
                                 ]);
 
+                                let headerCols = [
+                                    settings.value.logo ? {image:settings.value.logo,fit:[printConfig.value.logoSize,75]} : {text:'', width: printConfig.value.logoSize},
+                                    {
+                                        stack:[
+                                            {text:settings.value.schoolName || 'ESCOLA',fontSize:pSize?12:14,bold:true,alignment:'center'},
+                                            {text:eD.title,fontSize:pSize?10:11,alignment:'center'},
+                                            {text:`Turma: ${getClassName(cid)}`, fontSize:pSize?9:10, alignment:'center', bold:true, color: '#4f46e5'},
+                                            {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
+                                        ],
+                                        width: '*'
+                                    }
+                                ];
+
+                                if (s.photo) {
+                                    headerCols.push({image: s.photo, fit: [50, 60], margin: [0, 5, 10, 0], alignment: 'right', width: 50});
+                                }
+
+                                headerCols.push({qr:JSON.stringify({e:eId,s:s.id,v:vi}),fit:70,alignment:'right', width: 70});
+
                                 cont.push({
                                     stack:[
                                         {
-                                            columns:[
-                                                settings.value.logo?{image:settings.value.logo,fit:[printConfig.value.logoSize,75]}:{text:''},
-                                                {
-                                                    stack:[
-                                                        {text:settings.value.schoolName || 'ESCOLA',fontSize:pSize?12:14,bold:true,alignment:'center'},
-                                                        {text:eD.title,fontSize:pSize?10:11,alignment:'center'},
-                                                        {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
-                                                    ]
-                                                },
-                                                {qr:JSON.stringify({e:eId,s:s.id,v:vi}),fit:80,alignment:'right'}
-                                            ]
+                                            columns: headerCols
                                         },
                                         {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0, pSize?6:10, 0, 2], bold:true, fontSize:pSize?10:12},
                                         {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0, pSize?4:8], fontSize:pSize?8:9, color:'#4b5563'},
@@ -2861,7 +2889,8 @@ Siga as instruções ESTRITAMENTE:
                                         qB[0].text += ' (Associe as colunas e assinale a alternativa com a sequência correta)';
                                     }
 
-                                    if(q.image) qB.push({image:q.image,width:imgWidth});
+                                    // Imagem da questão centralizada e dimensionada corretamente sem cortes
+                                    if(q.image) qB.push({image:q.image, width:imgWidth, alignment: 'center', margin: [0, 5, 0, 5]});
                                     
                                     if (q.type === 'mc') {
                                         if (pSize) {
@@ -3002,18 +3031,18 @@ Siga as instruções ESTRITAMENTE:
                         downloadPDF(pdfMake.createPdf({
                             pageMargins: pSize ? [20, 20, 20, 20] : [40, 40, 40, 40],
                             content: cont
-                        }), fileName);
+                        }), fileName, action);
                     });
                 };
 
-                const reprintExamPDF = (exam) => {
+                const reprintExamPDF = (exam, action = 'share') => {
                     examConfig.value = { ...exam, classIds: [exam.classId] };
                     examCart.value = JSON.parse(JSON.stringify(getVersionQuestions(exam, 0)));
                     editingExamId.value = exam.id;
-                    generatePDF();
+                    generatePDF(action);
                 };
 
-                const generateKeyPDF = (exam) => {
+                const generateKeyPDF = (exam, action = 'share') => {
                     let cont = [];
                     cont.push({ text: settings.value.schoolName || 'ESCOLA', fontSize: 14, bold: true, alignment: 'center' });
                     cont.push({ text: `Gabarito Oficial - ${exam.title}`, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 20] });
@@ -3041,7 +3070,7 @@ Siga as instruções ESTRITAMENTE:
                         }
                     });
 
-                    downloadPDF(pdfMake.createPdf({ content: cont }), `Gabarito_${exam.title}.pdf`);
+                    downloadPDF(pdfMake.createPdf({ content: cont }), `Gabarito_${exam.title}.pdf`, action);
                 };
 
                 const toggleExamQ = (q) => {
