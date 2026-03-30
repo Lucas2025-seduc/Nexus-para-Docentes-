@@ -2379,12 +2379,28 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const openResultDetails = (r) => {
                     if (!r) return;
-                    let ex = exams.value.find(e => e.id === r.examId);
-                    if (!ex) { showToast('Prova não encontrada.', 'error'); return; }
-                    let v = getVersionQuestions(ex, r.version || 0);
+                    
+                    // Deteta se 'r' é um objeto Result direto ou se veio do Perfil do Aluno (onde tem apenas o resultId)
+                    let resObj = r.examId !== undefined ? r : results.value.find(res => res.id === r.resultId);
+                    if (!resObj) { 
+                        showToast('Resultado não encontrado.', 'error'); 
+                        return; 
+                    }
+                    
+                    let ex = exams.value.find(e => e.id === resObj.examId);
+                    if (!ex) { 
+                        showToast('Prova não encontrada.', 'error'); 
+                        return; 
+                    }
+                    
+                    let v = getVersionQuestions(ex, resObj.version || 0);
                     selectedResultDetails.value = {
-                        resultId: r.id, studentId: r.studentId, score: r.score, title: ex.title, studentName: r.studentName,
-                        answers: JSON.parse(JSON.stringify(r.answers || {})),
+                        resultId: resObj.id, 
+                        studentId: resObj.studentId, 
+                        score: resObj.score, 
+                        title: ex.title, 
+                        studentName: resObj.studentName,
+                        answers: JSON.parse(JSON.stringify(resObj.answers || {})),
                         questions: v.map(q => ({ ...q, correctIndex: (q.type === 'vf' || q.type === 'assoc') ? (q.id || 0) % 5 : q.correctIndex }))
                     };
                     showResultDetailsModal.value = true;
