@@ -3088,280 +3088,301 @@ Siga as instruções ESTRITAMENTE:
                     if (selectedHistoryExams.value.length === 0) return;
 
                     triggerConfirm(`Tem certeza que deseja gerar um PDF único com as ${selectedHistoryExams.value.length} provas selecionadas?`, async () => {
-                        let cont = [];
-                        const pSize = printConfig.value.paperSaving;
-                        const fSizeQ = pSize ? 9 : 11;
-                        const fSizeOpt = pSize ? 8 : 10;
-                        const optMarg = pSize ? [0, 0] : [0, 2];
-                        let baseImgW = printConfig.value.qImageSize === 'large' ? 250 : 130;
-                        const imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
+                        try {
+                            let cont = [];
+                            const pSize = printConfig.value.paperSaving;
+                            const fSizeQ = pSize ? 9 : 11;
+                            const fSizeOpt = pSize ? 8 : 10;
+                            const optMarg = pSize ? [0, 0] : [0, 2];
+                            let baseImgW = printConfig.value.qImageSize === 'large' ? 250 : 130;
+                            const imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
 
-                        const examsToPrint = selectedHistoryExams.value.map(id => exams.value.find(e => e.id === id)).filter(Boolean);
+                            // Ignora provas "Externas" que não possuem questões formatadas
+                            const examsToPrint = selectedHistoryExams.value
+                                .map(id => exams.value.find(e => e.id === id))
+                                .filter(e => e && !e.isExternal);
 
-                        for (const eD of examsToPrint) {
-                            let cid = eD.classId;
-                            let stds = students.value.filter(s => s.classId === cid);
-                            if (stds.length === 0) continue;
+                            if (examsToPrint.length === 0) {
+                                showToast("Nenhuma prova válida para impressão selecionada.", "warning");
+                                selectedHistoryExams.value = [];
+                                return;
+                            }
 
-                            let v = eD.versions;
-                            let sm = eD.studentMap;
-                            let eId = eD.id;
+                            for (const eD of examsToPrint) {
+                                let cid = eD.classId;
+                                let stds = students.value.filter(s => s.classId === cid);
+                                if (stds.length === 0) continue;
 
-                            stds.forEach((s, i) => {
-                                let vi = sm[s.id] !== undefined ? sm[s.id] : 0;
-                                let qs = v[vi].questions;
-                                let kr = [];
-                                
-                                kr.push([
-                                    { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
-                                ]);
-                                
-                                kr.push([
-                                    { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] },
-                                    { text: 'A', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
-                                    { text: 'B', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
-                                    { text: 'C', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
-                                    { text: 'D', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
-                                    { text: 'E', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }
-                                ]);
-                                
-                                qs.forEach((q, k) => {
-                                    let rColor = k % 2 === 0 ? '#ffffff' : '#f3f4f6';
-                                    let rw = [
-                                        { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 2, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] },
-                                        { text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 4], fillColor: rColor }
-                                    ];
-                                    let l = (q.type === 'ce') ? ['A', 'B'] : ['A', 'B', 'C', 'D', 'E'];
-                                    for (let j = 0; j < 5; j++) {
-                                        if (j < l.length) {
-                                            rw.push({ 
-                                                stack: [
-                                                    { canvas: [{ type: 'ellipse', x: 12.5, y: 9, r1: 8, r2: 8, lineWidth: 1.5, lineColor: '#000', color: rColor }] }, 
-                                                    { text: l[j], fontSize: 9, bold: true, color: '#d1d5db', alignment: 'center', relativePosition: { x: 0, y: -13.5 } }
-                                                ], 
-                                                margin: [0, 2], fillColor: rColor 
-                                            });
-                                        } else {
-                                            rw.push({ text: ' ', fillColor: rColor });
-                                        }
-                                    }
-                                    rw.push({ stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 3, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] });
-                                    kr.push(rw);
-                                });
-                                
-                                kr.push([
-                                    { text: ' ', border: [false,false,false,false], margin: [0, pSize ? 2 : 5] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }
-                                ]);
+                                let v = eD.versions && eD.versions.length > 0 ? eD.versions : [{ id: 0, questions: eD.questions || [] }];
+                                let sm = eD.studentMap || {};
+                                let eId = eD.id;
 
-                                kr.push([
-                                    { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
-                                ]);
+                                stds.forEach((s, i) => {
+                                    let vi = sm[s.id] !== undefined ? sm[s.id] : 0;
+                                    if (!v[vi]) vi = 0;
+                                    let qs = v[vi].questions || [];
+                                    if (qs.length === 0) return;
 
-                                let headerCols = [
-                                    settings.value.logo ? {image:settings.value.logo,fit:[printConfig.value.logoSize,75]} : {text:'', width: printConfig.value.logoSize},
-                                    {
-                                        stack:[
-                                            {text:settings.value.schoolName || 'ESCOLA',fontSize:pSize?12:14,bold:true,alignment:'center'},
-                                            {text:eD.title,fontSize:pSize?10:11,alignment:'center'},
-                                            {text:`Turma: ${getClassName(cid)}`, fontSize:pSize?9:10, alignment:'center', bold:true, color: '#4f46e5'},
-                                            {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
-                                        ],
-                                        width: '*'
-                                    }
-                                ];
-
-                                if (s.photo) {
-                                    headerCols.push({image: s.photo, fit: [50, 60], margin: [0, 5, 10, 0], alignment: 'right', width: 50});
-                                }
-
-                                headerCols.push({qr:JSON.stringify({e:eId,s:s.id,v:vi}),fit:70,alignment:'right', width: 70});
-
-                                cont.push({
-                                    stack:[
-                                        { columns: headerCols },
-                                        {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0, pSize?6:10, 0, 2], bold:true, fontSize:pSize?10:12},
-                                        {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0, pSize?4:8], fontSize:pSize?8:9, color:'#4b5563'},
-                                        {
-                                            table:{ widths:[16, 24, 28, 28, 28, 28, 28, 16], body:kr },
-                                            layout: {
-                                                hLineWidth: function(idx, node) { return (idx === 1 || idx === node.table.body.length - 1) ? 2 : (idx > 1 && idx < node.table.body.length - 1) ? 1 : 0; },
-                                                vLineWidth: function(idx, node) { return (idx === 1 || idx === node.table.widths.length - 1) ? 2 : 0; },
-                                                hLineColor: function(idx, node) { return (idx === 1 || idx === node.table.body.length - 1) ? '#000' : '#e5e7eb'; },
-                                                vLineColor: function(idx, node) { return '#000'; },
-                                                paddingTop: function(idx, node) { return pSize?2:3; },
-                                                paddingBottom: function(idx, node) { return pSize?2:3; }
-                                            },
-                                            alignment:'center',
-                                            margin:[0,0,0,pSize?10:20]
-                                        }
-                                    ]
-                                });
-                                
-                                let qBlocks = [];
-                                qs.forEach((q,k)=>{
-                                    let qB=[{text:`${k+1}. ${q.text}`,bold:true, fontSize: fSizeQ, margin: pSize ? [0,2,0,1] : [0,5]}]; 
+                                    let kr = [];
                                     
-                                    if (q.type === 'vf') {
-                                        qB[0].text += ' (Marque V ou F e assinale a alternativa com a sequência correta)';
-                                    } else if (q.type === 'assoc') {
-                                        qB[0].text += ' (Associe as colunas e assinale a alternativa com a sequência correta)';
-                                    }
-
-                                    if(q.image) qB.push({image:q.image, width:imgWidth, alignment: 'center', margin: [0, 5, 0, 5]});
+                                    kr.push([
+                                        { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                        { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
+                                    ]);
                                     
-                                    if (q.type === 'mc') {
-                                        if (pSize) {
-                                            let row = [];
-                                            q.options.forEach((o, x) => {
-                                                row.push({ text: `${['A', 'B', 'C', 'D', 'E'][x]}) ${o.text}`, fontSize: fSizeOpt, margin: optMarg, width: '48%' });
-                                                if (row.length === 2) {
-                                                    qB.push({ columns: row, columnGap: 10, margin: [0, 1] });
-                                                    row = [];
-                                                }
-                                            });
-                                            if (row.length === 1) {
-                                                row.push({ text: '', width: '48%' });
-                                                qB.push({ columns: row, columnGap: 10, margin: [0, 1] });
+                                    kr.push([
+                                        { text: ' ', border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] },
+                                        { text: 'A', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                        { text: 'B', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                        { text: 'C', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                        { text: 'D', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                        { text: 'E', alignment: 'center', bold: true, fontSize: 10, color: '#9ca3af', margin: [0, 2], border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }
+                                    ]);
+                                    
+                                    qs.forEach((q, k) => {
+                                        let rColor = k % 2 === 0 ? '#ffffff' : '#f3f4f6';
+                                        let rw = [
+                                            { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 2, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] },
+                                            { text: (k + 1).toString().padStart(2, '0'), bold: true, alignment: 'center', color: '#000', margin: [0, 4], fillColor: rColor }
+                                        ];
+                                        let l = (q.type === 'ce') ? ['A', 'B'] : ['A', 'B', 'C', 'D', 'E'];
+                                        for (let j = 0; j < 5; j++) {
+                                            if (j < l.length) {
+                                                rw.push({ 
+                                                    stack: [
+                                                        { canvas: [{ type: 'ellipse', x: 12.5, y: 9, r1: 8, r2: 8, lineWidth: 1.5, lineColor: '#000', color: rColor }] }, 
+                                                        { text: l[j], fontSize: 9, bold: true, color: '#d1d5db', alignment: 'center', relativePosition: { x: 0, y: -13.5 } }
+                                                    ], 
+                                                    margin: [0, 2], fillColor: rColor 
+                                                });
+                                            } else {
+                                                rw.push({ text: ' ', fillColor: rColor });
                                             }
-                                        } else {
-                                            q.options.forEach((o,x)=>{
-                                                qB.push({text:`${['A','B','C','D','E'][x]}) ${o.text}`, fontSize: fSizeOpt, margin:optMarg});
-                                            });
                                         }
-                                    } else if (q.type === 'ce') {
-                                        if (pSize) {
+                                        rw.push({ stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 3, y: 6, w: 10, h: 6, color: '#000' }] }], fillColor: rColor, border: [false,false,false,false] });
+                                        kr.push(rw);
+                                    });
+                                    
+                                    kr.push([
+                                        { text: ' ', border: [false,false,false,false], margin: [0, pSize ? 2 : 5] },
+                                        { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }
+                                    ]);
+
+                                    kr.push([
+                                        { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                        { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
+                                        { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
+                                    ]);
+
+                                    let headerCols = [
+                                        settings.value.logo ? {image:settings.value.logo,fit:[printConfig.value.logoSize,75]} : {text:'', width: printConfig.value.logoSize},
+                                        {
+                                            stack:[
+                                                {text:settings.value.schoolName || 'ESCOLA',fontSize:pSize?12:14,bold:true,alignment:'center'},
+                                                {text:eD.title,fontSize:pSize?10:11,alignment:'center'},
+                                                {text:`Turma: ${getClassName(cid)}`, fontSize:pSize?9:10, alignment:'center', bold:true, color: '#4f46e5'},
+                                                {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
+                                            ],
+                                            width: '*'
+                                        }
+                                    ];
+
+                                    if (s.photo) {
+                                        headerCols.push({image: s.photo, fit: [50, 60], margin: [0, 5, 10, 0], alignment: 'right', width: 50});
+                                    }
+
+                                    headerCols.push({qr:JSON.stringify({e:eId,s:s.id,v:vi}),fit:70,alignment:'right', width: 70});
+
+                                    cont.push({
+                                        stack:[
+                                            { columns: headerCols },
+                                            {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0, pSize?6:10, 0, 2], bold:true, fontSize:pSize?10:12},
+                                            {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0, pSize?4:8], fontSize:pSize?8:9, color:'#4b5563'},
+                                            {
+                                                table:{ widths:[16, 24, 28, 28, 28, 28, 28, 16], body:kr },
+                                                layout: {
+                                                    hLineWidth: function(idx, node) { return (idx === 1 || idx === node.table.body.length - 1) ? 2 : (idx > 1 && idx < node.table.body.length - 1) ? 1 : 0; },
+                                                    vLineWidth: function(idx, node) { return (idx === 1 || idx === node.table.widths.length - 1) ? 2 : 0; },
+                                                    hLineColor: function(idx, node) { return (idx === 1 || idx === node.table.body.length - 1) ? '#000' : '#e5e7eb'; },
+                                                    vLineColor: function(idx, node) { return '#000'; },
+                                                    paddingTop: function(idx, node) { return pSize?2:3; },
+                                                    paddingBottom: function(idx, node) { return pSize?2:3; }
+                                                },
+                                                alignment:'center',
+                                                margin:[0,0,0,pSize?10:20]
+                                            }
+                                        ]
+                                    });
+                                    
+                                    let qBlocks = [];
+                                    qs.forEach((q,k)=>{
+                                        let qB=[{text:`${k+1}. ${q.text}`,bold:true, fontSize: fSizeQ, margin: pSize ? [0,2,0,1] : [0,5]}]; 
+                                        
+                                        if (q.type === 'vf') {
+                                            qB[0].text += ' (Marque V ou F e assinale a alternativa com a sequência correta)';
+                                        } else if (q.type === 'assoc') {
+                                            qB[0].text += ' (Associe as colunas e assinale a alternativa com a sequência correta)';
+                                        }
+
+                                        if(q.image) qB.push({image:q.image, width:imgWidth, alignment: 'center', margin: [0, 5, 0, 5]});
+                                        
+                                        if (q.type === 'mc') {
+                                            if (pSize) {
+                                                let row = [];
+                                                q.options.forEach((o, x) => {
+                                                    row.push({ text: `${['A', 'B', 'C', 'D', 'E'][x]}) ${o.text}`, fontSize: fSizeOpt, margin: optMarg, width: '48%' });
+                                                    if (row.length === 2) {
+                                                        qB.push({ columns: row, columnGap: 10, margin: [0, 1] });
+                                                        row = [];
+                                                    }
+                                                });
+                                                if (row.length === 1) {
+                                                    row.push({ text: '', width: '48%' });
+                                                    qB.push({ columns: row, columnGap: 10, margin: [0, 1] });
+                                                }
+                                            } else {
+                                                q.options.forEach((o,x)=>{
+                                                    qB.push({text:`${['A','B','C','D','E'][x]}) ${o.text}`, fontSize: fSizeOpt, margin:optMarg});
+                                                });
+                                            }
+                                        } else if (q.type === 'ce') {
+                                            if (pSize) {
+                                                qB.push({
+                                                    columns: [
+                                                        {text:`A) Certo`, fontSize: fSizeOpt, margin:optMarg, width: '48%'},
+                                                        {text:`B) Errado`, fontSize: fSizeOpt, margin:optMarg, width: '48%'}
+                                                    ],
+                                                    columnGap: 10, margin: [0, 1]
+                                                });
+                                            } else {
+                                                qB.push({text:`A) Certo`, fontSize: fSizeOpt, margin:optMarg});
+                                                qB.push({text:`B) Errado`, fontSize: fSizeOpt, margin:optMarg});
+                                            }
+                                        } else if (q.type === 'vf') {
+                                            q.options.forEach(o => {
+                                                qB.push({ text: `(   ) ${o.text}`, fontSize: fSizeOpt, margin: pSize ? [10,2,0,2] : [10,4,0,4] });
+                                            });
+                                            let correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
+                                            let correctIdx = (q.id || 0) % 5;
+                                            let generatedSeqs = [];
+                                            let seed = (q.id || 1) + k;
+                                            let rand = () => { let x = Math.sin(seed++) * 10000; return x - Math.floor(x); };
+                                            
+                                            for(let i=0; i<5; i++){
+                                                if(i === correctIdx) generatedSeqs.push(correctSeq);
+                                                else {
+                                                    let seq, att = 0;
+                                                    do {
+                                                        seq = q.options.map(() => rand() > 0.5 ? 'V' : 'F').join(', ');
+                                                        att++;
+                                                    } while ((seq === correctSeq || generatedSeqs.includes(seq)) && att < 20);
+                                                    generatedSeqs.push(seq);
+                                                }
+                                            }
+                                            qB.push({ text: ' ', fontSize: 4 });
+                                            if (pSize) {
+                                                let inlineOpts = generatedSeqs.map((seq, x) => `${['A','B','C','D','E'][x]}) ${seq}`).join('     ');
+                                                qB.push({ text: inlineOpts, fontSize: fSizeOpt, margin: optMarg });
+                                            } else {
+                                                generatedSeqs.forEach((seq, x) => {
+                                                    qB.push({ text: `${['A','B','C','D','E'][x]}) ${seq}`, fontSize: fSizeOpt, margin:optMarg });
+                                                });
+                                            }
+                                        } else if (q.type === 'assoc') {
+                                            let seed = (q.id || 2) + k;
+                                            let rand = () => { let x = Math.sin(seed++) * 10000; return x - Math.floor(x); };
+                                            
+                                            let defs = q.options.map((o, idx) => ({ match: o.match, originalIdx: idx + 1 }));
+                                            defs.sort(() => rand() - 0.5);
+                                            
+                                            let correctSeq = defs.map(d => d.originalIdx).join(', ');
+                                            let correctIdx = (q.id || 0) % 5;
+                                            
+                                            let leftCol = q.options.map((o, idx) => `${idx + 1}. ${o.text}`).join('\n\n');
+                                            let rightCol = defs.map((d) => `(   ) ${d.match}`).join('\n\n');
+                                            
                                             qB.push({
                                                 columns: [
-                                                    {text:`A) Certo`, fontSize: fSizeOpt, margin:optMarg, width: '48%'},
-                                                    {text:`B) Errado`, fontSize: fSizeOpt, margin:optMarg, width: '48%'}
+                                                    { text: leftCol, width: '45%', fontSize: fSizeOpt, margin: [10, 2] },
+                                                    { text: rightCol, width: '55%', fontSize: fSizeOpt, margin: [5, 2] }
                                                 ],
-                                                columnGap: 10, margin: [0, 1]
+                                                margin: pSize ? [0,2] : [0,5]
                                             });
-                                        } else {
-                                            qB.push({text:`A) Certo`, fontSize: fSizeOpt, margin:optMarg});
-                                            qB.push({text:`B) Errado`, fontSize: fSizeOpt, margin:optMarg});
-                                        }
-                                    } else if (q.type === 'vf') {
-                                        q.options.forEach(o => {
-                                            qB.push({ text: `(   ) ${o.text}`, fontSize: fSizeOpt, margin: pSize ? [10,2,0,2] : [10,4,0,4] });
-                                        });
-                                        let correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
-                                        let correctIdx = (q.id || 0) % 5;
-                                        let generatedSeqs = [];
-                                        let seed = (q.id || 1) + k;
-                                        let rand = () => { let x = Math.sin(seed++) * 10000; return x - Math.floor(x); };
-                                        
-                                        for(let i=0; i<5; i++){
-                                            if(i === correctIdx) generatedSeqs.push(correctSeq);
-                                            else {
-                                                let seq, att = 0;
-                                                do {
-                                                    seq = q.options.map(() => rand() > 0.5 ? 'V' : 'F').join(', ');
-                                                    att++;
-                                                } while ((seq === correctSeq || generatedSeqs.includes(seq)) && att < 20);
-                                                generatedSeqs.push(seq);
+                                            
+                                            let generatedSeqs = [];
+                                            let nOpts = q.options.length;
+                                            for(let i=0; i<5; i++) {
+                                                if(i === correctIdx) generatedSeqs.push(correctSeq);
+                                                else {
+                                                    let seqArr = Array.from({length: nOpts}, (_, i) => i + 1);
+                                                    let seq, att = 0;
+                                                    do {
+                                                        seqArr.sort(() => rand() - 0.5);
+                                                        seq = seqArr.join(', ');
+                                                        att++;
+                                                    } while ((seq === correctSeq || generatedSeqs.includes(seq)) && att < 20);
+                                                    generatedSeqs.push(seq);
+                                                }
+                                            }
+                                            qB.push({ text: ' ', fontSize: 4 });
+                                            if (pSize) {
+                                                let inlineOpts = generatedSeqs.map((seq, x) => `${['A','B','C','D','E'][x]}) ${seq}`).join('     ');
+                                                qB.push({ text: inlineOpts, fontSize: fSizeOpt, margin: optMarg });
+                                            } else {
+                                                generatedSeqs.forEach((seq, x) => {
+                                                    qB.push({ text: `${['A','B','C','D','E'][x]}) ${seq}`, fontSize: fSizeOpt, margin:optMarg });
+                                                });
                                             }
                                         }
-                                        qB.push({ text: ' ', fontSize: 4 });
-                                        if (pSize) {
-                                            let inlineOpts = generatedSeqs.map((seq, x) => `${['A','B','C','D','E'][x]}) ${seq}`).join('     ');
-                                            qB.push({ text: inlineOpts, fontSize: fSizeOpt, margin: optMarg });
-                                        } else {
-                                            generatedSeqs.forEach((seq, x) => {
-                                                qB.push({ text: `${['A','B','C','D','E'][x]}) ${seq}`, fontSize: fSizeOpt, margin:optMarg });
-                                            });
-                                        }
-                                    } else if (q.type === 'assoc') {
-                                        let seed = (q.id || 2) + k;
-                                        let rand = () => { let x = Math.sin(seed++) * 10000; return x - Math.floor(x); };
-                                        
-                                        let defs = q.options.map((o, idx) => ({ match: o.match, originalIdx: idx + 1 }));
-                                        defs.sort(() => rand() - 0.5);
-                                        
-                                        let correctSeq = defs.map(d => d.originalIdx).join(', ');
-                                        let correctIdx = (q.id || 0) % 5;
-                                        
-                                        let leftCol = q.options.map((o, idx) => `${idx + 1}. ${o.text}`).join('\n\n');
-                                        let rightCol = defs.map((d) => `(   ) ${d.match}`).join('\n\n');
-                                        
-                                        qB.push({
-                                            columns: [
-                                                { text: leftCol, width: '45%', fontSize: fSizeOpt, margin: [10, 2] },
-                                                { text: rightCol, width: '55%', fontSize: fSizeOpt, margin: [5, 2] }
-                                            ],
-                                            margin: pSize ? [0,2] : [0,5]
-                                        });
-                                        
-                                        let generatedSeqs = [];
-                                        let nOpts = q.options.length;
-                                        for(let i=0; i<5; i++) {
-                                            if(i === correctIdx) generatedSeqs.push(correctSeq);
-                                            else {
-                                                let seqArr = Array.from({length: nOpts}, (_, i) => i + 1);
-                                                let seq, att = 0;
-                                                do {
-                                                    seqArr.sort(() => rand() - 0.5);
-                                                    seq = seqArr.join(', ');
-                                                    att++;
-                                                } while ((seq === correctSeq || generatedSeqs.includes(seq)) && att < 20);
-                                                generatedSeqs.push(seq);
-                                            }
-                                        }
-                                        qB.push({ text: ' ', fontSize: 4 });
-                                        if (pSize) {
-                                            let inlineOpts = generatedSeqs.map((seq, x) => `${['A','B','C','D','E'][x]}) ${seq}`).join('     ');
-                                            qB.push({ text: inlineOpts, fontSize: fSizeOpt, margin: optMarg });
-                                        } else {
-                                            generatedSeqs.forEach((seq, x) => {
-                                                qB.push({ text: `${['A','B','C','D','E'][x]}) ${seq}`, fontSize: fSizeOpt, margin:optMarg });
-                                            });
-                                        }
+
+                                        qBlocks.push({stack:qB, margin: pSize ? [0,0,0,5] : [0,0,0,15], unbreakable: true});
+                                    });
+
+                                    cont.push(...qBlocks);
+                                    
+                                    if (printConfig.value.addBlankPage) {
+                                        cont.push({ text: '', pageBreak: 'after' });
+                                        cont.push({ text: 'Verso em branco intencional', color: '#f3f4f6', alignment: 'center', margin: [0, 300], italics: true });
                                     }
-
-                                    qBlocks.push({stack:qB, margin: pSize ? [0,0,0,5] : [0,0,0,15], unbreakable: true});
+                                    
+                                    cont.push({text:'',pageBreak:'after'});
                                 });
+                            }
 
-                                cont.push(...qBlocks);
-                                
-                                if (printConfig.value.addBlankPage) {
-                                    cont.push({ text: '', pageBreak: 'after' });
-                                    cont.push({ text: 'Verso em branco intencional', color: '#f3f4f6', alignment: 'center', margin: [0, 300], italics: true });
-                                }
-                                
-                                cont.push({text:'',pageBreak:'after'});
-                            });
+                            if (cont.length === 0) {
+                                showToast("A(s) prova(s) selecionada(s) não contêm alunos para gerar impressão.", "error");
+                                return;
+                            }
+
+                            // Remove a última quebra de página
+                            cont.pop();
+
+                            let now = new Date();
+                            let dStr = now.toLocaleDateString('pt-BR').replace(/\//g, '-');
+                            let tStr = now.getHours().toString().padStart(2, '0') + 'h' + now.getMinutes().toString().padStart(2, '0') + 'min';
+                            let fileName = `Lote_Provas_${dStr}_${tStr}.pdf`;
+
+                            downloadPDF(pdfMake.createPdf({
+                                pageMargins: pSize ? [20, 20, 20, 20] : [40, 40, 40, 40],
+                                content: cont
+                            }), fileName, action);
+
+                            selectedHistoryExams.value = [];
+                            
+                        } catch (err) {
+                            console.error("Erro ao mesclar PDFs:", err);
+                            showToast("Erro crítico ao processar o arquivo. Alguma prova do lote pode estar corrompida.", "error");
                         }
-
-                        if (cont.length === 0) return showToast("A(s) prova(s) selecionada(s) não têm alunos.", "error");
-
-                        // Remove a última quebra de página
-                        cont.pop();
-
-                        let now = new Date();
-                        let dStr = now.toLocaleDateString('pt-BR').replace(/\//g, '-');
-                        let tStr = now.getHours().toString().padStart(2, '0') + 'h' + now.getMinutes().toString().padStart(2, '0') + 'min';
-                        let fileName = `Lote_Provas_${dStr}_${tStr}.pdf`;
-
-                        downloadPDF(pdfMake.createPdf({
-                            pageMargins: pSize ? [20, 20, 20, 20] : [40, 40, 40, 40],
-                            content: cont
-                        }), fileName, action);
-
-                        selectedHistoryExams.value = [];
                     });
                 };
 
