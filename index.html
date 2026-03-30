@@ -1365,7 +1365,11 @@
                     students.value=await db.students.toArray(); questions.value=await db.questions.orderBy('id').reverse().toArray();
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
                     extraPoints.value=await db.extraPoints.toArray(); const s=await db.settings.get('config');
-                    if(s) { settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null}; if(s.geminiKey) geminiKey.value=s.geminiKey; }
+                    if(s) { 
+                        settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null}; 
+                        if(s.geminiKey) geminiKey.value=s.geminiKey; 
+                        if(s.printConfig) printConfig.value = s.printConfig;
+                    }
                 };
 
                 const getStudent = (id) => students.value.find(s => s.id === id);
@@ -1626,7 +1630,7 @@
 
                 const saveSettings = async (silent) => {
                     try {
-                        await db.settings.put(JSON.parse(JSON.stringify({...settings.value, id:'config', geminiKey: geminiKey.value})));
+                        await db.settings.put(JSON.parse(JSON.stringify({...settings.value, id:'config', geminiKey: geminiKey.value, printConfig: printConfig.value})));
                         if(!silent) showToast('Configurações salvas!', 'success');
                     } catch(e){}
                 };
