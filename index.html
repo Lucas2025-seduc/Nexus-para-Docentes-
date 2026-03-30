@@ -2957,26 +2957,33 @@ Siga as instruções ESTRITAMENTE:
                                     { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
                                 ]);
 
+                                const sideWidth = 85;
+
+                                let leftStack = settings.value.logo 
+                                    ? [{image: settings.value.logo, fit: [sideWidth, 75], alignment: 'left'}] 
+                                    : [{text: '', alignment: 'left'}];
+
+                                let rightStack = [
+                                    { qr: JSON.stringify({e:eId,s:s.id,v:vi}), fit: 75, alignment: 'right' }
+                                ];
+                                
+                                if (printConfig.value.showStudentPhoto && s.photo) {
+                                    rightStack.push({ image: s.photo, fit: [55, 65], alignment: 'right', margin: [0, 5, 0, -70] });
+                                }
+
                                 let headerCols = [
-                                    settings.value.logo ? {image:settings.value.logo,fit:[printConfig.value.logoSize,75]} : {text:'', width: printConfig.value.logoSize},
+                                    { width: sideWidth, stack: leftStack },
                                     {
+                                        width: '*',
                                         stack:[
                                             {text:settings.value.schoolName || 'ESCOLA',fontSize:pSize?12:14,bold:true,alignment:'center'},
                                             {text:eD.title,fontSize:pSize?10:11,alignment:'center'},
                                             {text:`Turma: ${getClassName(cid)}`, fontSize:pSize?9:10, alignment:'center', bold:true, color: '#4f46e5'},
                                             {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
-                                        ],
-                                        width: '*'
-                                    }
+                                        ]
+                                    },
+                                    { width: sideWidth, stack: rightStack, alignment: 'right' }
                                 ];
-
-                                let rightStack = [
-                                    { qr: JSON.stringify({e:eId,s:s.id,v:vi}), fit: 70, alignment: 'right' }
-                                ];
-                                if (printConfig.value.showStudentPhoto && s.photo) {
-                                    rightStack.push({ image: s.photo, fit: [50, 60], alignment: 'right', margin: [0, 5, 0, 0] });
-                                }
-                                headerCols.push({ stack: rightStack, width: 70, alignment: 'right' });
 
                                 cont.push({
                                     stack:[
@@ -3264,21 +3271,18 @@ Siga as instruções ESTRITAMENTE:
                                         { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
                                     ]);
 
-                                    // Força as colunas laterais a terem exatamente a mesma largura (no mínimo 75px)
-                                    // Isso garante que o cabeçalho fique PERFEITAMENTE CENTRALIZADO na folha
-                                    const sideWidth = Math.max(Number(printConfig.value.logoSize) || 50, 75);
+                                    const sideWidth = 85; // Simetria perfeita para centrar o texto
 
                                     let leftStack = settings.value.logo 
-                                        ? [{image: settings.value.logo, fit: [Number(printConfig.value.logoSize) || 50, 75], alignment: 'left'}] 
+                                        ? [{image: settings.value.logo, fit: [sideWidth, 75], alignment: 'left'}] 
                                         : [{text: '', alignment: 'left'}];
 
                                     let rightStack = [
-                                        { qr: JSON.stringify({e:eId,s:std.id,v:vi}), fit: 70, alignment: 'right' }
+                                        { qr: JSON.stringify({e:eId,s:s.id,v:vi}), fit: 75, alignment: 'right' }
                                     ];
                                     
-                                    if (printConfig.value.showStudentPhoto && std.photo) {
-                                        // Margem inferior negativa (-65) impede que a altura da foto afete/desloque a grelha
-                                        rightStack.push({ image: std.photo, fit: [50, 60], alignment: 'right', margin: [0, 5, 0, -65] });
+                                    if (printConfig.value.showStudentPhoto && s.photo) {
+                                        rightStack.push({ image: s.photo, fit: [55, 65], alignment: 'right', margin: [0, 5, 0, -70] });
                                     }
 
                                     let headerCols = [
@@ -3288,11 +3292,11 @@ Siga as instruções ESTRITAMENTE:
                                             stack:[
                                                 {text:settings.value.schoolName || 'ESCOLA',fontSize:pSize?12:14,bold:true,alignment:'center'},
                                                 {text:eD.title,fontSize:pSize?10:11,alignment:'center'},
-                                                {text:`Turma: ${getClassName(eD.classId)}`, fontSize:pSize?9:10, alignment:'center', bold:true, color: '#4f46e5'},
-                                                {text:`Aluno: ${std.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
+                                                {text:`Turma: ${getClassName(cid)}`, fontSize:pSize?9:10, alignment:'center', bold:true, color: '#4f46e5'},
+                                                {text:`Aluno: ${s.name} | Tipo: ${vi+1}`, fontSize:pSize?9:10, alignment:'center'}
                                             ]
                                         },
-                                        { width: sideWidth, stack: rightStack }
+                                        { width: sideWidth, stack: rightStack, alignment: 'right' }
                                     ];
 
                                     cont.push({
