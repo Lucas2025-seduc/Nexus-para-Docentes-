@@ -2642,6 +2642,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     processedCount.value = 0;
                     stopQueueFlag.value = false;
 
+                    let successCount = 0;
+                    let lastSavedId = null;
+
                     for (let i = 0; i < correctionQueue.value.length; i++) {
                         if (stopQueueFlag.value) break;
 
@@ -2728,7 +2731,8 @@ Siga as instruções ESTRITAMENTE:
                             // Bloqueio de segurança 2: Aborta imediatamente antes de gravar
                             if (stopQueueFlag.value) break;
 
-                            await saveExamResult(exm.id, std.id, std.name, ver, ansMap);
+                            lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap);
+                            successCount++;
 
                             if (i < correctionQueue.value.length - 1) {
                                 // Pausa interativa que cancela no exato milissegundo se a flag alterar
@@ -2745,7 +2749,11 @@ Siga as instruções ESTRITAMENTE:
                             }
 
                         } catch(e) {
-                            if (!stopQueueFlag.value) showToast(e.message || "Erro de análise", "error");
+                            if (!stopQueueFlag.value) {
+                                showToast(e.message || "Erro de análise", "error");
+                                // Atraso extra para o utilizador poder ler o erro antes de passar à próxima foto
+                                await new Promise(res => setTimeout(res, 1500));
+                            }
                         }
                         
                         if (stopQueueFlag.value) break;
@@ -2755,8 +2763,17 @@ Siga as instruções ESTRITAMENTE:
                     // Somente corre a conclusão se não houver interrupções forçadas
                     if (!stopQueueFlag.value) {
                         isProcessingQueue.value = false;
-                        showToast("Correção em lote concluída!", "success");
-                        load(); // Atualiza os resultados na interface
+                        await load(); // Atualiza os resultados na interface
+                        
+                        if (successCount > 0) {
+                            showToast(`Correção concluída! ${successCount} sucesso(s).`, "success");
+                            // Abre logo a tela de comparação para o utilizador conferir a prova!
+                            if (lastSavedId) {
+                                setTimeout(() => openResultDetails({ id: lastSavedId }), 600);
+                            }
+                        } else {
+                            showToast("Nenhuma prova lida com sucesso. Melhore a luz/foco.", "error");
+                        }
                     }
                 };
 
