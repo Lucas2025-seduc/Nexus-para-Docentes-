@@ -1305,15 +1305,8 @@
 
                             const file = new File([blob], fileName, { type: 'application/pdf' });
                             
-                            // Se for um telemóvel compatível, abre o menu nativo de partilha/guardar do sistema
-                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                                await navigator.share({
-                                    files: [file],
-                                    title: fileName
-                                });
-                                showToast("Documento acedido com sucesso!", "success");
-                            } else {
-                                // Fallback clássico para PC ou navegadores antigos
+                            // Função de fallback para garantir o download caso a partilha falhe
+                            const forceDownload = () => {
                                 const link = document.createElement('a');
                                 link.href = url;
                                 link.download = fileName;
@@ -1325,12 +1318,30 @@
                                     window.URL.revokeObjectURL(url);
                                     showToast("Transferência concluída!", "success");
                                 }, 500);
+                            };
+                            
+                            // Tenta abrir o menu nativo de partilha do sistema
+                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                try {
+                                    await navigator.share({
+                                        files: [file],
+                                        title: fileName
+                                    });
+                                    showToast("Documento acedido com sucesso!", "success");
+                                } catch (shareErr) {
+                                    // Se o utilizador não cancelou, mas o sistema bloqueou a partilha, força o download!
+                                    if (shareErr.name !== 'AbortError') {
+                                        console.warn("Falha no share nativo, forçando download direto.", shareErr);
+                                        forceDownload();
+                                    }
+                                }
+                            } else {
+                                // Se o dispositivo não suporta partilha (ex: PC), transfere diretamente
+                                forceDownload();
                             }
                         } catch (err) {
-                            if (err.name !== 'AbortError') { // Ignorar cancelamentos voluntários do utilizador
-                                showToast("Falha ao processar o ficheiro.", "error");
-                                console.error(err);
-                            }
+                            showToast("Falha crítica ao processar o ficheiro.", "error");
+                            console.error(err);
                         }
                     });
                 };
