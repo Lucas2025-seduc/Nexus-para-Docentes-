@@ -2669,42 +2669,31 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `SISTEMA DE VISÃO COMPUTACIONAL OMR ATIVADO (MODO INFALÍVEL DE ALTA PRECISÃO).
-A imagem apresenta baixa resolução, sombras cruzadas, perspetiva distorcida e/ou MARCAÇÕES DIGITAIS MULTICOR (ex: verde-neon). Tolerância a falhas: ZERO.
+                            const prompt = `SISTEMA OMR DE ALTA PRECISÃO (MODO TOLERÂNCIA A RASURAS E MARCAS IMPERFEITAS).
+Este sistema processa gabaritos preenchidos por alunos. As imagens podem ter marcações difusas, X, círculos vermelhos/azuis mal pintados, ou marcações digitais (verde-neon).
 
-ALGORITMO DE TRIANGULAÇÃO (EXECUÇÃO OBRIGATÓRIA):
-1. ANCORAGEM ESPACIAL: Fixe a geometria usando os 4 quadrados pretos nos cantos. Ignore TUDO o que estiver fora.
-2. EIXO Y (LINHAS): Siga rigidamente os pequenos retângulos pretos do lado esquerdo. Eles ditam a linha reta de cada questão.
-3. EIXO X (COLUNAS) E DETEÇÃO DE TINTA: Percorra cada linha procurando manchas sólidas de grafite/caneta OU marcações digitais (verde, vermelho, azul, etc.). Ignore sombras acinzentadas e gradientes de luz naturais da fotografia.
+REGRAS DE VISÃO OBRIGATÓRIAS (TRIANGULAÇÃO MATEMÁTICA):
+1. ANCORAGEM: Isole o gabarito usando os 4 quadrados pretos nos cantos.
+2. DETEÇÃO DE TINTA E TOLERÂNCIA (CRÍTICO): O aluno PODE NÃO TER PINTADO A BOLHA COMPLETAMENTE. Considere como "Marcada" qualquer bolha que tenha:
+   - Um preenchimento sólido de cor (digital ou físico).
+   - Um círculo forte desenhado APENAS À VOLTA da letra (ex: caneta vermelha).
+   - Um "X" ou risco grosso e intencional em cima da letra.
+3. LEI DA TRIPLA CHECAGEM: Uma resposta só é validada se a tinta detetada na regra 2:
+   [FATOR 1]: Estiver na posição horizontal correta (Índice 0 a 4).
+   [FATOR 2]: Estiver alinhada verticalmente com a letra do cabeçalho (A, B, C, D, E).
+   [FATOR 3]: A tinta tocar, cobrir ou circular a letra cinza interna (A, B, C, D, E) da bolha.
 
-A LEI DA TRIPLA CHECAGEM MATEMÁTICA (O SEGREDO DA PRECISÃO):
-Para cada bolha que pareça preenchida, você DEVE cruzar 3 coordenadas antes de a validar como resposta oficial:
-[FATOR 1 - POSIÇÃO HORIZONTAL]: A mancha está na posição 1, 2, 3, 4 ou 5 da linha?
-[FATOR 2 - CABEÇALHO VERTICAL]: A linha vertical imaginária desta bolha bate exatamente na letra (A, B, C, D, E) do topo da grelha?
-[FATOR 3 - LETRA INTERNA]: A mancha está a cobrir a letra cinza exata (A, B, C, D, E) impressa dentro da bolha?
-Se os 3 fatores não convergirem perfeitamente, considere como sombra/ruído e ignore.
+4. RESOLUÇÃO DE CONFLITOS (RASURAS): Se houver duas marcações na mesma linha, escolha aquela que parece ser a "definitiva" (a marcação mais limpa ou intencional). Se for impossível distinguir (ambas borradas), retorne -1 para anular.
 
-ÍNDICES DE SAÍDA ESTRITOS (v):
-* Bolha A (ou Certo) -> v: 0
-* Bolha B (ou Errado) -> v: 1
-* Bolha C -> v: 2
-* Bolha D -> v: 3
-* Bolha E -> v: 4
-* Dupla marcação intencional (rasura) -> v: -1
-* Linha 100% vazia -> v: -1
-
-PASSOS FINAIS:
-"analysis": Antes de gerar as respostas, escreva uma frase técnica descrevendo a cor da tinta encontrada e a inclinação da folha. Isso forçará o seu motor visual a calibrar a imagem matematicamente.
-"qrText": O JSON contido no QR Code no topo.
-"answers": Array com o número impresso na folha (q) e o índice calculado (v).`;
+FORMATO DE RETORNO (JSON ESTRITO):
+- "analysis": Frase curta avaliando os tipos de marcações (ex: "Círculos vermelhos imperfeitos detetados", "Borrões encontrados na linha 4").
+- "qrText": Conteúdo JSON integral do QR Code.
+- "answers": Array de objetos com "q" (questão) e "v" (índice 0-4). Se vazia ou 100% rasurada, v: -1.`;
 
                             const schema = {
                                 type: "OBJECT",
                                 properties: {
-                                    analysis: { 
-                                        type: "STRING", 
-                                        description: "Raciocínio interno da IA sobre a cor das marcações e detecção de sombras antes de ler as bolhas." 
-                                    },
+                                    analysis: { type: "STRING" },
                                     qrText: { type: "STRING" },
                                     answers: {
                                         type: "ARRAY",
