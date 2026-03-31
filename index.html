@@ -2669,26 +2669,24 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `SISTEMA OMR DE ALTA PRECISÃO (MODO TOLERÂNCIA A RASURAS E MARCAS IMPERFEITAS).
-Este sistema processa gabaritos preenchidos por alunos. As imagens podem ter marcações difusas, X, círculos vermelhos/azuis mal pintados, ou marcações digitais (verde-neon).
+                            const prompt = `SISTEMA DE VISÃO COMPUTACIONAL OMR (MODO "ANTI-ASSINATURA" E ALTA PRECISÃO).
+A imagem contém gabaritos com marcações válidas misturadas com assinaturas gigantes, textos cursivos cruzando a grelha de respostas e marcações irregulares (círculos em volta das letras, rabiscos ou preenchimento sólido).
 
-REGRAS DE VISÃO OBRIGATÓRIAS (TRIANGULAÇÃO MATEMÁTICA):
-1. ANCORAGEM: Isole o gabarito usando os 4 quadrados pretos nos cantos.
-2. DETEÇÃO DE TINTA E TOLERÂNCIA (CRÍTICO): O aluno PODE NÃO TER PINTADO A BOLHA COMPLETAMENTE. Considere como "Marcada" qualquer bolha que tenha:
-   - Um preenchimento sólido de cor (digital ou físico).
-   - Um círculo forte desenhado APENAS À VOLTA da letra (ex: caneta vermelha).
-   - Um "X" ou risco grosso e intencional em cima da letra.
-3. LEI DA TRIPLA CHECAGEM: Uma resposta só é validada se a tinta detetada na regra 2:
-   [FATOR 1]: Estiver na posição horizontal correta (Índice 0 a 4).
-   [FATOR 2]: Estiver alinhada verticalmente com a letra do cabeçalho (A, B, C, D, E).
-   [FATOR 3]: A tinta tocar, cobrir ou circular a letra cinza interna (A, B, C, D, E) da bolha.
+REGRAS INFALÍVEIS DE EXTRAÇÃO E FILTRAGEM:
+1. ANCORAGEM: Foque APENAS na matriz delimitada pelos 4 quadrados pretos nos cantos.
+2. DISTINÇÃO ENTRE RESPOSTAS E ASSINATURAS (REGRA DE OURO): 
+   - RUÍDO (IGNORAR ABSOLUTAMENTE): Linhas finas, contínuas e longas que cruzam várias bolhas, bordas ou vêm de fora da grelha (exemplo: a assinatura gigante com palavras como "Teste Oi"). 
+   - MARCAÇÃO VÁLIDA: Tinta CONCENTRADA, DENSA e LOCALIZADA intencionalmente sobre ou ao redor de UMA ÚNICA bolha específica. Aceite bolhas totalmente pintadas, círculos fechados desenhados apenas em volta da letra, ou rabiscos densos contidos no espaço de uma única bolha.
+3. LEI DA TRIPLA CHECAGEM GEOMÉTRICA: Para validar uma marcação concentrada (isolando-a dos traços da assinatura), ela DEVE:
+   - Estar na posição horizontal exata da coluna (índice 0 a 4).
+   - Estar na mesma direção vertical que a letra correspondente no cabeçalho (A, B, C, D, E).
+   - Ter a letra interna cinza como o epicentro geográfico da mancha de tinta.
+4. RESOLUÇÃO DE CONFLITOS: Se uma bolha tem a marcação concentrada (o aluno circulou ou rabiscou) e outra bolha na mesma linha tem apenas um traço fino da assinatura passando por cima, a resposta correta é EXCLUSIVAMENTE a da marcação concentrada. Retorne v: -1 apenas se houver duas marcações densas e intencionais impossíveis de desempatar.
 
-4. RESOLUÇÃO DE CONFLITOS (RASURAS): Se houver duas marcações na mesma linha, escolha aquela que parece ser a "definitiva" (a marcação mais limpa ou intencional). Se for impossível distinguir (ambas borradas), retorne -1 para anular.
-
-FORMATO DE RETORNO (JSON ESTRITO):
-- "analysis": Frase curta avaliando os tipos de marcações (ex: "Círculos vermelhos imperfeitos detetados", "Borrões encontrados na linha 4").
-- "qrText": Conteúdo JSON integral do QR Code.
-- "answers": Array de objetos com "q" (questão) e "v" (índice 0-4). Se vazia ou 100% rasurada, v: -1.`;
+FORMATO DE RETORNO OBRIGATÓRIO (JSON):
+- "analysis": Frase curta indicando o sucesso do filtro (ex: "Ignorada assinatura cursiva gigante; identificados círculos localizados.").
+- "qrText": O JSON do QR Code no topo.
+- "answers": Array com "q" (número da linha de 1 ao limite da prova) e "v" (índice de 0 a 4, onde A=0, E=4. Se linha vazia ou duplamente rasurada com intenção, v: -1).`;
 
                             const schema = {
                                 type: "OBJECT",
