@@ -2669,24 +2669,27 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `SISTEMA DE VISÃO COMPUTACIONAL OMR (MODO "ANTI-ASSINATURA" E ALTA PRECISÃO).
-A imagem contém gabaritos com marcações válidas misturadas com assinaturas gigantes, textos cursivos cruzando a grelha de respostas e marcações irregulares (círculos em volta das letras, rabiscos ou preenchimento sólido).
+                            const prompt = `SISTEMA DE VISÃO COMPUTACIONAL OMR (MODO "ANTI-ASSINATURA" E CÓDIGO DE RASURAS).
+A imagem contém gabaritos com marcações válidas misturadas com assinaturas gigantes, textos cursivos cruzando a grelha de respostas e RASURAS FREQUENTES.
 
 REGRAS INFALÍVEIS DE EXTRAÇÃO E FILTRAGEM:
 1. ANCORAGEM: Foque APENAS na matriz delimitada pelos 4 quadrados pretos nos cantos.
 2. DISTINÇÃO ENTRE RESPOSTAS E ASSINATURAS (REGRA DE OURO): 
-   - RUÍDO (IGNORAR ABSOLUTAMENTE): Linhas finas, contínuas e longas que cruzam várias bolhas, bordas ou vêm de fora da grelha (exemplo: a assinatura gigante com palavras como "Teste Oi"). 
-   - MARCAÇÃO VÁLIDA: Tinta CONCENTRADA, DENSA e LOCALIZADA intencionalmente sobre ou ao redor de UMA ÚNICA bolha específica. Aceite bolhas totalmente pintadas, círculos fechados desenhados apenas em volta da letra, ou rabiscos densos contidos no espaço de uma única bolha.
-3. LEI DA TRIPLA CHECAGEM GEOMÉTRICA: Para validar uma marcação concentrada (isolando-a dos traços da assinatura), ela DEVE:
+   - RUÍDO (IGNORAR ABSOLUTAMENTE): Linhas finas, contínuas e longas que cruzam várias bolhas, bordas ou vêm de fora da grelha (ex: a assinatura gigante). 
+   - MARCAÇÃO VÁLIDA: Tinta CONCENTRADA, DENSA e LOCALIZADA intencionalmente sobre ou ao redor de UMA ÚNICA bolha específica.
+3. LEI DA TRIPLA CHECAGEM GEOMÉTRICA: Para validar uma marcação concentrada, ela DEVE:
    - Estar na posição horizontal exata da coluna (índice 0 a 4).
    - Estar na mesma direção vertical que a letra correspondente no cabeçalho (A, B, C, D, E).
-   - Ter a letra interna cinza como o epicentro geográfico da mancha de tinta.
-4. RESOLUÇÃO DE CONFLITOS: Se uma bolha tem a marcação concentrada (o aluno circulou ou rabiscou) e outra bolha na mesma linha tem apenas um traço fino da assinatura passando por cima, a resposta correta é EXCLUSIVAMENTE a da marcação concentrada. Retorne v: -1 apenas se houver duas marcações densas e intencionais impossíveis de desempatar.
+   - Ter a letra interna cinza como o epicentro geográfico da mancha.
+4. CÓDIGO DE COMPORTAMENTO DO ALUNO (CRÍTICO PARA RESOLVER ESTAS PROVAS): 
+   - PADRÃO DE ERRO: Quando estes alunos se enganam, eles RABISCAM FORTEMENTE (fazem um borrão escuro ou X muito denso) na bolha que querem ANULAR, e fazem um círculo limpo (contorno vazado) ou pintura normal na bolha que é a sua resposta FINAL e CORRETA.
+   - REGRA DE DESEMPATE: Se houver duas ou mais marcações na mesma linha, em que uma é um rabisco denso/borrão e a outra é um círculo limpo ao redor da letra (ou preenchimento legível), a resposta VENCEDORA é a do círculo limpo. O rabisco forte significa opção anulada pelo aluno.
+   - Retorne v: -1 APENAS se a linha estiver vazia ou se houver duas marcações absolutamente idênticas.
 
 FORMATO DE RETORNO OBRIGATÓRIO (JSON):
-- "analysis": Frase curta indicando o sucesso do filtro (ex: "Ignorada assinatura cursiva gigante; identificados círculos localizados.").
+- "analysis": Frase curta indicando o comportamento (ex: "Ignorado borrão, aceite círculo limpo").
 - "qrText": O JSON do QR Code no topo.
-- "answers": Array com "q" (número da linha de 1 ao limite da prova) e "v" (índice de 0 a 4, onde A=0, E=4. Se linha vazia ou duplamente rasurada com intenção, v: -1).`;
+- "answers": Array com "q" (número da linha de 1 ao limite da prova) e "v" (índice de 0 a 4, onde A=0, B=1, C=2, D=3, E=4. Vazias ou ilegíveis, v: -1).`;
 
                             const schema = {
                                 type: "OBJECT",
