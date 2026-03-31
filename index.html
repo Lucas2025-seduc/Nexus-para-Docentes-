@@ -2669,27 +2669,26 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `SISTEMA DE VISÃO COMPUTACIONAL OMR (MODO "ANTI-ASSINATURA" E CÓDIGO DE RASURAS).
-A imagem contém gabaritos com marcações válidas misturadas com assinaturas gigantes, textos cursivos cruzando a grelha de respostas e RASURAS FREQUENTES.
+                            const prompt = `SISTEMA OMR DE IA AVANÇADA (MODO EXTREMO: ANTI-RUÍDO, ANTI-ASSINATURA E DETECÇÃO COMPORTAMENTAL).
+A imagem contém um gabarito delimitado por 4 quadrados pretos nos cantos. Analise estritamente o interior desta grelha.
 
-REGRAS INFALÍVEIS DE EXTRAÇÃO E FILTRAGEM:
-1. ANCORAGEM: Foque APENAS na matriz delimitada pelos 4 quadrados pretos nos cantos.
-2. DISTINÇÃO ENTRE RESPOSTAS E ASSINATURAS (REGRA DE OURO): 
-   - RUÍDO (IGNORAR ABSOLUTAMENTE): Linhas finas, contínuas e longas que cruzam várias bolhas, bordas ou vêm de fora da grelha (ex: a assinatura gigante). 
-   - MARCAÇÃO VÁLIDA: Tinta CONCENTRADA, DENSA e LOCALIZADA intencionalmente sobre ou ao redor de UMA ÚNICA bolha específica.
-3. LEI DA TRIPLA CHECAGEM GEOMÉTRICA: Para validar uma marcação concentrada, ela DEVE:
-   - Estar na posição horizontal exata da coluna (índice 0 a 4).
-   - Estar na mesma direção vertical que a letra correspondente no cabeçalho (A, B, C, D, E).
-   - Ter a letra interna cinza como o epicentro geográfico da mancha.
-4. CÓDIGO DE COMPORTAMENTO DO ALUNO (CRÍTICO PARA RESOLVER ESTAS PROVAS): 
-   - PADRÃO DE ERRO: Quando estes alunos se enganam, eles RABISCAM FORTEMENTE (fazem um borrão escuro ou X muito denso) na bolha que querem ANULAR, e fazem um círculo limpo (contorno vazado) ou pintura normal na bolha que é a sua resposta FINAL e CORRETA.
-   - REGRA DE DESEMPATE: Se houver duas ou mais marcações na mesma linha, em que uma é um rabisco denso/borrão e a outra é um círculo limpo ao redor da letra (ou preenchimento legível), a resposta VENCEDORA é a do círculo limpo. O rabisco forte significa opção anulada pelo aluno.
-   - Retorne v: -1 APENAS se a linha estiver vazia ou se houver duas marcações absolutamente idênticas.
+ENFRENTAREMOS AS SEGUINTES CONDIÇÕES ADVERSAS (TREINAMENTO DE COMPORTAMENTO):
+1. ASSINATURAS E TEXTOS INVASIVOS: Ignore linhas longas e contínuas que cruzam várias colunas ou vêm de fora (ex: assinaturas gigantes como "Teste Oi"). Não considere como marcação os traços de letras cursivas que passem "de raspão" pelas bolhas.
+2. MARCAÇÕES VAZADAS/CONTORNADAS: Aceite círculos feitos com caneta (vermelha, azul, preta) APENAS em volta da letra, mesmo que o centro da bolha esteja totalmente em branco.
+3. MARCAÇÕES DIGITAIS: Aceite cores vibrantes (ex: verde neon, marca-texto) aplicadas digitalmente sobre a bolha. Ignore o fator "escuridão", procure saturação de cor.
+4. CÓDIGO DE RASURA DO ALUNO (REGRA SUPREMA DE DESEMPATE): 
+   - Quando o aluno erra, ele faz um RABISCO FORTE, UM BORRÃO ESCURO ou UM X DENSO sobre a bolha errada.
+   - Em seguida, ele desenha um CÍRCULO LIMPO (contorno) na bolha que ele realmente quer como RESPOSTA FINAL.
+   - PORTANTO: Se uma linha tiver MÚLTIPLAS MARCAÇÕES, a bolha com o "círculo mais limpo" ou "contorno isolado" VENCE o "rabisco forte/borrão escuro". O borrão é a opção ANULADA pelo aluno.
+5. MARCAÇÃO ÚNICA: Se houver apenas uma marcação intencional na linha (seja preenchimento total, X forte, rabisco denso ou círculo), ela é a resposta correta, desde que não seja apenas a ponta de uma assinatura.
+
+GEOMETRIA E COORDENADAS:
+As respostas devem cruzar a linha numérica da questão (ex: 01) com a coluna do cabeçalho (A=0, B=1, C=2, D=3, E=4). 
 
 FORMATO DE RETORNO OBRIGATÓRIO (JSON):
-- "analysis": Frase curta indicando o comportamento (ex: "Ignorado borrão, aceite círculo limpo").
-- "qrText": O JSON do QR Code no topo.
-- "answers": Array com "q" (número da linha de 1 ao limite da prova) e "v" (índice de 0 a 4, onde A=0, B=1, C=2, D=3, E=4. Vazias ou ilegíveis, v: -1).`;
+- "analysis": Explique a lógica usada na imagem. Mencione se ignorou assinaturas, se detectou círculos vermelhos, neon digital, ou se resolveu empates (rabisco vs círculo).
+- "qrText": O JSON do QR Code no canto superior direito.
+- "answers": Array de objetos com "q" (número da questão) e "v" (índice 0 a 4). Se a linha estiver completamente em branco ou for impossível desempatar, retorne v: -1.`;
 
                             const schema = {
                                 type: "OBJECT",
