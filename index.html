@@ -3623,12 +3623,35 @@ PASSOS FINAIS:
                     let ranks = stds.map(s => {
                         let r = results.value.filter(x => x.studentId === s.id);
                         let avg = r.length ? r.reduce((sum, x) => sum + parseFloat(x.score), 0) / r.length : 0;
-                        return { name: s.name, avg: avg.toFixed(1), exams: r.length };
+                        return { name: s.name, photo: s.photo, avg: avg.toFixed(1), exams: r.length };
                     }).sort((a, b) => b.avg - a.avg);
 
-                    let tBody = [['Pos.', 'Aluno', 'Provas', 'Média']];
+                    let tBody = [[
+                        {text: 'Pos.', bold: true, fillColor: '#f3f4f6', alignment: 'center'}, 
+                        {text: 'Aluno', bold: true, fillColor: '#f3f4f6'}, 
+                        {text: 'Provas', bold: true, fillColor: '#f3f4f6', alignment: 'center'}, 
+                        {text: 'Média', bold: true, fillColor: '#f3f4f6', alignment: 'center'}
+                    ]];
+                    
                     ranks.forEach((r, i) => {
-                        tBody.push([i + 1, r.name, r.exams, r.avg]);
+                        let studentCell;
+                        if (r.photo) {
+                            studentCell = {
+                                columns: [
+                                    { image: r.photo, width: 22, height: 22, margin: [0, 0, 0, 0] },
+                                    { text: r.name, margin: [5, 4, 0, 0], width: '*' }
+                                ]
+                            };
+                        } else {
+                            studentCell = { text: r.name, margin: [0, 4, 0, 0] };
+                        }
+                        
+                        tBody.push([
+                            { text: i + 1, margin: [0, 4, 0, 0], alignment: 'center' }, 
+                            studentCell, 
+                            { text: r.exams, margin: [0, 4, 0, 0], alignment: 'center' }, 
+                            { text: r.avg, margin: [0, 4, 0, 0], alignment: 'center', bold: true, color: r.avg >= 6 ? '#059669' : '#dc2626' }
+                        ]);
                     });
 
                     downloadPDF(pdfMake.createPdf({
@@ -3637,9 +3660,17 @@ PASSOS FINAIS:
                             { text: `Ranking - ${getClassName(selectedClassIdForReport.value)}`, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
                             {
                                 table: { headerRows: 1, widths: ['auto', '*', 'auto', 'auto'], body: tBody },
-                                layout: 'lightHorizontalLines'
+                                layout: {
+                                    hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
+                                    vLineWidth: () => 0.5,
+                                    hLineColor: () => '#d1d5db',
+                                    vLineColor: () => '#d1d5db',
+                                    paddingTop: () => 6,
+                                    paddingBottom: () => 6
+                                }
                             }
-                        ]
+                        ],
+                        defaultStyle: { font: 'Roboto' }
                     }), `Ranking_${getClassName(selectedClassIdForReport.value)}.pdf`);
                 };
 
@@ -3658,7 +3689,19 @@ PASSOS FINAIS:
                     ]];
 
                     stds.forEach(s => {
-                        let row = [{text: s.name, fontSize: 9}];
+                        let studentCell;
+                        if (s.photo) {
+                            studentCell = {
+                                columns: [
+                                    { image: s.photo, width: 22, height: 22, margin: [0, 0, 0, 0] },
+                                    { text: s.name, fontSize: 9, margin: [5, 4, 0, 0], width: '*' }
+                                ]
+                            };
+                        } else {
+                            studentCell = { text: s.name, fontSize: 9, margin: [0, 4, 0, 0] };
+                        }
+
+                        let row = [studentCell];
                         let totalSum = 0;
                         let countActive = 0;
                         
@@ -3682,16 +3725,16 @@ PASSOS FINAIS:
                             if (totalWeight > 0) {
                                 let bAvg = (weightedScoreSum / totalWeight) + bonusSum;
                                 if(bAvg > 10) bAvg = 10;
-                                row.push({text: bAvg.toFixed(1), alignment: 'center', fontSize: 9, color: bAvg>=6?'#059669':'#dc2626'});
+                                row.push({text: bAvg.toFixed(1), alignment: 'center', fontSize: 9, margin: [0, 4, 0, 0], color: bAvg>=6?'#059669':'#dc2626'});
                                 totalSum += bAvg;
                                 countActive++;
                             } else {
-                                row.push({text: '-', alignment: 'center', fontSize: 9, color: '#9ca3af'});
+                                row.push({text: '-', alignment: 'center', fontSize: 9, margin: [0, 4, 0, 0], color: '#9ca3af'});
                             }
                         });
                         
                         let finalAvg = countActive > 0 ? (totalSum / countActive).toFixed(1) : '-';
-                        row.push({text: finalAvg, alignment: 'center', bold: true, fontSize: 9, color: finalAvg==='-'?'#9ca3af':(parseFloat(finalAvg)>=6?'#059669':'#dc2626'), fillColor: '#f9fafb'});
+                        row.push({text: finalAvg, alignment: 'center', bold: true, fontSize: 9, margin: [0, 4, 0, 0], color: finalAvg==='-'?'#9ca3af':(parseFloat(finalAvg)>=6?'#059669':'#dc2626'), fillColor: '#f9fafb'});
                         tBody.push(row);
                     });
 
@@ -3707,8 +3750,8 @@ PASSOS FINAIS:
                                     vLineWidth: () => 0.5,
                                     hLineColor: () => '#d1d5db',
                                     vLineColor: () => '#d1d5db',
-                                    paddingTop: () => 4,
-                                    paddingBottom: () => 4
+                                    paddingTop: () => 6,
+                                    paddingBottom: () => 6
                                 }
                             }
                         ],
