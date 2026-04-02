@@ -2659,9 +2659,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 const localScanner = new Html5Qrcode("hidden-qr-reader");
                                 const result = await localScanner.scanFile(file, false);
                                 qrData = JSON.parse(result);
-                            } catch (err) {
-                                console.log("QR Scan local falhou, delegando leitura para IA.");
-                            }
+                            } catch (err) { }
 
                             const reader = new FileReader();
                             reader.readAsDataURL(file);
@@ -2669,26 +2667,23 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const base64Img = reader.result.split(',')[1];
                             const mimeType = file.type;
 
-                            const prompt = `SISTEMA OMR DE IA AVANÇADA (MODO EXTREMO: ANTI-RUÍDO, ANTI-ASSINATURA E DETECÇÃO COMPORTAMENTAL).
-A imagem contém um gabarito delimitado por 4 quadrados pretos nos cantos. Analise estritamente o interior desta grelha.
+                            const prompt = `ATENÇÃO MÁXIMA: Você é um leitor óptico de gabaritos escolares (OMR) de altíssima precisão. Sua tarefa é extrair as respostas marcadas com zero margem de erro.
 
-ENFRENTAREMOS AS SEGUINTES CONDIÇÕES ADVERSAS (TREINAMENTO DE COMPORTAMENTO):
-1. ASSINATURAS E TEXTOS INVASIVOS: Ignore linhas longas e contínuas que cruzam várias colunas ou vêm de fora (ex: assinaturas gigantes como "Teste Oi"). Não considere como marcação os traços de letras cursivas que passem "de raspão" pelas bolhas.
-2. MARCAÇÕES VAZADAS/CONTORNADAS: Aceite círculos feitos com caneta (vermelha, azul, preta) APENAS em volta da letra, mesmo que o centro da bolha esteja totalmente em branco.
-3. MARCAÇÕES DIGITAIS: Aceite cores vibrantes (ex: verde neon, marca-texto) aplicadas digitalmente sobre a bolha. Ignore o fator "escuridão", procure saturação de cor.
-4. CÓDIGO DE RASURA DO ALUNO (REGRA SUPREMA DE DESEMPATE): 
-   - Quando o aluno erra, ele faz um RABISCO FORTE, UM BORRÃO ESCURO ou UM X DENSO sobre a bolha errada.
-   - Em seguida, ele desenha um CÍRCULO LIMPO (contorno) na bolha que ele realmente quer como RESPOSTA FINAL.
-   - PORTANTO: Se uma linha tiver MÚLTIPLAS MARCAÇÕES, a bolha com o "círculo mais limpo" ou "contorno isolado" VENCE o "rabisco forte/borrão escuro". O borrão é a opção ANULADA pelo aluno.
-5. MARCAÇÃO ÚNICA: Se houver apenas uma marcação intencional na linha (seja preenchimento total, X forte, rabisco denso ou círculo), ela é a resposta correta, desde que não seja apenas a ponta de uma assinatura.
+SISTEMA DE ANCORAGEM TRIPLA E GEOMETRIA (OBRIGATÓRIO):
+Para não errar a posição de nenhuma marcação, você DEVE usar as referências geométricas impressas na folha:
+1. MARCAS FIDUCIAIS (CANTOS): Localize os 4 quadrados pretos grandes nos cantos do gabarito para isolar a zona de leitura, ignorando a distorção da foto e tudo o que estiver fora.
+2. MARCAS DE SINCRONIA (TIMING MARKS): Use os pequenos retângulos pretos alinhados na lateral esquerda e direita de CADA LINHA. Eles ditam o eixo horizontal exato e absoluto de cada questão (01, 02, 03...).
+3. EIXO VERTICAL E LETRAS INTERNAS: O eixo vertical é ditado pelas letras no topo da tabela (A, B, C, D, E). A marcação do aluno TEM DE COINCIDIR com a bolha geométrica que tem a letra cinza correspondente impressa dentro dela.
 
-GEOMETRIA E COORDENADAS:
-As respostas devem cruzar a linha numérica da questão (ex: 01) com a coluna do cabeçalho (A=0, B=1, C=2, D=3, E=4). 
+REGRAS DE VALIDAÇÃO DE MARCAÇÃO:
+- VÁLIDO: Bolha totalmente pintada (qualquer cor/neon), "X" marcante sobre a letra, ou um CÍRCULO desenhado APENAS CONTORNANDO a letra (ex: caneta vermelha/azul vazada).
+- RASURAS E DESEMPATE: Se houver um RABISCO ESCURO/BORRÃO e um CÍRCULO LIMPO/SUAVE na mesma linha, o CÍRCULO LIMPO é a resposta final intencional. O borrão é a opção anulada.
+- RUÍDO EXTREMO: Assinaturas gigantes (ex: "Teste Oi Professor"), desenhos ou textos que cruzam a folha DEVEM SER MATEMATICAMENTE IGNORADOS. Apenas a tinta intencionalmente focada e retida dentro da coordenada de interseção OMR conta.
 
-FORMATO DE RETORNO OBRIGATÓRIO (JSON):
-- "analysis": Explique a lógica usada na imagem. Mencione se ignorou assinaturas, se detectou círculos vermelhos, neon digital, ou se resolveu empates (rabisco vs círculo).
-- "qrText": O JSON do QR Code no canto superior direito.
-- "answers": Array de objetos com "q" (número da questão) e "v" (índice 0 a 4). Se a linha estiver completamente em branco ou for impossível desempatar, retorne v: -1.`;
+O RETORNO (JSON ESTRITO):
+- analysis: Breve resumo técnico (ex: 'Ancoragem OMR via timing marks concluída. Ignorada assinatura gigante. Desempate resolvido.').
+- qrText: Leia e transcreva o JSON do QR Code no topo à direita. Se ilegível/borrado, retorne "". NUNCA INVENTE O CÓDIGO.
+- answers: Lista onde 'q' é a linha (1, 2, 3...) e 'v' é a LETRA marcada ('A', 'B', 'C', 'D', 'E'). Retorne 'NULO' em 'v' se a linha estiver vazia ou com dupla marcação impossível de desempatar.`;
 
                             const schema = {
                                 type: "OBJECT",
