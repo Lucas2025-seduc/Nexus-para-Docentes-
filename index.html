@@ -14,6 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://docs.opencv.org/4.8.0/opencv.js" async type="text/javascript"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -39,7 +40,7 @@
                 <div><h2 class="text-2xl font-black mb-2">{{ appLocked ? 'Período Expirado' : 'Ativar Nexus PRO' }}</h2><p class="text-gray-400 text-sm">{{ appLocked ? 'O período gratuito acabou.' : 'Insira a sua chave para uso ilimitado.' }}</p></div>
                 <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 text-left"><label class="text-[10px] font-bold text-gray-500 uppercase">Seu ID de Dispositivo</label><div class="flex gap-2 mt-1"><code class="flex-1 bg-black/30 p-2 rounded text-indigo-400 font-mono text-xs break-all border border-gray-600">{{ deviceId }}</code><button @click="copyDeviceId" class="px-3 bg-gray-700 hover:bg-gray-600 rounded text-xs transition"><i class="fa-regular fa-copy"></i></button></div></div>
                 <a :href="whatsappLink" target="_blank" class="block w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2"><i class="fa-brands fa-whatsapp text-xl"></i> Comprar Licença</a>
-                <div class="flex gap-2"><input v-model="licenseInput" placeholder="XXXX-XXXX-XXXX" class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 text-center font-mono text-white outline-none focus:border-indigo-500 uppercase"><button @click="validateLicense" class="px-6 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold transition"><i class="fa-solid fa-unlock"></i></button></div>
+                <div class="flex gap-2"><input v-model="licenseInput" placeholder="XXXX-XXXX-XXXX" class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 text-center font-mono text-white outline-none focus:border-indigo-500 uppercase"><button @click="validateLicense" class="px-6 bg-indigo-600 hover:bg-indigo-50 rounded-xl font-bold transition"><i class="fa-solid fa-unlock"></i></button></div>
             </div>
         </div>
 
@@ -456,25 +457,18 @@
                 </div>
                 
                 <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
-                    <h3 class="font-bold text-gray-700 flex items-center gap-2"><i class="fa-solid fa-microchip text-indigo-600"></i> Motor de IA (Correção)</h3>
-                    <p class="text-xs text-gray-500">Configure sua chave Gemini para processamento avançado de imagens das provas. O sistema detectará o melhor modelo disponível.</p>
-                    <div class="flex gap-2">
-                        <input type="password" v-model="geminiKey" placeholder="Colar Chave API do Gemini..." class="flex-1 bg-gray-50 border rounded-xl px-4 py-3 text-sm font-mono outline-none focus:border-indigo-500 transition" @change="saveSettings(true)">
-                        <button @click="testGeminiKey" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-xl font-bold transition flex items-center gap-2"><i class="fa-solid fa-satellite-dish"></i> Testar</button>
-                    </div>
-                    <div v-if="settings.activeModel" class="flex items-center justify-between text-xs font-bold text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
-                        <div class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-emerald-500"></i> Modelo Ativo: {{settings.activeModel}}</div>
-                        <span class="bg-emerald-200/50 px-2 py-0.5 rounded text-[10px] uppercase">Conectado</span>
-                    </div>
-                    <div v-else class="flex items-center gap-2 text-xs font-bold text-orange-600 bg-orange-50 p-3 rounded-xl border border-orange-200">
-                        <i class="fa-solid fa-triangle-exclamation"></i> Nenhuma chave IA testada. Insira para ativar correção visual.
+                    <h3 class="font-bold text-gray-700 flex items-center gap-2"><i class="fa-solid fa-microchip text-indigo-600"></i> Motor OMR Matemático (OpenCV)</h3>
+                    <p class="text-xs text-gray-500">Correção geométrica de alta precisão rodando diretamente no seu dispositivo. Não requer internet nem chaves de API para corrigir as provas.</p>
+                    <div class="flex items-center justify-between text-xs font-bold text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                        <div class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-emerald-500"></i> Motor OpenCV Ativo</div>
+                        <span class="bg-emerald-200/50 px-2 py-0.5 rounded text-[10px] uppercase">Offline</span>
                     </div>
                 </div>
 
                 <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
-                    <input type="file" id="ai-correction-upload" accept="image/*" multiple class="hidden" @change="processAICorrection">
-                    <button @click="triggerAICorrection" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-3">
-                        <i class="fa-solid fa-layer-group text-xl"></i> Corrigir em Lote com IA (Fotos)
+                    <input type="file" id="omr-correction-upload" accept="image/*" multiple class="hidden" @change="processOMRCorrection">
+                    <button @click="triggerOMRCorrection" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-layer-group text-xl"></i> Corrigir em Lote com OMR (Fotos)
                     </button>
                     
                     <button @click="startLiveQRScan" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-3">
@@ -2628,15 +2622,170 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     }
                 };
 
-                const triggerAICorrection = () => {
-                    if (!settings.value.activeModel || !geminiKey.value) {
-                        showToast('Configure e teste a Chave API do Gemini primeiro no painel acima.', 'error');
+                const triggerOMRCorrection = () => {
+                    if (typeof cv === 'undefined' || !cv.Mat) {
+                        showToast('O motor OMR OpenCV ainda está carregando no navegador. Aguarde um instante.', 'warning');
                         return;
                     }
-                    document.getElementById('ai-correction-upload').click();
+                    document.getElementById('omr-correction-upload').click();
                 };
 
-                const processAICorrection = async (event) => {
+                const loadImage = (file) => {
+                    return new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = reject;
+                        img.src = URL.createObjectURL(file);
+                    });
+                };
+
+                const extractAnswersOpenCV = (imgElement, exam, version) => {
+                    let srcMat = cv.imread(imgElement);
+                    let qCount = getVersionQuestions(exam, version).length;
+                    
+                    let gray = new cv.Mat();
+                    let blurred = new cv.Mat();
+                    let thresh = new cv.Mat();
+                    let contours = new cv.MatVector();
+                    let hierarchy = new cv.Mat();
+                    let warpedThresh = new cv.Mat();
+                    let srcTri = null;
+                    let dstTri = null;
+                    let M = null;
+
+                    try {
+                        cv.cvtColor(srcMat, gray, cv.COLOR_RGBA2GRAY, 0);
+                        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+                        cv.adaptiveThreshold(blurred, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 5);
+                        cv.findContours(thresh, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+
+                        let squares = [];
+                        let imgArea = srcMat.cols * srcMat.rows;
+                        
+                        // Localiza possíveis marcadores (quadrados fiduciais)
+                        for (let i = 0; i < contours.size(); ++i) {
+                            let cnt = contours.get(i);
+                            let area = cv.contourArea(cnt);
+                            // Filtro de tamanho para capturar os 4 quadrados dos cantos
+                            if (area > imgArea * 0.0005 && area < imgArea * 0.05) {
+                                let peri = cv.arcLength(cnt, true);
+                                let approx = new cv.Mat();
+                                cv.approxPolyDP(cnt, approx, 0.05 * peri, true);
+                                if (approx.rows === 4) {
+                                    let rect = cv.boundingRect(approx);
+                                    let aspect = rect.width / rect.height;
+                                    let solidity = area / (rect.width * rect.height);
+                                    if (aspect >= 0.7 && aspect <= 1.3 && solidity > 0.7) {
+                                        squares.push({
+                                            x: rect.x + rect.width/2,
+                                            y: rect.y + rect.height/2,
+                                            rect: rect
+                                        });
+                                    }
+                                }
+                                approx.delete();
+                            }
+                        }
+
+                        if (squares.length < 4) {
+                            throw new Error("Não foi possível encontrar os 4 marcadores pretos nos cantos da tabela.");
+                        }
+
+                        // Ordena pela distância em relação ao centro (garante que pega os cantos mais extremos)
+                        let cx = srcMat.cols / 2;
+                        let cy = srcMat.rows / 2;
+                        squares.sort((a,b) => {
+                            let da = Math.pow(a.x-cx, 2) + Math.pow(a.y-cy, 2);
+                            let db = Math.pow(b.x-cx, 2) + Math.pow(b.y-cy, 2);
+                            return db - da; 
+                        });
+                        
+                        let top4 = squares.slice(0, 4); 
+                        
+                        // Define as posições (Top-Left, Bottom-Right, Top-Right, Bottom-Left)
+                        top4.sort((a, b) => (a.x + a.y) - (b.x + b.y));
+                        let tl = top4[0];
+                        let br = top4[top4.length - 1];
+
+                        top4.sort((a, b) => (a.x - a.y) - (b.x - b.y));
+                        let bl = top4[0];
+                        let tr = top4[top4.length - 1];
+
+                        // Geometria precisa do PDF original
+                        let W = 800; // Largura padronizada
+                        let dY_units = 34 + qCount * 20; // Proporção da altura da tabela
+                        let H = Math.round((dY_units / 196) * W);
+                        
+                        srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+                        dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, W, 0, W, H, 0, H]);
+                        M = cv.getPerspectiveTransform(srcTri, dstTri);
+                        
+                        cv.warpPerspective(thresh, warpedThresh, M, new cv.Size(W, H));
+                        
+                        let answers = {};
+                        let r = Math.round((10 / 196) * W); // Raio das bolhas relativo
+
+                        for (let k = 0; k < qCount; k++) {
+                            // Cálculo da altura Y exata para a questão 'k'
+                            let q_y_units = 31.5 + k * 20;
+                            let y = Math.round(q_y_units * (H / dY_units));
+                            
+                            let q = getVersionQuestions(exam, version)[k];
+                            let numOpts = (q.type === 'ce') ? 2 : 5;
+                            let darkPixels = [];
+
+                            for (let j = 0; j < numOpts; j++) {
+                                // Cálculo da largura X exata para a alternativa 'j'
+                                let relX = 16 + 24 + (28 * j) + 14;
+                                let x = Math.round((relX / 196) * W);
+
+                                let roiX = Math.max(0, x - r);
+                                let roiY = Math.max(0, y - r);
+                                let roiW = Math.min(warpedThresh.cols - roiX, 2 * r);
+                                let roiH = Math.min(warpedThresh.rows - roiY, 2 * r);
+
+                                let rect = new cv.Rect(roiX, roiY, roiW, roiH);
+                                let roi = warpedThresh.roi(rect);
+                                let count = cv.countNonZero(roi); // Quantidade de tinta na bolha
+                                darkPixels.push({ index: j, count: count });
+                                roi.delete();
+                            }
+
+                            // Verifica qual bolha está mais preenchida
+                            darkPixels.sort((a, b) => b.count - a.count);
+                            let maxCount = darkPixels[0].count;
+                            let secondCount = darkPixels[1] ? darkPixels[1].count : 0;
+                            let roiArea = (2 * r) * (2 * r);
+                            
+                            // Lógica de desempate e mínimo de tinta
+                            if (maxCount < roiArea * 0.15) {
+                                answers[k] = null; // Em branco
+                            } 
+                            else if (secondCount > maxCount * 0.60) {
+                                answers[k] = null; // Marcação dupla (rasura)
+                            } 
+                            else {
+                                answers[k] = darkPixels[0].index;
+                            }
+                        }
+                        return answers;
+
+                    } finally {
+                        // Previne o vazamento de memória da WebAssembly do OpenCV
+                        if (srcMat) srcMat.delete();
+                        if (gray) gray.delete();
+                        if (blurred) blurred.delete();
+                        if (thresh) thresh.delete();
+                        if (contours) contours.delete();
+                        if (hierarchy) hierarchy.delete();
+                        if (warpedThresh) warpedThresh.delete();
+                        if (srcTri) srcTri.delete();
+                        if (dstTri) dstTri.delete();
+                        if (M) M.delete();
+                    }
+                };
+
+                const processOMRCorrection = async (event) => {
                     const files = event.target.files;
                     if (!files || files.length === 0) return;
 
@@ -2654,114 +2803,41 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         const file = correctionQueue.value[i];
                         try {
+                            // 1. LER O QR CODE
                             let qrData = null;
                             try {
                                 const localScanner = new Html5Qrcode("hidden-qr-reader");
                                 const result = await localScanner.scanFile(file, false);
                                 qrData = JSON.parse(result);
-                            } catch (err) { }
-
-                            const reader = new FileReader();
-                            reader.readAsDataURL(file);
-                            await new Promise(r => reader.onload = r);
-                            const base64Img = reader.result.split(',')[1];
-                            const mimeType = file.type;
-
-                            const prompt = `ATENÇÃO MÁXIMA: Você é um leitor óptico de gabaritos escolares (OMR) de altíssima precisão. Sua tarefa é extrair as respostas marcadas com zero margem de erro.
-
-SISTEMA DE ANCORAGEM TRIPLA E GEOMETRIA (OBRIGATÓRIO):
-Para não errar a posição de nenhuma marcação, você DEVE usar as referências geométricas impressas na folha:
-1. MARCAS FIDUCIAIS (CANTOS): Localize os 4 quadrados pretos grandes nos cantos do gabarito para isolar a zona de leitura, ignorando a distorção da foto e tudo o que estiver fora.
-2. MARCAS DE SINCRONIA (TIMING MARKS): Use os pequenos retângulos pretos alinhados na lateral esquerda e direita de CADA LINHA. Eles ditam o eixo horizontal exato e absoluto de cada questão (01, 02, 03...).
-3. EIXO VERTICAL E LETRAS INTERNAS: O eixo vertical é ditado pelas letras no topo da tabela (A, B, C, D, E). A marcação do aluno TEM DE COINCIDIR com a bolha geométrica que tem a letra cinza correspondente impressa dentro dela.
-
-REGRAS DE VALIDAÇÃO DE MARCAÇÃO:
-- VÁLIDO: Bolha totalmente pintada (qualquer cor/neon), "X" marcante sobre a letra, ou um CÍRCULO desenhado APENAS CONTORNANDO a letra (ex: caneta vermelha/azul vazada).
-- RASURAS E DESEMPATE: Se houver um RABISCO ESCURO/BORRÃO e um CÍRCULO LIMPO/SUAVE na mesma linha, o CÍRCULO LIMPO é a resposta final intencional. O borrão é a opção anulada.
-- RUÍDO EXTREMO: Assinaturas gigantes (ex: "Teste Oi Professor"), desenhos ou textos que cruzam a folha DEVEM SER MATEMATICAMENTE IGNORADOS. Apenas a tinta intencionalmente focada e retida dentro da coordenada de interseção OMR conta.
-
-O RETORNO (JSON ESTRITO):
-- analysis: Breve resumo técnico (ex: 'Ancoragem OMR via timing marks concluída. Ignorada assinatura gigante. Desempate resolvido.').
-- qrText: Leia e transcreva o JSON do QR Code no topo à direita. Se ilegível/borrado, retorne "". NUNCA INVENTE O CÓDIGO.
-- answers: Lista onde 'q' é a linha (1, 2, 3...) e 'v' é a LETRA marcada ('A', 'B', 'C', 'D', 'E'). Retorne 'NULO' em 'v' se a linha estiver vazia ou com dupla marcação impossível de desempatar.`;
-
-                            const schema = {
-                                type: "OBJECT",
-                                properties: {
-                                    analysis: { type: "STRING" },
-                                    qrText: { type: "STRING" },
-                                    answers: {
-                                        type: "ARRAY",
-                                        items: {
-                                            type: "OBJECT",
-                                            properties: {
-                                                q: { type: "INTEGER" },
-                                                v: { type: "INTEGER" }
-                                            }
-                                        }
-                                    }
-                                }
-                            };
-
-                            const aiResult = await fetchGemini(prompt, schema, base64Img, mimeType);
-                            
-                            // Bloqueio de segurança 1: Aborta a gravação se o professor carregou em Interromper
-                            if (stopQueueFlag.value) break;
-                            
-                            let finalQrText = qrData ? JSON.stringify(qrData) : aiResult.qrText;
-                            if (!finalQrText || finalQrText === "null" || finalQrText.trim() === "") {
-                                throw new Error(`Arq ${i+1}: QR Code não encontrado.`);
-                            }
-                            
-                            let qd;
-                            try {
-                                qd = typeof finalQrText === 'string' ? JSON.parse(finalQrText.replace(/`/g, '')) : finalQrText;
-                            } catch(e) {
-                                throw new Error(`Arq ${i+1}: QR Code corrompido.`);
+                            } catch (err) {
+                                throw new Error("QR Code não encontrado ou ilegível. Melhore a luz/foco.");
                             }
 
-                            const exm = exams.value.find(e => e.id === Number(qd.e));
-                            const std = students.value.find(s => s.id === Number(qd.s));
-                            const ver = Number(qd.v) || 0;
+                            if (!qrData || qrData.e == null || qrData.s == null) throw new Error("QR Code corrompido.");
 
-                            if(!exm || !std) throw new Error(`Arq ${i+1}: Prova/Aluno não cadastrados.`);
+                            const exm = exams.value.find(e => e.id === Number(qrData.e));
+                            const std = students.value.find(s => s.id === Number(qrData.s));
+                            const ver = Number(qrData.v) || 0;
 
-                            let ansMap = {};
-                            if (aiResult.answers && Array.isArray(aiResult.answers)) {
-                                const maxQ = getVersionQuestions(exm, ver).length;
-                                aiResult.answers.forEach(ansObj => {
-                                    const qIndex = parseInt(ansObj.q) - 1;
-                                    if (qIndex >= 0 && qIndex < maxQ && ansObj.v !== -1 && ansObj.v !== null && ansObj.v !== undefined) {
-                                        ansMap[qIndex] = parseInt(ansObj.v);
-                                    }
-                                });
-                            }
+                            if(!exm || !std) throw new Error(`Prova/Aluno não encontrados na base.`);
 
-                            // Bloqueio de segurança 2: Aborta imediatamente antes de gravar
+                            // 2. PROCESSAMENTO MATEMÁTICO VIA OPENCV OMR
+                            const img = await loadImage(file);
+                            const ansMap = extractAnswersOpenCV(img, exm, ver);
+
                             if (stopQueueFlag.value) break;
 
+                            // 3. SALVAR RESULTADOS
                             lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap);
                             successCount++;
 
-                            if (i < correctionQueue.value.length - 1) {
-                                // Pausa interativa que cancela no exato milissegundo se a flag alterar
-                                await new Promise(res => {
-                                    let t = 0;
-                                    let timer = setInterval(() => {
-                                        t += 100;
-                                        if (stopQueueFlag.value || t >= 2500) {
-                                            clearInterval(timer);
-                                            res();
-                                        }
-                                    }, 100);
-                                });
-                            }
+                            // Pausa minúscula para feedback visual na interface
+                            await new Promise(r => setTimeout(r, 100));
 
                         } catch(e) {
                             if (!stopQueueFlag.value) {
-                                showToast(e.message || "Erro de análise", "error");
-                                // Atraso extra para o utilizador poder ler o erro antes de passar à próxima foto
-                                await new Promise(res => setTimeout(res, 1500));
+                                showToast(`Arq ${i+1}: ${e.message}`, "error");
+                                await new Promise(res => setTimeout(res, 2000));
                             }
                         }
                         
@@ -2769,19 +2845,17 @@ O RETORNO (JSON ESTRITO):
                         processedCount.value++;
                     }
 
-                    // Somente corre a conclusão se não houver interrupções forçadas
                     if (!stopQueueFlag.value) {
                         isProcessingQueue.value = false;
-                        await load(); // Atualiza os resultados na interface
+                        await load();
                         
                         if (successCount > 0) {
-                            showToast(`Correção concluída! ${successCount} sucesso(s).`, "success");
-                            // Abre logo a tela de comparação para o utilizador conferir a prova!
+                            showToast(`Correção OpenCV concluída! ${successCount} sucesso(s).`, "success");
                             if (lastSavedId) {
                                 setTimeout(() => openResultDetails({ id: lastSavedId }), 600);
                             }
                         } else {
-                            showToast("Nenhuma prova lida com sucesso. Melhore a luz/foco.", "error");
+                            showToast("Nenhuma prova lida com sucesso. Siga as orientações fotográficas.", "error");
                         }
                     }
                 };
@@ -3193,22 +3267,17 @@ O RETORNO (JSON ESTRITO):
 
                                 let v = eD.versions && eD.versions.length > 0 ? eD.versions : [{ id: 0, questions: eD.questions || [] }];
                                 let sm = eD.studentMap || {};
-                                let eId = eD.id;
-
-                                // CRÍTICO: Variáveis de layout agora avaliadas INDIVIDUALMENTE para CADA prova do lote!
-                                let pSize = eD.paperSaving !== undefined ? eD.paperSaving : false;
-                                const fSizeQ = pSize ? 9 : 11;
-                                const fSizeOpt = pSize ? 8 : 10;
-                                const optMarg = pSize ? [0, 0] : [0, 2];
+                                
+                                let pSize = eD.paperSaving || false;
+                                let fSizeQ = pSize ? 9 : 11;
+                                let fSizeOpt = pSize ? 8 : 10;
+                                let optMarg = pSize ? [0, 0] : [0, 2];
                                 let baseImgW = printConfig.value.qImageSize === 'large' ? 250 : 130;
-                                const imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
+                                let imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
 
-                                stds.forEach((s, i) => {
-                                    let vi = sm[s.id] !== undefined ? sm[s.id] : 0;
-                                    if (!v[vi]) vi = 0;
-                                    let qs = v[vi].questions || [];
-                                    if (qs.length === 0) return;
-
+                                stds.forEach((s) => {
+                                    let vi = sm[s.id] || 0;
+                                    let qs = v[vi] ? v[vi].questions : [];
                                     let kr = [];
                                     
                                     kr.push([
@@ -3270,14 +3339,14 @@ O RETORNO (JSON ESTRITO):
                                         { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
                                     ]);
 
-                                    const sideWidth = 85; 
+                                    const sideWidth = 85;
 
                                     let leftStack = settings.value.logo 
                                         ? [{image: settings.value.logo, fit: [sideWidth, 75], alignment: 'left'}] 
                                         : [{text: '', alignment: 'left'}];
 
                                     let rightStack = [
-                                        { qr: JSON.stringify({e:eId,s:s.id,v:vi}), fit: 75, alignment: 'right' }
+                                        { qr: JSON.stringify({e:eD.id,s:s.id,v:vi}), fit: 75, alignment: 'right' }
                                     ];
                                     
                                     if (printConfig.value.showStudentPhoto && s.photo) {
@@ -3299,12 +3368,8 @@ O RETORNO (JSON ESTRITO):
                                     ];
 
                                     cont.push({
-                                        // Ajuste de margem virtual para proteger o layout em lotes mistos
-                                        margin: pSize ? [0,0,0,0] : [20,0,20,0],
                                         stack:[
-                                            {
-                                                columns: headerCols
-                                            },
+                                            { columns: headerCols },
                                             {text:'GABARITO OFICIAL - NÃO RASURE',alignment:'center',margin:[0, pSize?6:10, 0, 2], bold:true, fontSize:pSize?10:12},
                                             {text:'Preencha o círculo COMPLETAMENTE: ⬤. Evite "X" ou "✓".',alignment:'center',margin:[0,0,0, pSize?4:8], fontSize:pSize?8:9, color:'#4b5563'},
                                             {
@@ -3444,8 +3509,7 @@ O RETORNO (JSON ESTRITO):
                                             }
                                         }
 
-                                        // Ajuste de margem virtual inferior para as questões
-                                        qBlocks.push({stack:qB, margin: pSize ? [0,0,0,5] : [20,0,20,15], unbreakable: true});
+                                        qBlocks.push({stack:qB, margin: pSize ? [0,0,0,5] : [0,0,0,15], unbreakable: true});
                                     });
 
                                     cont.push(...qBlocks);
@@ -3459,438 +3523,310 @@ O RETORNO (JSON ESTRITO):
                                 });
                             }
 
-                            if (cont.length === 0) {
-                                showToast("A(s) prova(s) selecionada(s) não contêm alunos para gerar impressão.", "error");
-                                return;
+                            if (cont.length > 0) {
+                                cont.pop(); // remover última quebra de página
                             }
-
-                            // Remove a última quebra de página
-                            cont.pop();
-
+                            
                             let now = new Date();
                             let dStr = now.toLocaleDateString('pt-BR').replace(/\//g, '-');
                             let tStr = now.getHours().toString().padStart(2, '0') + 'h' + now.getMinutes().toString().padStart(2, '0') + 'min';
-                            let fileName = `Lote_Provas_${dStr}_${tStr}.pdf`;
+                            let fileName = `Lote_${selectedHistoryExams.value.length}_Provas_${dStr}_${tStr}.pdf`;
 
-                            // Margem Fixa Global para garantir flexibilidade em lotes híbridos
                             downloadPDF(pdfMake.createPdf({
                                 pageMargins: [20, 20, 20, 20],
                                 content: cont
                             }), fileName, action);
 
                             selectedHistoryExams.value = [];
-                            
+                            showToast("PDF do Lote gerado com sucesso!", "success");
+
                         } catch (err) {
-                            console.error("Erro ao mesclar PDFs:", err);
-                            showToast("Erro crítico ao processar o arquivo. Alguma prova do lote pode estar corrompida.", "error");
+                            showToast("Erro ao gerar PDF mesclado: " + err.message, "error");
                         }
                     });
                 };
 
-                const reprintExamPDF = (exam, action = 'share') => {
-                    examConfig.value = { ...exam, classIds: [exam.classId] };
-                    examCart.value = JSON.parse(JSON.stringify(getVersionQuestions(exam, 0)));
-                    editingExamId.value = exam.id;
-                    
-                    // Restaura a configuração de economia de papel original desta prova
-                    if (exam.paperSaving !== undefined) {
-                        printConfig.value.paperSaving = exam.paperSaving;
-                    }
-                    
-                    generatePDF(action);
+                const reprintExamPDF = async (e, action = 'share') => {
+                    examConfig.value = { title: e.title, classIds: [e.classId], bimester: e.bimester, type: e.type, variationMode: e.variationMode, teacher: e.teacher };
+                    examCart.value = e.versions[0].questions;
+                    editingExamId.value = e.id;
+                    printConfig.value.paperSaving = e.paperSaving || false;
+                    await generatePDF(action);
+                    editingExamId.value = null;
                 };
 
-                const generateKeyPDF = (exam, action = 'share') => {
-                    let cont = [];
-                    cont.push({ text: settings.value.schoolName || 'ESCOLA', fontSize: 14, bold: true, alignment: 'center' });
-                    cont.push({ text: `Gabarito Oficial - ${exam.title}`, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 20] });
+                const generateKeyPDF = async (e, action = 'share') => {
+                    let cont = [
+                        { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                        { text: 'GABARITO OFICIAL', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
+                        { text: `Prova: ${e.title} - Turma: ${getClassName(e.classId)}`, fontSize: 12, alignment: 'center', margin: [0, 0, 0, 20] }
+                    ];
 
-                    exam.versions.forEach((v, i) => {
-                        cont.push({ text: `TIPO ${i + 1}`, fontSize: 11, bold: true, margin: [0, 10, 0, 5], color: '#4f46e5' });
-                        let tBody = [];
-                        let row = [];
-                        v.questions.forEach((q, k) => {
-                            // Calcula o índice correto independentemente do tipo da questão
-                            let cIdx = (q.type === 'vf' || q.type === 'assoc') ? (q.id || 0) % 5 : q.correctIndex;
-                            // Força a leitura das letras (A,B,C,D,E) para todos, exceto (Certo/Errado)
-                            let ans = getAlternativeLabel(q.type === 'ce' ? 'ce' : 'mc', cIdx);
-                            
-                            row.push({ text: `${k + 1}. ${ans}`, fontSize: 10, alignment: 'center', margin: [2, 2] });
-                            if ((k + 1) % 5 === 0) { tBody.push(row); row = []; }
+                    e.versions.forEach((v, vIdx) => {
+                        let tBody = [[
+                            { text: 'Q', bold: true, fillColor: '#e5e7eb', alignment: 'center' },
+                            { text: 'Resp', bold: true, fillColor: '#e5e7eb', alignment: 'center' }
+                        ]];
+                        v.questions.forEach((q, qIdx) => {
+                            let ansStr = '';
+                            if (q.type === 'ce') ansStr = q.correctIndex === 0 ? 'Certo' : 'Errado';
+                            else if (q.type === 'mc') ansStr = ['A', 'B', 'C', 'D', 'E'][q.correctIndex];
+                            else if (q.type === 'vf') {
+                                let correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
+                                ansStr = ['A', 'B', 'C', 'D', 'E'][(q.id || 0) % 5] + ` (${correctSeq})`;
+                            }
+                            else if (q.type === 'assoc') {
+                                let seed = (q.id || 2) + qIdx;
+                                let rand = () => { let x = Math.sin(seed++) * 10000; return x - Math.floor(x); };
+                                let defs = q.options.map((o, i) => ({ originalIdx: i + 1 }));
+                                defs.sort(() => rand() - 0.5);
+                                let correctSeq = defs.map(d => d.originalIdx).join(', ');
+                                ansStr = ['A', 'B', 'C', 'D', 'E'][(q.id || 0) % 5] + ` (${correctSeq})`;
+                            }
+
+                            tBody.push([
+                                { text: qIdx + 1, alignment: 'center' },
+                                { text: ansStr, alignment: 'center', bold: true, color: '#4f46e5' }
+                            ]);
                         });
-                        if (row.length > 0) {
-                            while (row.length < 5) row.push({ text: '', border: [false, false, false, false] });
-                            tBody.push(row);
-                        }
-                        if (tBody.length > 0) {
-                            cont.push({
-                                table: { widths: ['*', '*', '*', '*', '*'], body: tBody },
-                                layout: 'lightHorizontalLines',
-                                margin: [0, 0, 0, 15]
-                            });
-                        }
+                        
+                        cont.push({ text: `TIPO ${vIdx + 1}`, bold: true, margin: [0, 15, 0, 5] });
+                        cont.push({ table: { widths: [30, 150], body: tBody }, margin: [0, 0, 0, 20] });
                     });
 
-                    downloadPDF(pdfMake.createPdf({ content: cont }), `Gabarito_${exam.title}.pdf`, action);
+                    downloadPDF(pdfMake.createPdf({ pageMargins: [40, 40, 40, 40], content: cont }), `Gabarito_${e.title}.pdf`, action);
                 };
-
-                const toggleExamQ = (q) => {
-                    const i = examCart.value.findIndex(x => x.id === q.id);
-                    if (i > -1) examCart.value.splice(i, 1);
-                    else examCart.value.push(JSON.parse(JSON.stringify(q)));
-                };
-
-                const isQInExam = (id) => examCart.value.some(q => q.id === id);
 
                 const deleteExam = (id) => {
-                    triggerConfirm("Tem a certeza que deseja apagar esta prova e TODAS as notas associadas?", async () => {
-                        let rIds = results.value.filter(r => r.examId === id).map(r => r.id);
-                        await db.results.bulkDelete(rIds);
+                    triggerConfirm("Apagar prova e notas?", async () => {
+                        let rs = results.value.filter(r => r.examId === id);
+                        await db.results.bulkDelete(rs.map(r => r.id));
                         await db.exams.delete(id);
                         load();
-                        showToast("Prova e notas apagadas.", "success");
+                        showToast("Prova apagada.", "success");
                     });
                 };
 
-                const deleteQuestion = (id) => {
-                    triggerConfirm("Apagar questão do banco?", async () => {
-                        await db.questions.delete(id);
-                        examCart.value = examCart.value.filter(q => q.id !== id);
-                        await load();
-                    });
-                };
-
-                const openStudentProfile = (id) => {
-                    studentDetails.value = JSON.parse(JSON.stringify(getStudent(id)));
-                    selectedBimester.value = 'notes';
-                    showStudentModal.value = true;
-                };
-
-                const deleteStudent = (id) => {
-                    triggerConfirm("Apagar aluno e as suas notas?", async () => {
-                        let rIds = results.value.filter(r => r.studentId === id).map(r => r.id);
-                        await db.results.bulkDelete(rIds);
-                        await db.students.delete(id);
-                        load();
-                    });
-                };
-
-                const getClassAverage = (cid) => {
-                    let r = results.value.filter(x => getStudent(x.studentId)?.classId === cid);
-                    if (!r.length) return "0.0";
-                    return (r.reduce((sum, x) => sum + parseFloat(x.score), 0) / r.length).toFixed(1);
-                };
-
-                const getEvaluatedStudentCount = (cid) => {
-                    let sIds = new Set(results.value.filter(x => getStudent(x.studentId)?.classId === cid).map(x => x.studentId));
-                    return sIds.size;
-                };
-
-                const getClassGradeDistribution = (cid) => {
-                    let stds = getFilteredStudents(cid);
-                    let dist = { '0-4.9': [], '5.0-6.9': [], '7.0-8.9': [], '9.0-10': [] };
-                    stds.forEach(s => {
-                        let r = results.value.filter(x => x.studentId === s.id);
-                        if (r.length) {
-                            let avg = r.reduce((sum, x) => sum + parseFloat(x.score), 0) / r.length;
-                            let key = avg < 5 ? '0-4.9' : avg < 7 ? '5.0-6.9' : avg < 9 ? '7.0-8.9' : '9.0-10';
-                            dist[key].push({ studentId: s.id, name: s.name, avg: avg.toFixed(1) });
-                        }
-                    });
-                    Object.keys(dist).forEach(k => dist[k].sort((a, b) => b.avg - a.avg));
-                    return dist;
-                };
-
-                const generateClassReportPDF = () => {
-                    if (!selectedClassIdForReport.value) return showToast("Selecione uma turma", "warning");
-                    let stds = getFilteredStudents(selectedClassIdForReport.value);
-                    let ranks = stds.map(s => {
-                        let r = results.value.filter(x => x.studentId === s.id);
-                        let avg = r.length ? r.reduce((sum, x) => sum + parseFloat(x.score), 0) / r.length : 0;
-                        return { name: s.name, photo: s.photo, avg: avg.toFixed(1), exams: r.length };
-                    }).sort((a, b) => b.avg - a.avg);
+                const generateGeneralReportPDF = async (classId) => {
+                    const stds = students.value.filter(s => s.classId === classId);
+                    if (!stds.length) return showToast("Turma vazia.", "warning");
 
                     let tBody = [[
-                        {text: 'Pos.', bold: true, fillColor: '#f3f4f6', alignment: 'center'}, 
-                        {text: 'Aluno', bold: true, fillColor: '#f3f4f6'}, 
-                        {text: 'Provas', bold: true, fillColor: '#f3f4f6', alignment: 'center'}, 
-                        {text: 'Média', bold: true, fillColor: '#f3f4f6', alignment: 'center'}
-                    ]];
-                    
-                    ranks.forEach((r, i) => {
-                        let studentCell;
-                        if (r.photo) {
-                            studentCell = {
-                                columns: [
-                                    { image: r.photo, width: 22, height: 22, margin: [0, 0, 0, 0] },
-                                    { text: r.name, margin: [5, 4, 0, 0], width: '*' }
-                                ]
-                            };
-                        } else {
-                            studentCell = { text: r.name, margin: [0, 4, 0, 0] };
-                        }
-                        
-                        tBody.push([
-                            { text: i + 1, margin: [0, 4, 0, 0], alignment: 'center' }, 
-                            studentCell, 
-                            { text: r.exams, margin: [0, 4, 0, 0], alignment: 'center' }, 
-                            { text: r.avg, margin: [0, 4, 0, 0], alignment: 'center', bold: true, color: r.avg >= 6 ? '#059669' : '#dc2626' }
-                        ]);
-                    });
-
-                    downloadPDF(pdfMake.createPdf({
-                        content: [
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 14, bold: true, alignment: 'center' },
-                            { text: `Ranking - ${getClassName(selectedClassIdForReport.value)}`, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
-                            {
-                                table: { headerRows: 1, widths: ['auto', '*', 'auto', 'auto'], body: tBody },
-                                layout: {
-                                    hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
-                                    vLineWidth: () => 0.5,
-                                    hLineColor: () => '#d1d5db',
-                                    vLineColor: () => '#d1d5db',
-                                    paddingTop: () => 6,
-                                    paddingBottom: () => 6
-                                }
-                            }
-                        ],
-                        defaultStyle: { font: 'Roboto' }
-                    }), `Ranking_${getClassName(selectedClassIdForReport.value)}.pdf`);
-                };
-
-                const generateGeneralReportPDF = (cid) => {
-                    let stds = getFilteredStudents(cid);
-                    if(!stds.length) return showToast("A turma não tem alunos.", "warning");
-                    
-                    let bimesters = [1, 2, 3, 4];
-                    let tBody = [[
-                        {text: 'Aluno', bold: true, fillColor: '#f3f4f6'},
-                        {text: '1º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
-                        {text: '2º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
-                        {text: '3º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
-                        {text: '4º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
+                        {text: 'Aluno', bold: true, fillColor: '#e5e7eb'},
+                        {text: 'Bim 1', bold: true, alignment: 'center', fillColor: '#e5e7eb'},
+                        {text: 'Bim 2', bold: true, alignment: 'center', fillColor: '#e5e7eb'},
+                        {text: 'Bim 3', bold: true, alignment: 'center', fillColor: '#e5e7eb'},
+                        {text: 'Bim 4', bold: true, alignment: 'center', fillColor: '#e5e7eb'},
                         {text: 'Média Final', bold: true, alignment: 'center', fillColor: '#e5e7eb'}
                     ]];
 
-                    stds.forEach(s => {
-                        let studentCell;
-                        if (s.photo) {
-                            studentCell = {
-                                columns: [
-                                    { image: s.photo, width: 22, height: 22, margin: [0, 0, 0, 0] },
-                                    { text: s.name, fontSize: 9, margin: [5, 4, 0, 0], width: '*' }
-                                ]
-                            };
-                        } else {
-                            studentCell = { text: s.name, fontSize: 9, margin: [0, 4, 0, 0] };
+                    for (const s of stds) {
+                        let row = [{text: s.name, fontSize: 10}];
+                        let totalAvg = 0;
+                        let count = 0;
+
+                        for (let b = 1; b <= 4; b++) {
+                            const sRes = results.value.filter(r => r.studentId === s.id && exams.value.find(e => e.id === r.examId)?.bimester === b);
+                            const epRes = extraPoints.value.filter(ep => ep.studentId === s.id && ep.bimester === b);
+                            
+                            if (sRes.length) {
+                                let sum = sRes.reduce((acc, curr) => acc + parseFloat(curr.score), 0);
+                                let epSum = epRes.reduce((acc, curr) => acc + parseFloat(curr.points), 0);
+                                let avg = Math.min(10, (sum / sRes.length) + epSum).toFixed(1);
+                                row.push({text: avg, alignment: 'center', fontSize: 10});
+                                totalAvg += parseFloat(avg);
+                                count++;
+                            } else {
+                                row.push({text: '-', alignment: 'center', color: '#9ca3af'});
+                            }
                         }
 
-                        let row = [studentCell];
-                        let totalSum = 0;
-                        let countActive = 0;
-                        
-                        bimesters.forEach(b => {
-                            let bExams = exams.value.filter(e => e.classId === cid && e.bimester === b);
-                            let bResults = results.value.filter(r => r.studentId === s.id && bExams.some(e => e.id === r.examId));
-                            let bExtras = extraPoints.value.filter(ep => ep.studentId === s.id && ep.bimester === b);
-                            
-                            let totalWeight = 0;
-                            let weightedScoreSum = 0;
-                            
-                            bResults.forEach(r => {
-                                let ex = bExams.find(e => e.id === r.examId);
-                                let w = ex ? (parseFloat(ex.weight) || 1) : 1;
-                                totalWeight += w;
-                                weightedScoreSum += (parseFloat(r.score) * w);
-                            });
-                            
-                            let bonusSum = bExtras.reduce((sum, ep) => sum + parseFloat(ep.points), 0);
-                            
-                            if (totalWeight > 0) {
-                                let bAvg = (weightedScoreSum / totalWeight) + bonusSum;
-                                if(bAvg > 10) bAvg = 10;
-                                row.push({text: bAvg.toFixed(1), alignment: 'center', fontSize: 9, margin: [0, 4, 0, 0], color: bAvg>=6?'#059669':'#dc2626'});
-                                totalSum += bAvg;
-                                countActive++;
-                            } else {
-                                row.push({text: '-', alignment: 'center', fontSize: 9, margin: [0, 4, 0, 0], color: '#9ca3af'});
-                            }
-                        });
-                        
-                        let finalAvg = countActive > 0 ? (totalSum / countActive).toFixed(1) : '-';
-                        row.push({text: finalAvg, alignment: 'center', bold: true, fontSize: 9, margin: [0, 4, 0, 0], color: finalAvg==='-'?'#9ca3af':(parseFloat(finalAvg)>=6?'#059669':'#dc2626'), fillColor: '#f9fafb'});
+                        let finalAvg = count ? (totalAvg / count).toFixed(1) : '-';
+                        row.push({text: finalAvg, alignment: 'center', bold: true, fontSize: 10, color: finalAvg !== '-' && finalAvg < 6 ? '#ef4444' : '#10b981'});
                         tBody.push(row);
-                    });
+                    }
 
-                    downloadPDF(pdfMake.createPdf({
-                        pageOrientation: 'landscape',
+                    const doc = {
                         content: [
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 14, bold: true, alignment: 'center' },
-                            { text: `Boletim Geral - ${getClassName(cid)}`, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
-                            {
-                                table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto'], body: tBody },
-                                layout: {
-                                    hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
-                                    vLineWidth: () => 0.5,
-                                    hLineColor: () => '#d1d5db',
-                                    vLineColor: () => '#d1d5db',
-                                    paddingTop: () => 6,
-                                    paddingBottom: () => 6
-                                }
-                            }
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: `BOLETIM GERAL - Turma: ${getClassName(classId)}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
+                            { table: { widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto'], body: tBody }, layout: 'lightHorizontalLines' }
                         ],
                         defaultStyle: { font: 'Roboto' }
-                    }), `Boletim_${getClassName(cid)}.pdf`);
+                    };
+
+                    downloadPDF(pdfMake.createPdf(doc), `Boletim_${getClassName(classId)}.pdf`);
                 };
 
-                const generateAttendanceReportPDF = async (cid) => {
-                    if (!cid) return showToast("Selecione uma turma", "warning");
-                    showToast("Gerando relatório de faltas...", "loading");
+                const generateClassReportPDF = () => {
+                    if (!selectedClassIdForReport.value) return;
+                    const c = classes.value.find(x => x.id === selectedClassIdForReport.value);
+                    const stds = students.value.filter(s => s.classId === c.id);
                     
-                    let stds = getFilteredStudents(cid);
-                    let attRecords = await db.attendance.where({classId: cid}).toArray();
+                    let data = [];
+                    stds.forEach(s => {
+                        const sRes = results.value.filter(r => r.studentId === s.id);
+                        if (sRes.length) {
+                            let avg = (sRes.reduce((a,b) => a + parseFloat(b.score), 0) / sRes.length).toFixed(1);
+                            data.push({ name: s.name, avg: parseFloat(avg) });
+                        }
+                    });
                     
+                    data.sort((a,b) => b.avg - a.avg);
+
                     let tBody = [[
-                        {text: 'Aluno', bold: true, fillColor: '#f3f4f6'},
-                        {text: 'Presenças', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
-                        {text: 'Faltas', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
-                        {text: 'Faltas Just.', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
-                        {text: '% Frequência', bold: true, alignment: 'center', fillColor: '#e5e7eb'}
+                        {text: 'Pos.', bold: true, fillColor: '#e5e7eb', alignment: 'center'},
+                        {text: 'Aluno', bold: true, fillColor: '#e5e7eb'},
+                        {text: 'Média', bold: true, alignment: 'center', fillColor: '#e5e7eb'}
                     ]];
 
-                    stds.forEach(s => {
-                        let sAtt = attRecords.filter(r => r.studentId === s.id);
-                        let p = sAtt.filter(r => r.status === 'P').length;
-                        let f = sAtt.filter(r => r.status === 'F').length;
-                        let j = sAtt.filter(r => r.status === 'J').length;
-                        let total = p + f + j;
-                        let freqPct = total > 0 ? Math.round(((p + j) / total) * 100) : 100;
-                        
+                    data.forEach((d, i) => {
                         tBody.push([
-                            {text: s.name, fontSize: 9},
-                            {text: p.toString(), alignment: 'center', fontSize: 9},
-                            {text: f.toString(), alignment: 'center', fontSize: 9, color: f > 0 ? '#dc2626' : '#000'},
-                            {text: j.toString(), alignment: 'center', fontSize: 9},
-                            {text: `${freqPct}%`, alignment: 'center', bold: true, fontSize: 9, color: freqPct >= 75 ? '#059669' : '#dc2626'}
+                            {text: i + 1, alignment: 'center'},
+                            {text: d.name},
+                            {text: d.avg.toFixed(1), alignment: 'center', bold: true, color: d.avg >= 6 ? '#10b981' : '#ef4444'}
                         ]);
                     });
 
-                    downloadPDF(pdfMake.createPdf({
+                    const doc = {
                         content: [
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 14, bold: true, alignment: 'center' },
-                            { text: `Relatório de Frequência - ${getClassName(cid)}`, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
-                            {
-                                table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto', 'auto'], body: tBody },
-                                layout: 'lightHorizontalLines'
-                            }
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: `RANKING DA TURMA - ${c.name}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
+                            { table: { widths: [30, '*', 50], body: tBody }, layout: 'lightHorizontalLines' }
                         ],
                         defaultStyle: { font: 'Roboto' }
-                    }), `Frequencia_${getClassName(cid)}.pdf`);
+                    };
+
+                    downloadPDF(pdfMake.createPdf(doc), `Ranking_${c.name}.pdf`);
                 };
 
-                // Computed Properties
-                const filteredClasses = computed(() => classes.value.filter(c => !studentFilter.value || getFilteredStudents(c.id).length > 0));
-                const getStudentCount = (cid) => students.value.filter(s => s.classId === cid).length;
-                const getFilteredStudents = (cid) => students.value.filter(s => s.classId === cid && (!studentFilter.value || s.name.toLowerCase().includes(studentFilter.value.toLowerCase()))).sort((a,b)=>a.name.localeCompare(b.name));
-                
-                const filteredQuestions = computed(() => {
-                    return questions.value.filter(q => {
-                        if(qFilter.value && !q.text.toLowerCase().includes(qFilter.value.toLowerCase())) return false;
-                        if(filterType.value && q.type !== filterType.value) return false;
-                        if(filterSubject.value && q.subject !== filterSubject.value) return false;
-                        if(filterTopic.value && q.topic !== filterTopic.value) return false;
-                        return true;
+                const generateAttendanceReportPDF = async (classId) => {
+                    if (!classId) return showToast("Selecione uma turma.", "warning");
+                    const cls = classes.value.find(c => c.id === classId);
+                    const stds = students.value.filter(s => s.classId === classId);
+                    if (!stds.length) return showToast("Turma vazia.", "warning");
+
+                    const att = await db.attendance.where({classId}).toArray();
+                    
+                    let data = stds.map(s => {
+                        const sAtt = att.filter(a => a.studentId === s.id);
+                        const total = sAtt.length;
+                        const faltas = sAtt.filter(a => a.status === 'F').length;
+                        const faltasJust = sAtt.filter(a => a.status === 'J').length;
+                        const presencas = sAtt.filter(a => a.status === 'P').length;
+                        const percFalta = total > 0 ? Math.round((faltas / total) * 100) : 0;
+                        return { name: s.name, total, faltas, faltasJust, presencas, percFalta };
                     });
-                });
-                
-                const uniqueSubjects = computed(() => [...new Set(questions.value.map(q => q.subject))].filter(Boolean));
-                const uniqueTopics = computed(() => [...new Set(questions.value.map(q => q.topic))].filter(Boolean));
-                
-                const filteredExamQuestions = computed(() => questions.value.filter(q => {
-                    if(examFilterSubject.value && q.subject !== examFilterSubject.value) return false;
-                    if(examFilterTopic.value && q.topic !== examFilterTopic.value) return false;
-                    if(examFilter.value && !q.text.toLowerCase().includes(examFilter.value.toLowerCase())) return false;
-                    return true;
-                }));
-                
-                const filteredHistoryExams = computed(() => exams.value.filter(e => !examHistoryFilter.value || e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase())));
-                const manualStudents = computed(() => manualConfig.value.examId ? students.value.filter(s => s.classId === exams.value.find(e => e.id === manualConfig.value.examId)?.classId).sort((a,b)=>a.name.localeCompare(b.name)) : []);
-                const selectedExamVersions = computed(() => manualConfig.value.examId ? exams.value.find(e => e.id === manualConfig.value.examId)?.versions || [] : []);
 
-                const studentBimesterAverage = computed(() => {
-                    if (!studentDetails.value.id || selectedBimester.value === 'notes') return '0.0';
-                    let bim = parseInt(selectedBimester.value);
-                    let bExams = exams.value.filter(e => e.classId === studentDetails.value.classId && e.bimester === bim);
-                    let bResults = results.value.filter(r => r.studentId === studentDetails.value.id && bExams.some(e => e.id === r.examId));
-                    let bExtras = extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && ep.bimester === bim);
-                    
-                    let totalWeight = 0;
-                    let weightedScoreSum = 0;
-                    
-                    bResults.forEach(r => {
-                        let ex = bExams.find(e => e.id === r.examId);
-                        let w = ex ? (parseFloat(ex.weight) || 1) : 1;
-                        totalWeight += w;
-                        weightedScoreSum += (parseFloat(r.score) * w);
+                    data.sort((a,b) => b.faltas - a.faltas);
+
+                    let tBody = [[
+                        {text: 'Aluno', bold: true, fillColor: '#e5e7eb'},
+                        {text: 'Total Aulas', bold: true, alignment: 'center', fillColor: '#e5e7eb'},
+                        {text: 'Presenças', bold: true, alignment: 'center', fillColor: '#e5e7eb'},
+                        {text: 'Faltas', bold: true, alignment: 'center', fillColor: '#e5e7eb'},
+                        {text: 'Faltas Just.', bold: true, alignment: 'center', fillColor: '#e5e7eb'},
+                        {text: '% Faltas', bold: true, alignment: 'center', fillColor: '#e5e7eb'}
+                    ]];
+
+                    data.forEach(d => {
+                        tBody.push([
+                            {text: d.name, fontSize: 10},
+                            {text: d.total, alignment: 'center', fontSize: 10},
+                            {text: d.presencas, alignment: 'center', fontSize: 10, color: '#10b981'},
+                            {text: d.faltas, alignment: 'center', fontSize: 10, bold: true, color: d.faltas > 0 ? '#ef4444' : '#374151'},
+                            {text: d.faltasJust, alignment: 'center', fontSize: 10, color: '#f59e0b'},
+                            {text: `${d.percFalta}%`, alignment: 'center', fontSize: 10, bold: true, color: d.percFalta > 25 ? '#ef4444' : '#374151'}
+                        ]);
                     });
-                    
-                    let bonusSum = bExtras.reduce((sum, ep) => sum + parseFloat(ep.points), 0);
-                    
-                    if (totalWeight === 0) return (bonusSum > 0 ? bonusSum.toFixed(1) : '0.0');
-                    let avg = (weightedScoreSum / totalWeight) + bonusSum;
-                    return (avg > 10 ? 10 : avg).toFixed(1);
-                });
 
-                const studentExamsList = computed(() => {
-                    if (!studentDetails.value.id || selectedBimester.value === 'notes') return [];
-                    let bim = parseInt(selectedBimester.value);
-                    let bExams = exams.value.filter(e => e.classId === studentDetails.value.classId && e.bimester === bim);
-                    return bExams.map(ex => {
-                        let r = results.value.find(res => res.examId === ex.id && res.studentId === studentDetails.value.id);
-                        return { ...ex, score: r ? parseFloat(r.score).toFixed(1) : '-', resultId: r ? r.id : null };
-                    }).filter(ex => ex.score !== '-');
-                });
+                    const doc = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: `RELATÓRIO DE FALTAS - Turma: ${cls.name}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
+                            { text: 'Atenção: Alunos com mais de 25% de faltas estão destacados.', fontSize: 9, color: '#ef4444', margin: [0, 0, 0, 5] },
+                            { table: { widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto'], body: tBody }, layout: 'lightHorizontalLines' }
+                        ],
+                        defaultStyle: { font: 'Roboto' }
+                    };
 
-                const studentExtraPointsList = computed(() => {
-                    if (!studentDetails.value.id || selectedBimester.value === 'notes') return [];
-                    return extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && ep.bimester === parseInt(selectedBimester.value));
+                    downloadPDF(pdfMake.createPdf(doc), `Faltas_${cls.name}.pdf`);
+                };
+
+                const filteredClasses = computed(() => classes.value);
+                const uniqueSubjects = computed(() => [...new Set(questions.value.map(q=>q.subject))].filter(Boolean));
+                const uniqueTopics = computed(() => [...new Set(questions.value.filter(q=>!filterSubject.value||q.subject===filterSubject.value).map(q=>q.topic))].filter(Boolean));
+                const filteredQuestions = computed(() => questions.value.filter(q=> (!qFilter.value||q.text.toLowerCase().includes(qFilter.value.toLowerCase())) && (!filterType.value||q.type===filterType.value) && (!filterSubject.value||q.subject===filterSubject.value) && (!filterTopic.value||q.topic===filterTopic.value)));
+                const filteredExamQuestions = computed(() => questions.value.filter(q=> (!examFilter.value||q.text.toLowerCase().includes(examFilter.value.toLowerCase())) && (!examFilterSubject.value||q.subject===examFilterSubject.value) && (!examFilterTopic.value||q.topic===examFilterTopic.value)));
+                const filteredHistoryExams = computed(() => exams.value.filter(e=>!examHistoryFilter.value||e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase())));
+                const isQInExam = (id) => examCart.value.some(q=>q.id===id);
+                const toggleExamQ = (q) => { const i=examCart.value.findIndex(x=>x.id===q.id); if(i>-1)examCart.value.splice(i,1); else examCart.value.push(JSON.parse(JSON.stringify(q))); };
+                const getStudentCount = id => students.value.filter(s=>s.classId===id).length;
+                const getFilteredStudents = id => students.value.filter(s=>s.classId===id && (!studentFilter.value||s.name.toLowerCase().includes(studentFilter.value.toLowerCase())));
+                const deleteStudent = id => triggerConfirm("Apagar aluno e notas?",async()=>{await db.results.bulkDelete(results.value.filter(r=>r.studentId===id).map(r=>r.id)); await db.students.delete(id); load()});
+                const openStudentProfile = async (id) => { studentDetails.value=students.value.find(s=>s.id===id); selectedBimester.value='notes'; showStudentModal.value=true; };
+                const studentExamsList = computed(() => results.value.filter(r=>r.studentId===studentDetails.value.id && exams.value.find(e=>e.id===r.examId)?.bimester===selectedBimester.value).map(r=>{const e=exams.value.find(ex=>ex.id===r.examId); return {...r, title:e?.title||'?', isExternal: e?.isExternal}}));
+                const studentExtraPointsList = computed(() => extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && ep.bimester === selectedBimester.value));
+                const studentBimesterAverage = computed(() => { 
+                    const list=studentExamsList.value; 
+                    if(!list.length)return 0; 
+                    let sum=list.reduce((a,b)=>a+parseFloat(b.score),0); 
+                    let epSum = studentExtraPointsList.value.reduce((a,b) => a + parseFloat(b.points), 0);
+                    let avg = sum/list.length + epSum;
+                    return Math.min(10, avg).toFixed(1); 
                 });
-                
+                const getClassAverage = cid => { const s=students.value.filter(x=>x.classId===cid); if(!s.length)return 0; let ts=0,tc=0; s.forEach(st=>{const r=results.value.filter(x=>x.studentId===st.id); if(r.length){ts+=r.reduce((a,b)=>a+parseFloat(b.score),0)/r.length;tc++;}}); return tc?(ts/tc).toFixed(1):0; };
+                const getEvaluatedStudentCount = cid => { const sIds=students.value.filter(x=>x.classId===cid).map(x=>x.id); return new Set(results.value.filter(r=>sIds.includes(r.studentId)).map(r=>r.studentId)).size; };
+                const getClassGradeDistribution = cid => {
+                    const stds = students.value.filter(s => s.classId === cid);
+                    const dist = {'9-10':[],'7-8.9':[],'5-6.9':[],'0-4.9':[]};
+                    stds.forEach(s => {
+                        const sRes = results.value.filter(r => r.studentId === s.id);
+                        if (!sRes.length) return;
+                        const avg = (sRes.reduce((a,b) => a + parseFloat(b.score), 0) / sRes.length).toFixed(1);
+                        const v = parseFloat(avg);
+                        let match = false;
+                        if (dashboardStudentFilter.value && !s.name.toLowerCase().includes(dashboardStudentFilter.value.toLowerCase())) return;
+                        if(v >= 9) dist['9-10'].push({studentId: s.id, name: s.name, avg});
+                        else if(v >= 7) dist['7-8.9'].push({studentId: s.id, name: s.name, avg});
+                        else if(v >= 5) dist['5-6.9'].push({studentId: s.id, name: s.name, avg});
+                        else dist['0-4.9'].push({studentId: s.id, name: s.name, avg});
+                    });
+                    for(let k in dist) dist[k].sort((a,b) => b.avg - a.avg);
+                    return dist;
+                };
                 const filteredStudentsInDiaryClass = computed(() => {
                     if (!diaryClassId.value) return [];
-                    let sList = students.value.filter(s => s.classId === diaryClassId.value);
+                    let s = students.value.filter(st => st.classId === diaryClassId.value);
                     if (attendanceStudentFilter.value) {
-                        const q = attendanceStudentFilter.value.toLowerCase();
-                        return sList.filter(s => s.name.toLowerCase().includes(q));
+                        s = s.filter(st => st.name.toLowerCase().includes(attendanceStudentFilter.value.toLowerCase()));
                     }
-                    return sList.sort((a,b)=>a.name.localeCompare(b.name));
+                    return s;
                 });
-
                 const recentCorrections = computed(() => {
-                    let sorted = [...results.value].sort((a,b) => b.date - a.date).slice(0, 10);
-                    return sorted.map(r => {
-                        let ex = exams.value.find(e => e.id === r.examId);
-                        return { ...r, examTitle: ex ? ex.title : 'Prova Removida', isExternal: ex ? ex.isExternal : false };
+                    return [...results.value].sort((a,b) => b.date - a.date).slice(0, 10).map(r => {
+                        const ex = exams.value.find(e => e.id === r.examId);
+                        return { ...r, examTitle: ex ? ex.title : 'Desconhecida', isExternal: ex ? ex.isExternal : false };
                     });
                 });
 
                 const addExtraPoint = async () => {
-                    if (!newExtraPoint.value.val || !newExtraPoint.value.reason) return showToast("Preencha valor e motivo", "warning");
+                    if (!newExtraPoint.value.val || !newExtraPoint.value.reason) return showToast("Preencha valor e motivo.", "warning");
                     await db.extraPoints.add({
                         studentId: studentDetails.value.id,
-                        bimester: parseInt(selectedBimester.value),
-                        points: parseFloat(newExtraPoint.value.val).toFixed(1),
+                        bimester: selectedBimester.value,
+                        points: parseFloat(newExtraPoint.value.val),
                         reason: newExtraPoint.value.reason,
                         date: Date.now()
                     });
-                    newExtraPoint.value = { val: '', reason: '' };
-                    extraPoints.value = await db.extraPoints.toArray();
-                    showToast("Ponto extra adicionado", "success");
+                    newExtraPoint.value = {val: '', reason: ''};
+                    showExtraPointForm.value = false;
+                    await load();
                 };
-
+                
                 const deleteExtraPoint = async (id) => {
                     await db.extraPoints.delete(id);
-                    extraPoints.value = await db.extraPoints.toArray();
+                    await load();
                 };
 
                 const startEditingGrade = (ex) => {
@@ -3899,12 +3835,11 @@ O RETORNO (JSON ESTRITO):
                 };
 
                 const saveEditedGrade = async () => {
-                    let r = results.value.find(res => res.examId === editingResultId.value && res.studentId === studentDetails.value.id);
+                    let r = await db.results.get(editingResultId.value);
                     if (r) {
                         r.score = parseFloat(tempScore.value).toFixed(1);
-                        await db.results.put(JSON.parse(JSON.stringify(r)));
-                        results.value = await db.results.toArray();
-                        showToast("Nota atualizada com sucesso!", "success");
+                        await db.results.put(r);
+                        await load();
                     }
                     editingResultId.value = null;
                 };
@@ -3912,11 +3847,11 @@ O RETORNO (JSON ESTRITO):
                 const cancelEditingGrade = () => { editingResultId.value = null; };
 
                 const deleteStudentResultAndClose = async (id) => {
-                    triggerConfirm("Apagar esta nota definitivamente?", async () => {
+                    triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?", async () => {
                         await db.results.delete(id);
                         showResultDetailsModal.value = false;
-                        load();
-                        showToast("Nota removida.", "success");
+                        await load();
+                        showToast("Nota removida com sucesso.", "success");
                     });
                 };
 
@@ -3928,54 +3863,39 @@ O RETORNO (JSON ESTRITO):
                 return {
                     currentView, tabs, classes, students, questions, exams, results, settings,
                     appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal,
-                    toast, confirmModal, showFullScreenImage, fullScreenImageUrl, viewFullScreen,
+                    toast, confirmModal, geminiKey,
                     
-                    // State refs for models and forms
                     qFilter, filterType, filterSubject, filterTopic, examFilterSubject, examFilterTopic, examFilter, examTab,
-                    studentFilter, dashboardStudentFilter, examHistoryFilter,
+                    studentFilter, dashboardStudentFilter, examHistoryFilter, selectedHistoryExams,
                     
-                    diaryClassId, diaryTab, attendanceDate, attendancePeriod, periodsList,
-                    attendanceStudentFilter, attendanceMap, schedulesList, newSchedule,
-                    isCurrentSelectionValidSchedule,
+                    diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter, attendanceMap, schedulesList, newSchedule, periodsList,
+                    saveAttendance, addSchedule, deleteSchedule, isCurrentSelectionValidSchedule,
                     
-                    showAssistant, assistantQuery, isAssistantThinking, isDictating, assistantHistory, askAssistant, toggleDictation,
-                    confirmAssistantAction, cancelAssistantAction, getActionDescription,
+                    showAssistant, assistantQuery, isAssistantThinking, isDictating, assistantHistory, toggleDictation, askAssistant, confirmAssistantAction, cancelAssistantAction, getActionDescription,
                     
-                    showEditExamModal, editingExam, showHistory, selectedClassIdForReport, newClass, bulkStudents,
-                    qType, newQ, showQFormModal, formSource, examCart, examConfig, editingExamId, printConfig,
+                    showEditExamModal, editingExam, showHistory, selectedClassIdForReport, newClass, bulkStudents, qType, newQ, showQFormModal, formSource, examCart, examConfig, editingExamId, printConfig,
+                    showStudentModal, studentDetails, selectedBimester, showExtraPointForm, newExtraPoint, editingResultId, tempScore, tempBonus, selectedResultDetails, showResultDetailsModal,
                     
-                    showStudentModal, studentDetails, selectedBimester, showExtraPointForm, newExtraPoint,
-                    editingResultId, tempScore, tempBonus, selectedResultDetails, showResultDetailsModal,
+                    showSeatingModal, seatingClassId, seatingRows, seatingCols, seatingGrid, seatingSelectedIdx, seatingStudents, openSeatingPlan, generateSeatingPlan, handleSeatClick, saveSeatingPlan, printSeatingPlan,
                     
-                    showSeatingModal, seatingClassId, seatingRows, seatingCols, seatingGrid, seatingSelectedIdx, seatingStudents,
-                    openSeatingPlan, generateSeatingPlan, handleSeatClick, saveSeatingPlan, printSeatingPlan,
-                    
-                    showAIGenModal, isGeneratingAI, aiGenConfig,
-                    
-                    activeStudent, activeExam, activeVersion, studentAnswers, correctionMode, showManualInputModal, manualConfig,
-                    
-                    showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades,
-                    openExternalExamForm, goToExternalGrades, saveExternalExam,
-                    
+                    showAIGenModal, isGeneratingAI, aiGenConfig, simulateAIGeneration,
+                    activeStudent, activeExam, activeVersion, studentAnswers, correctionMode, showManualInputModal, manualConfig, startManualEntry, confirmManualEntry, saveManualCorrection,
+                    showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades, openExternalExamForm, goToExternalGrades, saveExternalExam,
                     showItemAnalysisModal, itemAnalysisExam, itemAnalysisData, itemAnalysisTotalStudents, openItemAnalysis, printItemAnalysisPDF,
                     
-                    correctionQueue, isProcessingQueue, processedCount, stopQueue, triggerAICorrection, processAICorrection,
-                    geminiKey, simulateAIGeneration,
-                    
-                    showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, openFixKey, saveFixedKey, loadFixKeyQuestions,
-                    
+                    correctionQueue, isProcessingQueue, processedCount, triggerOMRCorrection, processOMRCorrection, stopQueue,
+                    showFullScreenImage, fullScreenImageUrl, viewFullScreen,
+                    showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, loadFixKeyQuestions, openFixKey, saveFixedKey,
                     showLiveQRScanner, startLiveQRScan, stopLiveQRScan,
                     
-                    // Methods
-                    getStudent, getClassName, getAlternativeLabel, uploadStudentPhoto, loadDiaryData, saveAttendance, addSchedule, deleteSchedule,
-                    deleteAllGrades, importBackup, triggerImport, backupData, fetchGemini, testGeminiKey, generateQuestionsAI,
-                    addClass, deleteClass, saveStudents, deleteAllQuestions, changeQType, openQForm, saveQuestion, editQuestion, handleImageUpload,
-                    openEditExam, duplicateExam, saveEditedExam, generatePDF, generateMergedPDF, reprintExamPDF, generateKeyPDF, toggleExamQ, isQInExam, deleteExam, deleteQuestion,
-                    openStudentProfile, deleteStudent, getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution, generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF,
-                    startManualEntry, confirmManualEntry, saveManualCorrection, openResultDetails, saveUpdatedAnswers,
+                    deleteAllGrades, addClass, deleteClass, saveStudents, deleteAllQuestions, changeQType, openQForm, saveQuestion, editQuestion, handleImageUpload,
+                    openEditExam, duplicateExam, saveEditedExam, generatePDF, generateMergedPDF, reprintExamPDF, generateKeyPDF, deleteExam,
+                    uploadStudentPhoto, saveUpdatedAnswers, openResultDetails,
+                    generateGeneralReportPDF, generateClassReportPDF, generateAttendanceReportPDF,
                     
-                    // Computeds
-                    filteredClasses, getStudentCount, getFilteredStudents, filteredQuestions, uniqueSubjects, uniqueTopics, filteredExamQuestions, filteredHistoryExams, selectedHistoryExams, manualStudents, selectedExamVersions, studentBimesterAverage, studentExamsList, studentExtraPointsList, filteredStudentsInDiaryClass, recentCorrections,
+                    filteredClasses, uniqueSubjects, uniqueTopics, filteredQuestions, filteredExamQuestions, filteredHistoryExams, isQInExam, toggleExamQ, getStudentCount, getFilteredStudents, deleteStudent, openStudentProfile,
+                    getStudent, getClassName, getAlternativeLabel, getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution,
+                    studentBimesterAverage, studentExamsList, studentExtraPointsList, filteredStudentsInDiaryClass, recentCorrections,
                     
                     saveStudentNotes: async () => {
                         let s = await db.students.get(studentDetails.value.id);
