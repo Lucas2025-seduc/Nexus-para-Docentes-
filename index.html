@@ -471,7 +471,17 @@
                         <i class="fa-solid fa-layer-group text-xl"></i> Corrigir em Lote com OMR (Fotos)
                     </button>
                     
-                    <button @click="startLiveQRScan" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-3">
+                    <!-- NOVO: PAINEL DE INSTRUÇÕES FOTOGRÁFICAS -->
+                    <div class="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100 mt-2">
+                        <h4 class="font-bold text-blue-800 text-[11px] uppercase tracking-wide mb-2 flex items-center gap-1.5"><i class="fa-solid fa-camera text-blue-500"></i> Como fotografar</h4>
+                        <ul class="text-[11px] text-blue-700 space-y-1.5 pl-1">
+                            <li class="flex items-start gap-1.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> <span><strong>Enquadramento:</strong> Os 4 quadrados pretos nos cantos da tabela de respostas TÊM de aparecer na foto.</span></li>
+                            <li class="flex items-start gap-1.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> <span><strong>QR Code:</strong> O código de barras no topo direito tem de estar nítido e legível.</span></li>
+                            <li class="flex items-start gap-1.5"><i class="fa-solid fa-check text-emerald-500 mt-0.5"></i> <span><strong>Iluminação:</strong> Evite sombras escuras ou o flash direto em cima do papel.</span></li>
+                        </ul>
+                    </div>
+                    
+                    <button @click="startLiveQRScan" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-3 mt-4">
                         <i class="fa-solid fa-qrcode text-xl"></i> Ler QR Code da Prova
                     </button>
                     
@@ -2639,146 +2649,203 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     });
                 };
 
+                // NOVA FUNÇÃO: Recorta apenas o topo da imagem para o QR Scanner não se perder
+                const cropForQR = (img) => {
+                    return new Promise((resolve) => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        // Reduz o tamanho para o scanner ser super rápido
+                        const scale = Math.min(1200 / img.width, 1); 
+                        canvas.width = img.width * scale;
+                        // Recorta apenas os 45% superiores da folha (onde está o QR)
+                        canvas.height = (img.height * 0.45) * scale; 
+                        ctx.drawImage(img, 0, 0, canvas.width, img.height * scale);
+                        canvas.toBlob((blob) => resolve(new File([blob], "qr_crop.jpg", { type: "image/jpeg" })), 'image/jpeg', 0.9);
+                    });
+                };
+
                 const extractAnswersOpenCV = (imgElement, exam, version) => {
                     let srcMat = cv.imread(imgElement);
                     let qCount = getVersionQuestions(exam, version).length;
                     
                     let gray = new cv.Mat();
-                    let blurred = new cv.Mat();
                     let thresh = new cv.Mat();
                     let contours = new cv.MatVector();
                     let hierarchy = new cv.Mat();
-                    let warpedThresh = new cv.Mat();
+                    let warpedGray = new cv.Mat();
+                    let invertedGray = new cv.Mat();
                     let srcTri = null;
                     let dstTri = null;
                     let M = null;
 
                     try {
+                        // Redimensionamento inteligente para não estourar a memória
+                        let scaleFactor = 1;
+                        if (srcMat.cols > 2000) {
+                            scaleFactor = 2000 / srcMat.cols;
+                            let newSize = new cv.Size(2000, Math.round(srcMat.rows * scaleFactor));
+                            cv.resize(srcMat, srcMat, newSize, 0, 0, cv.INTER_AREA);
+                        }
+
                         cv.cvtColor(srcMat, gray, cv.COLOR_RGBA2GRAY, 0);
-                        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-                        cv.adaptiveThreshold(blurred, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 5);
+                        
+                        // Threshold adaptativo gigante para ignorar sombras pesadas na mesa
+                        cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 75, 15);
                         cv.findContours(thresh, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
 
                         let squares = [];
                         let imgArea = srcMat.cols * srcMat.rows;
                         
-                        // Localiza possíveis marcadores (quadrados fiduciais)
                         for (let i = 0; i < contours.size(); ++i) {
                             let cnt = contours.get(i);
                             let area = cv.contourArea(cnt);
-                            // Filtro de tamanho para capturar os 4 quadrados dos cantos
-                            if (area > imgArea * 0.0005 && area < imgArea * 0.05) {
-                                let peri = cv.arcLength(cnt, true);
-                                let approx = new cv.Mat();
-                                cv.approxPolyDP(cnt, approx, 0.05 * peri, true);
-                                if (approx.rows === 4) {
-                                    let rect = cv.boundingRect(approx);
-                                    let aspect = rect.width / rect.height;
-                                    let solidity = area / (rect.width * rect.height);
-                                    if (aspect >= 0.7 && aspect <= 1.3 && solidity > 0.7) {
-                                        squares.push({
-                                            x: rect.x + rect.width/2,
-                                            y: rect.y + rect.height/2,
-                                            rect: rect
-                                        });
-                                    }
+                            
+                            if (area > imgArea * 0.0005 && area < imgArea * 0.02) {
+                                let rect = cv.boundingRect(cnt);
+                                let aspect = rect.width / rect.height;
+                                let solidity = area / (rect.width * rect.height);
+                                
+                                // O segredo para ignorar o QR Code: verificar se o quadrado tem buracos grandes dentro
+                                let childIdx = hierarchy.intPtr(i, 0)[2];
+                                let hasLargeHole = false;
+                                if (childIdx !== -1) {
+                                    let childArea = cv.contourArea(contours.get(childIdx));
+                                    if (childArea > area * 0.2) hasLargeHole = true;
                                 }
-                                approx.delete();
+
+                                if (aspect >= 0.75 && aspect <= 1.35 && solidity > 0.75 && !hasLargeHole) {
+                                    squares.push({
+                                        x: rect.x + rect.width/2,
+                                        y: rect.y + rect.height/2,
+                                        rect: rect,
+                                        area: area
+                                    });
+                                }
                             }
                         }
 
-                        if (squares.length < 4) {
-                            throw new Error("Não foi possível encontrar os 4 marcadores pretos nos cantos da tabela.");
+                        if (squares.length < 4) throw new Error("Marcadores pretos nos cantos não encontrados. Verifique a foto.");
+
+                        // Procura os 4 quadrados que formam o maior retângulo perfeito (a grelha inteira)
+                        squares.sort((a, b) => b.area - a.area);
+                        let topSquares = squares.slice(0, 12);
+                        let bestQuad = null;
+                        let maxQuadArea = 0;
+
+                        for (let i = 0; i < topSquares.length; i++) {
+                            for (let j = i + 1; j < topSquares.length; j++) {
+                                for (let k = j + 1; k < topSquares.length; k++) {
+                                    for (let l = k + 1; l < topSquares.length; l++) {
+                                        let quad = [topSquares[i], topSquares[j], topSquares[k], topSquares[l]];
+                                        quad.sort((a, b) => a.y - b.y);
+                                        let top = [quad[0], quad[1]].sort((a, b) => a.x - b.x);
+                                        let bot = [quad[2], quad[3]].sort((a, b) => a.x - b.x);
+
+                                        let tl = top[0], tr = top[1], bl = bot[0], br = bot[1];
+                                        let wTop = tr.x - tl.x, wBot = br.x - bl.x;
+                                        let hLeft = bl.y - tl.y, hRight = br.y - tr.y;
+
+                                        if (wTop <= 0 || wBot <= 0 || hLeft <= 0 || hRight <= 0) continue;
+                                        if (Math.min(wTop, wBot) / Math.max(wTop, wBot) < 0.8) continue;
+                                        if (Math.min(hLeft, hRight) / Math.max(hLeft, hRight) < 0.8) continue;
+
+                                        let quadArea = ((wTop + wBot) / 2) * ((hLeft + hRight) / 2);
+                                        if (quadArea > maxQuadArea) {
+                                            maxQuadArea = quadArea;
+                                            bestQuad = { tl, tr, bl, br };
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        // Ordena pela distância em relação ao centro (garante que pega os cantos mais extremos)
-                        let cx = srcMat.cols / 2;
-                        let cy = srcMat.rows / 2;
-                        squares.sort((a,b) => {
-                            let da = Math.pow(a.x-cx, 2) + Math.pow(a.y-cy, 2);
-                            let db = Math.pow(b.x-cx, 2) + Math.pow(b.y-cy, 2);
-                            return db - da; 
-                        });
-                        
-                        let top4 = squares.slice(0, 4); 
-                        
-                        // Define as posições (Top-Left, Bottom-Right, Top-Right, Bottom-Left)
-                        top4.sort((a, b) => (a.x + a.y) - (b.x + b.y));
-                        let tl = top4[0];
-                        let br = top4[top4.length - 1];
+                        if (!bestQuad) throw new Error("Grelha de respostas não alinhada. A foto está demasiado inclinada.");
 
-                        top4.sort((a, b) => (a.x - a.y) - (b.x - b.y));
-                        let bl = top4[0];
-                        let tr = top4[top4.length - 1];
-
-                        // Geometria precisa do PDF original
-                        let W = 800; // Largura padronizada
-                        let dY_units = 34 + qCount * 20; // Proporção da altura da tabela
-                        let H = Math.round((dY_units / 196) * W);
+                        let pSize = exam.paperSaving || false;
+                        let relY_Q1 = pSize ? 54.5 : 63.5;
+                        let stepY = pSize ? 20 : 27;
+                        let deltaY_PDF = (pSize ? 89 : 108) + (qCount - 1) * stepY;
+                        let deltaX_PDF = 180;
                         
-                        srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
-                        dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, W, 0, W, H, 0, H]);
+                        let W = 800;
+                        let margin = 50;
+                        let scaleW = (W - 2 * margin) / deltaX_PDF;
+                        let H = Math.round(deltaY_PDF * scaleW + 2 * margin);
+
+                        srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                            bestQuad.tl.x, bestQuad.tl.y,
+                            bestQuad.tr.x, bestQuad.tr.y,
+                            bestQuad.br.x, bestQuad.br.y,
+                            bestQuad.bl.x, bestQuad.bl.y
+                        ]);
+
+                        dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                            margin, margin,
+                            W - margin, margin,
+                            W - margin, H - margin,
+                            margin, H - margin
+                        ]);
+
                         M = cv.getPerspectiveTransform(srcTri, dstTri);
+                        cv.warpPerspective(gray, warpedGray, M, new cv.Size(W, H));
                         
-                        cv.warpPerspective(thresh, warpedThresh, M, new cv.Size(W, H));
-                        
+                        // Nova binarização apenas na grelha recortada e limpa
+                        cv.adaptiveThreshold(warpedGray, invertedGray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, 15);
+
                         let answers = {};
-                        let r = Math.round((10 / 196) * W); // Raio das bolhas relativo
+                        let r = Math.round(11 * scaleW); 
 
                         for (let k = 0; k < qCount; k++) {
-                            // Cálculo da altura Y exata para a questão 'k'
-                            let q_y_units = 31.5 + k * 20;
-                            let y = Math.round(q_y_units * (H / dY_units));
-                            
+                            let y = Math.round(margin + (relY_Q1 + k * stepY) * scaleW);
                             let q = getVersionQuestions(exam, version)[k];
                             let numOpts = (q.type === 'ce') ? 2 : 5;
-                            let darkPixels = [];
+                            let intensities = [];
 
                             for (let j = 0; j < numOpts; j++) {
-                                // Cálculo da largura X exata para a alternativa 'j'
-                                let relX = 16 + 24 + (28 * j) + 14;
-                                let x = Math.round((relX / 196) * W);
+                                let relX = 45 + 28 * j;
+                                let x = Math.round(margin + relX * scaleW);
 
                                 let roiX = Math.max(0, x - r);
                                 let roiY = Math.max(0, y - r);
-                                let roiW = Math.min(warpedThresh.cols - roiX, 2 * r);
-                                let roiH = Math.min(warpedThresh.rows - roiY, 2 * r);
+                                let roiW = Math.min(invertedGray.cols - roiX, 2 * r);
+                                let roiH = Math.min(invertedGray.rows - roiY, 2 * r);
 
                                 let rect = new cv.Rect(roiX, roiY, roiW, roiH);
-                                let roi = warpedThresh.roi(rect);
-                                let count = cv.countNonZero(roi); // Quantidade de tinta na bolha
-                                darkPixels.push({ index: j, count: count });
+                                let roi = invertedGray.roi(rect);
+                                
+                                // Conta os pixels brancos (tinta da caneta) em vez de calcular médias
+                                let count = cv.countNonZero(roi);
+                                intensities.push({ index: j, count: count });
                                 roi.delete();
                             }
 
-                            // Verifica qual bolha está mais preenchida
-                            darkPixels.sort((a, b) => b.count - a.count);
-                            let maxCount = darkPixels[0].count;
-                            let secondCount = darkPixels[1] ? darkPixels[1].count : 0;
+                            intensities.sort((a, b) => b.count - a.count);
+                            let maxCount = intensities[0].count;
+                            let secondCount = intensities[1] ? intensities[1].count : 0;
+                            let minCount = intensities[numOpts - 1].count;
                             let roiArea = (2 * r) * (2 * r);
                             
-                            // Lógica de desempate e mínimo de tinta
-                            if (maxCount < roiArea * 0.15) {
+                            // Lógica de desempate à prova de rabiscos soltos
+                            if (maxCount < roiArea * 0.15 || maxCount < minCount + roiArea * 0.08) {
                                 answers[k] = null; // Em branco
                             } 
-                            else if (secondCount > maxCount * 0.60) {
-                                answers[k] = null; // Marcação dupla (rasura)
+                            else if (secondCount > minCount + (maxCount - minCount) * 0.65) {
+                                answers[k] = null; // Rasura confirmada
                             } 
                             else {
-                                answers[k] = darkPixels[0].index;
+                                answers[k] = intensities[0].index;
                             }
                         }
                         return answers;
 
                     } finally {
-                        // Previne o vazamento de memória da WebAssembly do OpenCV
                         if (srcMat) srcMat.delete();
                         if (gray) gray.delete();
-                        if (blurred) blurred.delete();
                         if (thresh) thresh.delete();
                         if (contours) contours.delete();
                         if (hierarchy) hierarchy.delete();
-                        if (warpedThresh) warpedThresh.delete();
+                        if (warpedGray) warpedGray.delete();
+                        if (invertedGray) invertedGray.delete();
                         if (srcTri) srcTri.delete();
                         if (dstTri) dstTri.delete();
                         if (M) M.delete();
@@ -2803,14 +2870,16 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         const file = correctionQueue.value[i];
                         try {
-                            // 1. LER O QR CODE
+                            // 1. CARREGA IMAGEM E ISOLA O QR CODE
+                            const img = await loadImage(file);
                             let qrData = null;
                             try {
+                                const croppedFile = await cropForQR(img); // Função nova aplicada aqui!
                                 const localScanner = new Html5Qrcode("hidden-qr-reader");
-                                const result = await localScanner.scanFile(file, false);
+                                const result = await localScanner.scanFile(croppedFile, false);
                                 qrData = JSON.parse(result);
                             } catch (err) {
-                                throw new Error("QR Code não encontrado ou ilegível. Melhore a luz/foco.");
+                                throw new Error("QR Code ilegível. Tente focar o cabeçalho da prova.");
                             }
 
                             if (!qrData || qrData.e == null || qrData.s == null) throw new Error("QR Code corrompido.");
@@ -2821,8 +2890,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                             if(!exm || !std) throw new Error(`Prova/Aluno não encontrados na base.`);
 
-                            // 2. PROCESSAMENTO MATEMÁTICO VIA OPENCV OMR
-                            const img = await loadImage(file);
+                            // 2. PROCESSAMENTO MATEMÁTICO VIA OPENCV OMR NA IMAGEM COMPLETA
                             const ansMap = extractAnswersOpenCV(img, exm, ver);
 
                             if (stopQueueFlag.value) break;
@@ -2831,7 +2899,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap);
                             successCount++;
 
-                            // Pausa minúscula para feedback visual na interface
                             await new Promise(r => setTimeout(r, 100));
 
                         } catch(e) {
