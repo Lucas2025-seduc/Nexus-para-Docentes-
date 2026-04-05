@@ -136,8 +136,21 @@
             <!-- CORREÇÃO -->
             <div v-if="view==='correction'" class="space-y-4 animate-fade-in pb-8">
                 <div class="bg-indigo-600 p-5 rounded-3xl text-white shadow-lg flex justify-between items-center"><h2 class="text-2xl font-black">Lançamento<p class="text-xs font-normal opacity-80">Rápido e Preciso</p></h2><i class="fa-solid fa-check-double text-4xl opacity-20"></i></div>
-                <div class="card space-y-3"><label class="label-sm text-indigo-600"><i class="fa-solid fa-microchip"></i> Motor de IA (Correção)</label><div class="flex gap-2"><input type="password" v-model="gemini" placeholder="Chave Gemini..." class="input py-2" @change="saveStg()"><button @click="tstGen" class="btn-primary px-3 py-2"><i class="fa-solid fa-satellite-dish"></i></button></div><div v-if="stg.model" class="badge bg-emerald-50 text-emerald-700 border-emerald-200 w-full p-2"><i class="fa-solid fa-check-circle"></i> {{stg.model}}</div></div>
-                <div class="card space-y-3"><input type="file" id="ai-up" accept="image/*" multiple class="hidden" @change="procAi"><button @click="document.getElementById('ai-up').click()" class="btn bg-purple-600 text-white w-full py-4 rounded-xl"><i class="fa-solid fa-layer-group text-lg"></i> Corrigir com IA (Fotos)</button><button @click="stQScan(true)" class="btn-success w-full py-4 rounded-xl"><i class="fa-solid fa-qrcode text-lg"></i> Ler QR Code</button><div class="grid grid-cols-2 gap-2"><button @click="stMan" class="btn bg-gray-100 text-gray-700 py-3 rounded-xl border text-xs"><i class="fa-solid fa-keyboard"></i> Inserir s/ QR</button><button @click="opExt" class="btn bg-blue-50 text-blue-600 py-3 rounded-xl border-blue-200 text-xs"><i class="fa-solid fa-file-pen"></i> Externa</button></div></div>
+                
+                <div class="card space-y-4">
+                    <div class="flex items-center justify-between border-b pb-3">
+                        <span class="text-xs font-bold text-gray-500 uppercase"><i class="fa-solid fa-microchip text-indigo-600"></i> Motor Óptico Local (OMR)</span>
+                        <span v-if="isCvReady" class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md text-[10px] font-bold"><i class="fa-solid fa-check-circle"></i> OpenCV Pronto</span>
+                        <span v-else class="bg-amber-100 text-amber-700 px-2 py-1 rounded-md text-[10px] font-bold"><i class="fa-solid fa-circle-notch fa-spin"></i> A Carregar...</span>
+                    </div>
+                    
+                    <input type="file" id="ai-up" accept="image/*" multiple class="hidden" @change="procLocalCorrection">
+                    <button @click="document.getElementById('ai-up').click()" :disabled="!isCvReady" class="btn bg-purple-600 text-white w-full py-4 rounded-xl disabled:bg-gray-400 disabled:cursor-not-allowed"><i class="fa-solid fa-layer-group text-lg"></i> Corrigir Lote (Fotos OpenCV)</button>
+                    <button @click="stQScan(true)" class="btn-success w-full py-4 rounded-xl"><i class="fa-solid fa-qrcode text-lg"></i> Ler QR Code Rápido</button>
+                    
+                    <div class="grid grid-cols-2 gap-2"><button @click="stMan" class="btn bg-gray-100 text-gray-700 py-3 rounded-xl border text-xs"><i class="fa-solid fa-keyboard"></i> Inserir s/ QR</button><button @click="opExt" class="btn bg-blue-50 text-blue-600 py-3 rounded-xl border-blue-200 text-xs"><i class="fa-solid fa-file-pen"></i> Externa</button></div>
+                </div>
+                
                 <div v-if="recCor.length" class="card space-y-2"><label class="label-sm"><i class="fa-solid fa-clock-rotate-left"></i> Últimos Lançamentos</label><div v-for="r in recCor" class="flex justify-between items-center p-2 bg-gray-50 rounded-xl border"><div class="flex gap-2 items-center flex-1 truncate cursor-pointer" @click="opRes(r)"><img v-if="getStd(r.stId)?.photo" :src="getStd(r.stId).photo" class="w-8 h-8 rounded-full object-cover"><i v-else class="fa-solid fa-user text-gray-400 w-8 text-center"></i><div class="truncate"><p class="font-bold text-xs truncate">{{r.stName}}</p><p class="text-[9px] text-gray-500 truncate">{{r.exTitle}}</p></div></div><div class="flex items-center gap-1 border-l pl-2"><span class="text-lg font-black mr-1" :class="r.scr>=6?'text-emerald-600':'text-red-500'">{{r.scr}}</span><button v-if="!r.ext" @click="opRes(r)" class="btn-icon w-6 h-6 text-gray-400 hover:text-indigo-600"><i class="fa-solid fa-eye text-xs"></i></button><button @click="delRes(r.id)" class="btn-icon w-6 h-6 text-gray-400 hover:text-red-500"><i class="fa-solid fa-trash text-xs"></i></button></div></div></div>
             </div>
         </main>
@@ -150,16 +163,17 @@
         <nav class="flex-none bg-white border-t px-2 py-2 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] z-50"><div class="flex justify-between items-center max-w-3xl mx-auto"><button v-for="t in tabs" @click="view=t.id" class="flex-center h-12 rounded-2xl transition-all" :class="view===t.id?'px-4 bg-indigo-600 text-white shadow-lg':'flex-1 text-gray-400'"><i :class="t.ic" class="text-lg" :class="{'mr-2':view===t.id}"></i><span v-if="view===t.id" class="text-[11px] font-bold">{{t.lb}}</span></button></div></nav>
 
         <div id="qr-hid" style="display:none;"></div>
+        <canvas id="omr-canvas" class="hidden"></canvas>
         <datalist id="dl-sub"><option v-for="s in unqSub" :value="s"></option></datalist><datalist id="dl-top"><option v-for="t in unqTop" :value="t"></option></datalist>
 
         <!-- MODALS COMPACTADOS -->
-        <div v-if="shAiGen" class="modal-wrap"><div class="modal-content"><div class="modal-header bg-purple-600"><h3 class="font-bold"><i class="fa-solid fa-wand-magic-sparkles"></i> Gerador IA</h3><button @click="shAiGen=false"><i class="fa-solid fa-times"></i></button></div><div class="p-4 bg-gray-50 space-y-3 overflow-y-auto"><div class="grid grid-cols-2 gap-2"><input list="dl-sub" v-model="aiC.sub" placeholder="Disciplina" class="input p-2"><input list="dl-top" v-model="aiC.top" placeholder="Conteúdo" class="input p-2"><select v-model="aiC.dif" class="input p-2"><option value="Fundamental">Fundamental</option><option value="Médio">Médio</option><option value="Superior">Superior</option></select><select v-model="aiC.sty" class="input p-2"><option value="Padrão">Escolar</option><option value="ENEM">ENEM</option><option value="Concurso">Concurso</option></select></div><div class="card p-2 shadow-none border-dashed"><div class="flex gap-2"><input type="password" v-model="gemini" placeholder="Chave..." class="input p-2 font-mono" @change="saveStg()"><button @click="tstGen" class="btn bg-gray-800 text-white px-3 py-2 rounded-xl"><i class="fa-solid fa-vial"></i></button></div><p class="text-[9px] text-gray-400 mt-1" v-if="stg.model">Mod: {{stg.model}}</p></div><div class="grid grid-cols-2 gap-2"><div v-for="t in ['mc','ce','vf','assoc']" class="card p-2 flex justify-between shadow-none"><span class="text-[10px] font-bold">{{t}}</span><input type="number" v-model="aiC.cnt[t]" min="0" class="w-10 input p-0 text-center text-xs h-6"></div></div><button @click="genAiQ" :disabled="aiGenLoad" class="btn bg-purple-600 text-white w-full py-3 rounded-xl"><i :class="aiGenLoad?'fa-spinner fa-spin':'fa-check'"></i> Gerar</button></div></div></div>
+        <div v-if="shAiGen" class="modal-wrap"><div class="modal-content"><div class="modal-header bg-purple-600"><h3 class="font-bold"><i class="fa-solid fa-wand-magic-sparkles"></i> Gerador IA</h3><button @click="shAiGen=false"><i class="fa-solid fa-times"></i></button></div><div class="p-4 bg-gray-50 space-y-3 overflow-y-auto"><div class="grid grid-cols-2 gap-2"><input list="dl-sub" v-model="aiC.sub" placeholder="Disciplina" class="input p-2"><input list="dl-top" v-model="aiC.top" placeholder="Conteúdo" class="input p-2"><select v-model="aiC.dif" class="input p-2"><option value="Fundamental">Fundamental</option><option value="Médio">Médio</option><option value="Superior">Superior</option></select><select v-model="aiC.sty" class="input p-2"><option value="Padrão">Escolar</option><option value="ENEM">ENEM</option><option value="Concurso">Concurso</option></select></div><div class="card p-2 shadow-none border-dashed"><div class="flex gap-2"><input type="password" v-model="gemini" placeholder="Chave Gemini AI..." class="input p-2 font-mono" @change="saveStg()"><button @click="tstGen" class="btn bg-gray-800 text-white px-3 py-2 rounded-xl"><i class="fa-solid fa-vial"></i></button></div><p class="text-[9px] text-gray-400 mt-1" v-if="stg.model">Mod: {{stg.model}}</p></div><div class="grid grid-cols-2 gap-2"><div v-for="t in ['mc','ce','vf','assoc']" class="card p-2 flex justify-between shadow-none"><span class="text-[10px] font-bold">{{t}}</span><input type="number" v-model="aiC.cnt[t]" min="0" class="w-10 input p-0 text-center text-xs h-6"></div></div><button @click="genAiQ" :disabled="aiGenLoad" class="btn bg-purple-600 text-white w-full py-3 rounded-xl"><i :class="aiGenLoad?'fa-spinner fa-spin':'fa-check'"></i> Gerar</button></div></div></div>
 
-        <div v-if="shQF" class="modal-wrap"><div class="modal-content max-w-lg"><div class="modal-header bg-white text-gray-800"><h3 class="font-bold"><i class="fa-solid fa-pen"></i> Questão</h3><button @click="shQF=false"><i class="fa-solid fa-times"></i></button></div><div class="p-4 overflow-y-auto"><div class="flex justify-around mb-4 border-b pb-2"><button v-for="t in ['mc','vf','assoc','ce']" @click="chgQT(t)" :class="qTy===t?'text-indigo-600 font-bold':'text-gray-400'" class="text-xs uppercase">{{t}}</button></div><div class="grid grid-cols-2 gap-2 mb-2"><input list="dl-sub" v-model="nQ.sub" placeholder="Disciplina" class="input p-2 text-xs"><input list="dl-top" v-model="nQ.top" placeholder="Conteúdo" class="input p-2 text-xs"></div><textarea v-model="nQ.text" rows="3" class="input p-2 text-sm mb-2 resize-none" placeholder="Enunciado..."></textarea><div class="mb-2 flex items-center gap-2"><label class="flex-1 card border-dashed border-2 hover:border-indigo-400 p-2 text-center cursor-pointer text-[10px] font-bold text-gray-400"><input type="file" accept="image/*" class="hidden" @change="upQImg"><i class="fa-solid fa-image text-lg block mb-1"></i> Foto Opcional</label><div v-if="nQ.image" class="relative w-14 h-14"><img :src="nQ.image" class="w-full h-full object-contain border rounded-lg"><button @click.prevent="nQ.image=null" class="absolute -top-1 -right-1 bg-red-500 text-white w-5 h-5 rounded-full flex-center"><i class="fa-solid fa-times text-[10px]"></i></button></div></div><div v-if="qTy==='mc'" class="space-y-1"><div v-for="(o,i) in nQ.opt" class="flex gap-1"><button @click="nQ.cor=i" :class="nQ.cor===i?'bg-emerald-500 text-white':'bg-gray-100 text-gray-400'" class="w-8 h-8 rounded-lg font-bold text-xs">{{['A','B','C','D','E'][i]}}</button><input v-model="o.text" class="input py-1 px-2 text-xs"></div></div><div v-if="qTy==='ce'" class="flex gap-2 justify-center py-2"><button v-for="(l,i) in ['CERTO','ERRADO']" @click="nQ.cor=i" :class="nQ.cor===i?'bg-blue-600 text-white':'bg-gray-100 text-gray-500'" class="px-6 py-2 rounded-xl font-bold text-xs">{{l}}</button></div><div v-if="qTy==='vf'||qTy==='assoc'" class="space-y-1"><div v-for="(o,i) in nQ.opt" class="flex gap-1"><button v-if="qTy==='vf'" @click="o.tr=!o.tr" :class="o.tr?'bg-emerald-500':'bg-red-500'" class="w-8 h-8 rounded-lg text-white font-bold text-xs">{{o.tr?'V':'F'}}</button><span v-if="qTy==='assoc'" class="w-6 text-center font-bold text-xs text-gray-400 mt-2">{{i+1}}.</span><input v-model="o.text" class="input py-1 px-2 text-xs" placeholder="Item"><input v-if="qTy==='assoc'" v-model="o.mat" class="input py-1 px-2 text-xs" placeholder="Corresp."><button @click="nQ.opt.splice(i,1)" class="w-6 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button></div><button @click="nQ.opt.push(qTy==='vf'?{text:'',tr:true}:{text:'',mat:''})" class="w-full py-1 border-2 border-dashed rounded-lg text-xs font-bold text-gray-400">+ Add</button></div></div><div class="p-3 border-t"><button @click="savQ" class="btn-primary w-full py-2">Salvar</button></div></div></div>
+        <div v-if="shQF" class="modal-wrap"><div class="modal-content max-w-lg"><div class="modal-header bg-white text-gray-800"><h3 class="font-bold"><i class="fa-solid fa-pen"></i> Questão</h3><button @click="shQF=false"><i class="fa-solid fa-times"></i></button></div><div class="p-4 overflow-y-auto"><div class="flex justify-around mb-4 border-b pb-2"><button v-for="t in ['mc','vf','assoc','ce']" @click="chgQT(t)" :class="qTy===t?'text-indigo-600 font-bold':'text-gray-400'" class="text-xs uppercase">{{t}}</button></div><div class="grid grid-cols-2 gap-2 mb-2"><input list="dl-sub" v-model="nQ.sub" placeholder="Disciplina" class="input p-2 text-xs"><input list="dl-top" v-model="nQ.top" placeholder="Conteúdo" class="input p-2 text-xs"></div><textarea v-model="nQ.text" rows="3" class="input p-2 text-sm mb-2 resize-none" placeholder="Enunciado..."></textarea><div class="mb-2 flex items-center gap-2"><label class="flex-1 card border-dashed border-2 hover:border-indigo-400 p-2 text-center cursor-pointer text-[10px] font-bold text-gray-400"><input type="file" accept="image/*" class="hidden" @change="e=>toJpeg(e.target.files[0], b=>nQ.image=b)"><i class="fa-solid fa-image text-lg block mb-1"></i> Foto Opcional</label><div v-if="nQ.image" class="relative w-14 h-14"><img :src="nQ.image" class="w-full h-full object-contain border rounded-lg"><button @click.prevent="nQ.image=null" class="absolute -top-1 -right-1 bg-red-500 text-white w-5 h-5 rounded-full flex-center"><i class="fa-solid fa-times text-[10px]"></i></button></div></div><div v-if="qTy==='mc'" class="space-y-1"><div v-for="(o,i) in nQ.opt" class="flex gap-1"><button @click="nQ.cor=i" :class="nQ.cor===i?'bg-emerald-500 text-white':'bg-gray-100 text-gray-400'" class="w-8 h-8 rounded-lg font-bold text-xs">{{['A','B','C','D','E'][i]}}</button><input v-model="o.text" class="input py-1 px-2 text-xs"></div></div><div v-if="qTy==='ce'" class="flex gap-2 justify-center py-2"><button v-for="(l,i) in ['CERTO','ERRADO']" @click="nQ.cor=i" :class="nQ.cor===i?'bg-blue-600 text-white':'bg-gray-100 text-gray-500'" class="px-6 py-2 rounded-xl font-bold text-xs">{{l}}</button></div><div v-if="qTy==='vf'||qTy==='assoc'" class="space-y-1"><div v-for="(o,i) in nQ.opt" class="flex gap-1"><button v-if="qTy==='vf'" @click="o.tr=!o.tr" :class="o.tr?'bg-emerald-500':'bg-red-500'" class="w-8 h-8 rounded-lg text-white font-bold text-xs">{{o.tr?'V':'F'}}</button><span v-if="qTy==='assoc'" class="w-6 text-center font-bold text-xs text-gray-400 mt-2">{{i+1}}.</span><input v-model="o.text" class="input py-1 px-2 text-xs" placeholder="Item"><input v-if="qTy==='assoc'" v-model="o.mat" class="input py-1 px-2 text-xs" placeholder="Corresp."><button @click="nQ.opt.splice(i,1)" class="w-6 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button></div><button @click="nQ.opt.push(qTy==='vf'?{text:'',tr:true}:{text:'',mat:''})" class="w-full py-1 border-2 border-dashed rounded-lg text-xs font-bold text-gray-400">+ Add</button></div></div><div class="p-3 border-t"><button @click="savQ" class="btn-primary w-full py-2">Salvar</button></div></div></div>
 
         <div v-if="shSeat" class="modal-wrap z-[500] bg-gray-50"><div class="flex flex-col w-full h-full bg-gray-50"><div class="modal-header bg-indigo-600"><div><h2 class="font-bold">Mapa Sala</h2><p class="text-[10px] text-indigo-200">{{ getClsNm(sClsId) }}</p></div><div class="flex gap-2"><button @click="prtSeat" class="btn-icon w-8 h-8 bg-white/20"><i class="fa-solid fa-print"></i></button><button @click="shSeat=false" class="btn-icon w-8 h-8 bg-white/20"><i class="fa-solid fa-times"></i></button></div></div><div class="p-3 bg-white border-b flex gap-2 items-end"><div class="flex-1"><label class="label-sm">Filas (V)</label><input type="number" v-model.number="sRow" min="1" class="input p-1.5 text-center"></div><div class="flex-1"><label class="label-sm">Cadeiras (H)</label><input type="number" v-model.number="sCol" min="1" class="input p-1.5 text-center"></div><button @click="genSeat" class="btn bg-indigo-100 text-indigo-700 p-2 rounded-lg text-xs"><i class="fa-solid fa-shuffle"></i></button></div><div class="flex-1 overflow-y-auto p-4"><div v-if="sSel!=null" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full text-xs font-bold z-50 shadow-xl flex-center gap-2"><i class="fa-solid fa-hand-pointer"></i> Toque p/ trocar <button @click="sSel=null"><i class="fa-solid fa-times"></i></button></div><div class="w-full max-w-sm mx-auto mb-4 h-6 bg-gray-300 rounded-t-xl flex-center text-[9px] font-black text-gray-500 uppercase border-b-4 border-gray-400">Lousa</div><div class="max-w-3xl mx-auto grid gap-1" :style="{ gridTemplateColumns: `repeat(${sCol}, minmax(0, 1fr))` }"><div v-for="(id, idx) in sGrid" @click="clkSeat(idx)" class="aspect-square bg-white rounded-lg border flex-col flex-center p-0.5 cursor-pointer" :class="sSel===idx?'border-indigo-500 bg-indigo-50 scale-95':''"><template v-if="id"><div class="relative w-6 h-6 sm:w-10 sm:h-10 mb-0.5"><img v-if="getStd(id)?.photo" :src="getStd(id).photo" class="w-full h-full rounded-full object-cover border pointer-events-none"><div v-else class="w-full h-full rounded-full bg-indigo-50 flex-center text-indigo-400 pointer-events-none"><i class="fa-solid fa-user text-[10px] sm:text-xs"></i></div><div v-if="getStd(id)?.reqFront" class="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 text-white rounded-full flex-center text-[7px]"><i class="fa-solid fa-eye"></i></div></div><span class="text-[8px] sm:text-[10px] font-bold text-gray-700 text-center truncate w-full pointer-events-none">{{ getStd(id).name.split(' ')[0] }}</span></template><template v-else><div class="w-4 h-4 rounded-full border border-dashed border-gray-300 flex-center pointer-events-none"><i class="fa-solid fa-plus text-[6px] text-gray-300"></i></div></template></div></div></div><div class="p-3 bg-white border-t flex justify-between items-center"><span class="text-[10px] font-bold">Alocados: <span class="text-indigo-600">{{sGrid.filter(x=>x).length}}</span>/{{sStds.length}}</span><button @click="savSeat" class="btn-success py-2 px-6 text-sm">Salvar</button></div></div></div>
 
-        <div v-if="shStd" class="modal-wrap"><div class="modal-content h-[90vh]"><div class="modal-header bg-indigo-600"><div class="flex items-center gap-3"><div class="relative w-14 h-14"><img v-if="sDtl.photo" :src="sDtl.photo" @click="viewFullScreen(sDtl.photo)" class="w-full h-full rounded-full object-cover border-2 border-white/50 cursor-pointer"><div v-else class="w-full h-full rounded-full bg-white/20 flex-center border-2 border-white/50"><i class="fa-solid fa-user text-xl"></i></div><label class="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 text-white rounded-full flex-center cursor-pointer border border-indigo-600"><i class="fa-solid fa-camera text-[10px]"></i><input type="file" accept="image/*" class="hidden" @change="upStdPic"></label></div><div><h3 class="font-black leading-tight">{{sDtl.name}}</h3></div></div><button @click="shStd=false" class="btn-icon w-8 h-8"><i class="fa-solid fa-times"></i></button></div><div class="flex border-b overflow-x-auto no-scrollbar"><button @click="sBim='n'" :class="sBim==='n'?'text-indigo-600 border-indigo-600':'text-gray-400'" class="px-3 py-2 text-xs font-bold border-b-2">PERFIL</button><button v-for="b in 4" @click="sBim=b" :class="sBim===b?'text-indigo-600 border-indigo-600':'text-gray-400'" class="px-3 py-2 text-xs font-bold border-b-2">{{b}}º BIM</button></div><div class="flex-1 overflow-y-auto p-4 bg-gray-50"><div v-if="sBim==='n'" class="card"><label class="label-sm">Biografia</label><textarea v-model="sDtl.notes" class="input h-24 mb-2"></textarea><label class="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg cursor-pointer text-xs font-bold"><input type="checkbox" v-model="sDtl.reqFront" class="w-4 h-4 accent-indigo-600"> Prioridade 1ª Fila</label><button @click="savStdNts" class="btn-primary w-full mt-3 py-2 text-xs">Salvar</button></div><div v-else><div class="card flex justify-between items-center mb-3"><div><p class="label-sm mb-0">Média</p><div class="text-2xl font-black" :class="sBimAvg>=6?'text-emerald-600':'text-red-500'">{{sBimAvg}}</div></div><button @click="shXp=!shXp" class="btn bg-amber-50 text-amber-600 border-amber-200 py-1.5 px-2 text-[10px]"><i class="fa-solid fa-star"></i> Bônus</button></div><div v-if="shXp" class="card bg-amber-50 p-2 mb-3 flex gap-2"><input v-model="nXp.rs" placeholder="Motivo" class="input py-1 text-xs"><input v-model="nXp.v" type="number" step="0.1" class="input w-16 py-1 text-xs text-center"><button @click="addXp" class="btn-success px-3"><i class="fa-solid fa-check text-xs"></i></button></div><div v-for="xp in sXps" class="card p-2 flex justify-between items-center mb-2"><span class="text-xs font-bold text-amber-800"><i class="fa-solid fa-star text-amber-400"></i> {{xp.rs}}</span><div class="flex gap-2"><span class="font-black text-xs text-emerald-600">+{{xp.pts}}</span><button @click="delXp(xp.id)" class="text-red-400"><i class="fa-solid fa-times"></i></button></div></div><div class="label-sm mt-4 ml-1">Provas</div><div v-for="ex in sExs" class="card p-2 flex justify-between items-center mb-2"><span class="text-xs font-bold truncate flex-1 pr-2">{{ex.title}}</span><div v-if="edRes!==ex.id" class="flex gap-1 items-center"><span class="font-black text-sm mr-1" :class="ex.scr>=6?'text-emerald-600':'text-red-500'">{{ex.scr}}</span><button v-if="!ex.ext" @click="opRes({id:ex.rId})" class="btn-icon w-6 h-6 text-blue-500 bg-blue-50"><i class="fa-solid fa-eye text-[10px]"></i></button><button @click="edRes=ex.id;tmpS=ex.scr" class="btn-icon w-6 h-6 text-indigo-500 bg-indigo-50"><i class="fa-solid fa-pen text-[10px]"></i></button><button @click="delRes(ex.rId)" class="btn-icon w-6 h-6 text-red-500 bg-red-50"><i class="fa-solid fa-trash text-[10px]"></i></button></div><div v-else class="flex gap-1"><input v-model="tmpS" type="number" step="0.1" class="w-12 input p-1 text-center text-xs h-6"><button @click="savEdS" class="btn-success px-2 py-1 text-[10px]"><i class="fa-solid fa-check"></i></button><button @click="edRes=null" class="btn bg-gray-200 px-2 py-1 text-[10px]"><i class="fa-solid fa-times"></i></button></div></div></div></div></div></div>
+        <div v-if="shStd" class="modal-wrap"><div class="modal-content h-[90vh]"><div class="modal-header bg-indigo-600"><div class="flex items-center gap-3"><div class="relative w-14 h-14"><img v-if="sDtl.photo" :src="sDtl.photo" @click="viewFullScreen(sDtl.photo)" class="w-full h-full rounded-full object-cover border-2 border-white/50 cursor-pointer"><div v-else class="w-full h-full rounded-full bg-white/20 flex-center border-2 border-white/50"><i class="fa-solid fa-user text-xl"></i></div><label class="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 text-white rounded-full flex-center cursor-pointer border border-indigo-600"><i class="fa-solid fa-camera text-[10px]"></i><input type="file" accept="image/*" class="hidden" @change="e=>toJpeg(e.target.files[0], b=>{sDtl.photo=b; savStdPic()})"></label></div><div><h3 class="font-black leading-tight">{{sDtl.name}}</h3></div></div><button @click="shStd=false" class="btn-icon w-8 h-8"><i class="fa-solid fa-times"></i></button></div><div class="flex border-b overflow-x-auto no-scrollbar"><button @click="sBim='n'" :class="sBim==='n'?'text-indigo-600 border-indigo-600':'text-gray-400'" class="px-3 py-2 text-xs font-bold border-b-2">PERFIL</button><button v-for="b in 4" @click="sBim=b" :class="sBim===b?'text-indigo-600 border-indigo-600':'text-gray-400'" class="px-3 py-2 text-xs font-bold border-b-2">{{b}}º BIM</button></div><div class="flex-1 overflow-y-auto p-4 bg-gray-50"><div v-if="sBim==='n'" class="card"><label class="label-sm">Biografia</label><textarea v-model="sDtl.notes" class="input h-24 mb-2"></textarea><label class="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg cursor-pointer text-xs font-bold"><input type="checkbox" v-model="sDtl.reqFront" class="w-4 h-4 accent-indigo-600"> Prioridade 1ª Fila</label><button @click="savStdNts" class="btn-primary w-full mt-3 py-2 text-xs">Salvar</button></div><div v-else><div class="card flex justify-between items-center mb-3"><div><p class="label-sm mb-0">Média</p><div class="text-2xl font-black" :class="sBimAvg>=6?'text-emerald-600':'text-red-500'">{{sBimAvg}}</div></div><button @click="shXp=!shXp" class="btn bg-amber-50 text-amber-600 border-amber-200 py-1.5 px-2 text-[10px]"><i class="fa-solid fa-star"></i> Bônus</button></div><div v-if="shXp" class="card bg-amber-50 p-2 mb-3 flex gap-2"><input v-model="nXp.rs" placeholder="Motivo" class="input py-1 text-xs"><input v-model="nXp.v" type="number" step="0.1" class="input w-16 py-1 text-xs text-center"><button @click="addXp" class="btn-success px-3"><i class="fa-solid fa-check text-xs"></i></button></div><div v-for="xp in sXps" class="card p-2 flex justify-between items-center mb-2"><span class="text-xs font-bold text-amber-800"><i class="fa-solid fa-star text-amber-400"></i> {{xp.rs}}</span><div class="flex gap-2"><span class="font-black text-xs text-emerald-600">+{{xp.pts}}</span><button @click="delXp(xp.id)" class="text-red-400"><i class="fa-solid fa-times"></i></button></div></div><div class="label-sm mt-4 ml-1">Provas</div><div v-for="ex in sExs" class="card p-2 flex justify-between items-center mb-2"><span class="text-xs font-bold truncate flex-1 pr-2">{{ex.title}}</span><div v-if="edRes!==ex.id" class="flex gap-1 items-center"><span class="font-black text-sm mr-1" :class="ex.scr>=6?'text-emerald-600':'text-red-500'">{{ex.scr}}</span><button v-if="!ex.ext" @click="opRes({id:ex.rId})" class="btn-icon w-6 h-6 text-blue-500 bg-blue-50"><i class="fa-solid fa-eye text-[10px]"></i></button><button @click="edRes=ex.id;tmpS=ex.scr" class="btn-icon w-6 h-6 text-indigo-500 bg-indigo-50"><i class="fa-solid fa-pen text-[10px]"></i></button><button @click="delRes(ex.rId)" class="btn-icon w-6 h-6 text-red-500 bg-red-50"><i class="fa-solid fa-trash text-[10px]"></i></button></div><div v-else class="flex gap-1"><input v-model="tmpS" type="number" step="0.1" class="w-12 input p-1 text-center text-xs h-6"><button @click="savEdS" class="btn-success px-2 py-1 text-[10px]"><i class="fa-solid fa-check"></i></button><button @click="edRes=null" class="btn bg-gray-200 px-2 py-1 text-[10px]"><i class="fa-solid fa-times"></i></button></div></div></div></div></div></div>
 
         <div v-if="shHist" class="modal-wrap"><div class="modal-content h-[85vh]"><div class="modal-header bg-gray-100 text-gray-800"><h3 class="font-black"><i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> Histórico</h3><button @click="shHist=false" class="text-gray-400"><i class="fa-solid fa-times text-xl"></i></button></div><div v-if="selHist.length" class="p-2 bg-indigo-50 flex justify-between items-center border-b"><span class="text-xs font-bold text-indigo-800">{{selHist.length}} provas</span><div class="flex gap-1"><button @click="genMg('view')" class="btn-icon w-7 h-7 bg-white text-indigo-600"><i class="fa-solid fa-eye text-xs"></i></button><button @click="genMg('share')" class="btn-icon w-7 h-7 bg-indigo-600 text-white"><i class="fa-solid fa-share-nodes text-xs"></i></button><button @click="selHist=[]" class="btn-icon w-7 h-7 text-red-500"><i class="fa-solid fa-times text-xs"></i></button></div></div><div class="overflow-y-auto p-3 flex-1 bg-gray-50 space-y-2"><div v-for="e in fltHE" class="card p-3 flex flex-col gap-2" :class="selHist.includes(e.id)?'border-indigo-400 bg-indigo-50/30':''"><div class="flex items-start gap-2"><input type="checkbox" :value="e.id" v-model="selHist" class="mt-1 w-4 h-4 accent-indigo-600"><div class="flex-1"><div class="font-bold text-xs">{{e.title}}</div><div class="text-[9px] text-gray-400 mt-0.5">{{fmtDt(e.dt)}}</div><div class="flex gap-1 mt-1"><span class="badge bg-indigo-50 text-indigo-700">{{getClsNm(e.cls)}}</span><span class="badge">{{e.bim}}º Bim</span></div></div></div><div class="flex gap-1 flex-wrap pl-6"><template v-if="!e.ext"><button @click="repEx(e,'view')" class="btn-icon w-6 h-6 bg-sky-50 text-sky-600" title="Ver"><i class="fa-solid fa-eye text-[10px]"></i></button><button @click="repEx(e,'share')" class="btn-icon w-6 h-6 bg-indigo-50 text-indigo-600" title="Partilhar"><i class="fa-solid fa-share-nodes text-[10px]"></i></button><button @click="opEdE(e)" class="btn-icon w-6 h-6 bg-cyan-50 text-cyan-600" title="Editar"><i class="fa-solid fa-pen text-[10px]"></i></button><button @click="dupEx(e)" class="btn-icon w-6 h-6 bg-purple-50 text-purple-600" title="Duplicar"><i class="fa-solid fa-copy text-[10px]"></i></button><button @click="opAnl(e)" class="btn-icon w-6 h-6 bg-pink-50 text-pink-600" title="Análise"><i class="fa-solid fa-chart-pie text-[10px]"></i></button><button @click="opFix(e)" class="btn-icon w-6 h-6 bg-orange-50 text-orange-600" title="Gabarito"><i class="fa-solid fa-list-check text-[10px]"></i></button><button @click="genKey(e)" class="btn-icon w-6 h-6 bg-teal-50 text-teal-600" title="Ver Gab"><i class="fa-solid fa-file-contract text-[10px]"></i></button></template><template v-else><span class="badge bg-blue-50 text-blue-600"><i class="fa-solid fa-file-pen"></i> Externa</span></template><button @click="delEx(e.id)" class="btn-icon w-6 h-6 bg-red-50 text-red-600 ml-auto"><i class="fa-solid fa-trash text-[10px]"></i></button></div></div></div></div></div>
 
@@ -169,7 +183,7 @@
 
         <div v-if="shFix" class="modal-wrap"><div class="modal-content max-h-[80vh]"><div class="modal-header bg-orange-500"><h3 class="font-bold text-sm">Corrigir Gabarito</h3><button @click="shFix=false"><i class="fa-solid fa-times"></i></button></div><div class="p-2 bg-orange-50 flex gap-2 items-center text-xs font-bold"><span class="text-orange-800">Tipo:</span><select v-model="fixV" @change="ldFixQ" class="input p-1 flex-1 h-8"><option v-for="(v,i) in fixE?.ver" :value="i">Tipo {{i+1}}</option></select></div><div class="p-3 overflow-y-auto flex-1 space-y-2"><div v-for="(q, i) in fixQs" class="card p-2"><p class="text-[10px] font-bold mb-1 truncate">#{{i+1}} {{q.text}}</p><select v-model="q.nIdx" :disabled="q.type==='vf'||q.type==='assoc'" class="input p-1 text-[10px] font-bold h-7"><template v-if="q.type==='ce'"><option :value="0">Certo</option><option :value="1">Errado</option></template><template v-else-if="q.type!=='vf'&&q.type!=='assoc'"><option v-for="(o,oi) in q.options" :value="oi">{{['A','B','C','D','E'][oi]}} - {{o.text}}</option></template><template v-else><option :value="q.cor">Múltiplos (Fixo)</option></template></select></div></div><div class="p-2 border-t"><button @click="savFix" class="btn bg-orange-500 text-white w-full py-2 text-xs">Salvar e Recalcular</button></div></div></div>
 
-        <div v-if="shRes" class="modal-wrap z-[9998]"><div class="modal-content max-h-[85vh]"><div class="modal-header bg-indigo-600"><div class="flex items-center gap-2 flex-1"><img v-if="getStd(selR?.sId)?.photo" :src="getStd(selR?.sId).photo" @click="viewFullScreen(getStd(selR?.sId).photo)" class="w-10 h-10 rounded-full object-cover border-2 border-white/50 cursor-pointer"><div v-else class="w-10 h-10 rounded-full bg-white/20 flex-center border-2 border-white/50"><i class="fa-solid fa-user"></i></div><div class="truncate"><h3 class="font-black text-sm truncate">{{selR?.sNm}}</h3><p class="text-[9px] text-indigo-200 truncate">{{selR?.tit}}</p></div></div><div class="flex items-center gap-2"><div class="text-center bg-black/20 px-2 py-1 rounded-lg border border-white/10"><span class="block text-[8px] uppercase font-bold text-indigo-200">Nota</span><span class="text-xl font-black leading-none">{{selR?.scr}}</span></div><button @click="delRes(selR.rId)" class="btn-icon w-7 h-7 bg-red-500/20 text-red-200"><i class="fa-solid fa-trash text-xs"></i></button><button @click="shRes=false" class="btn-icon w-7 h-7 bg-white/10"><i class="fa-solid fa-times"></i></button></div></div><div class="p-2 bg-indigo-50 border-b text-[10px] font-bold text-indigo-800 flex justify-between"><span>Revisão</span><span class="badge bg-indigo-200/50">Edite se falha OCR</span></div><div class="p-3 overflow-y-auto flex-1 bg-gray-50 space-y-1"><div v-for="(q, i) in selR?.qs" class="card p-2 flex justify-between items-center transition-all" :class="selR.ans[i]===q.cor?'border-emerald-200':'border-red-200'"><div class="flex items-center gap-3"><span class="font-black text-gray-400 w-5 text-sm">#{{i+1}}</span><div class="flex flex-col"><span class="text-[8px] uppercase font-bold text-gray-400">Oficial</span><span class="font-black text-emerald-600 text-sm">{{altLb(q.type, q.cor)}}</span></div></div><div class="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-lg border"><span class="text-[8px] uppercase font-bold text-gray-500">Marcou:</span><select v-model="selR.ans[i]" @change="savUpAns" class="font-black text-sm bg-transparent outline-none text-center" :class="selR.ans[i]===q.cor?'text-emerald-600':'text-red-500'"><option :value="null">-</option><template v-if="q.type==='ce'"><option :value="0">C</option><option :value="1">E</option></template><template v-else><option v-for="(l,j) in ['A','B','C','D','E']" :value="j">{{l}}</option></template></select></div></div></div><div class="p-3 bg-white border-t"><button @click="shRes=false" class="btn-primary w-full py-2">Fechar Espelho</button></div></div></div>
+        <div v-if="shRes" class="modal-wrap z-[9998]"><div class="modal-content max-h-[85vh]"><div class="modal-header bg-indigo-600"><div class="flex items-center gap-2 flex-1"><img v-if="getStd(selR?.sId)?.photo" :src="getStd(selR?.sId).photo" @click="viewFullScreen(getStd(selR?.sId).photo)" class="w-10 h-10 rounded-full object-cover border-2 border-white/50 cursor-pointer"><div v-else class="w-10 h-10 rounded-full bg-white/20 flex-center border-2 border-white/50"><i class="fa-solid fa-user"></i></div><div class="truncate"><h3 class="font-black text-sm truncate">{{selR?.sNm}}</h3><p class="text-[9px] text-indigo-200 truncate">{{selR?.tit}}</p></div></div><div class="flex items-center gap-2"><div class="text-center bg-black/20 px-2 py-1 rounded-lg border border-white/10"><span class="block text-[8px] uppercase font-bold text-indigo-200">Nota</span><span class="text-xl font-black leading-none">{{selR?.scr}}</span></div><button @click="delRes(selR.rId); shRes=false" class="btn-icon w-7 h-7 bg-red-500/20 text-red-200"><i class="fa-solid fa-trash text-xs"></i></button><button @click="shRes=false" class="btn-icon w-7 h-7 bg-white/10"><i class="fa-solid fa-times"></i></button></div></div><div class="p-2 bg-indigo-50 border-b text-[10px] font-bold text-indigo-800 flex justify-between"><span>Revisão</span><span class="badge bg-indigo-200/50">Edite se falha OCR</span></div><div class="p-3 overflow-y-auto flex-1 bg-gray-50 space-y-1"><div v-for="(q, i) in selR?.qs" class="card p-2 flex justify-between items-center transition-all" :class="selR.ans[i]===q.cor?'border-emerald-200':'border-red-200'"><div class="flex items-center gap-3"><span class="font-black text-gray-400 w-5 text-sm">#{{i+1}}</span><div class="flex flex-col"><span class="text-[8px] uppercase font-bold text-gray-400">Oficial</span><span class="font-black text-emerald-600 text-sm">{{altLb(q.type, q.cor)}}</span></div></div><div class="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-lg border"><span class="text-[8px] uppercase font-bold text-gray-500">Marcou:</span><select v-model="selR.ans[i]" @change="savUpAns" class="font-black text-sm bg-transparent outline-none text-center" :class="selR.ans[i]===q.cor?'text-emerald-600':'text-red-500'"><option :value="null">-</option><template v-if="q.type==='ce'"><option :value="0">C</option><option :value="1">E</option></template><template v-else><option v-for="(l,j) in ['A','B','C','D','E']" :value="j">{{l}}</option></template></select></div></div></div><div class="p-3 bg-white border-t"><button @click="shRes=false" class="btn-primary w-full py-2">Fechar Espelho</button></div></div></div>
 
         <div v-if="cMod" class="fixed inset-0 z-[300] bg-gray-50 flex flex-col animate-fade-in"><div class="bg-blue-600 text-white p-4 flex justify-between items-center"><div class="flex items-center gap-2"><img v-if="aStd?.photo" :src="aStd.photo" class="w-10 h-10 rounded-full object-cover border"><div v-else class="w-10 h-10 rounded-full bg-white/20 flex-center"><i class="fa-solid fa-user"></i></div><div><h2 class="font-bold text-sm">{{aStd?.name}}</h2><p class="text-[10px]">Tipo {{aVer+1}}</p></div></div><button @click="cMod=false"><i class="fa-solid fa-times text-xl"></i></button></div><div class="flex-1 overflow-y-auto p-4 space-y-3 max-w-2xl mx-auto w-full"><div v-for="(q, i) in aEx?.ver?.[aVer]?.questions" class="card p-3"><div class="font-black text-xs mb-2">Q {{i+1}}</div><div class="flex gap-2 justify-center"><template v-if="q.type==='ce'"><button v-for="(l,j) in ['Certo','Errado']" @click="sAns[i]=j" :class="sAns[i]===j?'bg-blue-600 text-white':'bg-gray-50 text-gray-500'" class="flex-1 py-2 border rounded-lg font-bold text-xs">{{l}}</button></template><template v-else><button v-for="(l,j) in ['A','B','C','D','E']" @click="sAns[i]=j" :class="sAns[i]===j?'bg-blue-600 text-white scale-110':'bg-gray-50'" class="w-10 h-10 border rounded-full font-black flex-center transition-all">{{l}}</button></template></div></div></div><div class="p-3 bg-white border-t"><button @click="savManC" class="btn-success w-full py-3">Finalizar Avaliação</button></div></div>
 
@@ -214,22 +228,19 @@
                 const shFix=ref(false), fixE=ref(null), fixQs=ref([]), fixV=ref(0);
                 const shQr=ref(false); let html5QrCode=null;
                 const canInstall=ref(false); let dPmt=null;
+                const isCvReady = ref(false);
 
                 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dPmt=e;canInstall.value=true;});
                 const installPWA=async()=>{if(dPmt){dPmt.prompt();await dPmt.userChoice;canInstall.value=false;}};
                 const viewFullScreen=(url)=>{if(!url)return;fullScreenImageUrl.value=url;showFullScreenImage.value=true;};
                 const copy=t=>{navigator.clipboard.writeText(t);showToast("Copiado!","success");};
 
-                // Image Utility for safe PDF generation (forces JPEG)
                 const toJpeg=(f,cb)=>{if(!f)return; let r=new FileReader(); r.onload=ev=>{let img=new Image(); img.onload=()=>{let cv=document.createElement('canvas'); cv.width=img.width; cv.height=img.height; cv.getContext('2d').drawImage(img,0,0); cb(cv.toDataURL('image/jpeg',0.8));}; img.src=ev.target.result;}; r.readAsDataURL(f);};
 
-                // DB Utility for Safe Cascading Deletes
                 const _bd = async(tb, f) => { let is = (await db[tb].toArray()).filter(f).map(x=>x.id); if(is.length) await db[tb].bulkDelete(is); };
 
-                // PDF Helpers
                 const dlPdf=(pm,fn,ac='share')=>{ showToast("Processando...","loading"); if(ac==='view')pm.open(); else if(ac==='download')pm.download(fn); else pm.getBlob(async b=>{try{let f=new File([b],fn,{type:'application/pdf'}); if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]}); else pm.download(fn);}catch(e){pm.download(fn);}}); };
 
-                // Security & Load
                 const _0x=async(d,k)=>{const e=new TextEncoder().encode(d+"NEXUS_SECURE_KEY");const h=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",e))).map(a=>a.toString(16).padStart(2,'0')).join('').toUpperCase().substring(0,12);const vc=`${h.slice(0,4)}-${h.slice(4,8)}-${h.slice(8,12)}`; const p=k.split('-');if(p.length===3&&k===vc)return{v:!0,t:'p'};if(p.length===4&&p.slice(1).join('-')===vc){let x=parseInt(p[0],16);if(Math.floor(Date.now()/3600000)<=x)return{v:!0,t:'t',h:x};return{v:!1,x:!0}}return{v:!1}};
                 const initLic=async()=>{let c=await db.settings.get('lic')||{id:'lic',did:crypto.randomUUID(),fr:Date.now(),lk:null}; await db.settings.put(c); deviceId.value=c.did; if(c.lk){let r=await _0x(c.did,c.lk); if(r.v){isLicensed.value=true; if(r.t==='t'){isTemporal.value=true;setInterval(()=>{let rh=r.h-Math.floor(Date.now()/3600000); if(rh<0){isLicensed.value=false;appLocked.value=true;}else timeLeft.value=`${rh}h`;},60000); timeLeft.value=`${r.h-Math.floor(Date.now()/3600000)}h`;}return}else{c.lk=null;await db.settings.put(c);}} if(Date.now()-c.fr>3600000){appLocked.value=true;timeLeft.value="Exp";}else setInterval(()=>{if(!isLicensed.value){let rm=3600000-(Date.now()-c.fr); if(rm<=0){appLocked.value=true;timeLeft.value="Exp";}else timeLeft.value=`${Math.floor(rm/60000)}m`;}},1000);};
                 const valLic=async()=>{let r=await _0x(deviceId.value,licenseInput.value.trim().toUpperCase()); if(r.v){let c=await db.settings.get('lic');c.lk=licenseInput.value.toUpperCase();await db.settings.put(c);appLocked.value=false;showLicenseModal.value=false;isLicensed.value=true;showToast("Ativado!","success");}else showToast(r.x?"Expirada":"Inválida","error");};
@@ -239,7 +250,7 @@
                 const resetData=()=>triggerConfirm("Apagar TODAS as notas?",async()=>{await db.results.clear();await db.extraPoints.clear();results.value=[];extraP.value=[];await load();showToast("Notas apagadas.","success");});
                 const getStd=i=>students.value.find(s=>s.id===i); const getClsNm=i=>classes.value.find(c=>c.id===i)?.name;
                 
-                const upStdPic=async(ev)=>{let f=ev.target.files[0]; if(!f)return; showToast("Processando...","loading"); let r=new FileReader(); r.onload=e=>{let img=new Image(); img.onload=async()=>{let cv=document.createElement('canvas'), sz=Math.min(img.width,img.height), ox=(img.width-sz)/2, oy=(img.height-sz)/2; cv.width=cv.height=250; cv.getContext('2d').drawImage(img,ox,oy,sz,sz,0,0,250,250); let b64=cv.toDataURL('image/jpeg',0.7); let s=await db.students.get(sDtl.value.id); if(s){s.photo=b64; await db.students.put(s); let idx=students.value.findIndex(x=>x.id===sDtl.value.id); if(idx>-1)students.value[idx]=s; sDtl.value.photo=b64; showToast('Foto atualizada!','success');}}; img.src=e.target.result;}; r.readAsDataURL(f);};
+                const savStdPic=async()=>{let s=await db.students.get(sDtl.value.id); if(s){s.photo=sDtl.value.photo; await db.students.put(s); let idx=students.value.findIndex(x=>x.id===sDtl.value.id); if(idx>-1)students.value[idx]=s; showToast('Foto atualizada!','success');}};
 
                 // Diary & Attendance
                 const loadDia=async()=>{if(!diaryCls.value)return; schList.value=await db.schedules.where({classId:diaryCls.value}).toArray(); let a=await db.attendance.where({classId:diaryCls.value,date:attDate.value,period:attPer.value}).toArray(); let m={}; a.forEach(r=>m[r.studentId]=r.status); students.value.filter(s=>s.classId===diaryCls.value).forEach(s=>{if(!m[s.id])m[s.id]='P';}); attMap.value=m;};
@@ -271,10 +282,283 @@
                 const astConf=async(m)=>{try{for(let a of m.act){let sid=Number(a.studentId), eid=Number(a.examId), cid=Number(a.classId); if(a.actionType==='update_grade'){let r=results.value.find(x=>x.examId===eid&&x.studentId===sid); if(r){r.score=Number(a.score).toFixed(1); await db.results.put(r);}else await db.results.add({examId:eid,studentId:sid,studentName:getStd(sid)?.name||'Desconhecido',score:Number(a.score).toFixed(1),date:Date.now(),answers:{},version:0});} else if(a.actionType==='set_attendance'){let stCls=Number(getStd(sid)?.classId||0); await _bd('attendance', x=>x.classId===stCls&&x.date===a.date&&x.period===a.period&&x.studentId===sid); await db.attendance.add({classId:stCls,date:a.date,period:a.period,studentId:sid,status:a.status});} else if(a.actionType==='bulk_attendance'){let r=students.value.filter(s=>s.classId===cid).map(s=>({classId:cid,date:a.date,period:a.period,studentId:s.id,status:(a.absentStudentIds||[]).includes(s.id)?'F':'P'})); await _bd('attendance', x=>x.classId===cid&&x.date===a.date&&x.period===a.period); await db.attendance.bulkAdd(r);}} m.res='ok'; load(); showToast("Ok!","success");}catch(e){showToast("Erro!","error");}};
                 let rec=null; if('webkitSpeechRecognition' in window){rec=new webkitSpeechRecognition(); rec.lang='pt-BR'; rec.onresult=e=>{aQry.value+=e.results[0][0].transcript;isVce.value=false;}; rec.onerror=()=>isVce.value=false; rec.onend=()=>isVce.value=false;} const astVoice=()=>{if(!rec)return; if(isVce.value)rec.stop(); else{rec.start();isVce.value=true;}};
 
-                // Core Logic
+                // Core Logic & OMR
+                const cleanUp = mats => mats.forEach(m => m && !m.isDeleted() && m.delete());
+                const runOMRLogic = (canvas, numRows) => {
+                    const cv = window.cv;
+                    let src = cv.imread(canvas);
+                    let gray = new cv.Mat(), threshMarkers = new cv.Mat(), contours = new cv.MatVector(), hierarchy = new cv.Mat();
+
+                    try {
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 151, 15);
+
+                        let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+                        cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_CLOSE, M_close);
+                        M_close.delete();
+
+                        cv.findContours(threshMarkers, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                        let squareCandidates = [];
+                        const totalArea = src.rows * src.cols;
+
+                        for (let i = 0; i < contours.size(); ++i) {
+                            let cnt = contours.get(i);
+                            let area = cv.contourArea(cnt);
+                            let rect = cv.boundingRect(cnt);
+                            if (area > totalArea * 0.0003 && area < totalArea * 0.05) {
+                                let aspect = rect.width / rect.height;
+                                let extent = area / (rect.width * rect.height);
+                                if (aspect >= 0.6 && aspect <= 1.4 && extent >= 0.50) {
+                                    squareCandidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: rect, area: area });
+                                }
+                            }
+                        }
+
+                        const findBestMarkers = (pool, srcCols, srcRows) => {
+                            let maxArea = -1, bestCombo = null, maxIter = Math.min(pool.length, 60); 
+                            for (let i = 0; i < maxIter; i++) for (let j = i + 1; j < maxIter; j++) for (let k = j + 1; k < maxIter; k++) for (let l = k + 1; l < maxIter; l++) {
+                                let pts = [pool[i], pool[j], pool[k], pool[l]];
+                                let areas = pts.map(p => p.area);
+                                if (Math.max(...areas) / Math.min(...areas) > 5.0) continue; 
+                                pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
+                                let tl = pts[0], br = pts[3], rem = [pts[1], pts[2]].sort((a, b) => (a.x - a.y) - (b.x - b.y)), bl = rem[0], tr = rem[1];
+                                let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y), wBot = Math.hypot(br.x - bl.x, br.y - bl.y);
+                                let hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y), hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
+                                if (wTop < srcCols * 0.12 || wBot < srcCols * 0.12 || hLeft < srcRows * 0.10 || hRight < srcRows * 0.10) continue;
+                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.25 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.25) continue;
+                                let avgW = (wTop + wBot) / 2, avgH = (hLeft + hRight) / 2, ratio = avgW / avgH;
+                                if (ratio > 0.6 && ratio < 1.4 && (avgW * avgH) > maxArea) {
+                                    maxArea = avgW * avgH;
+                                    bestCombo = { tl, tr, bl, br };
+                                }
+                            }
+                            return bestCombo;
+                        };
+
+                        squareCandidates.sort((a, b) => b.area - a.area);
+                        let bestMarkers = findBestMarkers(squareCandidates, src.cols, src.rows);
+
+                        if (!bestMarkers) {
+                            cleanUp([src, gray, threshMarkers, contours, hierarchy]);
+                            return { error: 'Marcadores de canto (4 quadrados) não detectados.', omr: null };
+                        }
+
+                        let { tl, tr, bl, br } = bestMarkers;
+                        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+
+                        const WARPED_W = 600, WARPED_H = 750; 
+                        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, WARPED_W, 0, WARPED_W, WARPED_H, 0, WARPED_H]);
+
+                        let M = cv.getPerspectiveTransform(srcTri, dstTri);
+                        let warpedGray = new cv.Mat(), warpedThresh = new cv.Mat();
+                        
+                        cv.warpPerspective(gray, warpedGray, M, new cv.Size(WARPED_W, WARPED_H));
+                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, 12);
+
+                        let leftStrip = warpedThresh.roi(new cv.Rect(0, 0, 50, WARPED_H)), rowSums = [];
+                        for (let y = 0; y < WARPED_H; y++) {
+                            let sum = 0; for (let x = 0; x < 35; x++) if (leftStrip.ucharAt(y, x) > 128) sum++;
+                            rowSums.push(sum > 10 ? 1 : 0);
+                        } 
+                        leftStrip.delete();
+
+                        let rectCentersY = [], startY = -1;
+                        for (let y = 0; y < WARPED_H; y++) {
+                            if (rowSums[y] === 1 && startY === -1) startY = y;
+                            if (rowSums[y] === 0 && startY !== -1) {
+                                let center = Math.floor((startY + y) / 2), h = y - startY;
+                                if (h > 4 && h < 35 && center > 50 && center < WARPED_H - 50) rectCentersY.push(center);
+                                startY = -1;
+                            }
+                        }
+
+                        let topStrip = warpedThresh.roi(new cv.Rect(0, 20, WARPED_W, 85)), colSums = [];
+                        for (let x = 0; x < WARPED_W; x++) {
+                            let sum = 0; for (let y = 0; y < 85; y++) if (topStrip.ucharAt(y, x) > 128) sum++;
+                            colSums.push(sum > 3 ? 1 : 0);
+                        } 
+                        topStrip.delete();
+
+                        let letterData = [], startX = -1;
+                        for (let x = 0; x < WARPED_W; x++) {
+                            if (colSums[x] === 1 && startX === -1) startX = x;
+                            if (colSums[x] === 0 && startX !== -1) {
+                                let center = Math.floor((startX + x) / 2), w = x - startX;
+                                if (w > 5 && w < 50 && center > 120) letterData.push({ center });
+                                startX = -1;
+                            }
+                        }
+
+                        const numCols = 5, options = ['A', 'B', 'C', 'D', 'E'], results = [];
+
+                        let finalYs = rectCentersY.length >= numRows ? rectCentersY.slice(0, numRows) : [];
+                        if (finalYs.length === 0) {
+                            for (let i = 0; i < numRows; i++) finalYs.push(Math.floor((0.145 + i * 0.0768) * WARPED_H));
+                        }
+
+                        let finalXs = [];
+                        if (letterData.length === numCols) {
+                            for (let j = 0; j < numCols; j++) {
+                                if (j <= 1) finalXs.push(letterData[j].center);
+                                else if (j === 2) finalXs.push(letterData[j].center + 1);
+                                else if (j === 3) finalXs.push(letterData[j].center + 2);
+                                else if (j === 4) finalXs.push(letterData[j].center + 4);
+                            }
+                        } else {
+                            finalXs = [0.272, 0.419, 0.570, 0.720, 0.865].map(r => Math.floor(r * WARPED_W));
+                        }
+
+                        const radiusX = Math.floor(WARPED_W * 0.028), radiusY = Math.floor(WARPED_H * 0.024);
+
+                        for (let i = 0; i < numRows; i++) {
+                            let centerY = finalYs[i] || Math.floor((0.145 + i * 0.0768) * WARPED_H), rowDensities = [];
+                            for (let j = 0; j < numCols; j++) {
+                                let centerX = finalXs[j];
+                                let rect = new cv.Rect(centerX - radiusX, centerY - radiusY, radiusX * 2, radiusY * 2);
+                                rect.x = Math.max(0, rect.x); rect.y = Math.max(0, rect.y);
+                                rect.width = Math.min(WARPED_W - rect.x, rect.width); rect.height = Math.min(WARPED_H - rect.y, rect.height);
+
+                                let roi = warpedThresh.roi(rect);
+                                rowDensities.push({ option: options[j], density: cv.countNonZero(roi) / (rect.width * rect.height) });
+                                roi.delete();
+                            }
+
+                            const thresholdDensity = 0.35; 
+                            let sortedDensities = [...rowDensities].sort((a, b) => b.density - a.density);
+                            let answer = "Em Branco";
+
+                            if (sortedDensities[0].density > thresholdDensity) {
+                                if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.18)) {
+                                    answer = "Anulada";
+                                } else {
+                                    answer = sortedDensities[0].option;
+                                }
+                            }
+                            results.push({ question: i + 1, answer: answer });
+                        }
+
+                        cleanUp([src, gray, threshMarkers, contours, hierarchy, warpedGray, warpedThresh, srcTri, dstTri, M]);
+                        return { error: null, omr: results };
+                    } catch(err) {
+                        cleanUp([src, gray, threshMarkers, contours, hierarchy]);
+                        return { error: 'Falha no processamento geométrico (OpenCV).', omr: null };
+                    }
+                };
+
                 const getVerQs=(e,v)=>e?.ver?e.ver[v]?.questions||e.ver[0].questions:e?.questions||[];
                 const savExR=async(eid,sid,snm,v,ans)=>{let e=exams.value.find(x=>x.id===eid), qs=getVerQs(e,v), h=0; qs.forEach((q,i)=>{if(ans[i]===((q.type==='vf'||q.type==='assoc')?(q.id||0)%5:q.cor))h++;}); let bs=results.value.find(r=>r.examId===eid&&r.studentId===sid)?.bonus||0, sc=((h/qs.length)*10+Number(bs)).toFixed(1), r={examId:eid,studentId:sid,studentName:snm,score:sc,bonus:bs,date:Date.now(),answers:ans,version:v}; let ex=results.value.find(x=>x.examId===eid&&x.studentId===sid); if(ex)await db.results.put({...r,id:ex.id}); else ex={id:await db.results.add(r)}; results.value=await db.results.toArray(); return ex.id;};
-                const procAi=async(ev)=>{let fs=ev.target.files; if(!fs.length)return; correctionQueue.value=Array.from(fs); isProcessingQueue.value=true; processedCount.value=0; stopQueueFlag.value=false; let ok=0, lId; for(let i=0;i<fs.length;i++){if(stopQueueFlag.value)break; try{let r=new FileReader(); r.readAsDataURL(fs[i]); await new Promise(rs=>r.onload=rs); let pl=`Extraia QR Code JSON no topo e respostas OMR. Regra OMR: Marca intencional forte vale, rabiscos perdem desempate. Retorne: {qrText: "string", answers: [{q:1,v:0}]}. v=NULO se vazio/duplo.`; let b64=r.result.split(',')[1], aiR=await reqGem(pl,{type:"OBJECT",properties:{qrText:{type:"STRING"},answers:{type:"ARRAY",items:{type:"OBJECT"}}}},b64,fs[i].type); if(stopQueueFlag.value)break; let qd=typeof aiR.qrText==='string'?JSON.parse(aiR.qrText.replace(new RegExp('`{1,3}(json)?', 'gi'), '').trim()):aiR.qrText, ex=exams.value.find(e=>e.id===Number(qd.e)), st=students.value.find(s=>s.id===Number(qd.s)), vr=Number(qd.v)||0; if(!ex||!st)throw 1; let am={}; (aiR.answers||[]).forEach(a=>{if(a.v!=null&&a.v>=0)am[a.q-1]=a.v;}); if(stopQueueFlag.value)break; lId=await savExR(ex.id,st.id,st.name,vr,am); ok++; if(i<fs.length-1)await new Promise(rs=>{let t=0,tm=setInterval(()=>{if(stopQueueFlag.value||++t>20){clearInterval(tm);rs();}},100);}); }catch(e){if(!stopQueueFlag.value)await new Promise(r=>setTimeout(r,1000));} processedCount.value++;} if(!stopQueueFlag.value){isProcessingQueue.value=false; await load(); if(ok){showToast(`${ok} sucesso(s)!`,"success"); if(lId)setTimeout(()=>opRes({id:lId}),500);}} };
+                
+                const procLocalCorrection = async (ev) => {
+                    let fs = ev.target.files;
+                    if (!fs.length) return;
+                    if (!isCvReady.value) {
+                        showToast("Aguarde o carregamento do motor OpenCV...", "warning");
+                        return;
+                    }
+
+                    correctionQueue.value = Array.from(fs);
+                    ev.target.value = '';
+                    isProcessingQueue.value = true;
+                    processedCount.value = 0;
+                    stopQueueFlag.value = false;
+                    let ok = 0, lId;
+
+                    const canvas = document.getElementById('omr-canvas') || document.createElement('canvas');
+                    canvas.id = 'omr-canvas';
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+                    for (let i = 0; i < correctionQueue.value.length; i++) {
+                        if (stopQueueFlag.value) break;
+
+                        try {
+                            let file = correctionQueue.value[i];
+                            
+                            let qrData = null;
+                            try {
+                                const localScanner = new Html5Qrcode("hidden-qr-reader");
+                                const result = await localScanner.scanFile(file, false);
+                                qrData = JSON.parse(result.replace(new RegExp('`{1,3}(json)?', 'gi'), ''));
+                            } catch (err) {
+                                throw new Error(`QR Code não encontrado na prova.`);
+                            }
+
+                            if (!qrData || !qrData.e || !qrData.s) {
+                                throw new Error("QR Code inválido.");
+                            }
+
+                            const exm = exams.value.find(e => e.id === Number(qrData.e));
+                            const std = students.value.find(s => s.id === Number(qrData.s));
+                            const ver = Number(qrData.v) || 0;
+
+                            if (!exm || !std) throw new Error("Prova/Aluno não cadastrados.");
+
+                            const maxQ = getVerQs(exm, ver).length;
+
+                            await new Promise((resolve, reject) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                    let scale = img.width > 1500 ? 1500 / img.width : 1;
+                                    canvas.width = img.width * scale;
+                                    canvas.height = img.height * scale;
+                                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                    resolve();
+                                };
+                                img.onerror = () => reject(new Error("Falha ao ler imagem"));
+                                img.src = URL.createObjectURL(file);
+                            });
+
+                            if (stopQueueFlag.value) break;
+
+                            await new Promise(r => setTimeout(r, 20));
+
+                            const omrResult = runOMRLogic(canvas, maxQ);
+
+                            if (omrResult.error) {
+                                throw new Error(omrResult.error);
+                            }
+
+                            let ansMap = {};
+                            omrResult.omr.forEach(ansObj => {
+                                const qIndex = parseInt(ansObj.question) - 1;
+                                if (qIndex >= 0 && qIndex < maxQ) {
+                                    let val = null;
+                                    if (ansObj.answer === 'A') val = 0;
+                                    else if (ansObj.answer === 'B') val = 1;
+                                    else if (ansObj.answer === 'C') val = 2;
+                                    else if (ansObj.answer === 'D') val = 3;
+                                    else if (ansObj.answer === 'E') val = 4;
+                                    
+                                    if (val !== null) ansMap[qIndex] = val;
+                                }
+                            });
+
+                            if (stopQueueFlag.value) break;
+
+                            lId = await savExR(exm.id, std.id, std.name, ver, ansMap);
+                            ok++;
+
+                        } catch (e) {
+                            if (!stopQueueFlag.value) {
+                                showToast(`Arq ${i+1}: ${e.message}`, "error");
+                                await new Promise(res => setTimeout(res, 1500));
+                            }
+                        }
+                        if (stopQueueFlag.value) break;
+                        processedCount.value++;
+                    }
+
+                    if (!stopQueueFlag.value) {
+                        isProcessingQueue.value = false;
+                        await load();
+                        if (ok > 0) {
+                            showToast(`Correção concluída! ${ok} sucesso(s).`, "success");
+                            if (lId) setTimeout(() => opRes({ id: lId }), 600);
+                        } else {
+                            showToast("Nenhuma prova processada com sucesso.", "error");
+                        }
+                    }
+                };
 
                 // Question & AI Generator
                 const genAiQ=async()=>{if(!aiC.value.sub||!aiC.value.top)return; let t=Number(aiC.value.cnt.mc||0)+Number(aiC.value.cnt.ce||0)+Number(aiC.value.cnt.vf||0)+Number(aiC.value.cnt.assoc||0); if(t<1)return; aiGenLoad.value=true; try{let pmt=`Gere ${t} questões de ${aiC.value.sub} (${aiC.value.top}) Nível ${aiC.value.dif}: ${aiC.value.cnt.mc} mc (5 op), ${aiC.value.cnt.ce} ce, ${aiC.value.cnt.vf} vf (isTrue), ${aiC.value.cnt.assoc} assoc (match). ESTRITO JSON: {qs: [{type, text, options: [{text, isTrue?, match?}], correct}]}`; let res=await reqGem(pmt,{type:"OBJECT",properties:{qs:{type:"ARRAY",items:{type:"OBJECT"}}}}); let qs=(res.qs||[]).map(q=>{q.subject=aiC.value.sub;q.topic=aiC.value.top;q.text=q.text||"Sem text"; let op=q.options||[]; if(q.type==='ce'){q.options=[{text:'Certo'},{text:'Errado'}]; q.cor=Number(q.correct)||0;} else if(q.type==='mc'){q.options=op.slice(0,5); while(q.options.length<5)q.options.push({text:'Extra'}); q.cor=Number(q.correct)||0;} else if(q.type==='vf'){q.options=op.slice(0,4).map(o=>({text:o.text,tr:!!o.isTrue})); while(q.options.length<4)q.options.push({text:'Ext',tr:false});} else if(q.type==='assoc'){q.options=op.slice(0,4).map(o=>({text:o.text,mat:String(o.match)})); while(q.options.length<4)q.options.push({text:'Ext',mat:'Ext'});} return q;}); await db.questions.bulkAdd(qs); await load(); shAiGen.value=false; showToast("Ok!","success");}catch(e){showToast("Erro AI","error");} aiGenLoad.value=false;};
@@ -414,10 +698,31 @@
                 const genKey=(e)=>{let tb=[];e.ver.forEach((v,i)=>{tb.push({text:`TIPO ${i+1}`,bold:true,margin:[0,10,0,5]}); let r=[]; v.questions.forEach((q,k)=>{r.push({text:`${k+1}. ${altLb(q.type==='ce'?'ce':'mc',(q.type==='vf'||q.type==='assoc')?(q.id||0)%5:q.cor)}`,fontSize:10}); if((k+1)%5===0){tb.push({columns:r});r=[];}}); if(r.length)tb.push({columns:r});}); dlPdf(pdfMake.createPdf({content:[{text:`Gabarito - ${e.title}`,fontSize:14,bold:true,alignment:'center'},...tb]}),`Gab_${e.id}.pdf`,'view');};
                 const prtAnl=()=>{let c=[{text:`Erros - ${anlEx.value.title}`,bold:true,fontSize:14,alignment:'center',margin:[0,0,0,10]}]; anlDt.value.forEach(a=>c.push({text:`#${a.pos} (${a.pct}%) - ${a.txt}`,fontSize:10,margin:[0,5]})); dlPdf(pdfMake.createPdf({content:c}),`Anl_${anlEx.value.id}.pdf`,'view');};
 
-                onMounted(async()=>{if(window.pdfMake && window.pdfFonts) window.pdfMake.vfs = window.pdfFonts.pdfMake.vfs; await initLic();await load();});
+                onMounted(async()=>{
+                    if(window.pdfMake && window.pdfFonts) window.pdfMake.vfs = window.pdfFonts.pdfMake.vfs; 
+                    await initLic();
+                    await load();
+                    
+                    // Inicializa o OpenCV Local
+                    if (!document.getElementById('opencv-script')) {
+                        let s = document.createElement('script');
+                        s.src = 'https://docs.opencv.org/4.8.0/opencv.js';
+                        s.id = 'opencv-script';
+                        s.async = true;
+                        document.body.appendChild(s);
+                        let chk = setInterval(() => {
+                            if (window.cv && window.cv.Mat) {
+                                clearInterval(chk);
+                                isCvReady.value = true;
+                            }
+                        }, 100);
+                    } else {
+                        isCvReady.value = true;
+                    }
+                });
 
                 return {
-                    view, tabs, classes, students, questions, exams, results, stg, appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal,
+                    view, tabs, classes, students, questions, exams, results, stg, appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal, isCvReady,
                     toast, confirmModal, showFullScreenImage, fullScreenImageUrl, viewFullScreen, handleConfirm, copy, valLic, whatsappLink: computed(()=>`https://wa.me/558899361992`),
                     dbClassId, dbFilter, clsAvg, clsEvCnt, clsDist, resetData, getStd, genRpt,
                     diaryCls, dTab, attDate, attPer, periods, attFilter, attMap, schList, nSch, validSch, saveAtt, addSch, delSch, filteredAttStds:computed(()=>students.value.filter(s=>s.classId===diaryCls.value&&(!attFilter.value||s.name.toLowerCase().includes(attFilter.value.toLowerCase())))),
@@ -429,10 +734,10 @@
                     shHist, selHist, examHistoryFilter, fltHE:computed(()=>exams.value), genMg, repEx, delEx:i=>triggerConfirm("Apagar?",async()=>{await _bd('results', r=>r.examId===i); await db.exams.delete(i); load();}), getClsNm, fmtDt, opAnl, shAnl, anlEx, anlDt, anlTot, prtAnl, opFix, shFix, fixE, fixQs, fixV, ldFixQ, savFix, genKey,
                     shExt, eStp, extC, extStds, extGr, opExt, goExt, savExt,
                     shMan, mCfg, manStds:computed(()=>students.value.filter(s=>s.classId===exams.value.find(e=>e.id===mCfg.value.eId)?.classId)), selEv:computed(()=>exams.value.find(e=>e.id===mCfg.value.eId)?.ver||[]), stMan, confMan, cMod, aStd, aEx, aVer, sAns, savManC,
-                    shQr, stQScan, procAi, correctionQueue, isProcessingQueue, processedCount, stopQueueFlag,
+                    shQr, stQScan, procLocalCorrection, correctionQueue, isProcessingQueue, processedCount, stopQueueFlag,
                     recCor:computed(()=>results.value.sort((a,b)=>b.date-a.date).slice(0,10).map(r=>({...r,exTitle:exams.value.find(e=>e.id===r.examId)?.title,ext:exams.value.find(e=>e.id===r.examId)?.ext}))), opRes, shRes, selR, altLb, savUpAns, delRes,
                     shSeat, sClsId, sRow, sCol, sGrid, sSel, sStds, openSeat, genSeat, clkSeat, savSeat, prtSeat,
-                    shStd, sDtl, sBim, shXp, nXp, edRes, tmpS, savStdNts, upStdPic, addXp, delXp, savEdS,
+                    shStd, sDtl, sBim, shXp, nXp, edRes, tmpS, savStdNts, savStdPic, addXp, delXp, savEdS,
                     sBimAvg:computed(()=>{if(sBim.value==='n')return 0; let rs=results.value.filter(r=>r.studentId===sDtl.value.id&&exams.value.some(e=>e.id===r.examId&&e.bim===Number(sBim.value))), bs=extraP.value.filter(e=>e.studentId===sDtl.value.id&&e.bimester===Number(sBim.value)).reduce((a,b)=>a+Number(b.points),0), sc=rs.length?rs.reduce((a,b)=>a+Number(b.score),0)/rs.length:0; return Math.min(sc+bs,10).toFixed(1);}), sXps:computed(()=>extraP.value.filter(e=>e.studentId===sDtl.value.id&&e.bimester===Number(sBim.value))), sExs:computed(()=>exams.value.filter(e=>e.classId===sDtl.value.classId&&e.bim===Number(sBim.value)).map(e=>{let r=results.value.find(x=>x.examId===e.id&&x.studentId===sDtl.value.id);return {...e,scr:r?r.score:'-',rId:r?.id}}).filter(e=>e.scr!=='-')),
                     getVerQs, toJpeg,
                     installPWA, canInstall, importBackup, backupData
