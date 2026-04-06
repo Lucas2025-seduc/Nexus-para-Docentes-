@@ -2981,6 +2981,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const generatePDF=async(action = 'share')=>{
                     if (!examConfig.value.classIds || examConfig.value.classIds.length === 0) return showToast("Selecione pelo menos uma turma", "warning");
+                    if (!examCart.value || examCart.value.length === 0) return showToast("Erro: A prova precisa de ter questões para ser gerada.", "error");
 
                     triggerConfirm("Tem certeza que deseja gerar o PDF desta(s) prova(s)?",async()=>{
                         let cont=[];
@@ -3563,7 +3564,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 
                 const reprintExamPDF = (e, action = 'share') => {
                     examConfig.value = { ...e, classIds: [e.classId] };
-                    examCart.value = []; // Apenas garantimos a compatibilidade de chamada
+                    examCart.value = JSON.parse(JSON.stringify(getVersionQuestions(e, 0))); // CORREÇÃO: Resgata as questões originais da BD em vez de as apagar!
                     editingExamId.value = e.id;
                     generatePDF(action);
                 };
