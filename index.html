@@ -2637,213 +2637,186 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     document.getElementById('ai-correction-upload').click();
                 };
 
-                /**
-                 * OMR Engine - Motor de Reconhecimento Óptico de Marcas
-                 * * Este módulo contém a lógica isolada para processar uma imagem de gabarito.
-                 * Requisito: OpenCV.js (cv) carregado no ambiente global.
-                 */
-                const OMREngine = {
-                  /**
-                   * Função principal de processamento
-                   * @param {HTMLCanvasElement} canvas - Canvas contendo a imagem original
-                   * @returns {Object} { error, results, debugImage }
-                   */
-                  processGabarito: function(canvas) {
-                    const cv = window.cv;
-                    if (!cv) return { error: "OpenCV não encontrado." };
+                const cleanUp = mats => mats.forEach(m => m && !m.isDeleted() && m.delete());
 
+                const runOMRLogic = (canvas) => {
+                    const cv = window.cv;
                     let src = cv.imread(canvas);
-                    let gray = new cv.Mat();
-                    let thresh = new cv.Mat();
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
+                    let gray = new cv.Mat(), threshMarkers = new cv.Mat(), contours = new cv.MatVector(), hierarchy = new cv.Mat();
 
                     try {
-                      // 1. Pré-processamento
-                      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                      cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 151, 15);
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 151, 15);
 
-                      // Limpeza morfológica para destacar os quadrados dos cantos
-                      let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
-                      cv.morphologyEx(thresh, thresh, cv.MORPH_CLOSE, M_close);
-                      M_close.delete();
+                        let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+                        cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_CLOSE, M_close);
+                        M_close.delete();
 
-                      // 2. Localização dos Marcadores de Canto
-                      cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-                      let candidates = [];
-                      const totalArea = src.rows * src.cols;
+                        cv.findContours(threshMarkers, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                      for (let i = 0; i < contours.size(); ++i) {
-                        let cnt = contours.get(i);
-                        let area = cv.contourArea(cnt);
-                        let rect = cv.boundingRect(cnt);
-                        let extent = area / (rect.width * rect.height);
-                        let aspect = rect.width / rect.height;
+                        let squareCandidates = [];
+                        const totalArea = src.rows * src.cols;
 
-                        if (area > totalArea * 0.0003 && area < totalArea * 0.05 && aspect >= 0.6 && aspect <= 1.4 && extent >= 0.5) {
-                          candidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: rect, area: area });
-                        }
-                      }
-
-                      candidates.sort((a, b) => b.area - a.area);
-                      const markers = this._findBestMarkers(candidates, src.cols, src.rows);
-
-                      if (!markers) {
-                        this._cleanUp([src, gray, thresh, contours, hierarchy]);
-                        return { error: "Falha ao localizar os 4 cantos do gabarito." };
-                      }
-
-                      // 3. Transformação de Perspectiva (Planificação)
-                      const WW = 600; // Largura padrão do processamento
-                      const WH = 750; // Altura padrão do processamento
-                      let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [markers.tl.x, markers.tl.y, markers.tr.x, markers.tr.y, markers.br.x, markers.br.y, markers.bl.x, markers.bl.y]);
-                      let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, WW, 0, WW, WH, 0, WH]);
-                      let M_trans = cv.getPerspectiveTransform(srcTri, dstTri);
-                      
-                      let wGray = new cv.Mat(), wThresh = new cv.Mat(), wColor = new cv.Mat();
-                      cv.warpPerspective(gray, wGray, M_trans, new cv.Size(WW, WH));
-                      
-                      // CAMADA 1 (Geométrica): Threshold original e preciso para ancorar linhas/colunas
-                      cv.adaptiveThreshold(wGray, wThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, 12);
-                      
-                      // CAMADA 2 (Leitura Ultra Sensível): Pega tintas claras (C de 12 para 7) e engorda linhas finas/incompletas
-                      let wThreshBubble = new cv.Mat();
-                      cv.adaptiveThreshold(wGray, wThreshBubble, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, 7);
-                      let M_dilate = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
-                      cv.morphologyEx(wThreshBubble, wThreshBubble, cv.MORPH_DILATE, M_dilate); // Engorda as marcações
-                      M_dilate.delete();
-
-                      cv.cvtColor(wGray, wColor, cv.COLOR_GRAY2RGBA);
-
-                      // 4. Detecção das Âncoras (Eixos X e Y) - Usando a camada 1 segura
-                      
-                      // Eixo Y (Linhas): Baseado nos retângulos pretos laterais
-                      let lStrip = wThresh.roi(new cv.Rect(0, 0, 50, WH));
-                      let rectCentersY = [], startY = -1;
-                      for (let y = 0; y < WH; y++) {
-                        let sum = 0;
-                        for (let x = 0; x < 35; x++) if (lStrip.ucharAt(y, x) > 128) sum++;
-                        let isMark = sum > 10;
-                        if (isMark && startY === -1) startY = y;
-                        if (!isMark && startY !== -1) {
-                          let center = Math.floor((startY + y) / 2);
-                          if ((y - startY) > 4 && center > 50 && center < WH - 50) rectCentersY.push(center);
-                          startY = -1;
-                        }
-                      }
-                      lStrip.delete();
-
-                      // Eixo X (Colunas): Baseado nas letras A, B, C, D, E no topo
-                      let tStrip = wThresh.roi(new cv.Rect(0, 20, WW, 85));
-                      let letterCentersX = [], startX = -1;
-                      for (let x = 0; x < WW; x++) {
-                        let sum = 0;
-                        for (let y = 0; y < 85; y++) if (tStrip.ucharAt(y, x) > 128) sum++;
-                        let isMark = sum > 3;
-                        if (isMark && startX === -1) startX = x;
-                        if (!isMark && startX !== -1) {
-                          let center = Math.floor((startX + x) / 2);
-                          if ((x - startX) > 5 && center > 120) letterCentersX.push(center);
-                          startX = -1;
-                        }
-                      }
-                      tStrip.delete();
-
-                      // 5. Mapeamento da Grelha e Leitura de Marcas
-                      const results = [];
-                      const options = ['A', 'B', 'C', 'D', 'E'];
-                      
-                      // Fallbacks caso as âncoras falhem
-                      let finalYs = rectCentersY.length === 10 ? rectCentersY : Array.from({length: 10}, (_, i) => Math.floor((0.145 + i * 0.0768) * WH));
-                      let finalXs = letterCentersX.length === 5 
-                        ? letterCentersX.map((cx, j) => cx + [0, 0, 1, 2, 4][j]) // Aplicação do ajuste progressivo (+1, +2, +4 px)
-                        : [0.272, 0.419, 0.570, 0.720, 0.865].map(r => Math.floor(r * WW));
-
-                      const radX = Math.floor(WW * 0.028);
-                      const radY = Math.floor(WH * 0.024);
-
-                      for (let i = 0; i < 10; i++) {
-                        let cy = finalYs[i];
-                        let densities = [];
-
-                        for (let j = 0; j < 5; j++) {
-                          let cx = finalXs[j];
-                          let r = new cv.Rect(cx - radX, cy - radY, radX * 2, radY * 2);
-                          
-                          // Validação de limites
-                          r.x = Math.max(0, r.x); r.y = Math.max(0, r.y);
-                          r.width = Math.min(WW - r.x, r.width); r.height = Math.min(WH - r.y, r.height);
-
-                          // LÊ A DENSIDADE USANDO A CAMADA 2 (SUPER SENSÍVEL)
-                          let roi = wThreshBubble.roi(r);
-                          let density = cv.countNonZero(roi) / (r.width * r.height);
-                          densities.push({ option: options[j], density, rect: r });
-                          roi.delete();
-                        }
-
-                        // Lógica de Decisão Ultra Sensível
-                        const threshold = 0.12; // Baixado de 0.35 para 0.12 para aceitar bolinhas incompletas
-                        let sorted = [...densities].sort((a, b) => b.density - a.density);
-                        let answer = "Em Branco";
-                        let marked = [];
-
-                        if (sorted[0].density > threshold) {
-                          // Margem de desempate apertada (0.08) para dar prioridade à bolinha mais forte se houver rasura ligeira
-                          if (sorted[1].density > threshold && (sorted[0].density - sorted[1].density < 0.08)) {
-                            answer = "Anulada";
-                            marked = [sorted[0].option, sorted[1].option];
-                          } else {
-                            answer = sorted[0].option;
-                            marked = [sorted[0].option];
+                        for (let i = 0; i < contours.size(); ++i) {
+                          let cnt = contours.get(i);
+                          let area = cv.contourArea(cnt);
+                          let rect = cv.boundingRect(cnt);
+                          if (area > totalArea * 0.0003 && area < totalArea * 0.05) {
+                            let aspect = rect.width / rect.height;
+                            let extent = area / (rect.width * rect.height);
+                            if (aspect >= 0.6 && aspect <= 1.4 && extent >= 0.50) {
+                                squareCandidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: rect, area: area });
+                            }
                           }
                         }
 
-                        results.push({ questao: i + 1, resposta: answer });
+                        const findBestMarkers = (pool, srcCols, srcRows) => {
+                            let maxArea = -1, bestCombo = null, maxIter = Math.min(pool.length, 60); 
+                            for (let i = 0; i < maxIter; i++) for (let j = i + 1; j < maxIter; j++) for (let k = j + 1; k < maxIter; k++) for (let l = k + 1; l < maxIter; l++) {
+                                let pts = [pool[i], pool[j], pool[k], pool[l]];
+                                let areas = pts.map(p => p.area);
+                                if (Math.max(...areas) / Math.min(...areas) > 5.0) continue; 
+                                pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
+                                let tl = pts[0], br = pts[3], rem = [pts[1], pts[2]].sort((a, b) => (a.x - a.y) - (b.x - b.y)), bl = rem[0], tr = rem[1];
+                                let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y), wBot = Math.hypot(br.x - bl.x, br.y - bl.y);
+                                let hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y), hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
+                                if (wTop < srcCols * 0.12 || wBot < srcCols * 0.12 || hLeft < srcRows * 0.10 || hRight < srcRows * 0.10) continue;
+                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.25 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.25) continue;
+                                let avgW = (wTop + wBot) / 2, avgH = (hLeft + hRight) / 2, ratio = avgW / avgH;
+                                if (ratio > 0.6 && ratio < 1.4 && (avgW * avgH) > maxArea) {
+                                    maxArea = avgW * avgH;
+                                    bestCombo = { tl, tr, bl, br };
+                                }
+                            }
+                            return bestCombo;
+                        };
 
-                        // Desenho de Debug no wColor
-                        densities.forEach(box => {
-                          let color = marked.includes(box.option) 
-                            ? (answer === "Anulada" ? new cv.Scalar(255, 0, 0, 255) : new cv.Scalar(0, 255, 0, 255))
-                            : new cv.Scalar(0, 150, 255, 150);
-                          cv.rectangle(wColor, new cv.Point(box.rect.x, box.rect.y), new cv.Point(box.rect.x + box.rect.width, box.rect.y + box.rect.height), color, 2);
-                        });
-                      }
+                        squareCandidates.sort((a, b) => b.area - a.area);
+                        let bestMarkers = findBestMarkers(squareCandidates, src.cols, src.rows);
 
-                      // Gerar imagem de diagnóstico final
-                      const debugCanvas = document.createElement('canvas');
-                      cv.imshow(debugCanvas, wColor);
-                      const debugData = debugCanvas.toDataURL();
+                        if (!bestMarkers) {
+                          cleanUp([src, gray, threshMarkers, contours, hierarchy]);
+                          return { error: 'Não detectei os 4 cantos.', omr: null, debug: null };
+                        }
 
-                      // Limpeza de memória atualizada com o wThreshBubble
-                      this._cleanUp([src, gray, thresh, contours, hierarchy, wGray, wThresh, wThreshBubble, wColor, srcTri, dstTri, M_trans]);
+                        let { tl, tr, bl, br } = bestMarkers;
+                        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
 
-                      return { error: null, results: results, debugImage: debugData };
+                        const WARPED_W = 600, WARPED_H = 750; 
+                        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, WARPED_W, 0, WARPED_W, WARPED_H, 0, WARPED_H]);
 
-                    } catch (e) {
-                      console.error(e);
-                      return { error: "Erro interno no processamento de imagem." };
+                        let M = cv.getPerspectiveTransform(srcTri, dstTri);
+                        let warpedGray = new cv.Mat(), warpedThresh = new cv.Mat(), warpedColor = new cv.Mat();
+                        
+                        cv.warpPerspective(gray, warpedGray, M, new cv.Size(WARPED_W, WARPED_H));
+                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, 12);
+                        cv.cvtColor(warpedGray, warpedColor, cv.COLOR_GRAY2RGBA);
+
+                        // 1. Eixo Y - Retângulos
+                        let leftStrip = warpedThresh.roi(new cv.Rect(0, 0, 50, WARPED_H)), rowSums = [];
+                        for (let y = 0; y < WARPED_H; y++) {
+                          let sum = 0; for (let x = 0; x < 35; x++) if (leftStrip.ucharAt(y, x) > 128) sum++;
+                          rowSums.push(sum > 10 ? 1 : 0);
+                        } leftStrip.delete();
+
+                        let rectCentersY = [], startY = -1;
+                        for (let y = 0; y < WARPED_H; y++) {
+                          if (rowSums[y] === 1 && startY === -1) startY = y;
+                          if (rowSums[y] === 0 && startY !== -1) {
+                            let center = Math.floor((startY + y) / 2), h = y - startY;
+                            if (h > 4 && h < 35 && center > 50 && center < WARPED_H - 50) rectCentersY.push(center);
+                            startY = -1;
+                          }
+                        }
+
+                        // 2. Eixo X - Letras
+                        let topStrip = warpedThresh.roi(new cv.Rect(0, 20, WARPED_W, 85)), colSums = [];
+                        for (let x = 0; x < WARPED_W; x++) {
+                          let sum = 0; for (let y = 0; y < 85; y++) if (topStrip.ucharAt(y, x) > 128) sum++;
+                          colSums.push(sum > 3 ? 1 : 0);
+                        } topStrip.delete();
+
+                        let letterData = [], startX = -1;
+                        for (let x = 0; x < WARPED_W; x++) {
+                          if (colSums[x] === 1 && startX === -1) startX = x;
+                          if (colSums[x] === 0 && startX !== -1) {
+                            let center = Math.floor((startX + x) / 2), rightLimit = x, w = x - startX;
+                            if (w > 5 && w < 50 && center > 120) letterData.push({ center, rightLimit });
+                            startX = -1;
+                          }
+                        }
+
+                        const numRows = 10, numCols = 5, options = ['A', 'B', 'C', 'D', 'E'], results = [];
+
+                        let finalYs = rectCentersY.length === numRows ? rectCentersY : [];
+                        if (finalYs.length === 0) {
+                            for (let i = 0; i < numRows; i++) finalYs.push(Math.floor((0.145 + i * 0.0768) * WARPED_H));
+                        }
+
+                        let finalXs = [];
+                        if (letterData.length === numCols) {
+                          for (let j = 0; j < numCols; j++) {
+                            // Lógica afinada:
+                            if (j <= 1) finalXs.push(letterData[j].center);          // A e B
+                            else if (j === 2) finalXs.push(letterData[j].center + 1); // C (+1px)
+                            else if (j === 3) finalXs.push(letterData[j].center + 2); // D (+2px)
+                            else if (j === 4) finalXs.push(letterData[j].center + 4); // E (+4px)
+                          }
+                        } else {
+                          finalXs = [0.272, 0.419, 0.570, 0.720, 0.865].map(r => Math.floor(r * WARPED_W));
+                        }
+
+                        const radiusX = Math.floor(WARPED_W * 0.028), radiusY = Math.floor(WARPED_H * 0.024);
+
+                        for (let i = 0; i < numRows; i++) {
+                            let centerY = finalYs[i], rowDensities = [];
+                            cv.line(warpedColor, new cv.Point(0, centerY), new cv.Point(WARPED_W, centerY), new cv.Scalar(255, 255, 0, 50), 1);
+
+                            for (let j = 0; j < numCols; j++) {
+                                let centerX = finalXs[j];
+                                if (i === 0) cv.line(warpedColor, new cv.Point(centerX, 0), new cv.Point(centerX, WARPED_H), new cv.Scalar(255, 255, 0, 50), 1);
+                                let rect = new cv.Rect(centerX - radiusX, centerY - radiusY, radiusX * 2, radiusY * 2);
+                                rect.x = Math.max(0, rect.x); rect.y = Math.max(0, rect.y);
+                                rect.width = Math.min(WARPED_W - rect.x, rect.width); rect.height = Math.min(WARPED_H - rect.y, rect.height);
+
+                                let roi = warpedThresh.roi(rect);
+                                rowDensities.push({ option: options[j], density: cv.countNonZero(roi) / (rect.width * rect.height), rect: rect });
+                                roi.delete();
+                            }
+
+                            // Sensibilidade aprimorada (0.35)
+                            const thresholdDensity = 0.35; 
+                            let sortedDensities = [...rowDensities].sort((a, b) => b.density - a.density);
+                            let answer = "Em Branco", markedRects = [];
+
+                            if (sortedDensities[0].density > thresholdDensity) {
+                                if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.18)) {
+                                     answer = "Anulada";
+                                     markedRects.push(sortedDensities[0].option, sortedDensities[1].option);
+                                } else {
+                                     answer = sortedDensities[0].option;
+                                     markedRects.push(sortedDensities[0].option);
+                                }
+                            }
+
+                            results.push({ question: i + 1, answer: answer });
+
+                            rowDensities.forEach(box => {
+                                let c = markedRects.includes(box.option) ? (answer === "Anulada" ? new cv.Scalar(255, 0, 0, 255) : new cv.Scalar(0, 255, 0, 255)) : new cv.Scalar(0, 150, 255, 150);
+                                cv.rectangle(warpedColor, new cv.Point(box.rect.x, box.rect.y), new cv.Point(box.rect.x + box.rect.width, box.rect.y + box.rect.height), c, 2);
+                            });
+                        }
+
+                        const debugCanvas = document.createElement('canvas');
+                        cv.imshow(debugCanvas, warpedColor);
+                        const debugData = debugCanvas.toDataURL();
+
+                        cleanUp([src, gray, threshMarkers, contours, hierarchy, warpedGray, warpedThresh, warpedColor, srcTri, dstTri, M]);
+                        return { error: null, omr: results, debug: debugData };
+                    } catch(err) {
+                        cleanUp([src, gray, threshMarkers, contours, hierarchy]);
+                        return { error: 'Exceção no processamento.', omr: null, debug: null };
                     }
-                  },
-
-                  /** HELPER: Localiza a melhor combinação de 4 cantos */
-                  _findBestMarkers: function(pool, w, h) {
-                    let best = null, maxA = -1, lim = Math.min(pool.length, 60);
-                    for(let i=0; i<lim; i++) for(let j=i+1; j<lim; j++) for(let k=j+1; k<lim; k++) for(let l=k+1; l<lim; l++) {
-                      let p = [pool[i], pool[j], pool[k], pool[l]], areas = p.map(x=>x.area);
-                      if (Math.max(...areas) / Math.min(...areas) > 5.0) continue;
-                      p.sort((a,b) => (a.x+a.y) - (b.x+b.y));
-                      let tl=p[0], br=p[3], rem=[p[1],p[2]].sort((a,b)=>(a.x-a.y)-(b.x-b.y)), bl=rem[0], tr=rem[1];
-                      let wT=Math.hypot(tr.x-tl.x, tr.y-tl.y), hL=Math.hypot(bl.x-tl.x, bl.y-tl.y);
-                      if (wT < w*0.12 || hL < h*0.1) continue;
-                      let ratio = wT/hL, area = wT*hL;
-                      if (ratio > 0.6 && ratio < 1.4 && area > maxA) { maxA = area; best = {tl, tr, bl, br}; }
-                    }
-                    return best;
-                  },
-
-                  _cleanUp: function(mats) {
-                    mats.forEach(m => m && !m.isDeleted() && m.delete());
-                  }
                 };
 
                 const processAICorrection = async (event) => {
