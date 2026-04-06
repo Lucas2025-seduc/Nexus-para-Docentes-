@@ -2673,7 +2673,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 if (wTop < srcCols * 0.12 || wBot < srcCols * 0.12 || hLeft < srcRows * 0.10 || hRight < srcRows * 0.10) continue;
                                 if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.25 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.25) continue;
                                 let avgW = (wTop + wBot) / 2, avgH = (hLeft + hRight) / 2, ratio = avgW / avgH;
-                                if (ratio > 0.6 && ratio < 1.4 && (avgW * avgH) > maxArea) { maxArea = avgW * avgH; bestCombo = { tl, tr, bl, br }; }
+                                if (ratio > 0.6 && ratio < 1.4 && (avgW * avgH) > maxArea) {
+                                    maxArea = avgW * avgH;
+                                    bestCombo = { tl, tr, bl, br };
+                                }
                             }
                             return bestCombo;
                         };
@@ -2681,11 +2684,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         squareCandidates.sort((a, b) => b.area - a.area);
                         let bestMarkers = findBestMarkers(squareCandidates, src.cols, src.rows);
 
-                        if (!bestMarkers) { cleanUpOMR([src, gray, threshMarkers, contours, hierarchy]); return { error: 'Cantos (Marcas) não detetados.', omr: null }; }
+                        if (!bestMarkers) {
+                            cleanUpOMR([src, gray, threshMarkers, contours, hierarchy]);
+                            return { error: 'Não detectei os 4 cantos.', omr: null };
+                        }
 
                         let { tl, tr, bl, br } = bestMarkers;
                         let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
 
+                        // Diferença principal: A altura (WARPED_H) ajusta-se dinamicamente se houver mais questões, igual à geração em PDF.
                         const WARPED_W = 600, WARPED_H = 150 + (numRows * 60); 
                         let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, WARPED_W, 0, WARPED_W, WARPED_H, 0, WARPED_H]);
 
@@ -2695,30 +2702,36 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         cv.warpPerspective(gray, warpedGray, M, new cv.Size(WARPED_W, WARPED_H));
                         cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, 12);
 
-                        // Eixo Y
+                        // 1. Eixo Y - Retângulos (Lado Esquerdo)
                         let leftStrip = warpedThresh.roi(new cv.Rect(0, 0, 50, WARPED_H)), rowSums = [];
-                        for (let y = 0; y < WARPED_H; y++) { let sum = 0; for (let x = 0; x < 35; x++) if (leftStrip.ucharAt(y, x) > 128) sum++; rowSums.push(sum > 10 ? 1 : 0); } leftStrip.delete();
+                        for (let y = 0; y < WARPED_H; y++) {
+                            let sum = 0; for (let x = 0; x < 35; x++) if (leftStrip.ucharAt(y, x) > 128) sum++;
+                            rowSums.push(sum > 10 ? 1 : 0);
+                        } leftStrip.delete();
 
                         let rectCentersY = [], startY = -1;
                         for (let y = 0; y < WARPED_H; y++) {
                             if (rowSums[y] === 1 && startY === -1) startY = y;
                             if (rowSums[y] === 0 && startY !== -1) {
                                 let center = Math.floor((startY + y) / 2), h = y - startY;
-                                if (h > 4 && h < 45 && center > 40 && center < WARPED_H - 40) rectCentersY.push(center);
+                                if (h > 4 && h < 45 && center > 50 && center < WARPED_H - 50) rectCentersY.push(center);
                                 startY = -1;
                             }
                         }
 
-                        // Eixo X
-                        let topStrip = warpedThresh.roi(new cv.Rect(0, 10, WARPED_W, 95)), colSums = [];
-                        for (let x = 0; x < WARPED_W; x++) { let sum = 0; for (let y = 0; y < 95; y++) if (topStrip.ucharAt(y, x) > 128) sum++; colSums.push(sum > 3 ? 1 : 0); } topStrip.delete();
+                        // 2. Eixo X - Letras (Topo)
+                        let topStrip = warpedThresh.roi(new cv.Rect(0, 20, WARPED_W, 85)), colSums = [];
+                        for (let x = 0; x < WARPED_W; x++) {
+                            let sum = 0; for (let y = 0; y < 85; y++) if (topStrip.ucharAt(y, x) > 128) sum++;
+                            colSums.push(sum > 3 ? 1 : 0);
+                        } topStrip.delete();
 
                         let letterData = [], startX = -1;
                         for (let x = 0; x < WARPED_W; x++) {
                             if (colSums[x] === 1 && startX === -1) startX = x;
                             if (colSums[x] === 0 && startX !== -1) {
                                 let center = Math.floor((startX + x) / 2), w = x - startX;
-                                if (w > 5 && w < 50 && center > 100 && center < WARPED_W - 40) letterData.push({ center });
+                                if (w > 5 && w < 50 && center > 120) letterData.push({ center });
                                 startX = -1;
                             }
                         }
@@ -2727,7 +2740,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         let finalYs = rectCentersY.length === numRows ? rectCentersY : [];
                         if (finalYs.length === 0) {
-                            let startProp = 0.18, step = (0.88 - startProp) / Math.max(1, numRows - 1);
+                            let startProp = 0.145, step = (0.865 - startProp) / Math.max(1, numRows - 1);
                             for (let i = 0; i < numRows; i++) finalYs.push(Math.floor((startProp + i * step) * WARPED_H));
                         }
 
@@ -2743,12 +2756,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             finalXs = [0.272, 0.419, 0.570, 0.720, 0.865].map(r => Math.floor(r * WARPED_W));
                         }
 
-                        const radiusX = Math.floor(WARPED_W * 0.028), radiusY = Math.floor(WARPED_H * 0.020);
+                        const radiusX = Math.floor(WARPED_W * 0.028);
+                        const radiusY = Math.floor(600 * 0.030); // Fixo proporcional para lidar com variação de altura
 
                         for (let i = 0; i < numRows; i++) {
                             let centerY = finalYs[i], rowDensities = [];
                             for (let j = 0; j < numCols; j++) {
-                                let rect = new cv.Rect(finalXs[j] - radiusX, centerY - radiusY, radiusX * 2, radiusY * 2);
+                                let centerX = finalXs[j];
+                                let rect = new cv.Rect(centerX - radiusX, centerY - radiusY, radiusX * 2, radiusY * 2);
                                 rect.x = Math.max(0, rect.x); rect.y = Math.max(0, rect.y);
                                 rect.width = Math.min(WARPED_W - rect.x, rect.width); rect.height = Math.min(WARPED_H - rect.y, rect.height);
 
@@ -2764,7 +2779,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             if (sortedDensities[0].density > thresholdDensity) {
                                 if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.18)) {
                                     answer = "Anulada";
-                                } else { answer = sortedDensities[0].option; }
+                                } else { 
+                                    answer = sortedDensities[0].option; 
+                                }
                             }
                             results.push({ question: i + 1, answer: answer });
                         }
@@ -2773,7 +2790,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         return { error: null, omr: results };
                     } catch(err) {
                         cleanUpOMR([src, gray, threshMarkers, contours, hierarchy]);
-                        return { error: 'A foto não tem nitidez ou enquadramento.', omr: null };
+                        return { error: 'Exceção no processamento.', omr: null };
                     }
                 };
 
@@ -2795,7 +2812,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     let successCount = 0;
                     let lastSavedId = null;
 
-                    // Canvas de processamento local
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
@@ -2804,7 +2820,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         const file = correctionQueue.value[i];
                         try {
-                            // 1. Carregar a imagem
+                            // 1. Escala da Imagem usando limitador (1500) igual ao React
                             await new Promise((resolve, reject) => {
                                 const img = new Image();
                                 img.onload = () => {
@@ -2814,40 +2830,38 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                                     resolve();
                                 };
-                                img.onerror = () => reject(new Error('Erro ao abrir a imagem.'));
+                                img.onerror = () => reject(new Error('Erro ao carregar a foto.'));
                                 img.src = URL.createObjectURL(file);
                             });
 
-                            // 2. Localizar o QR Code via jsQR
+                            // 2. Localização QR Code apenas via jsQR
                             let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                             let code = window.jsQR(imgData.data, imgData.width, imgData.height);
                             let qrStr = code ? code.data : null;
 
-                            if (!qrStr) throw new Error(`Arquivo ${i+1}: QR Code não localizado.`);
+                            if (!qrStr) throw new Error(`QR Code da prova não encontrado. Controle os reflexos.`);
 
                             let qd;
                             try { qd = JSON.parse(qrStr.replace(/`/g, '')); } 
-                            catch(e) { throw new Error(`Arquivo ${i+1}: QR Code corrompido.`); }
+                            catch(e) { throw new Error(`QR Code corrompido ou de outra fonte.`); }
 
                             const exm = exams.value.find(e => e.id === Number(qd.e));
                             const std = students.value.find(s => s.id === Number(qd.s));
                             const ver = Number(qd.v) || 0;
 
-                            if(!exm || !std) throw new Error(`Arquivo ${i+1}: Prova/Aluno não registados.`);
+                            if(!exm || !std) throw new Error(`Prova ou Aluno ausentes na base de dados.`);
 
                             const vQuestions = getVersionQuestions(exm, ver);
                             const maxQ = vQuestions.length;
 
                             // 3. Executar Motor Geométrico (OpenCV)
                             const omrResult = runOMRLogic(canvas, maxQ);
+                            if (omrResult.error) throw new Error(omrResult.error);
 
-                            if (omrResult.error) throw new Error(`Arq ${i+1}: ${omrResult.error}`);
-
-                            // 4. Mapear Respostas 
+                            // 4. Mapear Respostas
                             let ansMap = {};
                             omrResult.omr.forEach((res, qIndex) => {
                                 if (qIndex < maxQ && res.answer !== 'Anulada' && res.answer !== 'Em Branco') {
-                                    // A=0, B=1, C=2, D=3, E=4
                                     const val = ['A', 'B', 'C', 'D', 'E'].indexOf(res.answer);
                                     if (val !== -1) ansMap[qIndex] = val;
                                 }
@@ -2858,13 +2872,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap);
                             successCount++;
 
-                            // Pausa ultra rápida para o Vue atualizar o Loader visual
+                            // Pausa ultra-rápida para o Loader atualizar no ecrã
                             if (i < correctionQueue.value.length - 1) await new Promise(r => setTimeout(r, 50));
 
                         } catch(e) {
                             if (!stopQueueFlag.value) {
-                                showToast(e.message, "error");
-                                await new Promise(res => setTimeout(res, 1200));
+                                showToast(`Gabarito ${i+1}: ${e.message}`, "error");
+                                await new Promise(res => setTimeout(res, 2000));
                             }
                         }
                         
@@ -2876,7 +2890,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         isProcessingQueue.value = false;
                         await load();
                         if (successCount > 0) {
-                            showToast(`Leitura OMR Concluída! ${successCount} salvos.`, "success");
+                            showToast(`Correção concluída! ${successCount} salva(s).`, "success");
                             if (lastSavedId) setTimeout(() => openResultDetails({ id: lastSavedId }), 600);
                         } else {
                             showToast("Nenhuma prova lida com sucesso.", "error");
