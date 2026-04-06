@@ -1003,12 +1003,7 @@
                             <option v-else :value="q.correctIndex">Múltiplos (Não Editável)</option>
                         </select>
                     </div>
-                </div>
-                <div class="p-4 border-t"><button @click="saveFixedKey" class="w-full bg-orange-500 text-white py-3 rounded-xl font-bold">Salvar e Recalcular Notas</button></div>
-            </div>
-        </div>
-
-        <!-- DETALHES RESULTADO (DEMONSTRATIVO IA/MANUAL E REVISÃO) -->
+                <!-- DETALHES RESULTADO (DEMONSTRATIVO IA/MANUAL E REVISÃO) -->
         <div v-if="showResultDetailsModal" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="bg-white rounded-3xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
                 <div class="p-5 bg-indigo-600 text-white flex justify-between items-center">
@@ -1031,7 +1026,12 @@
                 </div>
                 <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center text-xs font-bold text-indigo-800">
                     <span class="flex items-center gap-1.5"><i class="fa-solid fa-user-check"></i> Revisão do Gabarito</span>
-                    <span class="text-[9px] bg-indigo-200/50 px-2 py-1 rounded text-indigo-700">Edite se houver falha de leitura</span>
+                    <div class="flex items-center gap-2">
+                        <span v-if="!selectedResultDetails?.debugImage" class="text-[9px] bg-indigo-200/50 px-2 py-1 rounded text-indigo-700">Edite se houver falha de leitura</span>
+                        <button v-if="selectedResultDetails?.debugImage" @click="viewFullScreen(selectedResultDetails.debugImage)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5 text-[10px] uppercase">
+                            <i class="fa-solid fa-image"></i> Ver Leitura OMR
+                        </button>
+                    </div>
                 </div>
                 <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-2">
                     <div v-for="(q, idx) in selectedResultDetails?.questions" :key="idx" class="bg-white p-3 rounded-xl border flex justify-between items-center transition-all" :class="selectedResultDetails.answers[idx]===q.correctIndex?'border-emerald-200 shadow-sm':'border-red-200 shadow-sm'">
@@ -2367,11 +2367,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const getVersionQuestions = (exam, vIdx) => { if(!exam.versions) return exam.questions||[]; return exam.versions[vIdx]?exam.versions[vIdx].questions:exam.versions[0].questions; };
                 const calculateExamScore = (ansObj, qArr) => { let hits=0; qArr.forEach((q,i)=>{let c=q.type==='vf'||q.type==='assoc'?(q.id||0)%5:q.correctIndex; if(ansObj[i]===c)hits++;}); return ((hits/qArr.length)*10).toFixed(1); };
 
-                const saveExamResult = async (examId, sId, sName, vIdx, ans) => {
+                const saveExamResult = async (examId, sId, sName, vIdx, ans, debugImg = null) => {
                     const ex=exams.value.find(e=>e.id===examId), qArr=getVersionQuestions(ex,vIdx);
                     const bScr=calculateExamScore(ans,qArr), exst=results.value.find(r=>r.examId===examId&&r.studentId===sId);
                     const bns=exst?parseFloat(exst.bonus||0):0, fScr=(parseFloat(bScr)+bns).toFixed(1);
-                    const dt={examId, studentId:sId, studentName:sName, score:fScr, bonus:bns, date:Date.now(), answers:ans, maxScore:qArr.length, version:vIdx};
+                    const finalDebugImg = debugImg || (exst ? exst.debugImage : null);
+                    const dt={examId, studentId:sId, studentName:sName, score:fScr, bonus:bns, date:Date.now(), answers:ans, maxScore:qArr.length, version:vIdx, debugImage: finalDebugImg};
                     let id=exst?exst.id:await db.results.add(JSON.parse(JSON.stringify(dt)));
                     if(exst) await db.results.put({...dt,id}); results.value=await db.results.toArray(); return id;
                 };
@@ -2402,6 +2403,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         title: ex.title, 
                         studentName: resObj.studentName,
                         answers: JSON.parse(JSON.stringify(resObj.answers || {})),
+                        debugImage: resObj.debugImage,
                         questions: v.map(q => ({ ...q, correctIndex: (q.type === 'vf' || q.type === 'assoc') ? (q.id || 0) % 5 : q.correctIndex }))
                     };
                     showResultDetailsModal.value = true;
@@ -2870,22 +2872,22 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const vQuestions = getVersionQuestions(exm, ver);
                             const maxQ = vQuestions.length;
 
-                            // 3. Executar o Motor Geometrico Exato do React
-                            const omrResult = runOMRLogic(canvas);
+                            // 3. Executar OMREngine fornecido
+                            const omrResult = OMREngine.processGabarito(canvas, maxQ);
                             if (omrResult.error) throw new Error(omrResult.error);
 
-                            // 4. Mapear Respostas do formato original do React
+                            // 4. Mapear Respostas do 'results' retornado pelo OMR
                             let ansMap = {};
-                            omrResult.omr.forEach((res, qIndex) => {
-                                if (qIndex < maxQ && res.answer !== 'Anulada' && res.answer !== 'Em Branco') {
-                                    const val = ['A', 'B', 'C', 'D', 'E'].indexOf(res.answer);
+                            omrResult.results.forEach((res, qIndex) => {
+                                if (qIndex < maxQ && res.resposta !== 'Anulada' && res.resposta !== 'Em Branco') {
+                                    const val = ['A', 'B', 'C', 'D', 'E'].indexOf(res.resposta);
                                     if (val !== -1) ansMap[qIndex] = val;
                                 }
                             });
 
                             if (stopQueueFlag.value) break;
 
-                            lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap);
+                            lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap, omrResult.debugImage);
                             successCount++;
 
                             // Pausa ultra-rápida para o Loader atualizar no ecrã
