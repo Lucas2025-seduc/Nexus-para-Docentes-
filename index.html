@@ -2924,8 +2924,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const addClass=async()=>{if(newClass.value){await db.classes.add({name:newClass.value}); newClass.value=''; load(); showToast("Criada","success")}};
-                const deleteClass=(id)=>{triggerConfirm("Tem certeza que deseja apagar esta turma e todos os seus alunos?",async()=>{await db.students.bulkDelete(students.value.filter(s=>s.classId===id).map(s=>s.id)); await db.classes.delete(id); load();})};
-                const saveStudents=(cid)=>{if(!bulkStudents.value[cid])return; triggerConfirm("Tem certeza que deseja salvar estes alunos?",async()=>{await db.students.bulkAdd(bulkStudents.value[cid].split('\n').map(n=>n.trim()).filter(n=>n).map(n=>({classId:cid,name:n}))); bulkStudents.value[cid]=''; load();})};
+                const deleteClass=(id)=>{triggerConfirm("Tem certeza que deseja apagar esta turma e todos os seus alunos?",async()=>{await db.students.bulkDelete(students.value.filter(s=>Number(s.classId)===Number(id)).map(s=>s.id)); await db.classes.delete(id); load();})};
+                const saveStudents=(cid)=>{if(!bulkStudents.value[cid])return; triggerConfirm("Tem certeza que deseja salvar estes alunos?",async()=>{await db.students.bulkAdd(bulkStudents.value[cid].split('\n').map(n=>n.trim()).filter(n=>n).map(n=>({classId:Number(cid),name:n}))); bulkStudents.value[cid]=''; load();})};
+
+                const toggleClassExpansion = (id) => {
+                    const cls = classes.value.find(c => Number(c.id) === Number(id));
+                    if (cls) cls.expanded = !cls.expanded;
+                };
 
                 const deleteAllQuestions = () => {
                     triggerConfirm("Tem a certeza que deseja apagar TODO o banco de questões? Esta ação é irreversível.", async () => {
@@ -3933,9 +3938,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     uniqueSubjects: computed(() => [...new Set(questions.value.map(q => q.subject).filter(Boolean))]),
                     uniqueTopics: computed(() => [...new Set(questions.value.map(q => q.topic).filter(Boolean))]),
                     filteredQuestions: computed(() => questions.value.filter(q => (!qFilter.value || q.text.toLowerCase().includes(qFilter.value.toLowerCase())) && (!filterType.value || q.type === filterType.value) && (!filterSubject.value || q.subject === filterSubject.value) && (!filterTopic.value || q.topic === filterTopic.value))),
-                    filteredClasses: computed(() => classes.value.map(c=>({...c, studentCount:students.value.filter(s=>s.classId===c.id).length}))),
-                    getFilteredStudents: cid => students.value.filter(s=>s.classId===cid && (!studentFilter.value || s.name.toLowerCase().includes(studentFilter.value.toLowerCase()))).sort((a,b)=>a.name.localeCompare(b.name)),
-                    getStudentCount: cid => students.value.filter(s=>s.classId===cid).length,
+                    filteredClasses: computed(() => classes.value.map(c=>({...c, studentCount:students.value.filter(s=>Number(s.classId)===Number(c.id)).length}))),
+                    getFilteredStudents: cid => students.value.filter(s=>Number(s.classId)===Number(cid) && (!studentFilter.value || s.name.toLowerCase().includes(studentFilter.value.toLowerCase()))).sort((a,b)=>a.name.localeCompare(b.name)),
+                    getStudentCount: cid => students.value.filter(s=>Number(s.classId)===Number(cid)).length,
                     filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase())) && (!examFilterSubject.value || q.subject === examFilterSubject.value))),
                     filteredHistoryExams: computed(() => {
                         let sortedExams = [...exams.value].sort((a, b) => b.date - a.date);
