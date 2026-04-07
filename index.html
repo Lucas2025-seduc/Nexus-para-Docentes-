@@ -3627,24 +3627,24 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 
                 // Dash functions
                 const getClassAverage = (cid) => {
-                    let rs = results.value.filter(r => exams.value.find(e => Number(e.id) === Number(r.examId) && Number(e.classId) === Number(cid)));
+                    let rs = results.value.filter(r => exams.value.find(e => e.id === r.examId && e.classId === cid));
                     if(!rs.length) return "0.0";
                     let sum = rs.reduce((acc, val) => acc + parseFloat(val.score), 0);
                     return (sum / rs.length).toFixed(1);
                 };
                 
                 const getEvaluatedStudentCount = (cid) => {
-                    let uniqueStds = new Set(results.value.filter(r => exams.value.find(e => Number(e.id) === Number(r.examId) && Number(e.classId) === Number(cid))).map(r => Number(r.studentId)));
+                    let uniqueStds = new Set(results.value.filter(r => exams.value.find(e => e.id === r.examId && e.classId === cid)).map(r => r.studentId));
                     return uniqueStds.size;
                 };
 
                 const getClassGradeDistribution = (cid) => {
                     let map = {};
-                    students.value.filter(s => Number(s.classId) === Number(cid)).forEach(s => {
-                        let sRs = results.value.filter(r => Number(r.studentId) === Number(s.id) && exams.value.find(e => Number(e.id) === Number(r.examId) && Number(e.classId) === Number(cid)));
+                    students.value.filter(s => s.classId === cid).forEach(s => {
+                        let sRs = results.value.filter(r => r.studentId === s.id && exams.value.find(e => e.id === r.examId && e.classId === cid));
                         let avg = sRs.length ? (sRs.reduce((a,b)=>a+parseFloat(b.score),0)/sRs.length).toFixed(1) : 0;
                         if(dashboardStudentFilter.value && !s.name.toLowerCase().includes(dashboardStudentFilter.value.toLowerCase())) return;
-                        map[s.id] = { studentId: s.id, name: s.name, avg: parseFloat(avg), photo: s.photo };
+                        map[s.id] = { studentId: s.id, name: s.name, avg: parseFloat(avg) };
                     });
                     
                     let groups = {
@@ -3670,20 +3670,17 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     if(!stds.length) return showToast("Nenhum dado para exportar", "warning");
 
                     let tBody = [
-                        [{text: 'Classif.', bold:true, alignment:'center'}, {text: 'Foto', bold:true, alignment:'center'}, {text: 'Aluno', bold:true}, {text: 'Média Geral', bold:true, alignment:'center'}, {text: 'Status', bold:true, alignment:'center'}]
+                        [{text: 'Classif.', bold:true}, {text: 'Aluno', bold:true}, {text: 'Média Geral', bold:true, alignment:'center'}, {text: 'Status', bold:true, alignment:'center'}]
                     ];
                     
                     stds.forEach((s, i) => {
                         let status = s.avg >= 6 ? 'APROVADO' : 'RECUPERAÇÃO';
                         let color = s.avg >= 6 ? '#059669' : '#dc2626';
-                        let photoNode = s.photo ? { image: s.photo, width: 25, height: 25, alignment: 'center' } : { text: '-', alignment: 'center', margin: [0, 8] };
-                        
                         tBody.push([
-                            {text: `${i+1}º`, alignment: 'center', bold: true, margin: [0, 8]},
-                            photoNode,
-                            {text: s.name, margin: [0, 8]},
-                            {text: s.avg.toFixed(1), alignment: 'center', bold: true, color: color, margin: [0, 8]},
-                            {text: status, alignment: 'center', bold: true, color: color, fontSize: 10, margin: [0, 8]}
+                            {text: `${i+1}º`, alignment: 'center', bold: true},
+                            s.name,
+                            {text: s.avg.toFixed(1), alignment: 'center', bold: true, color: color},
+                            {text: status, alignment: 'center', bold: true, color: color, fontSize: 10}
                         ]);
                     });
 
@@ -3692,7 +3689,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: `RANKING DE DESEMPENHO - ${cName}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
                             {
-                                table: { headerRows: 1, widths: ['auto', 'auto', '*', 'auto', 'auto'], body: tBody },
+                                table: { headerRows: 1, widths: ['auto', '*', 'auto', 'auto'], body: tBody },
                                 layout: 'lightHorizontalLines'
                             }
                         ],
@@ -3703,11 +3700,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const generateGeneralReportPDF = (cid) => {
                     if (!cid) return showToast("Selecione uma turma", "warning");
                     let cName = getClassName(cid);
-                    let stds = students.value.filter(s => Number(s.classId) === Number(cid)).sort((a,b)=>a.name.localeCompare(b.name));
+                    let stds = students.value.filter(s => s.classId === cid).sort((a,b)=>a.name.localeCompare(b.name));
                     if (!stds.length) return showToast("Turma vazia", "warning");
 
                     let tBody = [[
-                        {text: 'Foto', bold:true, alignment:'center'},
                         {text: 'Aluno', bold:true},
                         {text: '1º Bim', bold:true, alignment:'center'},
                         {text: '2º Bim', bold:true, alignment:'center'},
@@ -3720,9 +3716,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let bimAverages = [0,0,0,0];
                         let bimCounts = [0,0,0,0];
                         
-                        let sRes = results.value.filter(r => Number(r.studentId) === Number(s.id));
+                        let sRes = results.value.filter(r => r.studentId === s.id);
                         sRes.forEach(r => {
-                            let ex = exams.value.find(e => Number(e.id) === Number(r.examId));
+                            let ex = exams.value.find(e => e.id === r.examId);
                             if (ex && Number(ex.bimester) >= 1 && Number(ex.bimester) <= 4) {
                                 let bIdx = Number(ex.bimester) - 1;
                                 bimAverages[bIdx] += parseFloat(r.score);
@@ -3730,8 +3726,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             }
                         });
 
-                        let photoNode = s.photo ? { image: s.photo, width: 25, height: 25, alignment: 'center' } : { text: '-', alignment: 'center', margin: [0, 8] };
-                        let row = [photoNode, {text: s.name, margin: [0, 8]}];
+                        let row = [s.name];
                         let totalSum = 0;
                         let totalBims = 0;
 
@@ -3739,20 +3734,20 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             if (bimCounts[i] > 0) {
                                 let avg = bimAverages[i] / bimCounts[i];
                                 // Soma os pontos extras daquele bimestre
-                                let sPts = extraPoints.value.filter(ep => Number(ep.studentId) === Number(s.id) && Number(ep.bimester) === (i+1));
+                                let sPts = extraPoints.value.filter(ep => ep.studentId === s.id && Number(ep.bimester) === (i+1));
                                 let bns = sPts.reduce((acc, ep) => acc + parseFloat(ep.points), 0);
                                 avg = Math.min(10, avg + bns);
                                 
                                 totalSum += avg;
                                 totalBims++;
-                                row.push({text: avg.toFixed(1), alignment:'center', color: avg >= 6 ? '#059669' : '#dc2626', bold: true, margin: [0, 8]});
+                                row.push({text: avg.toFixed(1), alignment:'center', color: avg >= 6 ? '#059669' : '#dc2626', bold: true});
                             } else {
-                                row.push({text: '-', alignment:'center', color: '#9ca3af', margin: [0, 8]});
+                                row.push({text: '-', alignment:'center', color: '#9ca3af'});
                             }
                         }
 
                         let finalAvg = totalBims > 0 ? (totalSum / totalBims).toFixed(1) : '-';
-                        row.push({text: finalAvg, alignment:'center', color: (finalAvg !== '-' && finalAvg >= 6) ? '#059669' : '#dc2626', bold: true, margin: [0, 8]});
+                        row.push({text: finalAvg, alignment:'center', color: (finalAvg !== '-' && finalAvg >= 6) ? '#059669' : '#dc2626', bold: true});
                         tBody.push(row);
                     });
 
@@ -3762,7 +3757,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: `BOLETIM GERAL DE NOTAS - ${cName}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
                             {
-                                table: { headerRows: 1, widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto', 'auto'], body: tBody },
+                                table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto'], body: tBody },
                                 layout: { hLineWidth: ()=>1, vLineWidth: ()=>1, hLineColor: ()=>'#e5e7eb', vLineColor: ()=>'#e5e7eb', paddingLeft: ()=>5, paddingRight: ()=>5, paddingTop: ()=>5, paddingBottom: ()=>5 }
                             }
                         ],
@@ -3773,12 +3768,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const generateAttendanceReportPDF = async (cid) => {
                     if (!cid) return showToast("Selecione uma turma", "warning");
                     let cName = getClassName(cid);
-                    let stds = students.value.filter(s => Number(s.classId) === Number(cid)).sort((a,b)=>a.name.localeCompare(b.name));
+                    let stds = students.value.filter(s => s.classId === cid).sort((a,b)=>a.name.localeCompare(b.name));
                     
-                    const attRecords = await db.attendance.where('classId').equals(Number(cid)).toArray();
+                    const attRecords = await db.attendance.where('classId').equals(cid).toArray();
 
                     let tBody = [[
-                        {text: 'Foto', bold:true, alignment:'center'},
                         {text: 'Aluno', bold:true},
                         {text: 'Presenças', bold:true, alignment:'center'},
                         {text: 'Faltas', bold:true, alignment:'center'},
@@ -3787,7 +3781,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     ]];
 
                     stds.forEach(s => {
-                        let sAtt = attRecords.filter(r => Number(r.studentId) === Number(s.id));
+                        let sAtt = attRecords.filter(r => r.studentId === s.id);
                         let pres = sAtt.filter(r => r.status === 'P').length;
                         let faltas = sAtt.filter(r => r.status === 'F').length;
                         let just = sAtt.filter(r => r.status === 'J').length;
@@ -3795,16 +3789,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         let pct = total > 0 ? ((pres + just) / total * 100).toFixed(1) + '%' : '-';
                         let pctColor = (total > 0 && ((pres + just) / total) < 0.75) ? '#dc2626' : '#059669';
-                        
-                        let photoNode = s.photo ? { image: s.photo, width: 25, height: 25, alignment: 'center' } : { text: '-', alignment: 'center', margin: [0, 8] };
 
                         tBody.push([
-                            photoNode,
-                            {text: s.name, margin: [0, 8]},
-                            {text: pres.toString(), alignment:'center', margin: [0, 8]},
-                            {text: faltas.toString(), alignment:'center', color: faltas > 0 ? '#dc2626' : '#374151', bold: faltas > 0, margin: [0, 8]},
-                            {text: just.toString(), alignment:'center', color: '#d97706', margin: [0, 8]},
-                            {text: pct, alignment:'center', bold: true, color: pctColor, margin: [0, 8]}
+                            s.name,
+                            {text: pres.toString(), alignment:'center'},
+                            {text: faltas.toString(), alignment:'center', color: faltas > 0 ? '#dc2626' : '#374151', bold: faltas > 0},
+                            {text: just.toString(), alignment:'center', color: '#d97706'},
+                            {text: pct, alignment:'center', bold: true, color: pctColor}
                         ]);
                     });
 
@@ -3813,7 +3804,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: `RELATÓRIO DE FREQUÊNCIA - ${cName}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
                             {
-                                table: { headerRows: 1, widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'], body: tBody },
+                                table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto', 'auto'], body: tBody },
                                 layout: 'lightHorizontalLines'
                             }
                         ],
