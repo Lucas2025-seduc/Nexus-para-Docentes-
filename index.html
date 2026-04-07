@@ -3878,9 +3878,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const studentExamsList = computed(() => {
                     if(!studentDetails.value.id || selectedBimester.value === 'notes') return [];
-                    let res = results.value.filter(r => r.studentId === studentDetails.value.id);
+                    let res = results.value.filter(r => Number(r.studentId) === Number(studentDetails.value.id));
                     return res.map(r => {
-                        let e = exams.value.find(ex => ex.id === r.examId);
+                        let e = exams.value.find(ex => Number(ex.id) === Number(r.examId));
                         if(e && Number(e.bimester) === Number(selectedBimester.value)) {
                             return { ...e, score: r.score, resultId: r.id };
                         }
@@ -3890,7 +3890,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const studentExtraPointsList = computed(() => {
                     if(!studentDetails.value.id || selectedBimester.value === 'notes') return [];
-                    return extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && Number(ep.bimester) === Number(selectedBimester.value));
+                    return extraPoints.value.filter(ep => Number(ep.studentId) === Number(studentDetails.value.id) && Number(ep.bimester) === Number(selectedBimester.value));
                 });
 
                 const studentBimesterAverage = computed(() => {
