@@ -3948,10 +3948,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         return sortedExams.filter(e => e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()) || getClassName(e.classId)?.toLowerCase().includes(examHistoryFilter.value.toLowerCase()));
                     }),
                     
+                    selectedClassIdForReport, // <-- ADICIONADO AQUI: Permite que o Painel reaja instantaneamente ao toque
+                    
                     // State Modals
-                    newClass, bulkStudents, addClass, deleteClass, saveStudents,
-                    qType, newQ, showQFormModal, formSource, changeQType, openQForm, saveQuestion, editQuestion, handleImageUpload, deleteQuestion: id=>triggerConfirm("Apagar questão?",async()=>{await db.questions.delete(id);load()}), deleteAllQuestions,
-                    examCart, examConfig, toggleExamQ: q=>{const i=examCart.value.findIndex(x=>x.id===q.id); if(i>-1)examCart.value.splice(i,1);else examCart.value.push(q)}, isQInExam: id=>examCart.value.some(q=>q.id===id), generatePDF,
+                    newClass, bulkStudents, addClass, deleteClass, saveStudents, toggleClassExpansion,
                     editingExamId, printConfig, openEditExam, saveEditedExam, duplicateExam, showEditExamModal, editingExam,
                     showHistory, deleteExam, generateMergedPDF, reprintExamPDF, generateKeyPDF,
                     
