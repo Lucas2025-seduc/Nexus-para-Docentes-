@@ -496,7 +496,7 @@
                         </div>
                     </div>
                     <div class="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-                        <div v-for="r in recentCorrections" :key="r.id" class="p-3 border rounded-xl flex justify-between items-center transition group shadow-sm" :class="r.needsReview ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' : 'bg-gray-50 border-gray-100 hover:bg-indigo-50 hover:border-indigo-200'">
+                        <div v-for="r in recentCorrections" :key="r.id" class="p-3 border rounded-xl flex justify-between items-center transition group shadow-sm" :class="r.isIncomplete ? 'bg-red-50 border-red-200 hover:bg-red-100' : (r.needsReview ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' : 'bg-gray-50 border-gray-100 hover:bg-indigo-50 hover:border-indigo-200')">
                             <div class="flex items-center gap-3 flex-1 pr-2 overflow-hidden cursor-pointer" @click="openResultDetails(r)">
                                 <img v-if="getStudent(r.studentId)?.photo" :src="getStudent(r.studentId).photo" class="w-9 h-9 rounded-full object-cover border border-gray-200 shadow-sm flex-none">
                                 <div v-else class="w-9 h-9 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center border border-gray-200 shadow-sm flex-none"><i class="fa-solid fa-user text-xs"></i></div>
@@ -508,14 +508,24 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 pl-2 border-l" :class="r.needsReview ? 'border-amber-200' : 'border-gray-200'">
+                            <div class="flex items-center gap-2 pl-2 border-l" :class="r.isIncomplete ? 'border-red-200' : (r.needsReview ? 'border-amber-200' : 'border-gray-200')">
                                 <div class="text-right min-w-[40px] mr-1 flex flex-col items-end justify-center">
                                     <div class="flex items-center gap-1">
-                                        <i v-if="r.needsReview" class="fa-solid fa-triangle-exclamation text-amber-500 text-sm animate-pulse" title="Revisão Necessária"></i>
+                                        <i v-if="r.isIncomplete" class="fa-solid fa-circle-exclamation text-red-500 text-sm animate-pulse" title="Incompleta / Em Branco"></i>
+                                        <i v-else-if="r.needsReview" class="fa-solid fa-triangle-exclamation text-amber-500 text-sm animate-pulse" title="Revisão Necessária"></i>
                                         <span class="text-xl font-black leading-none block" :class="parseFloat(r.score) >= 6 ? 'text-emerald-600' : 'text-red-500'">{{r?.score}}</span>
                                     </div>
                                 </div>
-                                <button v-if="r.debugImage" @click="viewFullScreen(r.debugImage)" class="w-8 h-8 rounded-full bg-white border flex items-center justify-center text-purple-500 hover:text-purple-700 hover:shadow-sm transition" :class="r.needsReview ? 'border-amber-200' : 'border-gray-200'" title="Ver OMR">
+                                <button v-if="r.debugImage" @click="viewFullScreen(r.debugImage)" class="w-8 h-8 rounded-full bg-white border flex items-center justify-center text-purple-500 hover:text-purple-700 hover:shadow-sm transition" :class="r.isIncomplete ? 'border-red-200' : (r.needsReview ? 'border-amber-200' : 'border-gray-200')" title="Ver OMR">
+                                    <i class="fa-solid fa-image text-sm"></i>
+                                </button>
+                                <button v-if="!r.isExternal" @click="openManualCorrectionForResult(r)" class="w-8 h-8 rounded-full bg-white border flex items-center justify-center text-blue-400 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition" :class="r.isIncomplete ? 'border-red-200' : (r.needsReview ? 'border-amber-200' : 'border-gray-200')" title="Editar na Grelha (Visual)">
+                                    <i class="fa-solid fa-table-cells text-sm"></i>
+                                </button>
+                                <button v-if="!r.isExternal" @click="openResultDetails(r)" class="w-8 h-8 rounded-full bg-white border flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:shadow-sm transition" :class="r.isIncomplete ? 'border-red-200' : (r.needsReview ? 'border-amber-200' : 'border-gray-200')" title="Ver Detalhes">
+                                    <i class="fa-solid fa-eye text-sm"></i>
+                                </button>
+                                <button @click="deleteStudentResult(r.id)" class="w-8 h-8 rounded-full bg-white border flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition" :class="r.isIncomplete ? 'border-red-200' : (r.needsReview ? 'border-amber-200' : 'border-gray-200')" title="Excluir Nota">
                                     <i class="fa-solid fa-trash-can text-sm"></i>
                                 </button>
                             </div>
@@ -847,15 +857,17 @@
 
                         <!-- Lista de Provas Detalhadas -->
                         <div v-if="studentExamsList.length > 0" class="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-5 mb-2 ml-1">Avaliações e Notas</div>
-                        <div v-for="ex in studentExamsList" :key="ex.id" class="p-3 rounded-xl border flex justify-between items-center mb-2 shadow-sm hover:shadow transition" :class="ex.needsReview ? 'bg-amber-50 border-amber-200' : 'bg-white'">
+                        <div v-for="ex in studentExamsList" :key="ex.id" class="p-3 rounded-xl border flex justify-between items-center mb-2 shadow-sm hover:shadow transition" :class="ex.isIncomplete ? 'bg-red-50 border-red-200' : (ex.needsReview ? 'bg-amber-50 border-amber-200' : 'bg-white')">
                             <div class="flex-1 font-bold text-sm text-gray-700 flex items-center gap-2">
                                 {{ex.title}}
-                                <span v-if="ex.needsReview" class="text-[9px] bg-amber-200 text-amber-800 px-2 py-0.5 rounded font-black uppercase">Revisar</span>
+                                <span v-if="ex.isIncomplete" class="text-[9px] bg-red-200 text-red-800 px-2 py-0.5 rounded font-black uppercase">Incompleta</span>
+                                <span v-else-if="ex.needsReview" class="text-[9px] bg-amber-200 text-amber-800 px-2 py-0.5 rounded font-black uppercase">Revisar</span>
                                 <span v-if="ex.isManual" class="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-black uppercase"><i class="fa-solid fa-hand-pointer"></i> Manual</span>
                             </div>
                             <div v-if="editingResultId!==ex.id" class="flex items-center gap-1">
                                 <div class="font-black text-lg mr-2 flex items-center gap-1">
-                                    <i v-if="ex.needsReview" class="fa-solid fa-triangle-exclamation text-amber-500 text-sm animate-pulse" title="Revisão Necessária"></i>
+                                    <i v-if="ex.isIncomplete" class="fa-solid fa-circle-exclamation text-red-500 text-sm animate-pulse" title="Incompleta / Em Branco"></i>
+                                    <i v-else-if="ex.needsReview" class="fa-solid fa-triangle-exclamation text-amber-500 text-sm animate-pulse" title="Revisão Necessária"></i>
                                     <span :class="ex.score>=6?'text-emerald-600':'text-red-500'">{{ex.score}}</span>
                                 </div>
                                 <button v-if="!ex.isExternal" @click="openResultDetails(ex)" class="text-blue-500 hover:bg-blue-50 rounded-lg p-1.5 transition" title="Ver Gabarito Oficial vs Respostas do Aluno"><i class="fa-solid fa-eye"></i></button>
@@ -2388,7 +2400,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const getVersionQuestions = (exam, vIdx) => { if(!exam.versions) return exam.questions||[]; return exam.versions[vIdx]?exam.versions[vIdx].questions:exam.versions[0].questions; };
                 const calculateExamScore = (ansObj, qArr) => { let hits=0; qArr.forEach((q,i)=>{let c=q.type==='vf'||q.type==='assoc'?(q.id||0)%5:q.correctIndex; if(ansObj[i]===c)hits++;}); return ((hits/qArr.length)*10).toFixed(1); };
 
-                const saveExamResult = async (examId, sId, sName, vIdx, ans, debugImg = null, needsReview = false, isManual = false) => {
+                const saveExamResult = async (examId, sId, sName, vIdx, ans, debugImg = null, needsReview = false, isManual = false, isIncomplete = false) => {
                     const ex=exams.value.find(e=>e.id===examId), qArr=getVersionQuestions(ex,vIdx);
                     const bScr=calculateExamScore(ans,qArr), exst=results.value.find(r=>r.examId===examId&&r.studentId===sId);
                     const bns=exst?parseFloat(exst.bonus||0):0, fScr=(parseFloat(bScr)+bns).toFixed(1);
@@ -2397,7 +2409,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     let finalIsManual = isManual;
                     if (!isManual && exst && exst.isManual && debugImg === null) finalIsManual = true;
 
-                    const dt={examId, studentId:sId, studentName:sName, score:fScr, bonus:bns, date:Date.now(), answers:ans, maxScore:qArr.length, version:vIdx, debugImage: finalDebugImg, needsReview: needsReview, isManual: finalIsManual};
+                    let finalIsIncomplete = isIncomplete;
+                    if (isManual) finalIsIncomplete = false;
+
+                    const dt={examId, studentId:sId, studentName:sName, score:fScr, bonus:bns, date:Date.now(), answers:ans, maxScore:qArr.length, version:vIdx, debugImage: finalDebugImg, needsReview: (isManual ? false : needsReview), isManual: finalIsManual, isIncomplete: finalIsIncomplete};
                     let id=exst?exst.id:await db.results.add(JSON.parse(JSON.stringify(dt)));
                     if(exst) await db.results.put({...dt,id}); results.value=await db.results.toArray(); return id;
                 };
@@ -2445,8 +2460,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         cleanAns[key] = rd.answers[key] !== null ? parseInt(rd.answers[key]) : null;
                     }
                     
-                    // Salvar manualmente certifica a prova e remove o alerta amarelo (needsReview = false, isManual = true)
-                    await saveExamResult(r.examId,r.studentId,r.studentName,r.version,cleanAns, r.debugImage, false, true); 
+                    // Salvar manualmente certifica a prova e remove o alerta amarelo/vermelho (needsReview = false, isManual = true, isIncomplete = false)
+                    await saveExamResult(r.examId,r.studentId,r.studentName,r.version,cleanAns, r.debugImage, false, true, false); 
                     let u=results.value.find(x=>x.id===rd.resultId); 
                     rd.score=u.score; 
                     showToast("Atualizado!","success");
@@ -2524,7 +2539,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     getVersionQuestions(activeExam.value,activeVersion.value).forEach((q,i)=>{
                         if(studentAnswers.value[i]!=null) pa[i]=parseInt(studentAnswers.value[i]);
                     }); 
-                    let sid=await saveExamResult(activeExam.value.id,activeStudent.value.id,activeStudent.value.name,activeVersion.value,pa, null, false, true); 
+                    let sid=await saveExamResult(activeExam.value.id,activeStudent.value.id,activeStudent.value.name,activeVersion.value,pa, null, false, true, false); 
                     showToast(`Salvo! Nota: ${results.value.find(r=>r.id===sid).score}`,'success'); 
                     correctionMode.value=false; 
                     openResultDetails(results.value.find(r=>r.id===sid));
@@ -2968,21 +2983,38 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             // 3. Executar a lógica exata original que garante zero erros
                             const omrResult = runOMRLogic(canvas);
                             
-                            if (omrResult.error) throw new Error(omrResult.error);
-
-                            // 4. Mapear Respostas do formato original do React
                             let ansMap = {};
-                            omrResult.omr.forEach((res, qIndex) => {
-                                if (qIndex < maxQ && res.answer !== 'Anulada' && res.answer !== 'Em Branco') {
-                                    const val = ['A', 'B', 'C', 'D', 'E'].indexOf(res.answer);
-                                    if (val !== -1) ansMap[qIndex] = val;
+                            let finalDebugImage = null;
+                            let needsReview = false;
+
+                            if (omrResult.error) {
+                                needsReview = true;
+                                finalDebugImage = canvas.toDataURL('image/jpeg', 0.6); // Salva bruta para o prof ler e marcar manual
+                            } else {
+                                needsReview = omrResult.needsReview || false;
+                                // 4. Mapear Respostas do formato original do React
+                                omrResult.omr.forEach((res, qIndex) => {
+                                    if (qIndex < maxQ && res.answer !== 'Anulada' && res.answer !== 'Em Branco') {
+                                        const val = ['A', 'B', 'C', 'D', 'E'].indexOf(res.answer);
+                                        if (val !== -1) ansMap[qIndex] = val;
+                                    }
+                                });
+                                finalDebugImage = omrResult.debug;
+                            }
+
+                            // Verifica se faltou alguma questão (Em Branco ou Anulada ou Falha de Leitura)
+                            let isMissingAnswers = false;
+                            for (let q = 0; q < maxQ; q++) {
+                                if (ansMap[q] === undefined) {
+                                    isMissingAnswers = true;
+                                    break;
                                 }
-                            });
+                            }
 
                             if (stopQueueFlag.value) break;
 
-                            // A Mágica Acontece Aqui: Agora guardamos a foto final desenhada!
-                            lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap, omrResult.debug);
+                            // A Mágica Acontece Aqui: Agora guardamos a foto final desenhada e as flags de status
+                            lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap, finalDebugImage, needsReview, false, isMissingAnswers);
                             successCount++;
 
                             if (i < correctionQueue.value.length - 1) await new Promise(r => setTimeout(r, 50));
@@ -3269,7 +3301,52 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const generateClassReportPDF = () => { showToast("A gerar ranking...", "success"); };
                 const generateGeneralReportPDF = (classId) => { showToast("A gerar boletim...", "success"); };
                 const generateAttendanceReportPDF = (classId) => { showToast("A gerar relatório de faltas...", "success"); };
-                const generateLastExamPDF = () => { showToast("A gerar último resultado...", "success"); };
+                
+                const generateLastExamPDF = () => { 
+                    if (!recentCorrections.value || recentCorrections.value.length === 0) return showToast("Nenhuma correção recente para gerar PDF.", "warning");
+                    showToast("A processar relatório de notas...", "loading");
+                    
+                    const lastExamId = recentCorrections.value[0].examId;
+                    const exam = exams.value.find(e => e.id === lastExamId);
+                    if (!exam) return showToast("Prova não encontrada.", "error");
+
+                    const examResults = results.value.filter(r => r.examId === lastExamId).sort((a, b) => a.studentName.localeCompare(b.studentName));
+                    
+                    let tBody = [[{ text: 'Aluno', bold: true, fillColor: '#f3f4f6' }, { text: 'Nota', bold: true, alignment: 'center', fillColor: '#f3f4f6' }]];
+                    let sum = 0;
+                    
+                    examResults.forEach(r => {
+                        sum += parseFloat(r.score);
+                        let scoreColor = parseFloat(r.score) >= 6 ? '#059669' : '#ef4444';
+                        if(r.isIncomplete) scoreColor = '#ef4444'; // Vermelho se incompleto
+                        else if(r.needsReview) scoreColor = '#f59e0b'; // Laranja se precisar revisar
+                        
+                        let noteStr = r.score;
+                        if(r.isIncomplete) noteStr += ' (Incompleta)';
+                        else if(r.needsReview) noteStr += ' (Revisar)';
+                        else if(r.isManual) noteStr += ' (Manual)';
+                        
+                        tBody.push([r.studentName, { text: noteStr, color: scoreColor, alignment: 'center', bold: true }]);
+                    });
+
+                    const avg = examResults.length > 0 ? (sum / examResults.length).toFixed(1) : '-';
+                    
+                    const doc = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: 'RELATÓRIO DE NOTAS DA AVALIAÇÃO', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
+                            { text: `Prova: ${exam.title}`, fontSize: 12, alignment: 'center', margin: [0, 0, 0, 2] },
+                            { text: `Turma: ${getClassName(exam.classId)}`, fontSize: 10, alignment: 'center', margin: [0, 0, 0, 15] },
+                            { columns: [{ text: `Avaliados: ${examResults.length}`, fontSize: 10, bold: true }, { text: `Média da Turma: ${avg}`, fontSize: 10, bold: true, alignment: 'right' }], margin: [0, 0, 0, 10] },
+                            {
+                                table: { headerRows: 1, widths: ['*', 100], body: tBody },
+                                layout: { hLineWidth: i => 1, vLineWidth: i => 0, hLineColor: i => '#e5e7eb', paddingLeft: i => 4, paddingRight: i => 4, paddingTop: i => 6, paddingBottom: i => 6 }
+                            }
+                        ],
+                        defaultStyle: { font: 'Roboto' }
+                    };
+                    downloadPDF(pdfMake.createPdf(doc), `Notas_${exam.title.replace(/[^a-zA-Z0-9\s]/g,'').replace(/\s+/g,'_')}.pdf`, 'download');
+                };
                 
                 const openStudentProfile = async (id) => {
                     let s = students.value.find(st => st.id === id);
