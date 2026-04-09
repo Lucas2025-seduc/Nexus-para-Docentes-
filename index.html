@@ -2651,6 +2651,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
                         cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 151, 15);
 
+                        // DEFESA CONTRA RABISCOS: Abertura Morfológica (Erosão seguida de Dilatação)
+                        // Destrói linhas finas (traços de caneta do aluno) que estejam encostadas aos quadrados
+                        let M_open = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+                        cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_OPEN, M_open);
+                        M_open.delete();
+
                         let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
                         cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_CLOSE, M_close);
                         M_close.delete();
