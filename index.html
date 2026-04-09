@@ -2642,27 +2642,20 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const cleanUp = mats => mats.forEach(m => m && !m.isDeleted() && m.delete());
 
-                const runOMRLogic = (canvas, strategy = 1) => {
+                const runOMRLogic = (canvas) => {
                     const cv = window.cv;
                     let src = cv.imread(canvas);
                     let gray = new cv.Mat(), threshMarkers = new cv.Mat(), contours = new cv.MatVector(), hierarchy = new cv.Mat();
 
                     try {
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                        
-                        // Estratégias adaptativas de Binarização para encontrar marcadores
-                        let markerBlock = 151, markerC = 15;
-                        if (strategy === 2) { markerBlock = 101; markerC = 10; }
-                        if (strategy === 3) { markerBlock = 71; markerC = 5; }
+                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 151, 15);
 
-                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, markerBlock, markerC);
-
-                        // Escudo morfológico: na estratégia 3, pulamos a limpeza caso os quadrados originais sejam muito fracos/apagados
-                        if (strategy < 3) {
-                            let M_open = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
-                            cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_OPEN, M_open);
-                            M_open.delete();
-                        }
+                        // DEFESA CONTRA RABISCOS: Abertura Morfológica (Erosão seguida de Dilatação)
+                        // Destrói linhas finas (traços de caneta do aluno) que estejam encostadas aos quadrados
+                        let M_open = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+                        cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_OPEN, M_open);
+                        M_open.delete();
 
                         let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
                         cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_CLOSE, M_close);
@@ -2677,18 +2670,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                           let cnt = contours.get(i);
                           let area = cv.contourArea(cnt);
                           let rect = cv.boundingRect(cnt);
-                          
-                          let minAreaRatio = strategy === 1 ? 0.0003 : 0.0001;
-                          if (area > totalArea * minAreaRatio && area < totalArea * 0.05) {
+                          if (area > totalArea * 0.0003 && area < totalArea * 0.05) {
                             let aspect = rect.width / rect.height;
                             let extent = area / (rect.width * rect.height);
-                            
-                            // Relaxamos os limites geométricos nas estratégias de resgate
-                            let minAspect = strategy === 1 ? 0.6 : 0.4;
-                            let maxAspect = strategy === 1 ? 1.4 : 1.6;
-                            let minExtent = strategy === 1 ? 0.50 : 0.35;
-                            
-                            if (aspect >= minAspect && aspect <= maxAspect && extent >= minExtent) {
+                            if (aspect >= 0.6 && aspect <= 1.4 && extent >= 0.50) {
                                 squareCandidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: rect, area: area });
                             }
                           }
@@ -2699,24 +2684,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             for (let i = 0; i < maxIter; i++) for (let j = i + 1; j < maxIter; j++) for (let k = j + 1; k < maxIter; k++) for (let l = k + 1; l < maxIter; l++) {
                                 let pts = [pool[i], pool[j], pool[k], pool[l]];
                                 let areas = pts.map(p => p.area);
-                                let maxAreaRatio = strategy === 1 ? 5.0 : 8.0;
-                                if (Math.max(...areas) / Math.min(...areas) > maxAreaRatio) continue; 
-                                
+                                if (Math.max(...areas) / Math.min(...areas) > 5.0) continue; 
                                 pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
                                 let tl = pts[0], br = pts[3], rem = [pts[1], pts[2]].sort((a, b) => (a.x - a.y) - (b.x - b.y)), bl = rem[0], tr = rem[1];
                                 let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y), wBot = Math.hypot(br.x - bl.x, br.y - bl.y);
                                 let hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y), hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
-                                
-                                let minDim = strategy === 1 ? 0.12 : 0.08;
-                                if (wTop < srcCols * minDim || wBot < srcCols * minDim || hLeft < srcRows * minDim || hRight < srcRows * minDim) continue;
-                                
-                                let maxDistRatio = strategy === 1 ? 1.25 : 1.45;
-                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > maxDistRatio || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > maxDistRatio) continue;
-                                
+                                if (wTop < srcCols * 0.12 || wBot < srcCols * 0.12 || hLeft < srcRows * 0.10 || hRight < srcRows * 0.10) continue;
+                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.25 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.25) continue;
                                 let avgW = (wTop + wBot) / 2, avgH = (hLeft + hRight) / 2, ratio = avgW / avgH;
-                                let minRatio = strategy === 1 ? 0.6 : 0.45;
-                                let maxRatio = strategy === 1 ? 1.4 : 1.55;
-                                if (ratio > minRatio && ratio < maxRatio && (avgW * avgH) > maxArea) {
+                                if (ratio > 0.6 && ratio < 1.4 && (avgW * avgH) > maxArea) {
                                     maxArea = avgW * avgH;
                                     bestCombo = { tl, tr, bl, br };
                                 }
@@ -2742,13 +2718,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let warpedGray = new cv.Mat(), warpedThresh = new cv.Mat(), warpedColor = new cv.Mat();
                         
                         cv.warpPerspective(gray, warpedGray, M, new cv.Size(WARPED_W, WARPED_H));
-                        
-                        // Limiares de Binarização para leitura de bolhas (Mais sensível em resgate)
-                        let warpBlock = 31, warpC = 12;
-                        if (strategy === 2) { warpBlock = 41; warpC = 9; }
-                        if (strategy === 3) { warpBlock = 51; warpC = 6; } // Contraste máximo para grafite fraco
-
-                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, warpBlock, warpC);
+                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, 12);
                         cv.cvtColor(warpedGray, warpedColor, cv.COLOR_GRAY2RGBA);
 
                         // 1. Eixo Y - Retângulos
@@ -2795,10 +2765,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let finalXs = [];
                         if (letterData.length === numCols) {
                           for (let j = 0; j < numCols; j++) {
-                            if (j <= 1) finalXs.push(letterData[j].center);
-                            else if (j === 2) finalXs.push(letterData[j].center + 1);
-                            else if (j === 3) finalXs.push(letterData[j].center + 2);
-                            else if (j === 4) finalXs.push(letterData[j].center + 4);
+                            // Lógica afinada:
+                            if (j <= 1) finalXs.push(letterData[j].center);          // A e B
+                            else if (j === 2) finalXs.push(letterData[j].center + 1); // C (+1px)
+                            else if (j === 3) finalXs.push(letterData[j].center + 2); // D (+2px)
+                            else if (j === 4) finalXs.push(letterData[j].center + 4); // E (+4px)
                           }
                         } else {
                           finalXs = [0.272, 0.419, 0.570, 0.720, 0.865].map(r => Math.floor(r * WARPED_W));
@@ -2822,11 +2793,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 roi.delete();
                             }
 
-                            // Sensibilidade aprimorada caso a prova esteja preenchida de leve
-                            let thresholdDensity = 0.35; 
-                            if (strategy === 2) thresholdDensity = 0.22;
-                            if (strategy === 3) thresholdDensity = 0.15; 
-
+                            // Sensibilidade aprimorada (0.35)
+                            const thresholdDensity = 0.35; 
                             let sortedDensities = [...rowDensities].sort((a, b) => b.density - a.density);
                             let answer = "Em Branco", markedRects = [];
 
@@ -2900,17 +2868,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 img.src = URL.createObjectURL(file);
                             });
 
-                            // 2. Correção Lógica de Orientação (Evita distorção horizontal) e Leitura QR
-                            let code = null;
+                            // 2. Correção de Rotação Automática e Localização do QR Code
                             let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                            code = window.jsQR(imgData.data, imgData.width, imgData.height);
-                            
+                            let code = null;
+                            let rotations = [0, 90, 180, 270];
                             let finalAngle = 0;
-                            
-                            if (!code) {
-                                // Se não achou na orientação original, tenta forçar retrato se for paisagem, ou vice-versa, e inverter.
-                                let anglesToTry = canvas.width > canvas.height ? [90, 270, 180] : [180, 90, 270];
-                                for (let angle of anglesToTry) {
+
+                            for (let angle of rotations) {
+                                if (angle > 0) {
                                     const tCanvas = document.createElement('canvas');
                                     tCanvas.width = (angle === 90 || angle === 270) ? canvas.height : canvas.width;
                                     tCanvas.height = (angle === 90 || angle === 270) ? canvas.width : canvas.height;
@@ -2918,23 +2883,24 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                     tCtx.translate(tCanvas.width / 2, tCanvas.height / 2);
                                     tCtx.rotate(angle * Math.PI / 180);
                                     tCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
-                                    let tImgData = tCtx.getImageData(0, 0, tCanvas.width, tCanvas.height);
-                                    code = window.jsQR(tImgData.data, tImgData.width, tImgData.height);
-                                    if (code) {
-                                        finalAngle = angle;
-                                        break;
-                                    }
+                                    imgData = tCtx.getImageData(0, 0, tCanvas.width, tCanvas.height);
                                 }
-                            } else {
-                                // Achou no ângulo 0. Verifica se precisa corrigir orientação baseada na proporção da imagem
-                                let dx = code.location.topRightCorner.x - code.location.topLeftCorner.x;
-                                let dy = code.location.topRightCorner.y - code.location.topLeftCorner.y;
-                                let qrAngle = Math.atan2(dy, dx) * 180 / Math.PI;
                                 
-                                if (canvas.width > canvas.height) {
-                                    finalAngle = qrAngle > 0 ? 270 : 90;
-                                } else {
-                                    if (Math.abs(qrAngle) > 100) finalAngle = 180;
+                                code = window.jsQR(imgData.data, imgData.width, imgData.height);
+                                
+                                if (code) {
+                                    // Determina se o QR está invertido ou deitado (ângulo interno do QR)
+                                    let dx = code.location.topRightCorner.x - code.location.topLeftCorner.x;
+                                    let dy = code.location.topRightCorner.y - code.location.topLeftCorner.y;
+                                    let qrAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+                                    
+                                    let extra = 0;
+                                    if (qrAngle > 45 && qrAngle <= 135) extra = -90;
+                                    else if (qrAngle > 135 || qrAngle <= -135) extra = 180;
+                                    else if (qrAngle > -135 && qrAngle <= -45) extra = 90;
+                                    
+                                    finalAngle = (angle + extra + 360) % 360;
+                                    break;
                                 }
                             }
 
@@ -2969,48 +2935,24 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                             const maxQ = getVersionQuestions(exm, ver).length;
 
-                            // 3. Executar lógicas OMR com Múltiplas Estratégias para evitar Notas Zero
-                            let bestAnsMap = {};
-                            let bestValidCount = -1;
-                            let bestDebug = null;
+                            // 3. Executar a lógica exata original que garante zero erros
+                            const omrResult = runOMRLogic(canvas);
+                            
+                            if (omrResult.error) throw new Error(omrResult.error);
 
-                            for (let strategy = 1; strategy <= 3; strategy++) {
-                                let omrResult = runOMRLogic(canvas, strategy);
-                                
-                                if (!omrResult.error && omrResult.omr) {
-                                    let tempAnsMap = {};
-                                    let validCount = 0;
-                                    omrResult.omr.forEach((res, qIndex) => {
-                                        if (qIndex < maxQ && res.answer !== 'Anulada' && res.answer !== 'Em Branco') {
-                                            const val = ['A', 'B', 'C', 'D', 'E'].indexOf(res.answer);
-                                            if (val !== -1) {
-                                                tempAnsMap[qIndex] = val;
-                                                validCount++;
-                                            }
-                                        }
-                                    });
-
-                                    if (validCount > bestValidCount) {
-                                        bestValidCount = validCount;
-                                        bestAnsMap = tempAnsMap;
-                                        bestDebug = omrResult.debug;
-                                    }
-                                    
-                                    // Se leu pelo menos 25% da prova, assume como sucesso na estratégia atual e poupa processamento
-                                    if (validCount >= Math.max(1, maxQ * 0.25)) {
-                                        break; 
-                                    }
+                            // 4. Mapear Respostas do formato original do React
+                            let ansMap = {};
+                            omrResult.omr.forEach((res, qIndex) => {
+                                if (qIndex < maxQ && res.answer !== 'Anulada' && res.answer !== 'Em Branco') {
+                                    const val = ['A', 'B', 'C', 'D', 'E'].indexOf(res.answer);
+                                    if (val !== -1) ansMap[qIndex] = val;
                                 }
-                            }
-
-                            if (bestValidCount === -1) {
-                                throw new Error("Falha total na leitura do espelho. Melhore o enquadramento.");
-                            }
+                            });
 
                             if (stopQueueFlag.value) break;
 
-                            // A Mágica Acontece Aqui: Agora guardamos o resultado da melhor estratégia
-                            lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, bestAnsMap, bestDebug);
+                            // A Mágica Acontece Aqui: Agora guardamos a foto final desenhada!
+                            lastSavedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap, omrResult.debug);
                             successCount++;
 
                             if (i < correctionQueue.value.length - 1) await new Promise(r => setTimeout(r, 50));
