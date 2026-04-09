@@ -3662,7 +3662,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     
                     let reportData = examResults.map(r => {
                         const student = getStudent(r.studentId) || { name: r.studentName, photo: null };
-                        return { name: student.name, photo: student.photo, score: parseFloat(r.score) };
+                        return { name: student.name, photo: student.photo, score: parseFloat(r.score), debugImage: r.debugImage };
                     });
                     
                     reportData.sort((a, b) => a.name.localeCompare(b.name));
@@ -3677,16 +3677,51 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         ]);
                     });
 
-                    let doc = {
-                        content: [
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
-                            { text: `NOTAS: ${exam.title}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
-                            { text: `Turma: ${getClassName(exam.classId)}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 20] },
-                            {
-                                table: { headerRows: 1, widths: [35, '*', 80], body: body },
-                                layout: 'lightHorizontalLines'
+                    let content = [
+                        { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                        { text: `NOTAS: ${exam.title}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
+                        { text: `Turma: ${getClassName(exam.classId)}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 20] },
+                        {
+                            table: { headerRows: 1, widths: [35, '*', 80], body: body },
+                            layout: 'lightHorizontalLines'
+                        }
+                    ];
+
+                    let hasDebugImages = reportData.some(r => r.debugImage);
+                    if (hasDebugImages) {
+                        content.push({ text: 'Evidências de Correção (Espelhos)', fontSize: 14, bold: true, alignment: 'center', margin: [0, 30, 0, 15], pageBreak: 'before' });
+
+                        reportData.forEach((r, idx) => {
+                            if (r.debugImage) {
+                                content.push({
+                                    unbreakable: true, // Evita que a foto corte a meio da página
+                                    columns: [
+                                        {
+                                            width: '*',
+                                            stack: [
+                                                { text: r.name, fontSize: 12, bold: true },
+                                                { text: `Nota Final: ${r.score.toFixed(1)}`, fontSize: 11, color: r.score >= 6 ? '#059669' : '#dc2626', bold: true, margin: [0, 2, 0, 0] }
+                                            ],
+                                            margin: [0, 10, 0, 0]
+                                        },
+                                        {
+                                            width: 250,
+                                            image: r.debugImage,
+                                            fit: [250, 350],
+                                            alignment: 'right'
+                                        }
+                                    ],
+                                    margin: [0, 0, 0, 15]
+                                });
+                                if (idx < reportData.length - 1) {
+                                    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: '#e5e7eb' }], margin: [0, 5, 0, 15] });
+                                }
                             }
-                        ],
+                        });
+                    }
+
+                    let doc = {
+                        content: content,
                         defaultStyle: { font: 'Roboto' }
                     };
                     
@@ -3767,7 +3802,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     openStudentProfile, deleteStudent, uploadStudentPhoto,
                     generateClassReportPDF, generateGeneralReportPDF, generateAttendanceReportPDF, deleteAllGrades, generateLastExamPDF,
                     getAlternativeLabel,
-                    saveUpdatedAnswers,
+                    saveUpdatedAnswers, openResultDetails,
                     saveStudentNotes: async () => {
                         let s = await db.students.get(studentDetails.value.id);
                         if (s) {
