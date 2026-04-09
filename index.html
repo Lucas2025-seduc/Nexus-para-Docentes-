@@ -2729,22 +2729,28 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     const cv = window.cv;
                     let src = cv.imread(canvas);
                     let gray = new cv.Mat(), threshMarkers = new cv.Mat(), contours = new cv.MatVector(), hierarchy = new cv.Mat();
+                    let needsReview = false;
 
                     try {
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 151, 15);
+                        
+                        // 1. Suavização para matar o ruído natural do papel e baixa iluminação
+                        cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
 
-                        // DEFESA CONTRA RABISCOS: Abertura Morfológica (Erosão seguida de Dilatação)
-                        // Destrói linhas finas (traços de caneta do aluno) que estejam encostadas aos quadrados
-                        let M_open = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
-                        cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_OPEN, M_open);
-                        M_open.delete();
+                        // 2. Binarização adaptativa com bloco grande (mantém os quadrados pretos grandes intactos)
+                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 71, 12);
 
-                        let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+                        // 3. Morfologia para limpar riscos de caneta finos que cruzem os quadrados
+                        let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
                         cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_CLOSE, M_close);
                         M_close.delete();
 
-                        cv.findContours(threshMarkers, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                        let M_open = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+                        cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_OPEN, M_open);
+                        M_open.delete();
+
+                        // RETR_LIST é vital aqui para ignorar se um rascunho de caneta tocou na margem da folha
+                        cv.findContours(threshMarkers, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
                         let squareCandidates = [];
                         const totalArea = src.rows * src.cols;
@@ -2753,42 +2759,99 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                           let cnt = contours.get(i);
                           let area = cv.contourArea(cnt);
                           let rect = cv.boundingRect(cnt);
-                          if (area > totalArea * 0.0003 && area < totalArea * 0.05) {
+                          
+                          // Filtro de Tamanho: Não muito pequeno (ruído) nem muito grande (a folha inteira)
+                          if (area > totalArea * 0.0005 && area < totalArea * 0.03) {
                             let aspect = rect.width / rect.height;
                             let extent = area / (rect.width * rect.height);
-                            if (aspect >= 0.6 && aspect <= 1.4 && extent >= 0.50) {
+                            
+                            // EXTREMAMENTE RIGOROSO: Aspecto quadrado (0.7 a 1.3) e Solidez > 0.85 
+                            // (Um círculo perfeito tem extent de ~0.78, logo as bolhas de resposta são ignoradas aqui!)
+                            if (aspect >= 0.7 && aspect <= 1.3 && extent >= 0.85) {
                                 squareCandidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: rect, area: area });
                             }
                           }
                         }
 
+                        // Função matemática para calcular o cosseno do ângulo entre 3 pontos
+                        const getCosineAngle = (pt1, pt2, pt0) => {
+                            let dx1 = pt1.x - pt0.x; let dy1 = pt1.y - pt0.y;
+                            let dx2 = pt2.x - pt0.x; let dy2 = pt2.y - pt0.y;
+                            return (dx1*dx2 + dy1*dy2) / Math.sqrt((dx1*dx1 + dy1*dy1) * (dx2*dx2 + dy2*dy2) + 1e-10);
+                        };
+
                         const findBestMarkers = (pool, srcCols, srcRows) => {
-                            let maxArea = -1, bestCombo = null, maxIter = Math.min(pool.length, 60); 
-                            for (let i = 0; i < maxIter; i++) for (let j = i + 1; j < maxIter; j++) for (let k = j + 1; k < maxIter; k++) for (let l = k + 1; l < maxIter; l++) {
-                                let pts = [pool[i], pool[j], pool[k], pool[l]];
-                                let areas = pts.map(p => p.area);
-                                if (Math.max(...areas) / Math.min(...areas) > 5.0) continue; 
-                                pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
-                                let tl = pts[0], br = pts[3], rem = [pts[1], pts[2]].sort((a, b) => (a.x - a.y) - (b.x - b.y)), bl = rem[0], tr = rem[1];
-                                let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y), wBot = Math.hypot(br.x - bl.x, br.y - bl.y);
-                                let hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y), hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
-                                if (wTop < srcCols * 0.12 || wBot < srcCols * 0.12 || hLeft < srcRows * 0.10 || hRight < srcRows * 0.10) continue;
-                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.25 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.25) continue;
-                                let avgW = (wTop + wBot) / 2, avgH = (hLeft + hRight) / 2, ratio = avgW / avgH;
-                                if (ratio > 0.6 && ratio < 1.4 && (avgW * avgH) > maxArea) {
-                                    maxArea = avgW * avgH;
-                                    bestCombo = { tl, tr, bl, br };
+                            let bestCombo = null;
+                            let maxQuadArea = -1;
+                            
+                            // Organiza por área (do maior para o menor). Os cantos do OMR são as figuras mais proeminentes.
+                            pool.sort((a, b) => b.area - a.area);
+                            let n = Math.min(pool.length, 30); // Analisa apenas os 30 melhores candidatos
+
+                            for (let i = 0; i < n; i++) {
+                                for (let j = i + 1; j < n; j++) {
+                                    for (let k = j + 1; k < n; k++) {
+                                        for (let l = k + 1; l < n; l++) {
+                                            let pts = [pool[i], pool[j], pool[k], pool[l]];
+
+                                            // Os 4 marcadores OMR têm a mesma área impressa. Aceita distorção de perspetiva até 2.5x.
+                                            let areas = pts.map(p => p.area);
+                                            if (Math.max(...areas) / Math.min(...areas) > 2.5) continue;
+
+                                            // Ordenação Geocêntrica INQUEBRÁVEL (não importa se o papel está inclinado)
+                                            let cx = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
+                                            let cy = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
+                                            
+                                            let sortedPts = [];
+                                            pts.forEach(p => {
+                                                if (p.x < cx && p.y < cy) sortedPts[0] = p;       // Top-Left
+                                                else if (p.x >= cx && p.y < cy) sortedPts[1] = p;  // Top-Right
+                                                else if (p.x >= cx && p.y >= cy) sortedPts[2] = p; // Bottom-Right
+                                                else if (p.x < cx && p.y >= cy) sortedPts[3] = p;  // Bottom-Left
+                                            });
+
+                                            if (sortedPts.includes(undefined)) continue; // Evita formas anómalas
+                                            let [tl, tr, br, bl] = sortedPts;
+
+                                            let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+                                            let wBot = Math.hypot(br.x - bl.x, br.y - bl.y);
+                                            let hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+                                            let hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
+
+                                            // O gabarito tem de cobrir pelo menos 20% da foto na largura/altura
+                                            if (wTop < srcCols * 0.20 || hLeft < srcRows * 0.20) continue;
+
+                                            // Paralelismo: Os lados opostos não podem diferir mais de 30% em tamanho
+                                            if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.3) continue;
+                                            if (Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.3) continue;
+
+                                            // Verificação de Ângulos (Perspetiva máxima tolerada)
+                                            let maxCosine = 0;
+                                            maxCosine = Math.max(maxCosine, Math.abs(getCosineAngle(bl, tr, tl)));
+                                            maxCosine = Math.max(maxCosine, Math.abs(getCosineAngle(tl, br, tr)));
+                                            maxCosine = Math.max(maxCosine, Math.abs(getCosineAngle(tr, bl, br)));
+                                            maxCosine = Math.max(maxCosine, Math.abs(getCosineAngle(br, tl, bl)));
+                                            
+                                            // Se os cantos formarem ângulos demasiado agudos/obtusos, não é o nosso retângulo
+                                            if (maxCosine > 0.8) continue;
+
+                                            let quadArea = wTop * hLeft;
+                                            if (quadArea > maxQuadArea) {
+                                                maxQuadArea = quadArea;
+                                                bestCombo = { tl, tr, bl, br };
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             return bestCombo;
                         };
 
-                        squareCandidates.sort((a, b) => b.area - a.area);
                         let bestMarkers = findBestMarkers(squareCandidates, src.cols, src.rows);
 
                         if (!bestMarkers) {
                           cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                          return { error: 'Não detectei os 4 cantos.', omr: null, debug: null };
+                          return { error: 'Não encontrei os 4 quadrados pretos das pontas. Aproxime mais e evite dobras no papel.', omr: null, debug: null, needsReview: true };
                         }
 
                         let { tl, tr, bl, br } = bestMarkers;
@@ -2801,13 +2864,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let warpedGray = new cv.Mat(), warpedThresh = new cv.Mat(), warpedColor = new cv.Mat();
                         
                         cv.warpPerspective(gray, warpedGray, M, new cv.Size(WARPED_W, WARPED_H));
-                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, 12);
+                        
+                        // Binarização específica para o corte final - Caça marcas de lápis super claras
+                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 45, 12);
                         cv.cvtColor(warpedGray, warpedColor, cv.COLOR_GRAY2RGBA);
 
-                        // 1. Eixo Y - Retângulos
+                        // Eixo Y - Captura dinâmica das linhas
                         let leftStrip = warpedThresh.roi(new cv.Rect(0, 0, 50, WARPED_H)), rowSums = [];
                         for (let y = 0; y < WARPED_H; y++) {
-                          let sum = 0; for (let x = 0; x < 35; x++) if (leftStrip.ucharAt(y, x) > 128) sum++;
+                          let sum = 0; for (let x = 10; x < 40; x++) if (leftStrip.ucharAt(y, x) > 128) sum++;
                           rowSums.push(sum > 10 ? 1 : 0);
                         } leftStrip.delete();
 
@@ -2816,12 +2881,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                           if (rowSums[y] === 1 && startY === -1) startY = y;
                           if (rowSums[y] === 0 && startY !== -1) {
                             let center = Math.floor((startY + y) / 2), h = y - startY;
-                            if (h > 4 && h < 35 && center > 50 && center < WARPED_H - 50) rectCentersY.push(center);
+                            if (h > 4 && h < 35 && center > 60 && center < WARPED_H - 60) rectCentersY.push(center);
                             startY = -1;
                           }
                         }
 
-                        // 2. Eixo X - Letras
+                        // Eixo X - Captura dinâmica das colunas
                         let topStrip = warpedThresh.roi(new cv.Rect(0, 20, WARPED_W, 85)), colSums = [];
                         for (let x = 0; x < WARPED_W; x++) {
                           let sum = 0; for (let y = 0; y < 85; y++) if (topStrip.ucharAt(y, x) > 128) sum++;
@@ -2833,28 +2898,32 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                           if (colSums[x] === 1 && startX === -1) startX = x;
                           if (colSums[x] === 0 && startX !== -1) {
                             let center = Math.floor((startX + x) / 2), rightLimit = x, w = x - startX;
-                            if (w > 5 && w < 50 && center > 120) letterData.push({ center, rightLimit });
+                            if (w > 5 && w < 50 && center > 120 && center < WARPED_W - 50) letterData.push({ center, rightLimit });
                             startX = -1;
                           }
                         }
 
                         const numRows = 10, numCols = 5, options = ['A', 'B', 'C', 'D', 'E'], results = [];
 
+                        // Mecanismo Fallback: Se a impressão falhar nos guias de linha/coluna, força as coordenadas teóricas
                         let finalYs = rectCentersY.length === numRows ? rectCentersY : [];
-                        if (finalYs.length === 0) {
+                        if (finalYs.length !== numRows) {
+                            needsReview = true;
+                            finalYs = [];
                             for (let i = 0; i < numRows; i++) finalYs.push(Math.floor((0.145 + i * 0.0768) * WARPED_H));
                         }
 
                         let finalXs = [];
                         if (letterData.length === numCols) {
                           for (let j = 0; j < numCols; j++) {
-                            // Lógica afinada:
-                            if (j <= 1) finalXs.push(letterData[j].center);          // A e B
-                            else if (j === 2) finalXs.push(letterData[j].center + 1); // C (+1px)
-                            else if (j === 3) finalXs.push(letterData[j].center + 2); // D (+2px)
-                            else if (j === 4) finalXs.push(letterData[j].center + 4); // E (+4px)
+                            // Micro-afinações de acordo com a distorção central da lente das câmeras
+                            if (j <= 1) finalXs.push(letterData[j].center);          
+                            else if (j === 2) finalXs.push(letterData[j].center + 1); 
+                            else if (j === 3) finalXs.push(letterData[j].center + 2); 
+                            else if (j === 4) finalXs.push(letterData[j].center + 3); 
                           }
                         } else {
+                          needsReview = true;
                           finalXs = [0.272, 0.419, 0.570, 0.720, 0.865].map(r => Math.floor(r * WARPED_W));
                         }
 
@@ -2867,6 +2936,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             for (let j = 0; j < numCols; j++) {
                                 let centerX = finalXs[j];
                                 if (i === 0) cv.line(warpedColor, new cv.Point(centerX, 0), new cv.Point(centerX, WARPED_H), new cv.Scalar(255, 255, 0, 50), 1);
+                                
                                 let rect = new cv.Rect(centerX - radiusX, centerY - radiusY, radiusX * 2, radiusY * 2);
                                 rect.x = Math.max(0, rect.x); rect.y = Math.max(0, rect.y);
                                 rect.width = Math.min(WARPED_W - rect.x, rect.width); rect.height = Math.min(WARPED_H - rect.y, rect.height);
@@ -2876,13 +2946,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 roi.delete();
                             }
 
-                            // Sensibilidade aprimorada (0.35)
-                            const thresholdDensity = 0.35; 
+                            // Limiar otimizado: 0.20 captura lápis e marcações rápidas sem gerar falsos positivos com poeiras
+                            const thresholdDensity = 0.20; 
                             let sortedDensities = [...rowDensities].sort((a, b) => b.density - a.density);
                             let answer = "Em Branco", markedRects = [];
 
                             if (sortedDensities[0].density > thresholdDensity) {
-                                if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.18)) {
+                                // Se a segunda bolha mais preenchida estiver muito próxima (rasura ou 2 assinaladas)
+                                if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.15)) {
                                      answer = "Anulada";
                                      markedRects.push(sortedDensities[0].option, sortedDensities[1].option);
                                 } else {
@@ -2904,10 +2975,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         const debugData = debugCanvas.toDataURL();
 
                         cleanUp([src, gray, threshMarkers, contours, hierarchy, warpedGray, warpedThresh, warpedColor, srcTri, dstTri, M]);
-                        return { error: null, omr: results, debug: debugData };
+                        return { error: null, omr: results, debug: debugData, needsReview: needsReview };
                     } catch(err) {
                         cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                        return { error: 'Exceção no processamento.', omr: null, debug: null };
+                        return { error: 'Exceção no processamento do ficheiro.', omr: null, debug: null, needsReview: true };
                     }
                 };
 
