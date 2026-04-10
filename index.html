@@ -2737,7 +2737,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         // 1. Suavização para matar o ruído natural do papel e baixa iluminação
                         cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
 
-                        // 2. Binarização adaptativa com bloco grande (mantém os quadrados pretos grandes intactos)
+                        // 2. Binarização adaptativa agressiva (mantém os quadrados pretos maciços)
                         cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 71, 12);
 
                         // 3. Morfologia para limpar riscos de caneta finos que cruzem os quadrados
@@ -2765,15 +2765,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             let aspect = rect.width / rect.height;
                             let extent = area / (rect.width * rect.height);
                             
-                            // EXTREMAMENTE RIGOROSO: Aspecto quadrado (0.7 a 1.3) e Solidez > 0.85 
-                            // (Um círculo perfeito tem extent de ~0.78, logo as bolhas de resposta são ignoradas aqui!)
+                            // EXTREMAMENTE RIGOROSO: Aspecto quadrado e Solidez > 0.85 (ignora bolhas redondas)
+                            // (Um círculo perfeito tem extent de ~0.78, logo as bolhas de resposta são invísiveis aqui!)
                             if (aspect >= 0.7 && aspect <= 1.3 && extent >= 0.85) {
                                 squareCandidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: rect, area: area });
                             }
                           }
                         }
 
-                        // Função matemática para calcular o cosseno do ângulo entre 3 pontos
+                        // Função matemática para calcular o cosseno do ângulo entre 3 pontos (distorção da lente)
                         const getCosineAngle = (pt1, pt2, pt0) => {
                             let dx1 = pt1.x - pt0.x; let dy1 = pt1.y - pt0.y;
                             let dx2 = pt2.x - pt0.x; let dy2 = pt2.y - pt0.y;
@@ -2786,7 +2786,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             
                             // Organiza por área (do maior para o menor). Os cantos do OMR são as figuras mais proeminentes.
                             pool.sort((a, b) => b.area - a.area);
-                            let n = Math.min(pool.length, 30); // Analisa apenas os 30 melhores candidatos
+                            let n = Math.min(pool.length, 30);
 
                             for (let i = 0; i < n; i++) {
                                 for (let j = i + 1; j < n; j++) {
@@ -2794,7 +2794,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         for (let l = k + 1; l < n; l++) {
                                             let pts = [pool[i], pool[j], pool[k], pool[l]];
 
-                                            // Os 4 marcadores OMR têm a mesma área impressa. Aceita distorção de perspetiva até 2.5x.
+                                            // Os 4 marcadores OMR têm a mesma área impressa. Aceita distorção ótica até 2.5x.
                                             let areas = pts.map(p => p.area);
                                             if (Math.max(...areas) / Math.min(...areas) > 2.5) continue;
 
@@ -2821,18 +2821,17 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                             // O gabarito tem de cobrir pelo menos 20% da foto na largura/altura
                                             if (wTop < srcCols * 0.20 || hLeft < srcRows * 0.20) continue;
 
-                                            // Paralelismo: Os lados opostos não podem diferir mais de 30% em tamanho
+                                            // Paralelismo: Os lados opostos não podem diferir muito devido a distorção trapezoidal severa
                                             if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.3) continue;
                                             if (Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.3) continue;
 
-                                            // Verificação de Ângulos (Perspetiva máxima tolerada)
+                                            // Verificação de Ângulos da Câmera (Rejeita figuras que não sejam quase retangulares)
                                             let maxCosine = 0;
                                             maxCosine = Math.max(maxCosine, Math.abs(getCosineAngle(bl, tr, tl)));
                                             maxCosine = Math.max(maxCosine, Math.abs(getCosineAngle(tl, br, tr)));
                                             maxCosine = Math.max(maxCosine, Math.abs(getCosineAngle(tr, bl, br)));
                                             maxCosine = Math.max(maxCosine, Math.abs(getCosineAngle(br, tl, bl)));
                                             
-                                            // Se os cantos formarem ângulos demasiado agudos/obtusos, não é o nosso retângulo
                                             if (maxCosine > 0.8) continue;
 
                                             let quadArea = wTop * hLeft;
@@ -2851,7 +2850,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         if (!bestMarkers) {
                           cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                          return { error: 'Não encontrei os 4 quadrados pretos das pontas. Aproxime mais e evite dobras no papel.', omr: null, debug: null, needsReview: true };
+                          return { error: 'Não encontrei os 4 quadrados pretos das pontas. Aproxime mais a câmara.', omr: null, debug: null, needsReview: true };
                         }
 
                         let { tl, tr, bl, br } = bestMarkers;
@@ -2865,66 +2864,61 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         cv.warpPerspective(gray, warpedGray, M, new cv.Size(WARPED_W, WARPED_H));
                         
-                        // Binarização específica para o corte final - Caça marcas de lápis super claras
-                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 45, 12);
+                        // 4. Binarização específica para O CORTE FINAL (Caça marcas de lápis fracas e preenchimentos falhos)
+                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 91, 15);
                         cv.cvtColor(warpedGray, warpedColor, cv.COLOR_GRAY2RGBA);
-
-                        // Eixo Y - Captura dinâmica das linhas
-                        let leftStrip = warpedThresh.roi(new cv.Rect(0, 0, 50, WARPED_H)), rowSums = [];
-                        for (let y = 0; y < WARPED_H; y++) {
-                          let sum = 0; for (let x = 10; x < 40; x++) if (leftStrip.ucharAt(y, x) > 128) sum++;
-                          rowSums.push(sum > 10 ? 1 : 0);
-                        } leftStrip.delete();
-
-                        let rectCentersY = [], startY = -1;
-                        for (let y = 0; y < WARPED_H; y++) {
-                          if (rowSums[y] === 1 && startY === -1) startY = y;
-                          if (rowSums[y] === 0 && startY !== -1) {
-                            let center = Math.floor((startY + y) / 2), h = y - startY;
-                            if (h > 4 && h < 35 && center > 60 && center < WARPED_H - 60) rectCentersY.push(center);
-                            startY = -1;
-                          }
-                        }
-
-                        // Eixo X - Captura dinâmica das colunas
-                        let topStrip = warpedThresh.roi(new cv.Rect(0, 20, WARPED_W, 85)), colSums = [];
-                        for (let x = 0; x < WARPED_W; x++) {
-                          let sum = 0; for (let y = 0; y < 85; y++) if (topStrip.ucharAt(y, x) > 128) sum++;
-                          colSums.push(sum > 3 ? 1 : 0);
-                        } topStrip.delete();
-
-                        let letterData = [], startX = -1;
-                        for (let x = 0; x < WARPED_W; x++) {
-                          if (colSums[x] === 1 && startX === -1) startX = x;
-                          if (colSums[x] === 0 && startX !== -1) {
-                            let center = Math.floor((startX + x) / 2), rightLimit = x, w = x - startX;
-                            if (w > 5 && w < 50 && center > 120 && center < WARPED_W - 50) letterData.push({ center, rightLimit });
-                            startX = -1;
-                          }
-                        }
 
                         const numRows = 10, numCols = 5, options = ['A', 'B', 'C', 'D', 'E'], results = [];
 
-                        // Mecanismo Fallback: Se a impressão falhar nos guias de linha/coluna, força as coordenadas teóricas
-                        let finalYs = rectCentersY.length === numRows ? rectCentersY : [];
-                        if (finalYs.length !== numRows) {
-                            needsReview = true;
-                            finalYs = [];
-                            for (let i = 0; i < numRows; i++) finalYs.push(Math.floor((0.145 + i * 0.0768) * WARPED_H));
+                        // Posições X teóricas perfeitas baseadas na geometria matemática gerada pelo seu PDF
+                        const finalXs = [0.258, 0.413, 0.569, 0.725, 0.880].map(r => Math.floor(r * WARPED_W));
+
+                        // 5. Interpolação Dinâmica do Eixo Y (Acha as linhas projetando os X das bolhas e procurando picos de tinta)
+                        let yProfile = new Array(WARPED_H).fill(0);
+                        for (let y = 0; y < WARPED_H; y++) {
+                            let sum = 0;
+                            for (let j = 0; j < 5; j++) {
+                                let cx = finalXs[j];
+                                // Varre uma janela de 20px ao redor do centro esperado da coluna
+                                for (let dx = -10; dx <= 10; dx++) {
+                                    if (warpedThresh.ucharAt(y, cx + dx) > 128) sum++;
+                                }
+                            }
+                            yProfile[y] = sum;
+                        }
+                        
+                        // Encontrar picos de densidade (onde os aros das 5 bolhas se cruzam no eixo Y)
+                        let peaks = [];
+                        for (let y = 40; y < WARPED_H - 40; y++) {
+                            if (yProfile[y] > 20 && yProfile[y] > yProfile[y-3] && yProfile[y] > yProfile[y+3]) {
+                                if (peaks.length === 0 || y - peaks[peaks.length-1].y > 25) {
+                                    peaks.push({y: y, val: yProfile[y]});
+                                } else if (yProfile[y] > peaks[peaks.length-1].val) {
+                                    peaks[peaks.length-1] = {y: y, val: yProfile[y]};
+                                }
+                            }
+                        }
+                        
+                        let validPeaks = peaks.filter(p => p.y > WARPED_H * 0.10 && p.y < WARPED_H * 0.90);
+                        let finalYs = [];
+                        
+                        if (validPeaks.length >= 2) {
+                            validPeaks.sort((a,b) => a.y - b.y);
+                            let firstY = validPeaks[0].y;
+                            let lastY = validPeaks[validPeaks.length - 1].y;
+                            
+                            // Se a distância geométrica entre a primeira e a última linha faz sentido, traça a grelha
+                            if (lastY - firstY > WARPED_H * 0.5) {
+                                let step = (lastY - firstY) / 9;
+                                for (let i = 0; i < 10; i++) finalYs.push(Math.floor(firstY + i * step));
+                            }
                         }
 
-                        let finalXs = [];
-                        if (letterData.length === numCols) {
-                          for (let j = 0; j < numCols; j++) {
-                            // Micro-afinações de acordo com a distorção central da lente das câmeras
-                            if (j <= 1) finalXs.push(letterData[j].center);          
-                            else if (j === 2) finalXs.push(letterData[j].center + 1); 
-                            else if (j === 3) finalXs.push(letterData[j].center + 2); 
-                            else if (j === 4) finalXs.push(letterData[j].center + 3); 
-                          }
-                        } else {
-                          needsReview = true;
-                          finalXs = [0.272, 0.419, 0.570, 0.720, 0.865].map(r => Math.floor(r * WARPED_W));
+                        // Fallback de Segurança caso a iluminação ofusque os anéis das bolhas
+                        if (finalYs.length !== 10) {
+                            needsReview = true;
+                            finalYs = [];
+                            for (let i = 0; i < 10; i++) finalYs.push(Math.floor((0.145 + i * 0.0768) * WARPED_H));
                         }
 
                         const radiusX = Math.floor(WARPED_W * 0.028), radiusY = Math.floor(WARPED_H * 0.024);
@@ -2946,13 +2940,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 roi.delete();
                             }
 
-                            // Limiar otimizado: 0.20 captura lápis e marcações rápidas sem gerar falsos positivos com poeiras
-                            const thresholdDensity = 0.20; 
+                            // Limiar matemático de preenchimento (0.30)
+                            // Círculo vazio = apenas aros = ~0.15 de densidade na caixa
+                            // Círculo preenchido à mão = >0.35 de densidade na caixa
+                            const thresholdDensity = 0.30; 
                             let sortedDensities = [...rowDensities].sort((a, b) => b.density - a.density);
                             let answer = "Em Branco", markedRects = [];
 
                             if (sortedDensities[0].density > thresholdDensity) {
-                                // Se a segunda bolha mais preenchida estiver muito próxima (rasura ou 2 assinaladas)
+                                // Rejeita rasuras (se a 2ª bolha também estiver marcada e o aluno não a apagou bem)
                                 if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.15)) {
                                      answer = "Anulada";
                                      markedRects.push(sortedDensities[0].option, sortedDensities[1].option);
@@ -2978,7 +2974,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         return { error: null, omr: results, debug: debugData, needsReview: needsReview };
                     } catch(err) {
                         cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                        return { error: 'Exceção no processamento do ficheiro.', omr: null, debug: null, needsReview: true };
+                        return { error: 'O gabarito está demasiado danificado para análise geométrica.', omr: null, debug: null, needsReview: true };
                     }
                 };
 
@@ -3089,8 +3085,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                             const maxQ = getVersionQuestions(exm, ver).length;
 
-                            // 3. Executar a lógica exata original que garante zero erros
-                            const omrResult = runOMRLogic(canvas);
+                            // 3. Executar a lógica passando o número total exato de questões da prova!
+                            const omrResult = runOMRLogic(canvas, maxQ);
                             
                             let ansMap = {};
                             let finalDebugImage = null;
