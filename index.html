@@ -2888,8 +2888,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             results.push({ question: i + 1, answer: answer });
 
                             rowDensities.forEach(box => {
-                                let c = markedRects.includes(box.option) ? (answer === "Anulada" ? new cv.Scalar(255, 0, 0, 255) : new cv.Scalar(0, 255, 0, 255)) : new Scalar(0, 150, 255, 150); // Correção: new cv.Scalar
-                                if (answer === "Anulada") { c = new cv.Scalar(255, 0, 0, 255); } else if (markedRects.includes(box.option)) { c = new cv.Scalar(0, 255, 0, 255); } else { c = new cv.Scalar(0, 150, 255, 150); }
+                                let c = markedRects.includes(box.option) ? (answer === "Anulada" ? new cv.Scalar(255, 0, 0, 255) : new cv.Scalar(0, 255, 0, 255)) : new cv.Scalar(0, 150, 255, 150);
                                 cv.rectangle(warpedColor, new cv.Point(box.rect.x, box.rect.y), new cv.Point(box.rect.x + box.rect.width, box.rect.y + box.rect.height), c, 2);
                             });
                         }
