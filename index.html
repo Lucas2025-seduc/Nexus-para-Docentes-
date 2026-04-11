@@ -2733,8 +2733,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     try {
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
                         
-                        // 1. Thresholding agressivo focado em achar as CAIXAS PRETAS (Marcadores Fudiciários)
-                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 71, 15);
+                        // 1. Limiar adaptativo ajustado para não perder os cantos mesmo com sombra
+                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 91, 10);
                         let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
                         cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_CLOSE, M_close);
                         M_close.delete();
@@ -2749,11 +2749,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             let area = cv.contourArea(cnt);
                             let rect = cv.boundingRect(cnt);
                             
-                            // Filtro de Tamanho e Geometria: Garante que só aceita quadrados sólidos perfeitos
-                            if (area > totalArea * 0.0003 && area < totalArea * 0.02) {
+                            // RELAXAMOS as regras aqui: Aceita formas mais esticadas e imperfeitas devido à perspetiva da câmara
+                            if (area > totalArea * 0.00015 && area < totalArea * 0.03) {
                                 let aspect = rect.width / rect.height;
                                 let extent = area / (rect.width * rect.height);
-                                if (aspect >= 0.7 && aspect <= 1.4 && extent >= 0.65) {
+                                if (aspect >= 0.45 && aspect <= 2.2 && extent >= 0.35) {
                                     squareCandidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: rect, area: area });
                                 }
                             }
@@ -2762,7 +2762,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         const findBestMarkers = (pool, srcCols, srcRows) => {
                             let maxArea = -1, bestCombo = null;
                             pool.sort((a, b) => b.area - a.area);
-                            let maxIter = Math.min(pool.length, 25); 
+                            let maxIter = Math.min(pool.length, 35); 
                             
                             for (let i = 0; i < maxIter; i++) {
                                 for (let j = i + 1; j < maxIter; j++) {
@@ -2770,16 +2770,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         for (let l = k + 1; l < maxIter; l++) {
                                             let pts = [pool[i], pool[j], pool[k], pool[l]];
                                             
-                                            // -------------------------------------------------------------
-                                            // PREVENÇÃO DO ERRO AMPULHETA: Ordenação Circular (Trigonometria)
-                                            // -------------------------------------------------------------
                                             let cx = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
                                             let cy = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
                                             
-                                            // Ordena os 4 pontos com base no ângulo em relação ao centro (cx, cy)
+                                            // Ordenação Circular Perfeita (Imune ao efeito ampulheta)
                                             pts.sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
                                             
-                                            // A ordenação circular resulta obrigatoriamente nesta sequência:
                                             let tl = pts[0], tr = pts[1], br = pts[2], bl = pts[3];
 
                                             let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y);
@@ -2787,20 +2783,21 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                             let hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y);
                                             let hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
                                             
-                                            if (wTop < srcCols * 0.25 || hLeft < srcRows * 0.25) continue;
-                                            if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.25) continue;
-                                            if (Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.25) continue;
+                                            // Regras de paralelismo menos restritas
+                                            if (wTop < srcCols * 0.20 || hLeft < srcRows * 0.20) continue;
+                                            if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.4) continue;
+                                            if (Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.4) continue;
                                             
                                             let avgW = (wTop + wBot) / 2;
                                             let avgH = (hLeft + hRight) / 2;
                                             let ratio = avgW / avgH;
                                             
-                                            if (ratio < 0.4 || ratio > 0.95) continue;
+                                            if (ratio < 0.35 || ratio > 1.2) continue;
                                             
                                             let currentArea = avgW * avgH;
                                             if (currentArea > maxArea) {
                                                 maxArea = currentArea;
-                                                bestCombo = { tl, tr, bl, br };
+                                                bestCombo = { tl, tr, br, bl };
                                             }
                                         }
                                     }
@@ -2813,10 +2810,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         if (!bestMarkers) {
                             cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                            return { error: 'Falha no enquadramento. Certifique-se que os 4 cantos pretos estão desobstruídos e focados.', omr: null, debug: null };
+                            return { error: 'Cantos não encontrados. Aproxime a folha ou melhore a iluminação.', omr: null, debug: null };
                         }
 
-                        let { tl, tr, bl, br } = bestMarkers;
+                        let { tl, tr, br, bl } = bestMarkers;
                         let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
 
                         const WARPED_W = 600, WARPED_H = 750; 
@@ -2829,14 +2826,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 41, 10);
                         
                         // 2. PREVENÇÃO DE IMAGEM DE CABEÇA PARA BAIXO
-                        // O cabeçalho (textos, título, nota) gera muito mais pixels pretos que o rodapé vazio.
                         let topHalf = warpedThresh.roi(new cv.Rect(0, 0, WARPED_W, Math.floor(WARPED_H * 0.3)));
                         let botHalf = warpedThresh.roi(new cv.Rect(0, Math.floor(WARPED_H * 0.7), WARPED_W, Math.floor(WARPED_H * 0.3)));
                         let topDensity = cv.countNonZero(topHalf);
                         let botDensity = cv.countNonZero(botHalf);
                         topHalf.delete(); botHalf.delete();
 
-                        // Se a densidade do rodapé for maior que a do topo, a imagem está invertida.
                         if (botDensity > topDensity * 1.2) {
                             cv.rotate(warpedGray, warpedGray, cv.ROTATE_180);
                             cv.rotate(warpedThresh, warpedThresh, cv.ROTATE_180);
@@ -2878,7 +2873,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 roi.delete();
                             }
 
-                            // Limiar de 0.20 ajustado para ler até mesmo marcações feitas a lápis ou "X" fracos
                             const thresholdDensity = 0.20; 
                             let sortedDensities = [...rowDensities].sort((a, b) => b.density - a.density);
                             let answer = "Em Branco", markedRects = [];
@@ -2909,7 +2903,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         return { error: null, omr: results, debug: debugData };
                     } catch(err) {
                         cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                        return { error: 'Falha durante a leitura das bolhas. Tente melhorar a luz ou o foco da câmara.', omr: null, debug: null };
+                        return { error: 'Falha durante o processamento da imagem.', omr: null, debug: null };
                     }
                 };
 
