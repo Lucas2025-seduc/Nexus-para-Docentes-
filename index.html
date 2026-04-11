@@ -2734,7 +2734,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
                         
                         // Thresholding agressivo focado em achar as CAIXAS PRETAS.
-                        // Um bloco grande (71) para eliminar ruídos finos.
                         cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 71, 15);
 
                         // Fechamento morfológico para garantir que as caixas fiquem sólidas
@@ -2742,7 +2741,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_CLOSE, M_close);
                         M_close.delete();
 
-                        // Usamos RETR_LIST no lugar de RETR_EXTERNAL para não perder as caixas se a foto tiver sombras pesadas nas bordas
+                        // Usamos RETR_LIST para não perder as caixas se a foto tiver sombras pesadas nas bordas
                         cv.findContours(threshMarkers, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
                         let squareCandidates = [];
@@ -2758,8 +2757,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 let aspect = rect.width / rect.height;
                                 let extent = area / (rect.width * rect.height);
                                 
-                                // Filtro 2: Geometria rigorosa. Deve ser muito parecido com um quadrado perfeito (aspect ~1) e sólido (extent alto).
-                                // Extent >= 0.65 garante que é um bloco pintado, e não uma letra "O" vazada ou uma linha comprida.
+                                // Filtro 2: Geometria rigorosa. Deve ser muito parecido com um quadrado perfeito e sólido.
                                 if (aspect >= 0.7 && aspect <= 1.4 && extent >= 0.65) {
                                     squareCandidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: rect, area: area });
                                 }
@@ -2768,9 +2766,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         const findBestMarkers = (pool, srcCols, srcRows) => {
                             let maxArea = -1, bestCombo = null;
-                            // Ordenar por área para priorizar os blocos mais definidos e limitar a 20 para performance
+                            // Ordenar por área para priorizar os blocos mais definidos e limitar a 25 para performance
                             pool.sort((a, b) => b.area - a.area);
-                            let maxIter = Math.min(pool.length, 20); 
+                            let maxIter = Math.min(pool.length, 25); 
                             
                             for (let i = 0; i < maxIter; i++) {
                                 for (let j = i + 1; j < maxIter; j++) {
@@ -2778,33 +2776,34 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         for (let l = k + 1; l < maxIter; l++) {
                                             let pts = [pool[i], pool[j], pool[k], pool[l]];
                                             
-                                            // A imagem ou vem rotacionada do QR Code ou o prof. tira foto "em pé" no modo câmara.
-                                            // Logo, ordenar por Y separa garantidamente os cantos do topo dos cantos de baixo.
-                                            pts.sort((a, b) => a.y - b.y);
-                                            let top = [pts[0], pts[1]].sort((a, b) => a.x - b.x);
-                                            let bottom = [pts[2], pts[3]].sort((a, b) => a.x - b.x);
+                                            // ORDENAÇÃO VETORIAL ROBUSTA (Imune a Efeito Ampulheta e Rotações)
+                                            pts.sort((a, b) => (a.x + a.y) - (b.x + b.y)); // Min(x+y) = TopLeft, Max(x+y) = BottomRight
+                                            let tl = pts[0], br = pts[3];
                                             
-                                            let tl = top[0], tr = top[1], bl = bottom[0], br = bottom[1];
+                                            let rem = [pts[1], pts[2]].sort((a, b) => (a.x - a.y) - (b.x - b.y)); // Min(x-y) = BottomLeft, Max(x-y) = TopRight
+                                            let bl = rem[0], tr = rem[1];
 
                                             let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y);
                                             let wBot = Math.hypot(br.x - bl.x, br.y - bl.y);
                                             let hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y);
                                             let hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
                                             
-                                            // Filtro 3: Os 4 pontos devem formar um retângulo que cubra pelo menos 30% da tela
-                                            if (wTop < srcCols * 0.3 || hLeft < srcRows * 0.3) continue;
+                                            // Filtro 3: O retângulo deve cobrir pelo menos 25% da imagem original
+                                            if (wTop < srcCols * 0.25 || hLeft < srcRows * 0.25) continue;
 
-                                            // Filtro 4: Perspectiva tolerável. Arestas opostas não podem ter tamanhos bizarramente diferentes.
-                                            if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.35) continue;
-                                            if (Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.35) continue;
+                                            // Filtro 4: Paralelismo estrito. Arestas opostas não podem ter tamanhos muito diferentes.
+                                            if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.25) continue;
+                                            if (Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.25) continue;
                                             
-                                            // Filtro 5: Alinhamento horizontal de segurança. TopLeft e TopRight não podem estar torcidos em diagonal pura.
-                                            if (Math.abs(tl.y - tr.y) > hLeft * 0.25) continue;
-                                            if (Math.abs(bl.y - br.y) > hLeft * 0.25) continue;
+                                            let avgW = (wTop + wBot) / 2;
+                                            let avgH = (hLeft + hRight) / 2;
+                                            let ratio = avgW / avgH;
                                             
-                                            let currentArea = ((wTop + wBot) / 2) * ((hLeft + hRight) / 2);
+                                            // Filtro 5: O gabarito A4 é sempre mais alto do que largo (retrato).
+                                            // A largura nunca pode ser igual ou superior à altura.
+                                            if (ratio < 0.4 || ratio > 0.95) continue;
                                             
-                                            // Fica com o conjunto de 4 quadrados que formar o maior retângulo estrutural
+                                            let currentArea = avgW * avgH;
                                             if (currentArea > maxArea) {
                                                 maxArea = currentArea;
                                                 bestCombo = { tl, tr, bl, br };
@@ -2820,7 +2819,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         if (!bestMarkers) {
                             cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                            return { error: 'Marcadores (quadrados pretos) não encontrados ou distorcidos. Aproxime a câmara e evite sombras fortes nos cantos.', omr: null, debug: null };
+                            return { error: 'Falha de Enquadramento. Certifique-se que os 4 cantos pretos estão desobstruídos.', omr: null, debug: null };
                         }
 
                         let { tl, tr, bl, br } = bestMarkers;
@@ -2834,7 +2833,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         cv.warpPerspective(gray, warpedGray, M, new cv.Size(WARPED_W, WARPED_H));
                         
-                        // Threshold para ler as BOLHAS preenchidas (focado em sensibilidade para captar lápis)
+                        // Threshold para ler as BOLHAS preenchidas (focado em sensibilidade para captar lápis fraco)
                         cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 41, 10);
                         cv.cvtColor(warpedGray, warpedColor, cv.COLOR_GRAY2RGBA);
 
@@ -2903,7 +2902,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         return { error: null, omr: results, debug: debugData };
                     } catch(err) {
                         cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                        return { error: 'Exceção no processamento da imagem. Tente novamente.', omr: null, debug: null };
+                        return { error: 'Falha durante a leitura das bolhas. Tente melhorar o foco da câmara.', omr: null, debug: null };
                     }
                 };
 
