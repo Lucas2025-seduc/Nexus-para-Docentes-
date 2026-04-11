@@ -2732,9 +2732,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     try {
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 151, 15);
+                        // Aumentamos o block size e ajustamos C para garantir que as caixas pretas não fiquem ocas
+                        cv.adaptiveThreshold(gray, threshMarkers, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 91, 10);
 
-                        let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+                        let M_close = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
                         cv.morphologyEx(threshMarkers, threshMarkers, cv.MORPH_CLOSE, M_close);
                         M_close.delete();
 
@@ -2747,29 +2748,35 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                           let cnt = contours.get(i);
                           let area = cv.contourArea(cnt);
                           let rect = cv.boundingRect(cnt);
-                          if (area > totalArea * 0.0003 && area < totalArea * 0.05) {
+                          // Relaxando a área mínima para captar os quadrados mesmo de longe
+                          if (area > totalArea * 0.00015 && area < totalArea * 0.05) {
                             let aspect = rect.width / rect.height;
                             let extent = area / (rect.width * rect.height);
-                            if (aspect >= 0.6 && aspect <= 1.4 && extent >= 0.50) {
+                            // Relaxando o extent para aceitar quadrados um pouco borrados ou mal iluminados
+                            if (aspect >= 0.5 && aspect <= 1.8 && extent >= 0.40) {
                                 squareCandidates.push({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, rect: rect, area: area });
                             }
                           }
                         }
 
                         const findBestMarkers = (pool, srcCols, srcRows) => {
-                            let maxArea = -1, bestCombo = null, maxIter = Math.min(pool.length, 60); 
+                            let maxArea = -1, bestCombo = null, maxIter = Math.min(pool.length, 80); 
                             for (let i = 0; i < maxIter; i++) for (let j = i + 1; j < maxIter; j++) for (let k = j + 1; k < maxIter; k++) for (let l = k + 1; l < maxIter; l++) {
                                 let pts = [pool[i], pool[j], pool[k], pool[l]];
                                 let areas = pts.map(p => p.area);
-                                if (Math.max(...areas) / Math.min(...areas) > 5.0) continue; 
+                                if (Math.max(...areas) / Math.min(...areas) > 6.0) continue; 
                                 pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
                                 let tl = pts[0], br = pts[3], rem = [pts[1], pts[2]].sort((a, b) => (a.x - a.y) - (b.x - b.y)), bl = rem[0], tr = rem[1];
                                 let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y), wBot = Math.hypot(br.x - bl.x, br.y - bl.y);
                                 let hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y), hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
-                                if (wTop < srcCols * 0.12 || wBot < srcCols * 0.12 || hLeft < srcRows * 0.10 || hRight < srcRows * 0.10) continue;
-                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.25 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.25) continue;
+                                
+                                if (wTop < srcCols * 0.10 || wBot < srcCols * 0.10 || hLeft < srcRows * 0.10 || hRight < srcRows * 0.10) continue;
+                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.35 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.35) continue;
+                                
                                 let avgW = (wTop + wBot) / 2, avgH = (hLeft + hRight) / 2, ratio = avgW / avgH;
-                                if (ratio > 0.6 && ratio < 1.4 && (avgW * avgH) > maxArea) {
+                                // CORREÇÃO CRÍTICA: O gabarito é mais alto do que largo! O ratio é aprox 0.6.
+                                // Expandimos a margem para aceitar fotos tiradas com inclinação acentuada.
+                                if (ratio > 0.35 && ratio < 1.6 && (avgW * avgH) > maxArea) {
                                     maxArea = avgW * avgH;
                                     bestCombo = { tl, tr, bl, br };
                                 }
@@ -2782,7 +2789,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         if (!bestMarkers) {
                           cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                          return { error: 'Não detectei os 4 cantos.', omr: null, debug: null };
+                          return { error: 'Gabarito não enquadrado. Certifique-se de que os 4 quadrados pretos estão visíveis e nítidos.', omr: null, debug: null };
                         }
 
                         let { tl, tr, bl, br } = bestMarkers;
@@ -2795,11 +2802,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let warpedGray = new cv.Mat(), warpedThresh = new cv.Mat(), warpedColor = new cv.Mat();
                         
                         cv.warpPerspective(gray, warpedGray, M, new cv.Size(WARPED_W, WARPED_H));
-                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, 12);
+                        // Ajustado para manter marcas mais fracas (lápis e 'X') sem apagar a tinta
+                        cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 41, 10);
                         cv.cvtColor(warpedGray, warpedColor, cv.COLOR_GRAY2RGBA);
 
                         // --- GRELHA PROPORCIONAL RÍGIDA ---
-                        // Ignora falhas de OCR. Usa as posições exatas baseadas nos 4 cantos dos seus gabaritos.
                         const numRows = maxQuestions || 10;
                         const numCols = 5;
                         const options = ['A', 'B', 'C', 'D', 'E'];
@@ -2807,14 +2814,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         let finalYs = [];
                         for (let i = 0; i < numRows; i++) {
-                            // Eixo Y: Primeira linha a 8.5%, avança 9.2% de espaço a cada nova linha
-                            finalYs.push(Math.floor(WARPED_H * (0.085 + (i * 0.0918))));
+                            // Ajuste fino baseado nos seus gabaritos reais
+                            finalYs.push(Math.floor(WARPED_H * (0.085 + (i * 0.0915))));
                         }
 
                         let finalXs = [];
                         for (let j = 0; j < numCols; j++) {
-                            // Eixo X: Coluna A a 39%, avança 12.1% a cada nova letra
-                            finalXs.push(Math.floor(WARPED_W * (0.390 + (j * 0.121))));
+                            // Ajuste fino para os eixos A B C D E
+                            finalXs.push(Math.floor(WARPED_W * (0.375 + (j * 0.122))));
                         }
 
                         const radiusX = Math.floor(WARPED_W * 0.026), radiusY = Math.floor(WARPED_H * 0.022);
@@ -2835,14 +2842,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 roi.delete();
                             }
 
-                            // Sensibilidade aprimorada: baixado para 0.22 para captar "X" e lápis fraco (ex: fotos 2 e 4)
-                            const thresholdDensity = 0.22; 
+                            // Sensibilidade aprimorada: 0.20 para garantir captura de "X" ou lápis suave
+                            const thresholdDensity = 0.20; 
                             let sortedDensities = [...rowDensities].sort((a, b) => b.density - a.density);
                             let answer = "Em Branco", markedRects = [];
 
                             if (sortedDensities[0].density > thresholdDensity) {
-                                // Se a diferença entre a 1ª e a 2ª marca for muito pequena, considera anulada
-                                if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.15)) {
+                                // Se a diferença entre a 1ª e a 2ª marca for muito pequena, anula
+                                if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.12)) {
                                      answer = "Anulada";
                                      markedRects.push(sortedDensities[0].option, sortedDensities[1].option);
                                 } else {
@@ -2867,7 +2874,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         return { error: null, omr: results, debug: debugData };
                     } catch(err) {
                         cleanUp([src, gray, threshMarkers, contours, hierarchy]);
-                        return { error: 'Exceção no processamento.', omr: null, debug: null };
+                        return { error: 'Exceção no processamento da imagem. Tente novamente.', omr: null, debug: null };
                     }
                 };
 
