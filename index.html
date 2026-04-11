@@ -489,6 +489,14 @@
                             <i class="fa-solid fa-file-pen text-lg"></i> Prova Externa
                         </button>
                     </div>
+                    
+                    <!-- NOVO: BOTÃO DE DIAGNÓSTICO OMR -->
+                    <div class="mt-3 pt-3 border-t border-gray-100">
+                        <input type="file" id="omr-test-upload" accept="image/*" multiple class="hidden" @change="processOMRTest">
+                        <button @click="triggerOMRTest" class="w-full bg-purple-50 hover:bg-purple-100 text-purple-700 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-purple-200 text-sm">
+                            <i class="fa-solid fa-vial text-lg"></i> Testar Leitura (Modo Diagnóstico)
+                        </button>
+                    </div>
                 </div>
 
                 <!-- NOVA ÁREA DE REVISÃO E DEMONSTRATIVO -->
@@ -1143,6 +1151,82 @@
         <!-- MODAL SCANNER MANUAL -->
         <div v-if="showManualInputModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-fade-in"><div class="flex justify-between mb-4"><h3 class="font-bold">Lançamento Manual</h3><button @click="showManualInputModal=false"><i class="fa-solid fa-times"></i></button></div><div class="space-y-4"><select v-model="manualConfig.examId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar prova...</option><option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option></select><select v-if="manualConfig.examId" v-model="manualConfig.studentId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar aluno...</option><option v-for="s in manualStudents" :key="s.id" :value="s.id">{{s.name}}</option></select><select v-if="manualConfig.studentId" v-model="manualConfig.version" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option v-for="(v,i) in selectedExamVersions" :key="i" :value="i">Tipo {{i+1}}</option></select><button @click="confirmManualEntry" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Avançar para Preenchimento</button></div></div></div>
 
+        <!-- MODAL OMR TEST (DIAGNÓSTICO) -->
+        <div v-if="showOMRTestModal" class="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
+                <div class="p-4 bg-purple-600 text-white flex justify-between items-center">
+                    <h3 class="font-bold"><i class="fa-solid fa-vial"></i> Diagnóstico OMR ({{omrTestResults.length}} testes)</h3>
+                    <button @click="showOMRTestModal=false"><i class="fa-solid fa-times text-xl"></i></button>
+                </div>
+                <div class="overflow-y-auto p-4 space-y-6">
+                    <div v-if="isTestingOMR" class="flex flex-col items-center justify-center py-10 text-purple-600">
+                        <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i>
+                        <p class="font-bold">Analisando imagens... ({{omrTestProcessedCount}} / {{omrTestTotalCount}})</p>
+                    </div>
+                    <div v-else v-for="(res, index) in omrTestResults" :key="index" class="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                        <h4 class="font-bold text-gray-700 mb-3 border-b pb-2">Arquivo {{index + 1}}: <span class="text-xs font-normal text-gray-500 break-all">{{res.fileName}}</span></h4>
+                        
+                        <div v-if="res.error" class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm font-bold flex flex-col gap-2">
+                            <div class="flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-xl"></i> Falha ou Aviso na Leitura</div>
+                            <p class="text-xs font-medium">{{ res.error }}</p>
+                            <p class="text-[10px] text-red-500 mt-1">Dicas: Evite reflexos, certifique-se de que os 4 cantos pretos da prova estão perfeitamente visíveis e de que o QR Code está legível.</p>
+                        </div>
+                        <div v-else class="bg-emerald-50 border border-emerald-200 text-emerald-700 p-3 rounded-xl text-sm font-bold flex items-center gap-2 mb-3">
+                            <i class="fa-solid fa-check-circle text-xl"></i> Leitura Concluída com Sucesso!
+                        </div>
+
+                        <div v-if="res.debugImage" class="border rounded-xl overflow-hidden shadow-sm mb-3">
+                            <p class="bg-gray-100 p-2 text-[10px] font-bold text-gray-500 uppercase text-center border-b">Visão do Motor Analítico</p>
+                            <img :src="res.debugImage" class="w-full h-auto cursor-pointer" title="Clique para Ampliar" @click="viewFullScreen(res.debugImage)">
+                        </div>
+
+                        <div v-if="res.answers && res.answers.length > 0" class="bg-white p-3 rounded-xl border">
+                            <p class="text-[10px] font-bold text-gray-500 uppercase mb-2">Respostas Extraídas (10 Primeiras)</p>
+                            <div class="grid grid-cols-5 gap-2">
+                                <div v-for="(ans, idx) in res.answers" :key="idx" class="bg-gray-50 border p-2 rounded-lg text-center shadow-sm">
+                                    <span class="block text-[9px] text-gray-400 font-bold">#{{idx+1}}</span>
+                                    <span class="font-black" :class="ans.answer==='Anulada'||ans.answer==='Em Branco'?'text-red-500 text-[9px] break-words':'text-indigo-600'">{{ans.answer}}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL OMR CAMERA ALIGNMENT (NOVO) -->
+        <div v-show="showOMRCameraModal" class="fixed inset-0 z-[450] flex flex-col bg-black animate-fade-in">
+            <div class="p-4 flex justify-between bg-gray-900 text-white z-10 shadow-md">
+                <div>
+                    <h3 class="font-bold"><i class="fa-solid fa-camera"></i> Enquadrar Gabarito</h3>
+                    <p class="text-[10px] text-gray-400">{{activeStudent?.name}}</p>
+                </div>
+                <button @click="stopOMRCamera" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="flex-1 relative overflow-hidden flex items-center justify-center bg-black">
+                <video id="omr-video-feed" autoplay playsinline class="w-full h-full object-cover"></video>
+                
+                <!-- OVERLAY GABARITO (Marcas Fudiciárias) -->
+                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20 px-8 py-16">
+                    <div class="w-full max-w-sm aspect-[3/4] border-2 border-emerald-500/50 relative shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+                        <!-- Cantos do Enquadramento -->
+                        <div class="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-emerald-500"></div>
+                        <div class="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-emerald-500"></div>
+                        <div class="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-emerald-500"></div>
+                        <div class="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-emerald-500"></div>
+                        <div class="absolute inset-0 flex items-center justify-center opacity-40">
+                            <p class="text-white text-center font-bold text-sm px-4 leading-tight">Alinhe a folha dentro deste retângulo.<br><br>Os 4 quadrados pretos da prova devem estar perfeitamente visíveis.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-900 pb-10">
+                <button @click="captureAndProcessOMR" :disabled="isProcessingLiveOMR" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 text-lg transition-colors">
+                    <i :class="isProcessingLiveOMR ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-camera'"></i> {{ isProcessingLiveOMR ? 'Analisando...' : 'Capturar e Corrigir' }}
+                </button>
+            </div>
+        </div>
+
         <!-- MODAL LIVE QR -->
         <div v-show="showLiveQRScanner" class="fixed inset-0 z-[400] flex flex-col bg-black animate-fade-in">
             <div class="p-4 flex justify-between bg-gray-900 text-white z-10 shadow-md"><h3 class="font-bold"><i class="fa-solid fa-qrcode"></i> Ler QR do Aluno</h3><button @click="stopLiveQRScan" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button></div>
@@ -1312,6 +1396,13 @@
                 const stopQueueFlag = ref(false);
                 const stopQueue = () => { stopQueueFlag.value = true; };
 
+                // OMR Test (Diagnostic)
+                const showOMRTestModal = ref(false);
+                const omrTestResults = ref([]);
+                const isTestingOMR = ref(false);
+                const omrTestProcessedCount = ref(0);
+                const omrTestTotalCount = ref(0);
+
                 // Image Viewer (Tela Cheia)
                 const showFullScreenImage = ref(false);
                 const fullScreenImageUrl = ref('');
@@ -1331,10 +1422,14 @@
                 const canInstall = ref(false);
                 let deferredPrompt = null;
                 
-                // QR Scanner
+                // QR Scanner & OMR Camera Overlay
                 const showLiveQRScanner = ref(false);
                 const qrScanMode = ref('correction');
                 let html5QrCode = null;
+
+                const showOMRCameraModal = ref(false);
+                const isProcessingLiveOMR = ref(false);
+                const omrStream = ref(null);
 
                 // --- LIFECYCLE & HELPERS ---
                 window.addEventListener('beforeinstallprompt', e => { 
@@ -2170,7 +2265,7 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
 
                 const testGeminiKey=async()=>{
                     if(!geminiKey.value)return showToast("Insira chave","error");
-                    toast.value={show:true,message:"Testando e buscando modelo...",type:"loading"};
+                    toast.value={show:true,message:"Testando e buscando modelo...","type":"loading"};
                     try{
                         const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey.value}`);
                         const d=await r.json();
@@ -2690,13 +2785,16 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                                 showToast(`Ainda não há nota lançada para ${std.name} nesta prova.`, "warning");
                                             }
                                         } else {
-                                            // Modo Correção
+                                            // Modo Correção (AGORA CHAMA A CAMERA OMR)
                                             activeExam.value = exm;
                                             activeStudent.value = std;
                                             activeVersion.value = Number(qd.v) || 0;
                                             studentAnswers.value = {};
-                                            correctionMode.value = true;
-                                            showToast(`Identificado: ${std.name}`, "success");
+                                            
+                                            showToast(`QR Lido: ${std.name}. Enquadre o gabarito.`, "success");
+                                            setTimeout(() => {
+                                                startOMRCamera();
+                                            }, 500);
                                         }
                                     } catch(err) {
                                         showToast(err.message || "QR Code inválido ou não reconhecido.", "error");
@@ -2719,8 +2817,220 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     }
                 };
 
+                // --- NOVO: CAMERA OMR EM DIRETO ---
+                const startOMRCamera = async () => {
+                    showOMRCameraModal.value = true;
+                    try {
+                        omrStream.value = await navigator.mediaDevices.getUserMedia({ 
+                            video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } 
+                        });
+                        const videoEl = document.getElementById('omr-video-feed');
+                        if (videoEl) {
+                            videoEl.srcObject = omrStream.value;
+                        }
+                    } catch (err) {
+                        showToast("Erro ao aceder à câmara: " + err.message, "error");
+                        showOMRCameraModal.value = false;
+                    }
+                };
+
+                const stopOMRCamera = () => {
+                    if (omrStream.value) {
+                        omrStream.value.getTracks().forEach(track => track.stop());
+                        omrStream.value = null;
+                    }
+                    showOMRCameraModal.value = false;
+                };
+
+                const captureAndProcessOMR = async () => {
+                    if (!window.cv || !window.cv.Mat) {
+                        return showToast('O motor OpenCV ainda está a carregar.', 'warning');
+                    }
+                    
+                    const videoEl = document.getElementById('omr-video-feed');
+                    if (!videoEl || !videoEl.videoWidth) return;
+
+                    isProcessingLiveOMR.value = true;
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = videoEl.videoWidth;
+                    canvas.height = videoEl.videoHeight;
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+                    // Escala se for muito grande
+                    const maxDim = 1500;
+                    if (canvas.width > maxDim) {
+                        let scale = maxDim / canvas.width;
+                        const scaledCanvas = document.createElement('canvas');
+                        scaledCanvas.width = canvas.width * scale;
+                        scaledCanvas.height = canvas.height * scale;
+                        const sCtx = scaledCanvas.getContext('2d', { willReadFrequently: true });
+                        sCtx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+                        canvas.width = scaledCanvas.width;
+                        canvas.height = scaledCanvas.height;
+                        ctx.clearRect(0,0,canvas.width, canvas.height);
+                        ctx.drawImage(scaledCanvas, 0, 0);
+                    }
+
+                    try {
+                        const exm = activeExam.value;
+                        const std = activeStudent.value;
+                        const ver = activeVersion.value;
+                        const maxQ = getVersionQuestions(exm, ver).length;
+
+                        const omrResult = runOMRLogic(canvas);
+
+                        let ansMap = {};
+                        let finalDebugImage = null;
+                        let needsReview = false;
+
+                        if (omrResult.error) {
+                            needsReview = true;
+                            finalDebugImage = canvas.toDataURL('image/jpeg', 0.6);
+                        } else {
+                            needsReview = omrResult.needsReview || false;
+                            omrResult.omr.forEach((res, qIndex) => {
+                                if (qIndex < maxQ && res.answer !== 'Anulada' && res.answer !== 'Em Branco') {
+                                    const val = ['A', 'B', 'C', 'D', 'E'].indexOf(res.answer);
+                                    if (val !== -1) ansMap[qIndex] = val;
+                                }
+                            });
+                            finalDebugImage = omrResult.debug;
+                        }
+
+                        let isMissingAnswers = false;
+                        for (let q = 0; q < maxQ; q++) {
+                            if (ansMap[q] === undefined) {
+                                isMissingAnswers = true;
+                                break;
+                            }
+                        }
+
+                        let savedId = await saveExamResult(exm.id, std.id, std.name, ver, ansMap, finalDebugImage, needsReview, false, isMissingAnswers);
+                        
+                        stopOMRCamera();
+                        showToast("Leitura Concluída!", "success");
+                        
+                        openResultDetails({ id: savedId });
+
+                    } catch(e) {
+                        showToast(e.message || "Erro no processamento da imagem", "error");
+                    } finally {
+                        isProcessingLiveOMR.value = false;
+                    }
+                };
+
                 const triggerOMRCorrection = () => {
                     document.getElementById('omr-correction-upload').click();
+                };
+
+                const triggerOMRTest = () => {
+                    document.getElementById('omr-test-upload').click();
+                };
+
+                const processOMRTest = async (event) => {
+                    const files = event.target.files;
+                    if (!files || files.length === 0) return;
+                    event.target.value = '';
+
+                    if (!window.cv || !window.cv.Mat) {
+                        return showToast('O motor OpenCV ainda está a carregar.', 'warning');
+                    }
+
+                    omrTestResults.value = [];
+                    isTestingOMR.value = true;
+                    omrTestTotalCount.value = files.length;
+                    omrTestProcessedCount.value = 0;
+                    showOMRTestModal.value = true;
+
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        let currentResult = { fileName: file.name, error: null, debugImage: null, answers: [] };
+
+                        try {
+                            await new Promise((resolve, reject) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                    let scale = img.width > 1500 ? 1500 / img.width : 1;
+                                    canvas.width = img.width * scale;
+                                    canvas.height = img.height * scale;
+                                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                    resolve();
+                                };
+                                img.onerror = () => reject(new Error('Erro ao carregar a foto.'));
+                                img.src = URL.createObjectURL(file);
+                            });
+
+                            let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            let rotations = [0, 90, 180, 270];
+                            let finalAngle = 0;
+                            let code = null;
+
+                            for (let angle of rotations) {
+                                if (angle > 0) {
+                                    const tCanvas = document.createElement('canvas');
+                                    tCanvas.width = (angle === 90 || angle === 270) ? canvas.height : canvas.width;
+                                    tCanvas.height = (angle === 90 || angle === 270) ? canvas.width : canvas.height;
+                                    const tCtx = tCanvas.getContext('2d');
+                                    tCtx.translate(tCanvas.width / 2, tCanvas.height / 2);
+                                    tCtx.rotate(angle * Math.PI / 180);
+                                    tCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+                                    imgData = tCtx.getImageData(0, 0, tCanvas.width, tCanvas.height);
+                                }
+                                
+                                code = window.jsQR(imgData.data, imgData.width, imgData.height);
+                                if (code) {
+                                    let dx = code.location.topRightCorner.x - code.location.topLeftCorner.x;
+                                    let dy = code.location.topRightCorner.y - code.location.topLeftCorner.y;
+                                    let qrAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+                                    let extra = 0;
+                                    if (qrAngle > 45 && qrAngle <= 135) extra = -90;
+                                    else if (qrAngle > 135 || qrAngle <= -135) extra = 180;
+                                    else if (qrAngle > -135 && qrAngle <= -45) extra = 90;
+                                    finalAngle = (angle + extra + 360) % 360;
+                                    break;
+                                }
+                            }
+
+                            if (finalAngle !== 0) {
+                                const finalCanvas = document.createElement('canvas');
+                                finalCanvas.width = (finalAngle === 90 || finalAngle === 270) ? canvas.height : canvas.width;
+                                finalCanvas.height = (finalAngle === 90 || finalAngle === 270) ? canvas.width : canvas.height;
+                                const fCtx = finalCanvas.getContext('2d');
+                                fCtx.translate(finalCanvas.width / 2, finalCanvas.height / 2);
+                                fCtx.rotate(finalAngle * Math.PI / 180);
+                                fCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+                                canvas.width = finalCanvas.width;
+                                canvas.height = finalCanvas.height;
+                                ctx.drawImage(finalCanvas, 0, 0);
+                            }
+
+                            let qrErrorMsg = code ? null : "QR Code não encontrado (A rotação exata não pôde ser calculada). O motor tentará ler a prova na orientação atual.";
+
+                            // Teste padronizado simulando 10 questões
+                            const omrResult = runOMRLogic(canvas, 10);
+                            
+                            currentResult.error = omrResult.error ? (qrErrorMsg ? `${qrErrorMsg} | Falha OMR: ${omrResult.error}` : omrResult.error) : (qrErrorMsg || null);
+                            currentResult.debugImage = omrResult.debug || canvas.toDataURL('image/jpeg', 0.6);
+                            currentResult.answers = omrResult.omr || [];
+
+                        } catch(e) {
+                            currentResult.error = e.message;
+                        }
+
+                        omrTestResults.value.push(currentResult);
+                        omrTestProcessedCount.value++;
+                        
+                        // Pausa para renderização visual
+                        await new Promise(r => setTimeout(r, 50));
+                    }
+
+                    isTestingOMR.value = false;
+                    showToast("Diagnóstico de lote finalizado", "success");
                 };
 
                 const cleanUp = mats => mats.forEach(m => m && !m.isDeleted() && m.delete());
@@ -3179,388 +3489,731 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 stds.forEach((s,i)=>sm[s.id]=i%nV);
                             }
                             
-                            let eD={title:titleFallback, classId:cid, type:examConfig.value.type, weight:examConfig.value.weight, bimester:examConfig.value.bimester, teacher:examConfig.value.teacher, variationMode:examConfig.value.variationMode, versions:v, studentMap:sm, date:Date.now(), paperSaving: pSize};
-                            
-                            let eId;
-                            if(editingExamRecord && editingExamRecord.classId === cid) {
-                                eId = editingExamRecord.id;
-                                await db.exams.put({...eD,id:eId});
+                            let eD={title:titleFallback, classId:cid, type:examConfig.value.type, weight: 1, bimester:examConfig.value.bimester, date:new Date(examConfig.value.date+"T12:00:00").getTime(), variationMode:examConfig.value.variationMode, versions:v, studentMap:sm, teacher:examConfig.value.teacher};
+                            let examId = editingExamId.value;
+                            if (examId) {
+                                await db.exams.put({ ...eD, id: examId });
                             } else {
-                                eId = await db.exams.add(eD);
+                                examId = await db.exams.add(JSON.parse(JSON.stringify(eD)));
                             }
 
-                            stds.forEach((s,i)=>{
-                                let vi=sm[s.id], qs=v[vi].questions;
-                                let kr = [];
+                            stds.forEach((s, stdIndex) => {
+                                let vIdx = sm[s.id];
+                                let qrData = JSON.stringify({ e: examId, s: s.id, v: vIdx });
                                 
-                                kr.push([
-                                    { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { text: ' ', border: [false,false,false,false] }, { text: ' ', border: [false,false,false,false] },
-                                    { stack: [{text: ' ', fontSize: 1}, { canvas: [{ type: 'rect', x: 0, y: 0, w: 15, h: 15, color: '#000' }] }], border: [false,false,false,false] }
-                                ]);
+                                let headerTable = {
+                                    widths: [100, '*'],
+                                    body: [
+                                        [
+                                            { qr: qrData, fit: 100, alignment: 'center', margin: [0, 5, 0, 0] },
+                                            {
+                                                stack: [
+                                                    { text: settings.value.schoolName || 'Instituição de Ensino', fontSize: 14, bold: true, alignment: 'center', margin: [0, 0, 0, 5] },
+                                                    { text: titleFallback, fontSize: 12, bold: true, alignment: 'center', margin: [0, 0, 0, 5] },
+                                                    {
+                                                        columns: [
+                                                            { text: `Aluno: ${s.name}`, fontSize: 10, bold: true },
+                                                            { text: `Turma: ${getClassName(cid)}`, fontSize: 10, alignment: 'right' }
+                                                        ]
+                                                    },
+                                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 380, y2: 0, lineWidth: 1 }], margin: [0, 5] },
+                                                    {
+                                                        columns: [
+                                                            { text: `Data: ${new Date(examConfig.value.date + "T12:00:00").toLocaleDateString('pt-BR')}`, fontSize: 9 },
+                                                            { text: `Prof: ${examConfig.value.teacher || '-'}`, fontSize: 9 },
+                                                            { text: `Tipo: ${vIdx + 1}`, fontSize: 9, alignment: 'right', bold: true }
+                                                        ]
+                                                    }
+                                                ],
+                                                margin: [10, 5, 0, 0]
+                                            }
+                                        ]
+                                    ]
+                                };
 
-                                let qrData = {e: eId, s: s.id, v: vi};
-                                let qrStr = JSON.stringify(qrData);
-
-                                // Adiciona a foto do aluno se configurado
-                                let studentPhotoBlock = null;
                                 if (printConfig.value.showStudentPhoto && s.photo) {
-                                    studentPhotoBlock = {
-                                        image: s.photo,
-                                        width: 50,
-                                        height: 50,
-                                        alignment: 'center',
-                                        margin: [0, 5, 0, 0]
+                                    headerTable.body[0][0] = {
+                                        stack: [
+                                            { qr: qrData, fit: 80, alignment: 'center' },
+                                            { image: s.photo, width: 40, height: 40, alignment: 'center', margin: [0, 5, 0, 0] }
+                                        ]
                                     };
                                 }
 
-                                let pD = [
-                                    {
-                                        columns: [
-                                            { width: printConfig.value.logoSize, stack: [settings.value.logo ? {image: settings.value.logo, width: printConfig.value.logoSize} : {text: ''}] },
-                                            { width: '*', text: [{text: (settings.value.schoolName || 'ESCOLA') + '\n', fontSize: 12, bold: true}, {text: titleFallback + '\n', fontSize: 10, bold: true}, {text: `Prof: ${examConfig.value.teacher} | Turma: ${getClassName(cid)}\n`, fontSize: 8}, {text: `Aluno: ${s.name}\n`, fontSize: 10, bold: true, background: '#f3f4f6'}], margin: [10, 0] },
-                                            { width: 80, stack: [
-                                                {qr: qrStr, fit: 80, alignment: 'right'},
-                                                studentPhotoBlock
-                                            ]}
-                                        ],
-                                        margin: [0, 0, 0, pSize ? 5 : 10]
-                                    },
-                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1 }], margin: [0, 0, 0, pSize ? 5 : 10] },
-                                    {
-                                        table: { widths: [20, 10, '*', '*', '*', '*', '*', 20], body: kr },
-                                        layout: 'noBorders', margin: [0, 0, 0, pSize ? 10 : 15]
-                                    },
-                                    { text: 'RESPOSTAS (RASCUNHO)', fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, pSize ? 5 : 10], color: '#4b5563' }
-                                ];
-                                
-                                qs.forEach((q, k) => {
-                                    let qb = [{ text: `${k + 1}. ${q.text}`, fontSize: fSizeQ, bold: true, margin: [0, pSize ? 4 : 8, 0, pSize ? 2 : 4] }];
-                                    if (q.image) qb.push({ image: q.image, width: imgWidth, alignment: 'center', margin: [0, 2, 0, pSize ? 4 : 8] });
-                                    
-                                    if (q.type === 'ce') {
-                                        qb.push({ text: `( ) Certo   ( ) Errado`, fontSize: fSizeOpt, margin: [10, 2, 0, 2] });
-                                    } else if (q.type === 'vf') {
-                                        q.options.forEach((o, oi) => {
-                                            qb.push({ text: `( ) ${o.text}`, fontSize: fSizeOpt, margin: [10, 2, 0, 2] });
-                                        });
-                                    } else if (q.type === 'assoc') {
-                                        q.options.forEach((o, oi) => {
-                                            qb.push({ text: `${oi + 1}. ${o.text}   ( ) ${o.match}`, fontSize: fSizeOpt, margin: [10, 2, 0, 2] });
-                                        });
-                                    } else {
-                                        q.options.forEach((o, oi) => {
-                                            qb.push({ text: `${['A)', 'B)', 'C)', 'D)', 'E)'][oi]} ${o.text}`, fontSize: fSizeOpt, margin: [10, optMarg[1], 0, optMarg[1]] });
-                                        });
-                                    }
-                                    pD.push({ stack: qb, unbreakable: true });
+                                cont.push({
+                                    table: headerTable,
+                                    layout: 'noBorders',
+                                    margin: [0, 0, 0, pSize ? 10 : 20]
                                 });
 
-                                cont.push(pD);
+                                v[vIdx].questions.forEach((q, qIdx) => {
+                                    cont.push({
+                                        text: [
+                                            { text: `${qIdx + 1}. `, bold: true, fontSize: fSizeQ },
+                                            { text: q.text, fontSize: fSizeQ }
+                                        ],
+                                        margin: [0, pSize ? 5 : 10, 0, pSize ? 2 : 5]
+                                    });
 
-                                // Adiciona quebra de página, e verifica se precisa de verso branco
-                                if (i < stds.length - 1) {
+                                    if (q.image) {
+                                        cont.push({ image: q.image, width: imgWidth, alignment: 'center', margin: [0, 5, 0, 5] });
+                                    }
+
+                                    if (q.type === 'ce') {
+                                        cont.push({
+                                            columns: [
+                                                { text: '(  ) CERTO', fontSize: fSizeOpt, margin: optMarg },
+                                                { text: '(  ) ERRADO', fontSize: fSizeOpt, margin: optMarg }
+                                            ],
+                                            margin: [15, 0, 0, pSize ? 5 : 10]
+                                        });
+                                    } else if (q.type === 'mc') {
+                                        q.options.forEach((opt, oIdx) => {
+                                            cont.push({
+                                                text: `${['A)', 'B)', 'C)', 'D)', 'E)'][oIdx]} ${opt.text}`,
+                                                fontSize: fSizeOpt,
+                                                margin: [15, optMarg[1], 0, optMarg[1]]
+                                            });
+                                        });
+                                        if(!pSize) cont.push({ text: '', margin: [0, 5] });
+                                    } else if (q.type === 'vf') {
+                                        q.options.forEach((opt) => {
+                                            cont.push({
+                                                text: `(  ) ${opt.text}`,
+                                                fontSize: fSizeOpt,
+                                                margin: [15, optMarg[1], 0, optMarg[1]]
+                                            });
+                                        });
+                                        if(!pSize) cont.push({ text: '', margin: [0, 5] });
+                                    } else if (q.type === 'assoc') {
+                                        let col1 = [], col2 = [];
+                                        q.options.forEach((opt, oIdx) => {
+                                            col1.push({ text: `${oIdx + 1}. ${opt.text}`, fontSize: fSizeOpt, margin: optMarg });
+                                            col2.push({ text: `(  ) ${opt.match}`, fontSize: fSizeOpt, margin: optMarg });
+                                        });
+                                        cont.push({
+                                            columns: [
+                                                { stack: col1, width: '50%' },
+                                                { stack: col2, width: '50%' }
+                                            ],
+                                            margin: [15, 0, 0, pSize ? 5 : 10]
+                                        });
+                                    }
+                                });
+
+                                // Quebra de página para o próximo aluno
+                                if (stdIndex < stds.length - 1) {
                                     cont.push({ text: '', pageBreak: 'after' });
                                     if (printConfig.value.addBlankPage) {
-                                        cont.push({ text: 'VERSO EM BRANCO', alignment: 'center', color: '#ccc', margin: [0, 200], pageBreak: 'after' });
+                                        cont.push({ text: 'Verso em Branco', alignment: 'center', color: '#ccc', pageBreak: 'after' });
                                     }
+                                } else if (printConfig.value.addBlankPage && cid !== examConfig.value.classIds[examConfig.value.classIds.length - 1]) {
+                                     // Garante que a última página da turma atual também tenha verso em branco se necessário
+                                     cont.push({ text: 'Verso em Branco', alignment: 'center', color: '#ccc', pageBreak: 'after' });
                                 }
                             });
+                            
+                            // Quebra de página entre turmas
+                            if (cid !== examConfig.value.classIds[examConfig.value.classIds.length - 1]) {
+                                cont.push({ text: '', pageBreak: 'after' });
+                            }
                         }
-                        
-                        let doc = { 
-                            content: cont, 
-                            defaultStyle: { font: 'Roboto' }, 
-                            pageMargins: pSize ? [20, 20, 20, 20] : [40, 40, 40, 40]
+
+                        let docDefinition = {
+                            content: cont,
+                            defaultStyle: { font: 'Roboto' },
+                            pageMargins: pSize ? [30, 30, 30, 30] : [40, 40, 40, 40]
                         };
+
+                        let finalFileName = `${titleFallback.replace(/\s+/g, '_')}_${examConfig.value.classIds.length}Turmas.pdf`;
+                        downloadPDF(pdfMake.createPdf(docDefinition), finalFileName, action);
                         
-                        downloadPDF(pdfMake.createPdf(doc), `Prova_${titleFallback.replace(/\s+/g,'_')}.pdf`, action);
-                        showEditExamModal.value=false; 
-                        examTab.value='all'; 
-                        examConfig.value.classIds=[]; 
-                        examCart.value=[]; 
-                        editingExamId.value=null;
-                        load();
+                        examCart.value = [];
+                        editingExamId.value = null;
+                        showEditExamModal.value = false;
+                        await load();
+                        
                     });
+                };
+
+                const generateKeyPDF = (exam, action = 'share') => {
+                    let cont = [
+                        { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                        { text: 'GABARITO OFICIAL', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
+                        { text: `Prova: ${exam.title}`, fontSize: 12, margin: [0, 0, 0, 5] },
+                        { text: `Turma: ${getClassName(exam.classId)}`, fontSize: 10, margin: [0, 0, 0, 15] }
+                    ];
+
+                    const versions = exam.versions || [{id: 0, questions: exam.questions}];
+                    
+                    versions.forEach((v, vIdx) => {
+                        cont.push({ text: `TIPO ${vIdx + 1}`, fontSize: 12, bold: true, margin: [0, 10, 0, 5], color: '#4f46e5' });
+                        
+                        let body = [['Questão', 'Gabarito']];
+                        v.questions.forEach((q, qIdx) => {
+                            let ans = getAlternativeLabel(q.type, q.correctIndex);
+                            if (q.type === 'vf' || q.type === 'assoc') {
+                                ans = 'Múltiplos (Ver enunciado)';
+                            } else if (q.type === 'ce') {
+                                ans = q.correctIndex === 0 ? 'CERTO' : 'ERRADO';
+                            }
+                            body.push([{text: `${qIdx + 1}`, alignment: 'center'}, {text: ans, alignment: 'center', bold: true}]);
+                        });
+
+                        cont.push({
+                            table: {
+                                headerRows: 1,
+                                widths: ['auto', '*'],
+                                body: body
+                            },
+                            layout: 'lightHorizontalLines',
+                            margin: [0, 0, 0, 20]
+                        });
+                    });
+
+                    let doc = { content: cont, defaultStyle: { font: 'Roboto' } };
+                    downloadPDF(pdfMake.createPdf(doc), `Gabarito_${exam.title.replace(/\s+/g, '_')}.pdf`, action);
+                };
+                
+                const reprintExamPDF = async (exam, action = 'share') => {
+                    examConfig.value = { ...exam, classIds: [exam.classId] };
+                    examCart.value = JSON.parse(JSON.stringify(getVersionQuestions(exam, 0)));
+                    editingExamId.value = exam.id;
+                    await generatePDF(action);
                 };
 
                 const generateMergedPDF = async (action = 'share') => {
                     if (selectedHistoryExams.value.length === 0) return;
-                    showToast("Processando lote de provas...", "loading");
-                    // Implementação básica para fundir (reaproveita reprintExamPDF num loop no futuro)
-                    // Por enquanto aciona a última para não quebrar a aplicação.
-                    reprintExamPDF(exams.value.find(e => e.id === selectedHistoryExams.value[0]), action);
-                    showToast("Para lotes gigantes, partilhe individualmente.", "warning");
-                };
-
-                const generateKeyPDF = async (e, action = 'share') => {
-                    showToast("A gerar espelho de correção...", "loading");
-                    let cont = [{ text: `Gabarito Oficial: ${e.title}`, fontSize: 16, bold: true, alignment: 'center', margin: [0,0,0,20] }];
                     
-                    e.versions.forEach((v, vIdx) => {
-                        cont.push({ text: `Tipo ${vIdx + 1}`, fontSize: 14, bold: true, margin: [0,10,0,5], color: '#4f46e5' });
-                        let tBody = [['Questão', 'Resposta Correta']];
-                        v.questions.forEach((q, i) => {
-                            let correctLabel = q.type === 'ce' ? (q.correctIndex === 0 ? 'Certo' : 'Errado') : ['A', 'B', 'C', 'D', 'E'][q.correctIndex];
-                            if (q.type === 'vf' || q.type === 'assoc') correctLabel = 'Multi';
-                            tBody.push([`${i + 1}`, correctLabel || '-']);
-                        });
-                        cont.push({ table: { headerRows: 1, widths: [100, '*'], body: tBody }, margin: [0,0,0,15] });
-                    });
-
-                    downloadPDF(pdfMake.createPdf({ content: cont, defaultStyle: { font: 'Roboto' } }), `Gabarito_${e.title.replace(/\s+/g,'_')}.pdf`, action);
-                };
-
-                const reprintExamPDF = async (e, action = 'share') => {
-                    examConfig.value = { ...e, classIds: [e.classId] };
-                    examCart.value = JSON.parse(JSON.stringify(getVersionQuestions(e, 0)));
-                    editingExamId.value = e.id;
-                    await generatePDF(action);
-                };
-
-                const deleteExam = (id) => {
-                    triggerConfirm("Tem a certeza que deseja apagar esta prova e todas as notas associadas?", async () => {
-                        await db.exams.delete(id);
-                        let res = await db.results.where({examId: id}).toArray();
-                        await db.results.bulkDelete(res.map(r => r.id));
-                        showToast("Prova e notas apagadas.", "success");
-                        load();
-                    });
-                };
-                
-                const generateClassReportPDF = () => { showToast("A gerar ranking...", "success"); };
-                const generateGeneralReportPDF = (classId) => { showToast("A gerar boletim...", "success"); };
-                const generateAttendanceReportPDF = (classId) => { showToast("A gerar relatório de faltas...", "success"); };
-                
-                const generateLastExamPDF = () => { 
-                    if (!recentCorrections.value || recentCorrections.value.length === 0) return showToast("Nenhuma correção recente para gerar PDF.", "warning");
-                    showToast("A processar relatório de notas...", "loading");
+                    showToast("Agrupando provas num único ficheiro...", "loading");
                     
-                    const lastExamId = recentCorrections.value[0].examId;
-                    const exam = exams.value.find(e => e.id === lastExamId);
-                    if (!exam) return showToast("Prova não encontrada.", "error");
+                    let allContent = [];
+                    const pSize = printConfig.value.paperSaving;
+                    const fSizeQ = pSize ? 9 : 11;
+                    const fSizeOpt = pSize ? 8 : 10;
+                    const optMarg = pSize ? [0, 0] : [0, 2];
+                    let baseImgW = printConfig.value.qImageSize === 'large' ? 250 : 130;
+                    const imgWidth = pSize ? baseImgW * 0.8 : baseImgW;
 
-                    const examResults = results.value.filter(r => r.examId === lastExamId).sort((a, b) => a.studentName.localeCompare(b.studentName));
-                    
-                    let tBody = [[{ text: 'Aluno', bold: true, fillColor: '#f3f4f6' }, { text: 'Nota', bold: true, alignment: 'center', fillColor: '#f3f4f6' }]];
-                    let sum = 0;
-                    
-                    examResults.forEach(r => {
-                        sum += parseFloat(r.score);
-                        let scoreColor = parseFloat(r.score) >= 6 ? '#059669' : '#ef4444';
-                        if(r.isIncomplete) scoreColor = '#ef4444'; // Vermelho se incompleto
-                        else if(r.needsReview) scoreColor = '#f59e0b'; // Laranja se precisar revisar
+                    for (let i = 0; i < selectedHistoryExams.value.length; i++) {
+                        const examId = selectedHistoryExams.value[i];
+                        const e = await db.exams.get(examId);
+                        if (!e || e.isExternal) continue;
                         
-                        let noteStr = r.score;
-                        if(r.isIncomplete) noteStr += ' (Incompleta)';
-                        else if(r.needsReview) noteStr += ' (Revisar)';
-                        else if(r.isManual) noteStr += ' (Manual)';
+                        let stds = students.value.filter(s => s.classId === e.classId);
+                        if (stds.length === 0) continue;
                         
-                        tBody.push([r.studentName, { text: noteStr, color: scoreColor, alignment: 'center', bold: true }]);
-                    });
+                        stds.forEach((s, stdIndex) => {
+                            let vIdx = e.studentMap ? e.studentMap[s.id] : 0;
+                            if (vIdx === undefined) vIdx = 0;
+                            
+                            let v = e.versions && e.versions[vIdx] ? e.versions[vIdx] : (e.versions ? e.versions[0] : { questions: e.questions });
+                            let qrData = JSON.stringify({ e: e.id, s: s.id, v: vIdx });
+                            
+                            let headerTable = {
+                                widths: [100, '*'],
+                                body: [
+                                    [
+                                        { qr: qrData, fit: 100, alignment: 'center', margin: [0, 5, 0, 0] },
+                                        {
+                                            stack: [
+                                                { text: settings.value.schoolName || 'Instituição de Ensino', fontSize: 14, bold: true, alignment: 'center', margin: [0, 0, 0, 5] },
+                                                { text: e.title, fontSize: 12, bold: true, alignment: 'center', margin: [0, 0, 0, 5] },
+                                                {
+                                                    columns: [
+                                                        { text: `Aluno: ${s.name}`, fontSize: 10, bold: true },
+                                                        { text: `Turma: ${getClassName(e.classId)}`, fontSize: 10, alignment: 'right' }
+                                                    ]
+                                                },
+                                                { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 380, y2: 0, lineWidth: 1 }], margin: [0, 5] },
+                                                {
+                                                    columns: [
+                                                        { text: `Data: ${new Date(e.date).toLocaleDateString('pt-BR')}`, fontSize: 9 },
+                                                        { text: `Prof: ${e.teacher || '-'}`, fontSize: 9 },
+                                                        { text: `Tipo: ${vIdx + 1}`, fontSize: 9, alignment: 'right', bold: true }
+                                                    ]
+                                                }
+                                            ],
+                                            margin: [10, 5, 0, 0]
+                                        }
+                                    ]
+                                ]
+                            };
 
-                    const avg = examResults.length > 0 ? (sum / examResults.length).toFixed(1) : '-';
-                    
-                    const doc = {
-                        content: [
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
-                            { text: 'RELATÓRIO DE NOTAS DA AVALIAÇÃO', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
-                            { text: `Prova: ${exam.title}`, fontSize: 12, alignment: 'center', margin: [0, 0, 0, 2] },
-                            { text: `Turma: ${getClassName(exam.classId)}`, fontSize: 10, alignment: 'center', margin: [0, 0, 0, 15] },
-                            { columns: [{ text: `Avaliados: ${examResults.length}`, fontSize: 10, bold: true }, { text: `Média da Turma: ${avg}`, fontSize: 10, bold: true, alignment: 'right' }], margin: [0, 0, 0, 10] },
-                            {
-                                table: { headerRows: 1, widths: ['*', 100], body: tBody },
-                                layout: { hLineWidth: i => 1, vLineWidth: i => 0, hLineColor: i => '#e5e7eb', paddingLeft: i => 4, paddingRight: i => 4, paddingTop: i => 6, paddingBottom: i => 6 }
+                            if (printConfig.value.showStudentPhoto && s.photo) {
+                                headerTable.body[0][0] = {
+                                    stack: [
+                                        { qr: qrData, fit: 80, alignment: 'center' },
+                                        { image: s.photo, width: 40, height: 40, alignment: 'center', margin: [0, 5, 0, 0] }
+                                    ]
+                                };
                             }
-                        ],
-                        defaultStyle: { font: 'Roboto' }
+
+                            allContent.push({ table: headerTable, layout: 'noBorders', margin: [0, 0, 0, pSize ? 10 : 20] });
+
+                            v.questions.forEach((q, qIdx) => {
+                                allContent.push({
+                                    text: [
+                                        { text: `${qIdx + 1}. `, bold: true, fontSize: fSizeQ },
+                                        { text: q.text, fontSize: fSizeQ }
+                                    ],
+                                    margin: [0, pSize ? 5 : 10, 0, pSize ? 2 : 5]
+                                });
+
+                                if (q.image) allContent.push({ image: q.image, width: imgWidth, alignment: 'center', margin: [0, 5, 0, 5] });
+
+                                if (q.type === 'ce') {
+                                    allContent.push({
+                                        columns: [
+                                            { text: '(  ) CERTO', fontSize: fSizeOpt, margin: optMarg },
+                                            { text: '(  ) ERRADO', fontSize: fSizeOpt, margin: optMarg }
+                                        ],
+                                        margin: [15, 0, 0, pSize ? 5 : 10]
+                                    });
+                                } else if (q.type === 'mc') {
+                                    q.options.forEach((opt, oIdx) => {
+                                        allContent.push({ text: `${['A)', 'B)', 'C)', 'D)', 'E)'][oIdx]} ${opt.text}`, fontSize: fSizeOpt, margin: [15, optMarg[1], 0, optMarg[1]] });
+                                    });
+                                    if(!pSize) allContent.push({ text: '', margin: [0, 5] });
+                                } else if (q.type === 'vf') {
+                                    q.options.forEach((opt) => {
+                                        allContent.push({ text: `(  ) ${opt.text}`, fontSize: fSizeOpt, margin: [15, optMarg[1], 0, optMarg[1]] });
+                                    });
+                                    if(!pSize) allContent.push({ text: '', margin: [0, 5] });
+                                } else if (q.type === 'assoc') {
+                                    let col1 = [], col2 = [];
+                                    q.options.forEach((opt, oIdx) => {
+                                        col1.push({ text: `${oIdx + 1}. ${opt.text}`, fontSize: fSizeOpt, margin: optMarg });
+                                        col2.push({ text: `(  ) ${opt.match}`, fontSize: fSizeOpt, margin: optMarg });
+                                    });
+                                    allContent.push({
+                                        columns: [ { stack: col1, width: '50%' }, { stack: col2, width: '50%' } ],
+                                        margin: [15, 0, 0, pSize ? 5 : 10]
+                                    });
+                                }
+                            });
+
+                            // Quebra de página entre alunos ou provas
+                            if (stdIndex < stds.length - 1 || i < selectedHistoryExams.value.length - 1) {
+                                allContent.push({ text: '', pageBreak: 'after' });
+                                if (printConfig.value.addBlankPage) {
+                                    allContent.push({ text: 'Verso em Branco', alignment: 'center', color: '#ccc', pageBreak: 'after' });
+                                }
+                            }
+                        });
+                    }
+                    
+                    if (allContent.length === 0) {
+                        return showToast("Nenhum conteúdo válido gerado.", "warning");
+                    }
+
+                    let docDefinition = {
+                        content: allContent,
+                        defaultStyle: { font: 'Roboto' },
+                        pageMargins: pSize ? [30, 30, 30, 30] : [40, 40, 40, 40]
                     };
-                    downloadPDF(pdfMake.createPdf(doc), `Notas_${exam.title.replace(/[^a-zA-Z0-9\s]/g,'').replace(/\s+/g,'_')}.pdf`, 'download');
+
+                    downloadPDF(pdfMake.createPdf(docDefinition), `Provas_Lote_${new Date().getTime()}.pdf`, action);
+                    selectedHistoryExams.value = [];
+                    showHistory.value = false;
                 };
-                
-                const openStudentProfile = async (id) => {
-                    let s = students.value.find(st => st.id === id);
-                    if(!s) return;
-                    studentDetails.value = JSON.parse(JSON.stringify(s));
+
+                const deleteExam = (id) => { triggerConfirm("Deseja apagar esta prova E TODAS as notas associadas?", async () => { await db.exams.delete(id); const res = await db.results.where('examId').equals(id).toArray(); await db.results.bulkDelete(res.map(r=>r.id)); showToast("Prova apagada.", "success"); load(); }); };
+
+                const openStudentProfile = (id) => {
+                    const std = getStudent(id);
+                    if (!std) return;
+                    studentDetails.value = JSON.parse(JSON.stringify(std));
+                    studentDetails.value.notes = std.notes || '';
+                    studentDetails.value.needsFrontSeat = !!std.needsFrontSeat;
                     selectedBimester.value = 'notes';
                     showStudentModal.value = true;
                 };
 
-                const saveStudentNotes = async () => {
-                    let s = await db.students.get(studentDetails.value.id);
-                    if(s) {
-                        s.notes = studentDetails.value.notes;
-                        s.needsFrontSeat = studentDetails.value.needsFrontSeat; // Salva o toggle da primeira fila
-                        await db.students.put(JSON.parse(JSON.stringify(s)));
-                        const sIndex = students.value.findIndex(x => x.id === studentDetails.value.id);
-                        if(sIndex > -1) students.value[sIndex] = s;
-                        showToast('Biografia salva!', 'success');
+                const toggleExamQ = q => { const idx = examCart.value.findIndex(x => x.id === q.id); if (idx > -1) examCart.value.splice(idx, 1); else examCart.value.push(JSON.parse(JSON.stringify(q))); };
+                const isQInExam = id => examCart.value.some(q => q.id === id);
+                const deleteQuestion = id => triggerConfirm("Apagar questão?", async () => { await db.questions.delete(id); load(); showToast("Apagada", "success") });
+                const getStudentCount = id => students.value.filter(s => s.classId === id).length;
+                const getFilteredStudents = id => students.value.filter(s => s.classId === id && s.name.toLowerCase().includes(studentFilter.value.toLowerCase())).sort((a,b)=>a.name.localeCompare(b.name));
+                const deleteStudent = id => triggerConfirm("Remover aluno?", async () => { await db.students.delete(id); load(); showToast("Removido", "success") });
+
+                const getClassAverage = (cid) => {
+                    const stds = students.value.filter(s => s.classId === cid).map(s => s.id);
+                    if (!stds.length) return "0.0";
+                    let classTotal = 0;
+                    let numEvaluations = 0;
+                    
+                    stds.forEach(sId => {
+                        let total = 0, count = 0;
+                        results.value.filter(r => r.studentId === sId).forEach(r => { total += parseFloat(r.score) || 0; count++; });
+                        if (count > 0) {
+                            classTotal += (total / count);
+                            numEvaluations++;
+                        }
+                    });
+                    
+                    if (numEvaluations === 0) return "0.0";
+                    return (classTotal / numEvaluations).toFixed(1);
+                };
+
+                const getEvaluatedStudentCount = (cid) => {
+                    const stds = students.value.filter(s => s.classId === cid).map(s => s.id);
+                    const evals = new Set();
+                    results.value.forEach(r => { if(stds.includes(r.studentId)) evals.add(r.studentId); });
+                    return evals.size;
+                };
+
+                const getClassGradeDistribution = (cid) => {
+                    const stds = students.value.filter(s => s.classId === cid && s.name.toLowerCase().includes(dashboardStudentFilter.value.toLowerCase()));
+                    const dist = { "9-10": [], "7-8.9": [], "5-6.9": [], "0-4.9": [] };
+                    stds.forEach(s => {
+                        let total = 0, count = 0;
+                        results.value.filter(r => r.studentId === s.id).forEach(r => { total += parseFloat(r.score) || 0; count++; });
+                        const bonus = extraPoints.value.filter(e => e.studentId === s.id).reduce((sum, e) => sum + parseFloat(e.points||0), 0);
+                        if (count > 0 || bonus > 0) {
+                            let avg = count > 0 ? (total / count) + bonus : bonus;
+                            avg = Math.min(avg, 10);
+                            let range = avg >= 9 ? "9-10" : avg >= 7 ? "7-8.9" : avg >= 5 ? "5-6.9" : "0-4.9";
+                            dist[range].push({studentId: s.id, name: s.name, avg: avg.toFixed(1)});
+                        }
+                    });
+                    Object.keys(dist).forEach(k => dist[k].sort((a,b) => b.avg - a.avg));
+                    return dist;
+                };
+                
+                const generateGeneralReportPDF = (cid) => {
+                    const stds = students.value.filter(s => s.classId === cid).sort((a, b) => a.name.localeCompare(b.name));
+                    if (!stds.length) return showToast("Turma vazia.", "warning");
+
+                    let body = [['Aluno', 'Bim 1', 'Bim 2', 'Bim 3', 'Bim 4', 'Média Final']];
+
+                    stds.forEach(s => {
+                        let bimNotes = [0, 0, 0, 0];
+                        let bimCounts = [0, 0, 0, 0];
+
+                        results.value.filter(r => r.studentId === s.id).forEach(r => {
+                            const ex = exams.value.find(e => e.id === r.examId);
+                            if (ex) {
+                                let bIdx = ex.bimester - 1;
+                                if (bIdx >= 0 && bIdx <= 3) {
+                                    bimNotes[bIdx] += parseFloat(r.score) || 0;
+                                    bimCounts[bIdx]++;
+                                }
+                            }
+                        });
+
+                        extraPoints.value.filter(ep => ep.studentId === s.id).forEach(ep => {
+                            let bIdx = ep.bimester - 1;
+                            if (bIdx >= 0 && bIdx <= 3) {
+                                bimNotes[bIdx] += parseFloat(ep.points) || 0;
+                                if(bimCounts[bIdx] === 0) bimCounts[bIdx] = 1;
+                            }
+                        });
+
+                        let row = [s.name];
+                        let totalYear = 0;
+                        let activeBims = 0;
+
+                        for (let i = 0; i < 4; i++) {
+                            if (bimCounts[i] > 0) {
+                                let avg = Math.min(bimNotes[i] / bimCounts[i], 10);
+                                totalYear += avg;
+                                activeBims++;
+                                row.push({ text: avg.toFixed(1), color: avg >= 6 ? '#059669' : '#dc2626', bold: true });
+                            } else {
+                                row.push('-');
+                            }
+                        }
+
+                        let finalAvg = activeBims > 0 ? (totalYear / activeBims).toFixed(1) : '-';
+                        row.push({ text: finalAvg, color: finalAvg !== '-' ? (parseFloat(finalAvg) >= 6 ? '#059669' : '#dc2626') : '#000', bold: true });
+                        body.push(row);
+                    });
+
+                    let docDefinition = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: 'BOLETIM GERAL', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
+                            { text: `Turma: ${getClassName(cid)}`, fontSize: 12, margin: [0, 0, 0, 10] },
+                            {
+                                table: {
+                                    headerRows: 1,
+                                    widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto'],
+                                    body: body
+                                },
+                                layout: {
+                                    fillColor: function (rowIndex, node, columnIndex) {
+                                        return (rowIndex === 0) ? '#4f46e5' : (rowIndex % 2 === 0 ? '#f3f4f6' : null);
+                                    },
+                                    hLineWidth: function (i, node) { return (i === 0 || i === node.table.body.length) ? 2 : 1; },
+                                    vLineWidth: function (i, node) { return 0; },
+                                    hLineColor: function (i, node) { return i === 1 ? '#fff' : '#e5e7eb'; },
+                                }
+                            }
+                        ],
+                        styles: {
+                            tableHeader: { bold: true, fontSize: 11, color: 'white' }
+                        },
+                        defaultStyle: { font: 'Roboto', fontSize: 10 }
+                    };
+
+                    body[0] = body[0].map(t => ({ text: t, style: 'tableHeader' }));
+                    downloadPDF(pdfMake.createPdf(docDefinition), `Boletim_${getClassName(cid).replace(/\s+/g, '_')}.pdf`, 'download');
+                };
+
+                const generateClassReportPDF = () => {
+                    if (!selectedClassIdForReport.value) return;
+                    let dist = getClassGradeDistribution(selectedClassIdForReport.value);
+                    let body = [['Aluno', 'Média Geral', 'Situação']];
+                    
+                    ["9-10", "7-8.9", "5-6.9", "0-4.9"].forEach(range => {
+                        dist[range].forEach(s => {
+                            let isGood = parseFloat(s.avg) >= 6;
+                            body.push([
+                                s.name,
+                                { text: s.avg, bold: true, color: isGood ? '#059669' : '#dc2626' },
+                                { text: isGood ? 'Aprovado' : 'Recuperação', color: isGood ? '#059669' : '#dc2626' }
+                            ]);
+                        });
+                    });
+
+                    let docDefinition = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: 'RELATÓRIO DE RENDIMENTO (RANKING)', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
+                            { text: `Turma: ${getClassName(selectedClassIdForReport.value)}`, fontSize: 12, margin: [0, 0, 0, 10] },
+                            {
+                                table: {
+                                    headerRows: 1,
+                                    widths: ['*', 'auto', 'auto'],
+                                    body: body
+                                },
+                                layout: 'lightHorizontalLines'
+                            }
+                        ],
+                        defaultStyle: { font: 'Roboto' }
+                    };
+                    downloadPDF(pdfMake.createPdf(docDefinition), `Ranking_${getClassName(selectedClassIdForReport.value).replace(/\s+/g, '_')}.pdf`, 'view');
+                };
+
+                const generateLastExamPDF = () => {
+                    if (recentCorrections.value.length === 0) return showToast("Nenhum lançamento recente.", "warning");
+                    
+                    // Agrupa por Turma -> Prova -> Aluno
+                    let grouped = {};
+                    recentCorrections.value.forEach(r => {
+                        let std = students.value.find(s => s.id === r.studentId);
+                        if (!std) return;
+                        if (!grouped[std.classId]) grouped[std.classId] = {};
+                        if (!grouped[std.classId][r.examId]) grouped[std.classId][r.examId] = { title: r.examTitle, results: [] };
+                        grouped[std.classId][r.examId].results.push({...r, studentName: std.name});
+                    });
+
+                    let cont = [
+                        { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                        { text: 'RELATÓRIO DE ÚLTIMOS LANÇAMENTOS', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
+                        { text: `Data do Relatório: ${new Date().toLocaleDateString('pt-BR')}`, fontSize: 10, margin: [0, 0, 0, 15], alignment: 'center' }
+                    ];
+
+                    Object.keys(grouped).forEach(cId => {
+                        let cName = getClassName(Number(cId)) || 'Turma Desconhecida';
+                        cont.push({ text: `Turma: ${cName}`, fontSize: 13, bold: true, margin: [0, 10, 0, 5], color: '#4f46e5' });
+                        
+                        Object.keys(grouped[cId]).forEach(eId => {
+                            let examGroup = grouped[cId][eId];
+                            cont.push({ text: `Prova: ${examGroup.title}`, fontSize: 11, bold: true, margin: [0, 5, 0, 5] });
+                            
+                            let body = [['Aluno', 'Nota']];
+                            examGroup.results.sort((a,b) => a.studentName.localeCompare(b.studentName)).forEach(r => {
+                                body.push([r.studentName, { text: r.score, bold: true, color: parseFloat(r.score) >= 6 ? '#059669' : '#dc2626' }]);
+                            });
+
+                            cont.push({
+                                table: { headerRows: 1, widths: ['*', 'auto'], body: body },
+                                layout: 'lightHorizontalLines',
+                                margin: [0, 0, 0, 15]
+                            });
+                        });
+                    });
+
+                    let docDefinition = { content: cont, defaultStyle: { font: 'Roboto' } };
+                    downloadPDF(pdfMake.createPdf(docDefinition), `Notas_Lancamentos_Recentes.pdf`, 'download');
+                };
+
+                const generateAttendanceReportPDF = async (classId) => {
+                    if (!classId) return showToast("Selecione uma turma primeiro.", "warning");
+                    showToast("Gerando relatório de faltas...", "loading");
+
+                    const cName = getClassName(classId);
+                    const stds = students.value.filter(s => s.classId === classId).sort((a,b) => a.name.localeCompare(b.name));
+                    const attRecords = await db.attendance.where('classId').equals(classId).toArray();
+
+                    if (stds.length === 0 || attRecords.length === 0) {
+                        return showToast("Não há dados de frequência para esta turma.", "warning");
                     }
+
+                    // Encontrar todas as datas/aulas únicas para montar o cabeçalho
+                    let uniqueSessions = new Set();
+                    attRecords.forEach(r => uniqueSessions.add(`${r.date}|${r.period}`));
+                    let sessionsArray = Array.from(uniqueSessions).sort();
+
+                    let body = [];
+                    // Cabeçalho da tabela
+                    let headerRow = [{text: 'Aluno', bold: true, fontSize: 9}];
+                    sessionsArray.forEach(sess => {
+                        let [d, p] = sess.split('|');
+                        let shortDate = d.split('-').reverse().slice(0,2).join('/');
+                        let shortPeriod = p.split(' ')[0];
+                        headerRow.push({text: `${shortDate}\n${shortPeriod}`, bold: true, fontSize: 8, alignment: 'center'});
+                    });
+                    headerRow.push({text: 'Total Faltas', bold: true, fontSize: 9, alignment: 'center'});
+                    body.push(headerRow);
+
+                    // Dados dos alunos
+                    stds.forEach(s => {
+                        let row = [{text: s.name, fontSize: 9}];
+                        let totalF = 0;
+                        
+                        sessionsArray.forEach(sess => {
+                            let [d, p] = sess.split('|');
+                            let rec = attRecords.find(r => r.studentId === s.id && r.date === d && r.period === p);
+                            let status = rec ? rec.status : '-';
+                            if (status === 'F') totalF++;
+                            
+                            let color = '#000';
+                            if (status === 'F') color = '#dc2626'; // Red
+                            if (status === 'J') color = '#d97706'; // Orange
+                            if (status === 'P') color = '#059669'; // Green
+
+                            row.push({text: status, fontSize: 9, color: color, alignment: 'center', bold: status !== '-'});
+                        });
+                        
+                        row.push({text: totalF.toString(), fontSize: 9, bold: true, color: totalF > 0 ? '#dc2626' : '#000', alignment: 'center'});
+                        body.push(row);
+                    });
+
+                    let docDefinition = {
+                        pageOrientation: sessionsArray.length > 8 ? 'landscape' : 'portrait',
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: 'RELATÓRIO DE FREQUÊNCIA E FALTAS', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
+                            { text: `Turma: ${cName}`, fontSize: 12, margin: [0, 0, 0, 10] },
+                            {
+                                table: {
+                                    headerRows: 1,
+                                    widths: ['*', ...Array(sessionsArray.length).fill('auto'), 'auto'],
+                                    body: body
+                                },
+                                layout: {
+                                    fillColor: function (rowIndex) { return (rowIndex === 0) ? '#e5e7eb' : null; }
+                                }
+                            },
+                            { text: '\nLegenda: P = Presença, F = Falta, J = Falta Justificada', fontSize: 8, color: '#6b7280' }
+                        ],
+                        defaultStyle: { font: 'Roboto' }
+                    };
+
+                    downloadPDF(pdfMake.createPdf(docDefinition), `Faltas_${cName.replace(/\s+/g, '_')}.pdf`, 'download');
                 };
 
                 const addExtraPoint = async () => {
                     if(!newExtraPoint.value.val || !newExtraPoint.value.reason) return;
-                    await db.extraPoints.add({
-                        studentId: studentDetails.value.id,
-                        bimester: selectedBimester.value,
-                        points: parseFloat(newExtraPoint.value.val),
-                        reason: newExtraPoint.value.reason
-                    });
-                    newExtraPoint.value = {val: '', reason: ''};
-                    showExtraPointForm.value = false;
-                    load();
-                    showToast('Ponto extra adicionado!', 'success');
+                    await db.extraPoints.add({ studentId: studentDetails.value.id, bimester: selectedBimester.value, points: parseFloat(newExtraPoint.value.val), reason: newExtraPoint.value.reason });
+                    newExtraPoint.value = {val:'', reason:''}; showExtraPointForm.value = false; load();
                 };
 
-                const deleteExtraPoint = async (id) => {
-                    await db.extraPoints.delete(id);
-                    load();
-                };
-
-                const startEditingGrade = (ex) => {
-                    editingResultId.value = ex.id;
-                    tempScore.value = ex.score;
-                };
-
-                const saveEditedGrade = async () => {
-                    let res = await db.results.get(editingResultId.value);
-                    if(res) {
-                        res.score = parseFloat(tempScore.value).toFixed(1);
-                        await db.results.put(res);
-                        load();
-                        editingResultId.value = null;
-                        showToast('Nota atualizada.', 'success');
-                    }
-                };
-
+                const startEditingGrade = (ex) => { editingResultId.value = ex.id; tempScore.value = ex.score; tempBonus.value = ex.bonus || 0; };
                 const cancelEditingGrade = () => { editingResultId.value = null; };
-
-                // Computeds
-                const filteredClasses = computed(()=>classes.value.filter(c=>c.name.toLowerCase().includes(studentFilter.value.toLowerCase()) || students.value.some(s=>s.classId===c.id && s.name.toLowerCase().includes(studentFilter.value.toLowerCase()))));
-                const getFilteredStudents = cid => students.value.filter(s=>s.classId===cid && s.name.toLowerCase().includes(studentFilter.value.toLowerCase()));
-                const getStudentCount = cid => students.value.filter(s=>s.classId===cid).length;
-                const uniqueSubjects = computed(()=>[...new Set(questions.value.map(q=>q.subject).filter(Boolean))]);
-                const uniqueTopics = computed(()=>[...new Set(questions.value.map(q=>q.topic).filter(Boolean))]);
-                const filteredQuestions = computed(()=>questions.value.filter(q=>(!qFilter.value||q.text.toLowerCase().includes(qFilter.value.toLowerCase()))&&(!filterType.value||q.type===filterType.value)&&(!filterSubject.value||q.subject===filterSubject.value)&&(!filterTopic.value||q.topic===filterTopic.value)));
-                const filteredExamQuestions = computed(()=>questions.value.filter(q=>(!examFilter.value||q.text.toLowerCase().includes(examFilter.value.toLowerCase()))&&(!examFilterSubject.value||q.subject===examFilterSubject.value)&&(!examFilterTopic.value||q.topic===examFilterTopic.value)));
-                const isQInExam = id => examCart.value.some(q=>q.id===id);
-                const toggleExamQ = q => { const i=examCart.value.findIndex(x=>x.id===q.id); if(i>-1)examCart.value.splice(i,1); else examCart.value.push(JSON.parse(JSON.stringify(q))); };
-                const filteredHistoryExams = computed(()=>exams.value.filter(e=>!examHistoryFilter.value||e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase())));
-                const getClassAverage = cid => { let rs=results.value.filter(r=>exams.value.some(e=>e.id===r.examId&&e.classId===cid)); return rs.length?(rs.reduce((a,b)=>a+parseFloat(b.score),0)/rs.length).toFixed(1):'-'; };
-                const getEvaluatedStudentCount = cid => new Set(results.value.filter(r=>exams.value.some(e=>e.id===r.examId&&e.classId===cid)).map(r=>r.studentId)).size;
-                const manualStudents = computed(()=>activeExam.value?students.value.filter(s=>s.classId===activeExam.value.classId).sort((a,b)=>a.name.localeCompare(b.name)):[]);
-                const selectedExamVersions = computed(()=>activeExam.value?activeExam.value.versions:[]);
-                const recentCorrections = computed(()=>results.value.map(r=>{const e=exams.value.find(ex=>ex.id===r.examId);return{...r,examTitle:e?e.title:'Desconhecido',isExternal:e?e.isExternal:false}}).sort((a,b)=>b.date-a.date).slice(0,50));
-                
-                const filteredRecentCorrections = computed(() => {
-                    if (!recentCorrectionsFilter.value) return recentCorrections.value;
-                    const term = recentCorrectionsFilter.value.toLowerCase();
-                    return recentCorrections.value.filter(r => r.studentName && r.studentName.toLowerCase().includes(term));
-                });
-                
-                const studentExamsList = computed(() => {
-                    if(!studentDetails.value.id) return [];
-                    return results.value.filter(r => r.studentId === studentDetails.value.id).map(r => {
-                        const e = exams.value.find(ex => ex.id === r.examId);
-                        return e && e.bimester == selectedBimester.value ? {...r, title: e.title, isExternal: e.isExternal} : null;
-                    }).filter(Boolean).sort((a,b)=>b.date-a.date);
-                });
-
-                const studentExtraPointsList = computed(() => {
-                    if(!studentDetails.value.id) return [];
-                    return extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && ep.bimester == selectedBimester.value);
-                });
-
-                const studentBimesterAverage = computed(() => {
-                    if(!studentExamsList.value.length) return '-';
-                    let sum = studentExamsList.value.reduce((a,b)=>a+parseFloat(b.score), 0);
-                    let bonus = studentExtraPointsList.value.reduce((a,b)=>a+parseFloat(b.points), 0);
-                    return Math.min(10, (sum / studentExamsList.value.length) + bonus).toFixed(1);
-                });
-
-                const getClassGradeDistribution = cid => {
-                    let map = {};
-                    students.value.filter(s=>s.classId===cid).forEach(s => {
-                        let rs = results.value.filter(r => r.studentId===s.id && exams.value.some(e=>e.id===r.examId&&e.classId===cid));
-                        if(rs.length) map[s.id] = (rs.reduce((a,b)=>a+parseFloat(b.score),0)/rs.length).toFixed(1);
-                    });
-                    
-                    let groups = {'9-10':[], '7-8.9':[], '5-6.9':[], '0-4.9':[]};
-                    for(let id in map) {
-                        let v = parseFloat(map[id]), std = getStudent(parseInt(id));
-                        if(!std) continue;
-                        if(dashboardStudentFilter.value && !std.name.toLowerCase().includes(dashboardStudentFilter.value.toLowerCase())) continue;
-                        
-                        let item = {studentId: std.id, name: std.name, avg: v};
-                        if(v>=9) groups['9-10'].push(item);
-                        else if(v>=7) groups['7-8.9'].push(item);
-                        else if(v>=5) groups['5-6.9'].push(item);
-                        else groups['0-4.9'].push(item);
-                    }
-                    for(let k in groups) groups[k].sort((a,b)=>b.avg-a.avg);
-                    return groups;
+                const saveEditedGrade = async () => {
+                    const r = results.value.find(x => x.id === editingResultId.value);
+                    if(r) { r.score = tempScore.value; r.bonus = tempBonus.value; await db.results.put(JSON.parse(JSON.stringify(r))); load(); showToast("Nota alterada!", "success"); }
+                    editingResultId.value = null;
                 };
-
-                const filteredStudentsInDiaryClass = computed(() => {
-                    if(!diaryClassId.value) return [];
-                    let list = students.value.filter(s => s.classId === diaryClassId.value).sort((a,b) => a.name.localeCompare(b.name));
-                    if(attendanceStudentFilter.value) list = list.filter(s => s.name.toLowerCase().includes(attendanceStudentFilter.value.toLowerCase()));
-                    return list;
-                });
+                
+                const deleteExtraPoint = async (id) => { await db.extraPoints.delete(id); load(); showToast("Ponto extra removido", "success"); };
 
                 onMounted(async () => {
+                    try {
+                        const fonts = pdfMake.fonts || {};
+                        fonts.Roboto = { normal: 'Roboto-Regular.ttf', bold: 'Roboto-Medium.ttf', italics: 'Roboto-Italic.ttf', bolditalics: 'Roboto-MediumItalic.ttf' };
+                        pdfMake.fonts = fonts;
+                        
+                        pdfMake.vfs = pdfMake.vfs || {};
+                        if(typeof pdfMake.vfs === 'object' && pdfMake.vfs['Roboto-Regular.ttf'] === undefined) {
+                            if(typeof window.pdfMake.vfs === 'object') pdfMake.vfs = window.pdfMake.vfs;
+                        }
+                    } catch(e) {}
+                    
                     await initLicenseSystem();
                     await load();
                 });
 
                 return {
-                    // Refs & state
-                    currentView, tabs, classes, students, questions, exams, results, settings,
-                    appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal,
-                    toast, confirmModal, geminiKey,
-                    qFilter, filterType, filterSubject, filterTopic, examFilterSubject, examFilterTopic,
-                    examFilter, examTab, studentFilter, dashboardStudentFilter, examHistoryFilter, selectedHistoryExams, recentCorrectionsFilter,
-                    periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter,
-                    attendanceMap, schedulesList, newSchedule,
-                    showAssistant, assistantQuery, isAssistantThinking, isDictating, assistantHistory,
-                    showEditExamModal, editingExam, showHistory, selectedClassIdForReport, newClass, bulkStudents,
-                    qType, newQ, showQFormModal, formSource, examCart, examConfig, editingExamId, printConfig,
-                    showStudentModal, studentDetails, selectedBimester, showExtraPointForm, newExtraPoint,
-                    editingResultId, tempScore, tempBonus, selectedResultDetails, showResultDetailsModal,
-                    showSeatingModal, seatingClassId, seatingRows, seatingCols, seatingGrid, seatingSelectedIdx, seatingStudents,
-                    showAIGenModal, isGeneratingAI, aiGenConfig,
-                    activeStudent, activeExam, activeVersion, studentAnswers, correctionMode, showManualInputModal, manualConfig,
-                    showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades,
-                    showItemAnalysisModal, itemAnalysisExam, itemAnalysisData, itemAnalysisTotalStudents,
-                    correctionQueue, isProcessingQueue, processedCount, stopQueueFlag, stopQueue,
+                    currentView, tabs, classes, students, questions, exams, results, settings, appLocked, deviceId, timeLeft, isLicensed, licenseInput, isTemporal,
+                    showLicenseModal, toast, confirmModal, newClass, qFilter, filterType, filterSubject, filterTopic, examFilterSubject, examFilterTopic, examFilter,
+                    examTab, studentFilter, bulkStudents, showEditExamModal, editingExam, qType, newQ, showQFormModal, formSource, examCart, examConfig,
+                    editingExamId, showStudentModal, studentDetails, selectedBimester, dashboardStudentFilter, selectedClassIdForReport, extraPoints, newExtraPoint, showExtraPointForm,
+                    editingResultId, tempScore, printConfig, showHistory, examHistoryFilter, selectedHistoryExams,
+                    correctionMode, activeStudent, activeExam, activeVersion, studentAnswers,
+                    showManualInputModal, manualConfig, showLiveQRScanner, startLiveQRScan, stopLiveQRScan, processOMRCorrection, qrScanMode,
+                    correctionQueue, isProcessingQueue, processedCount, stopQueue, triggerOMRCorrection, triggerOMRTest, processOMRTest, showOMRTestModal, omrTestResults, isTestingOMR, omrTestProcessedCount, omrTestTotalCount,
+                    showOMRCameraModal, isProcessingLiveOMR, stopOMRCamera, captureAndProcessOMR,
+                    geminiKey, showAIGenModal, isGeneratingAI, aiGenConfig,
+                    showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades, goToExternalGrades, saveExternalExam, openExternalExamForm,
+                    showItemAnalysisModal, itemAnalysisExam, itemAnalysisData, itemAnalysisTotalStudents, openItemAnalysis, printItemAnalysisPDF,
                     showFullScreenImage, fullScreenImageUrl, viewFullScreen,
-                    showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion,
-                    showLiveQRScanner, html5QrCode, qrScanMode,
+                    showFixKeyModal, fixKeyExam, fixKeyQuestions, fixKeySelectedVersion, loadFixKeyQuestions, openFixKey, saveFixedKey, generateKeyPDF, reprintExamPDF, generateMergedPDF, generateAttendanceReportPDF,
+                    uploadStudentPhoto,
+                    recentCorrectionsFilter, selectedResultDetails, showResultDetailsModal, openResultDetails, saveUpdatedAnswers, openManualCorrectionForResult, generateLastExamPDF,
+                    showAssistant, assistantQuery, assistantHistory, isAssistantThinking, askAssistant, getActionDescription, confirmAssistantAction, cancelAssistantAction, isDictating, toggleDictation,
+                    diaryClassId, diaryTab, attendanceDate, attendancePeriod, periodsList, attendanceMap, schedulesList, newSchedule, saveAttendance, addSchedule, deleteSchedule, isCurrentSelectionValidSchedule, attendanceStudentFilter,
+                    showSeatingModal, seatingClassId, seatingRows, seatingCols, seatingGrid, seatingSelectedIdx, seatingStudents, openSeatingPlan, generateSeatingPlan, handleSeatClick, saveSeatingPlan, printSeatingPlan,
                     
-                    // Computed
-                    filteredClasses, getFilteredStudents, getStudentCount, uniqueSubjects, uniqueTopics, filteredQuestions,
-                    filteredExamQuestions, isQInExam, filteredHistoryExams, getClassAverage, getEvaluatedStudentCount,
-                    manualStudents, selectedExamVersions, recentCorrections, filteredRecentCorrections, studentExamsList, studentExtraPointsList,
-                    studentBimesterAverage, getClassGradeDistribution, filteredStudentsInDiaryClass,
-                    
+                    // Computeds
+                    uniqueSubjects: computed(() => [...new Set(questions.value.map(q => q.subject))]),
+                    uniqueTopics: computed(() => [...new Set(questions.value.map(q => q.topic))]),
+                    filteredClasses: computed(() => classes.value.filter(c => c.name.toLowerCase().includes(studentFilter.value.toLowerCase()) || students.value.some(s => s.classId === c.id && s.name.toLowerCase().includes(studentFilter.value.toLowerCase())))),
+                    filteredQuestions: computed(() => questions.value.filter(q => (!qFilter.value || q.text.toLowerCase().includes(qFilter.value.toLowerCase())) && (!filterType.value || q.type === filterType.value) && (!filterSubject.value || q.subject === filterSubject.value) && (!filterTopic.value || q.topic === filterTopic.value))),
+                    filteredExamQuestions: computed(() => questions.value.filter(q => (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase())) && (!examFilterSubject.value || q.subject === examFilterSubject.value) && (!examFilterTopic.value || q.topic === examFilterTopic.value))),
+                    studentBimesterAverage: computed(() => {
+                        let t = 0, c = 0, b = 0;
+                        results.value.filter(r => r.studentId === studentDetails.value.id && exams.value.find(e => e.id === r.examId)?.bimester === selectedBimester.value).forEach(r => { t += parseFloat(r.score); c++; });
+                        extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && ep.bimester === selectedBimester.value).forEach(ep => { b += parseFloat(ep.points); });
+                        return c > 0 ? Math.min((t / c) + b, 10).toFixed(1) : b > 0 ? b.toFixed(1) : '0.0';
+                    }),
+                    studentExamsList: computed(() => results.value.filter(r => r.studentId === studentDetails.value.id && exams.value.find(e => e.id === r.examId)?.bimester === selectedBimester.value).map(r => { const e = exams.value.find(x => x.id === r.examId); return { ...r, title: e?.title, isExternal: e?.isExternal }; })),
+                    studentExtraPointsList: computed(() => extraPoints.value.filter(ep => ep.studentId === studentDetails.value.id && ep.bimester === selectedBimester.value)),
+                    manualStudents: computed(() => manualConfig.value.examId ? students.value.filter(s => s.classId === exams.value.find(e => e.id === manualConfig.value.examId)?.classId).sort((a,b)=>a.name.localeCompare(b.name)) : []),
+                    selectedExamVersions: computed(() => { const e = exams.value.find(x => x.id === manualConfig.value.examId); return e ? (e.versions || [{id:0, questions:e.questions}]) : []; }),
+                    filteredHistoryExams: computed(() => exams.value.filter(e => !examHistoryFilter.value || e.title.toLowerCase().includes(examHistoryFilter.value.toLowerCase()))),
+                    recentCorrections: computed(() => results.value.slice().sort((a, b) => b.date - a.date).slice(0, 50).map(r => {
+                        const e = exams.value.find(x => x.id === r.examId);
+                        const s = students.value.find(x => x.id === r.studentId);
+                        return { ...r, examTitle: e ? e.title : 'Desconhecida', isExternal: e ? !!e.isExternal : false, studentName: s ? s.name : 'Aluno Removido' };
+                    })),
+                    filteredRecentCorrections: computed(() => {
+                        if (!recentCorrectionsFilter.value) return recentCorrections.value;
+                        const term = recentCorrectionsFilter.value.toLowerCase();
+                        return recentCorrections.value.filter(r => r.studentName.toLowerCase().includes(term));
+                    }),
+                    filteredStudentsInDiaryClass: computed(() => {
+                        let sList = students.value.filter(s => s.classId === diaryClassId.value).sort((a, b) => a.name.localeCompare(b.name));
+                        if(attendanceStudentFilter.value) {
+                            const term = attendanceStudentFilter.value.toLowerCase();
+                            sList = sList.filter(s => s.name.toLowerCase().includes(term));
+                        }
+                        return sList;
+                    }),
+
                     // Methods
-                    getStudent, getClassName, uploadStudentPhoto, openSeatingPlan, generateSeatingPlan, handleSeatClick,
-                    saveSeatingPlan, printSeatingPlan, loadDiaryData, executeSaveAttendance, saveAttendance, addSchedule,
-                    deleteSchedule, deleteAllGrades, fetchGemini, getActionDescription, confirmAssistantAction, cancelAssistantAction,
-                    toggleDictation, askAssistant, processOMRCorrection, triggerOMRCorrection, startLiveQRScan, stopLiveQRScan,
-                    addClass, deleteClass, saveStudents, toggleClassExpansion, deleteAllQuestions, changeQType, openQForm,
-                    saveQuestion, editQuestion, handleImageUpload, openEditExam, duplicateExam, saveEditedExam, generatePDF,
-                    generateMergedPDF, generateKeyPDF, reprintExamPDF, deleteExam, generateClassReportPDF, generateGeneralReportPDF,
-                    generateAttendanceReportPDF, generateLastExamPDF, openExternalExamForm, goToExternalGrades, saveExternalExam,
-                    startManualEntry, confirmManualEntry, openManualCorrectionForResult, saveManualCorrection, openItemAnalysis, printItemAnalysisPDF,
-                    loadFixKeyQuestions, openFixKey, saveFixedKey, getAlternativeLabel, openResultDetails, saveUpdatedAnswers,
-                    toggleExamQ,
-                    openStudentProfile,
+                    getStudentCount, getFilteredStudents, getAlternativeLabel, getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution,
+                    addClass, deleteClass, saveStudents, toggleClassExpansion, deleteAllGrades,
+                    changeQType, openQForm, saveQuestion, deleteQuestion, handleImageUpload, toggleExamQ, isQInExam, deleteAllQuestions,
+                    openEditExam, duplicateExam, saveEditedExam, generatePDF, deleteExam, generateClassReportPDF, generateGeneralReportPDF,
+                    openStudentProfile, startManualEntry, confirmManualEntry, saveManualCorrection, getStudent, getClassName,
                     saveStudentNotes: async () => {
-                        let s = await db.students.get(studentDetails.value.id);
-                        if(s) {
+                        const s = await db.students.get(studentDetails.value.id);
+                        if (s) {
                             s.notes = studentDetails.value.notes;
                             s.needsFrontSeat = studentDetails.value.needsFrontSeat; // Salva o toggle da primeira fila
                             await db.students.put(JSON.parse(JSON.stringify(s)));
@@ -3574,7 +4227,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     
                     // Global utilities
                     installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, importBackup, triggerImport, backupData, testGeminiKey,
-                    generateQuestionsAI, simulateAIGeneration, whatsappLink, canInstall, formatDateTime
+                    generateQuestionsAI, simulateAIGeneration, whatsappLink, canInstall, formatDateTime,
+
+                    // Funcionalidades de Diagnóstico OMR
+                    triggerOMRTest, processOMRTest, showOMRTestModal, omrTestResults, isTestingOMR, omrTestProcessedCount, omrTestTotalCount,
+
+                    // Funcionalidades da Câmara de Enquadramento OMR
+                    showOMRCameraModal, isProcessingLiveOMR, stopOMRCamera, captureAndProcessOMR
                 };
             }
         }).mount('#app');
