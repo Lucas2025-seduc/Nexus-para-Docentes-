@@ -2725,7 +2725,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const cleanUp = mats => mats.forEach(m => m && !m.isDeleted() && m.delete());
 
-                const runOMRLogic = (canvas) => {
+                const runOMRLogic = (canvas, maxQuestions = 10) => {
                     const cv = window.cv;
                     let src = cv.imread(canvas);
                     let gray = new cv.Mat(), threshMarkers = new cv.Mat(), contours = new cv.MatVector(), hierarchy = new cv.Mat();
@@ -2798,61 +2798,26 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, 12);
                         cv.cvtColor(warpedGray, warpedColor, cv.COLOR_GRAY2RGBA);
 
-                        // 1. Eixo Y - Retângulos
-                        let leftStrip = warpedThresh.roi(new cv.Rect(0, 0, 50, WARPED_H)), rowSums = [];
-                        for (let y = 0; y < WARPED_H; y++) {
-                          let sum = 0; for (let x = 0; x < 35; x++) if (leftStrip.ucharAt(y, x) > 128) sum++;
-                          rowSums.push(sum > 10 ? 1 : 0);
-                        } leftStrip.delete();
+                        // --- GRELHA PROPORCIONAL RÍGIDA ---
+                        // Ignora falhas de OCR. Usa as posições exatas baseadas nos 4 cantos dos seus gabaritos.
+                        const numRows = maxQuestions || 10;
+                        const numCols = 5;
+                        const options = ['A', 'B', 'C', 'D', 'E'];
+                        const results = [];
 
-                        let rectCentersY = [], startY = -1;
-                        for (let y = 0; y < WARPED_H; y++) {
-                          if (rowSums[y] === 1 && startY === -1) startY = y;
-                          if (rowSums[y] === 0 && startY !== -1) {
-                            let center = Math.floor((startY + y) / 2), h = y - startY;
-                            if (h > 4 && h < 35 && center > 50 && center < WARPED_H - 50) rectCentersY.push(center);
-                            startY = -1;
-                          }
-                        }
-
-                        // 2. Eixo X - Letras
-                        let topStrip = warpedThresh.roi(new cv.Rect(0, 20, WARPED_W, 85)), colSums = [];
-                        for (let x = 0; x < WARPED_W; x++) {
-                          let sum = 0; for (let y = 0; y < 85; y++) if (topStrip.ucharAt(y, x) > 128) sum++;
-                          colSums.push(sum > 3 ? 1 : 0);
-                        } topStrip.delete();
-
-                        let letterData = [], startX = -1;
-                        for (let x = 0; x < WARPED_W; x++) {
-                          if (colSums[x] === 1 && startX === -1) startX = x;
-                          if (colSums[x] === 0 && startX !== -1) {
-                            let center = Math.floor((startX + x) / 2), rightLimit = x, w = x - startX;
-                            if (w > 5 && w < 50 && center > 120) letterData.push({ center, rightLimit });
-                            startX = -1;
-                          }
-                        }
-
-                        const numRows = 10, numCols = 5, options = ['A', 'B', 'C', 'D', 'E'], results = [];
-
-                        let finalYs = rectCentersY.length === numRows ? rectCentersY : [];
-                        if (finalYs.length === 0) {
-                            for (let i = 0; i < numRows; i++) finalYs.push(Math.floor((0.145 + i * 0.0768) * WARPED_H));
+                        let finalYs = [];
+                        for (let i = 0; i < numRows; i++) {
+                            // Eixo Y: Primeira linha a 8.5%, avança 9.2% de espaço a cada nova linha
+                            finalYs.push(Math.floor(WARPED_H * (0.085 + (i * 0.0918))));
                         }
 
                         let finalXs = [];
-                        if (letterData.length === numCols) {
-                          for (let j = 0; j < numCols; j++) {
-                            // Lógica afinada:
-                            if (j <= 1) finalXs.push(letterData[j].center);          // A e B
-                            else if (j === 2) finalXs.push(letterData[j].center + 1); // C (+1px)
-                            else if (j === 3) finalXs.push(letterData[j].center + 2); // D (+2px)
-                            else if (j === 4) finalXs.push(letterData[j].center + 4); // E (+4px)
-                          }
-                        } else {
-                          finalXs = [0.272, 0.419, 0.570, 0.720, 0.865].map(r => Math.floor(r * WARPED_W));
+                        for (let j = 0; j < numCols; j++) {
+                            // Eixo X: Coluna A a 39%, avança 12.1% a cada nova letra
+                            finalXs.push(Math.floor(WARPED_W * (0.390 + (j * 0.121))));
                         }
 
-                        const radiusX = Math.floor(WARPED_W * 0.028), radiusY = Math.floor(WARPED_H * 0.024);
+                        const radiusX = Math.floor(WARPED_W * 0.026), radiusY = Math.floor(WARPED_H * 0.022);
 
                         for (let i = 0; i < numRows; i++) {
                             let centerY = finalYs[i], rowDensities = [];
@@ -2870,13 +2835,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 roi.delete();
                             }
 
-                            // Sensibilidade aprimorada (0.35)
-                            const thresholdDensity = 0.35; 
+                            // Sensibilidade aprimorada: baixado para 0.22 para captar "X" e lápis fraco (ex: fotos 2 e 4)
+                            const thresholdDensity = 0.22; 
                             let sortedDensities = [...rowDensities].sort((a, b) => b.density - a.density);
                             let answer = "Em Branco", markedRects = [];
 
                             if (sortedDensities[0].density > thresholdDensity) {
-                                if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.18)) {
+                                // Se a diferença entre a 1ª e a 2ª marca for muito pequena, considera anulada
+                                if (sortedDensities[1].density > thresholdDensity && (sortedDensities[0].density - sortedDensities[1].density < 0.15)) {
                                      answer = "Anulada";
                                      markedRects.push(sortedDensities[0].option, sortedDensities[1].option);
                                 } else {
