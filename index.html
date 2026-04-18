@@ -2626,24 +2626,34 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         const findBestMarkers = (pool, srcCols, srcRows) => {
                             let maxArea = -1, bestCombo = null, maxIter = Math.min(pool.length, 60); 
                             for (let i = 0; i < maxIter; i++) for (let j = i + 1; j < maxIter; j++) for (let k = j + 1; k < maxIter; k++) for (let l = k + 1; l < maxIter; l++) {
-                                let pts = [pool[i], pool[j], pool[k], pool[l]], areas = pts.map(p => p.area);
-                                if (Math.max(...areas) / Math.min(...areas) > 5.0) continue; 
+                                let pts = [pool[i], pool[j], pool[k], pool[l]];
                                 
-                                // Nova Lógica: Ordena primeiro pelo eixo Y (Cima vs Baixo) e depois pelo eixo X (Esquerda vs Direita)
-                                pts.sort((a, b) => a.y - b.y);
-                                let topPts = [pts[0], pts[1]].sort((a, b) => a.x - b.x);
-                                let botPts = [pts[2], pts[3]].sort((a, b) => a.x - b.x);
-                                let tl = topPts[0], tr = topPts[1], bl = botPts[0], br = botPts[1];
+                                // ORDENAÇÃO DEFINITIVA ANTI-AMPULHETA
+                                // 1. Ordena os 4 pontos pelo Eixo X (Separa Esquerda da Direita)
+                                pts.sort((a, b) => a.x - b.x);
+                                let leftPts = [pts[0], pts[1]];
+                                let rightPts = [pts[2], pts[3]];
+
+                                // 2. Ordena os pontos de cada lado pelo Eixo Y (Separa Topo da Base)
+                                let tl = leftPts[0].y < leftPts[1].y ? leftPts[0] : leftPts[1];
+                                let bl = leftPts[0].y > leftPts[1].y ? leftPts[0] : leftPts[1];
+                                let tr = rightPts[0].y < rightPts[1].y ? rightPts[0] : rightPts[1];
+                                let br = rightPts[0].y > rightPts[1].y ? rightPts[0] : rightPts[1];
                                 
-                                let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y), wBot = Math.hypot(br.x - bl.x, br.y - bl.y), hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y), hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
-                                if (wTop < srcCols * 0.12 || wBot < srcCols * 0.12 || hLeft < srcRows * 0.10 || hRight < srcRows * 0.10) continue;
+                                let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+                                let wBot = Math.hypot(br.x - bl.x, br.y - bl.y);
+                                let hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+                                let hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
                                 
-                                // Nova Tolerância: Aumentado de 1.25 para 1.45 (45% de distorção de perspetiva permitida)
-                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.45 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.45) continue;
+                                // Filtro de segurança: Ignora poeiras ou falsos quadrados pequenos (Mínimo de 15% do tamanho da imagem)
+                                if (wTop < srcCols * 0.15 || wBot < srcCols * 0.15 || hLeft < srcRows * 0.15 || hRight < srcRows * 0.15) continue;
                                 
-                                let avgW = (wTop + wBot) / 2, avgH = (hLeft + hRight) / 2, ratio = avgW / avgH;
-                                // AJUSTE DE TOLERÂNCIA: Ampliado para aceitar o rácio de 0.35 até 2.0
-                                if (ratio >= 0.35 && ratio <= 2.0 && (avgW * avgH) > maxArea) { maxArea = avgW * avgH; bestCombo = { tl, tr, bl, br }; }
+                                // Removemos os limites severos de perspetiva. Pega sempre no maior quadrilátero válido que encontrar na folha.
+                                let avgW = (wTop + wBot) / 2, avgH = (hLeft + hRight) / 2;
+                                if ((avgW * avgH) > maxArea) { 
+                                    maxArea = avgW * avgH; 
+                                    bestCombo = { tl, tr, bl, br }; 
+                                }
                             }
                             return bestCombo;
                         };
