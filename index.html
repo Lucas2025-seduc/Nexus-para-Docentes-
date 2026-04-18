@@ -2401,6 +2401,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const saveExamResult = async (examId, sId, sName, vIdx, ans, debugImg = null, needsReview = false, isManual = false, isIncomplete = false) => {
                     const ex=exams.value.find(e=>e.id===examId), qArr=getVersionQuestions(ex,vIdx);
                     const bScr=calculateExamScore(ans,qArr), exst=results.value.find(r=>r.examId===examId&&r.studentId===sId);
+                    
+                    // Substitui a nota da prova original se for 2ª Chamada
+                    if (ex && ex.originalExamId) {
+                        const oldRes = results.value.find(r => r.examId === ex.originalExamId && r.studentId === sId);
+                        if (oldRes) {
+                            await db.results.delete(oldRes.id);
+                        }
+                    }
+                    
                     const bns=exst?parseFloat(exst.bonus||0):0, fScr=(parseFloat(bScr)+bns).toFixed(1);
                     const finalDebugImg = debugImg || (exst ? exst.debugImage : null);
                     
@@ -2619,13 +2628,22 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             for (let i = 0; i < maxIter; i++) for (let j = i + 1; j < maxIter; j++) for (let k = j + 1; k < maxIter; k++) for (let l = k + 1; l < maxIter; l++) {
                                 let pts = [pool[i], pool[j], pool[k], pool[l]], areas = pts.map(p => p.area);
                                 if (Math.max(...areas) / Math.min(...areas) > 5.0) continue; 
-                                pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
-                                let tl = pts[0], br = pts[3], rem = [pts[1], pts[2]].sort((a, b) => (a.x - a.y) - (b.x - b.y)), bl = rem[0], tr = rem[1];
+                                
+                                // Nova Lógica: Ordena primeiro pelo eixo Y (Cima vs Baixo) e depois pelo eixo X (Esquerda vs Direita)
+                                pts.sort((a, b) => a.y - b.y);
+                                let topPts = [pts[0], pts[1]].sort((a, b) => a.x - b.x);
+                                let botPts = [pts[2], pts[3]].sort((a, b) => a.x - b.x);
+                                let tl = topPts[0], tr = topPts[1], bl = botPts[0], br = botPts[1];
+                                
                                 let wTop = Math.hypot(tr.x - tl.x, tr.y - tl.y), wBot = Math.hypot(br.x - bl.x, br.y - bl.y), hLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y), hRight = Math.hypot(br.x - tr.x, br.y - tr.y);
                                 if (wTop < srcCols * 0.12 || wBot < srcCols * 0.12 || hLeft < srcRows * 0.10 || hRight < srcRows * 0.10) continue;
-                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.25 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.25) continue;
+                                
+                                // Nova Tolerância: Aumentado de 1.25 para 1.45 (45% de distorção de perspetiva permitida)
+                                if (Math.max(wTop, wBot) / Math.min(wTop, wBot) > 1.45 || Math.max(hLeft, hRight) / Math.min(hLeft, hRight) > 1.45) continue;
+                                
                                 let avgW = (wTop + wBot) / 2, avgH = (hLeft + hRight) / 2, ratio = avgW / avgH;
-                                if (ratio > 0.6 && ratio < 1.4 && (avgW * avgH) > maxArea) { maxArea = avgW * avgH; bestCombo = { tl, tr, bl, br }; }
+                                // AJUSTE DE TOLERÂNCIA: Ampliado para aceitar o rácio de 0.35 até 2.0
+                                if (ratio >= 0.35 && ratio <= 2.0 && (avgW * avgH) > maxArea) { maxArea = avgW * avgH; bestCombo = { tl, tr, bl, br }; }
                             }
                             return bestCombo;
                         };
@@ -2826,7 +2844,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         classIds: examClassIds,
                         type: secondCallExam.value.type || 'Mensal',
                         teacher: secondCallExam.value.teacher || '',
-                        targetStudentIds: [...secondCallSelectedIds.value]
+                        targetStudentIds: [...secondCallSelectedIds.value],
+                        originalExamId: secondCallExam.value.id
                     };
                     
                     showSecondCallModal.value = false;
@@ -2838,6 +2857,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const cancelSecondCallMode = () => {
                     examConfig.value.targetStudentIds = null;
+                    examConfig.value.originalExamId = null;
                     examConfig.value.title = "";
                     showToast("Modo 2ª Chamada cancelado.", "info");
                 };
@@ -2879,6 +2899,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         type: examConfig.value.type,
                         teacher: examConfig.value.teacher,
                         variationMode: vMode,
+                        originalExamId: examConfig.value.originalExamId || null,
                         versions: variations.map(v => ({
                             id: v.id,
                             questions: v.questions.map(q => {
@@ -2988,34 +3009,36 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         const rows = 10;
                         const cellW = printConfig.value.paperSaving ? 105 : 100;
                         
-                        for(let r=0; r<rows; r++) {
+                        // CORREÇÃO: Usando 'kr' e desenhando a grelha completa de 10 bolhas
+                        for(let kr=0; kr<rows; kr++) {
                             let tr = [];
                             for(let c=0; c<cols; c++) {
-                                let idx = r * cols + c;
-                                if(idx < vData.questions.length && vData.questions[idx].type !== 'vf' && vData.questions[idx].type !== 'assoc') {
-                                    let opts = vData.questions[idx].type === 'ce' ? ['C','E'] : ['A','B','C','D','E'];
-                                    tr.push({
-                                        stack: [
-                                            { text: `${idx+1}.`, fontSize: 8, bold: true, margin: [0,0,0,2] },
-                                            {
-                                                columns: opts.map(opt => ({
-                                                    width: 'auto',
-                                                    stack: [
-                                                        { text: opt, fontSize: 6, alignment: 'center', color: '#666', margin:[0,0,0,1] },
-                                                        { canvas: [{ type: 'ellipse', x: 5, y: 5, r1: 5, r2: 5, lineWidth: 0.5, lineColor: '#999' }], alignment: 'center' }
-                                                    ],
-                                                    margin: [2,0,2,0]
-                                                })),
-                                                columnGap: 2
-                                            }
-                                        ],
-                                        margin: [0,2,0,2], width: cellW
-                                    });
-                                } else {
-                                    tr.push({text: '', width: cellW});
-                                }
+                                let idx = kr * cols + c;
+                                
+                                // Verifica se é uma questão real
+                                let isValidQ = idx < vData.questions.length && vData.questions[idx].type !== 'vf' && vData.questions[idx].type !== 'assoc';
+                                let opts = isValidQ && vData.questions[idx].type === 'ce' ? ['C','E'] : ['A','B','C','D','E'];
+                                
+                                tr.push({
+                                    stack: [
+                                        { text: `${idx+1}.`, fontSize: 8, bold: true, margin: [0,0,0,2], color: isValidQ ? '#000' : '#ccc' },
+                                        {
+                                            columns: opts.map(opt => ({
+                                                width: 'auto',
+                                                stack: [
+                                                    { text: opt, fontSize: 6, alignment: 'center', color: isValidQ ? '#666' : '#ccc', margin:[0,0,0,1] },
+                                                    { canvas: [{ type: 'ellipse', x: 5, y: 5, r1: 5, r2: 5, lineWidth: 0.5, lineColor: isValidQ ? '#999' : '#e5e7eb' }], alignment: 'center' }
+                                                ],
+                                                margin: [2,0,2,0]
+                                            })),
+                                            columnGap: 2
+                                        }
+                                    ],
+                                    margin: [0,2,0,2], width: cellW
+                                });
                             }
-                            if(tr.some(cell => cell.text !== '')) omrTable.push(tr);
+                            // Empurra a linha sempre, garantindo a grelha perfeitamente alinhada para o OpenCV
+                            omrTable.push(tr);
                         }
 
                         if(omrTable.length > 0) {
@@ -3076,7 +3099,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const reprintExamPDF = async (e, action) => {
-                    examConfig.value = { title: e.title, classIds: e.classIds || [e.classId], bimester: e.bimester, date: new Date(e.date).toISOString().split('T')[0], variationMode: e.variationMode||'1', type: e.type, teacher: e.teacher, targetStudentIds: null };
+                    examConfig.value = { title: e.title, classIds: e.classIds || [e.classId], bimester: e.bimester, date: new Date(e.date).toISOString().split('T')[0], variationMode: e.variationMode||'1', type: e.type, teacher: e.teacher, targetStudentIds: null, originalExamId: e.originalExamId || null };
                     examCart.value = JSON.parse(JSON.stringify(e.versions[0].questions));
                     editingExamId.value = e.id;
                     await generatePDF(action);
@@ -3150,21 +3173,23 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                             const omrTable = [];
                             const cellW = printConfig.value.paperSaving ? 105 : 100;
-                            for(let r=0; r<10; r++) {
+                            
+                            // CORREÇÃO: Grelha completa de 10 bolhas (kr) no PDF em lote
+                            for(let kr=0; kr<10; kr++) {
                                 let tr = [];
                                 for(let c=0; c<5; c++) {
-                                    let idx = r * 5 + c;
-                                    if(idx < vData.questions.length && vData.questions[idx].type !== 'vf' && vData.questions[idx].type !== 'assoc') {
-                                        let opts = vData.questions[idx].type === 'ce' ? ['C','E'] : ['A','B','C','D','E'];
-                                        tr.push({
-                                            stack: [
-                                                { text: `${idx+1}.`, fontSize: 8, bold: true, margin: [0,0,0,2] },
-                                                { columns: opts.map(opt => ({ width: 'auto', stack: [ { text: opt, fontSize: 6, alignment: 'center', color: '#666', margin:[0,0,0,1] }, { canvas: [{ type: 'ellipse', x: 5, y: 5, r1: 5, r2: 5, lineWidth: 0.5, lineColor: '#999' }], alignment: 'center' } ], margin: [2,0,2,0] })), columnGap: 2 }
-                                            ], margin: [0,2,0,2], width: cellW
-                                        });
-                                    } else tr.push({text: '', width: cellW});
+                                    let idx = kr * 5 + c;
+                                    let isValidQ = idx < vData.questions.length && vData.questions[idx].type !== 'vf' && vData.questions[idx].type !== 'assoc';
+                                    let opts = isValidQ && vData.questions[idx].type === 'ce' ? ['C','E'] : ['A','B','C','D','E'];
+                                    
+                                    tr.push({
+                                        stack: [
+                                            { text: `${idx+1}.`, fontSize: 8, bold: true, margin: [0,0,0,2], color: isValidQ ? '#000' : '#ccc' },
+                                            { columns: opts.map(opt => ({ width: 'auto', stack: [ { text: opt, fontSize: 6, alignment: 'center', color: isValidQ ? '#666' : '#ccc', margin:[0,0,0,1] }, { canvas: [{ type: 'ellipse', x: 5, y: 5, r1: 5, r2: 5, lineWidth: 0.5, lineColor: isValidQ ? '#999' : '#e5e7eb' }], alignment: 'center' } ], margin: [2,0,2,0] })), columnGap: 2 }
+                                        ], margin: [0,2,0,2], width: cellW
+                                    });
                                 }
-                                if(tr.some(cell => cell.text !== '')) omrTable.push(tr);
+                                omrTable.push(tr);
                             }
 
                             if(omrTable.length > 0) {
@@ -3248,6 +3273,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const duplicateExam = async (exam) => {
                     const newExam = JSON.parse(JSON.stringify(exam));
                     delete newExam.id;
+                    delete newExam.originalExamId;
                     newExam.title = newExam.title + ' (Cópia)';
                     newExam.date = Date.now();
                     await db.exams.add(newExam);
