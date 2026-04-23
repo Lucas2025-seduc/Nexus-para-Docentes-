@@ -489,13 +489,23 @@
                         <div v-if="filteredRecentCorrections.length === 0" class="text-center py-6 text-gray-400 font-medium text-xs">Nenhum aluno encontrado.</div>
                         <div v-for="r in filteredRecentCorrections" :key="r.id" class="p-3 border rounded-xl flex flex-col gap-2 transition group shadow-sm" :class="r.isIncomplete ? 'bg-red-50 border-red-200 hover:bg-red-100' : (r.needsReview ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' : 'bg-gray-50 border-gray-100 hover:bg-indigo-50 hover:border-indigo-200')">
                             
-                            <!-- Parte Superior: Avatar, Nota e Botões -->
-                            <div class="flex justify-between items-center w-full">
-                                <div class="flex items-center gap-3">
+                            <!-- Parte Superior: Avatar, Nome, Nota e Botões -->
+                            <div class="flex justify-between items-start w-full">
+                                <div class="flex items-center gap-3 flex-1 overflow-hidden cursor-pointer" @click="openResultDetails(r)">
                                     <img v-if="getStudent(r.studentId)?.photo" :src="getStudent(r.studentId).photo" class="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm flex-none">
                                     <div v-else class="w-10 h-10 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center border border-gray-300 shadow-sm flex-none"><i class="fa-solid fa-user"></i></div>
                                     
-                                    <div class="flex items-center gap-1.5">
+                                    <div class="flex-1 overflow-hidden pr-2">
+                                        <p class="font-bold text-sm text-gray-800 truncate mb-0.5">{{r?.studentName}}</p>
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-black text-lg leading-none" :class="r.score >= 6 ? 'text-emerald-600' : 'text-red-500'">{{r?.score}}</span>
+                                            <span v-if="r.isManual" class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-black uppercase whitespace-nowrap border border-blue-200 shadow-sm"><i class="fa-solid fa-hand-pointer"></i> Manual</span>
+                                            <span v-else-if="r.isExternal" class="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-black uppercase whitespace-nowrap border border-indigo-200 shadow-sm"><i class="fa-solid fa-file-pen"></i> Externa</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-1.5 flex-none">
                                     <button v-if="!r.isExternal" @click="openManualCorrectionForResult(r)" class="w-8 h-8 rounded-lg bg-white border flex items-center justify-center text-blue-400 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition" :class="r.isIncomplete ? 'border-red-200' : (r.needsReview ? 'border-amber-200' : 'border-gray-200')" title="Editar na Grelha (Visual)">
                                         <i class="fa-solid fa-table-cells"></i>
                                     </button>
@@ -508,13 +518,10 @@
                                 </div>
                             </div>
 
-                            <!-- Parte Inferior: Nome Completo e Status -->
-                            <div class="bg-white/60 p-2.5 rounded-lg cursor-pointer hover:bg-white/90 transition border border-white/50 w-full" @click="openResultDetails(r)">
-                                <p class="font-bold text-sm text-gray-800 break-words leading-tight mb-1">{{r?.studentName}}</p>
-                                <div class="flex flex-wrap items-center gap-1.5">
-                                    <span class="text-[10px] text-gray-500 font-medium">{{r?.examTitle}} • {{formatDateTime(r?.date)}}</span>
-                                    <span v-if="r.isManual" class="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-black uppercase whitespace-nowrap border border-blue-200 shadow-sm"><i class="fa-solid fa-hand-pointer"></i> Manual</span>
-                                </div>
+                            <!-- Parte Inferior: Prova e Data -->
+                            <div class="bg-white/60 px-2.5 py-1.5 rounded-lg border border-white/50 w-full flex justify-between items-center text-[10px] text-gray-500 font-medium cursor-pointer hover:bg-white/90 transition" @click="openResultDetails(r)">
+                                <span class="truncate pr-2"><i class="fa-solid fa-file-signature text-gray-400 mr-1"></i> {{r?.examTitle}}</span>
+                                <span class="whitespace-nowrap"><i class="fa-regular fa-clock text-gray-400 mr-1"></i> {{formatDateTime(r?.date)}}</span>
                             </div>
 
                         </div>
