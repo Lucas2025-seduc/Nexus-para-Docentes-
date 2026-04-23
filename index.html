@@ -916,6 +916,7 @@
                                 <button @click="reprintExamPDF(e, 'view')" class="w-8 h-8 rounded-lg bg-sky-50 hover:bg-sky-500 hover:text-white text-sky-600 transition flex items-center justify-center" title="Visualizar Prova na Tela"><i class="fa-solid fa-eye"></i></button>
                                 <button @click="reprintExamPDF(e, 'download')" class="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-500 hover:text-white text-blue-600 transition flex items-center justify-center" title="Baixar Prova PDF"><i class="fa-solid fa-download"></i></button>
                                 <button @click="reprintExamPDF(e, 'share')" class="w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-600 transition flex items-center justify-center" title="Partilhar Prova PDF"><i class="fa-solid fa-share-nodes"></i></button>
+                                <button @click="openMakeupExam(e)" class="w-8 h-8 rounded-lg bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-600 transition flex items-center justify-center" title="2ª Chamada (Imprimir para alunos específicos)"><i class="fa-solid fa-user-clock"></i></button>
                                 <button @click="openEditExam(e)" class="w-8 h-8 rounded-lg bg-cyan-50 hover:bg-cyan-500 hover:text-white text-cyan-600 transition flex items-center justify-center" title="Revisar Textos (Seguro)"><i class="fa-solid fa-pen"></i></button>
                                 <button @click="duplicateExam(e)" class="w-8 h-8 rounded-lg bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-600 transition flex items-center justify-center" title="Duplicar Prova (Cria Nova)"><i class="fa-solid fa-copy"></i></button>
                                 <button @click="openItemAnalysis(e)" class="w-8 h-8 rounded-lg bg-pink-50 hover:bg-pink-500 hover:text-white text-pink-600 transition flex items-center justify-center" title="Relatório de Erros da Turma"><i class="fa-solid fa-chart-pie"></i></button>
@@ -934,6 +935,31 @@
                         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3"><i class="fa-solid fa-file-circle-xmark text-2xl text-gray-300"></i></div>
                         <p class="text-sm font-bold">Nenhuma prova no histórico.</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 2ª CHAMADA -->
+        <div v-if="showMakeupExamModal" class="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl animate-fade-in">
+                <div class="p-4 border-b bg-amber-500 text-white rounded-t-3xl flex justify-between items-center shadow-md z-10">
+                    <div>
+                        <h3 class="font-bold"><i class="fa-solid fa-user-clock"></i> 2ª Chamada</h3>
+                        <p class="text-[10px] text-amber-100 truncate">{{makeupExam?.title}}</p>
+                    </div>
+                    <button @click="showMakeupExamModal=false" class="w-8 h-8 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 transition"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="p-4 flex-1 overflow-y-auto space-y-2 bg-gray-50">
+                    <p class="text-xs font-bold text-gray-500 mb-2 px-1">Selecione os alunos para imprimir a 2ª chamada:</p>
+                    <label v-for="s in makeupStudents" :key="s.id" class="flex items-center gap-3 p-3 bg-white border rounded-xl cursor-pointer hover:bg-amber-50 transition shadow-sm" :class="{'border-amber-400 bg-amber-50': makeupSelectedStudentIds.includes(s.id)}">
+                        <input type="checkbox" :value="s.id" v-model="makeupSelectedStudentIds" class="w-5 h-5 accent-amber-500 rounded cursor-pointer">
+                        <span class="text-sm font-bold text-gray-700">{{s.name}}</span>
+                    </label>
+                    <div v-if="makeupStudents.length === 0" class="text-center text-xs text-gray-400 py-4">Nenhum aluno encontrado.</div>
+                </div>
+                <div class="p-4 bg-white border-t rounded-b-3xl grid grid-cols-2 gap-2">
+                    <button @click="printMakeupExam('view')" :disabled="makeupSelectedStudentIds.length===0" class="bg-amber-100 text-amber-700 hover:bg-amber-200 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"><i class="fa-solid fa-eye"></i> Visualizar</button>
+                    <button @click="printMakeupExam('download')" :disabled="makeupSelectedStudentIds.length===0" class="bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"><i class="fa-solid fa-print"></i> Gerar PDF</button>
                 </div>
             </div>
         </div>
@@ -1276,6 +1302,12 @@
                 const tempBonus = ref(0);
                 const selectedResultDetails = ref(null);
                 const showResultDetailsModal = ref(false);
+                
+                // 2ª Chamada (Makeup Exam)
+                const showMakeupExamModal = ref(false);
+                const makeupExam = ref(null);
+                const makeupStudents = ref([]);
+                const makeupSelectedStudentIds = ref([]);
 
                 // Mapa de Sala (NOVO)
                 const showSeatingModal = ref(false);
@@ -3167,27 +3199,34 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     let v = ex.versions[vIdx];
                     let isEco = printCfg.paperSaving;
                     
-                    // Cabeçalho dinâmico (com logo se existir)
+                    // Cabeçalho dinâmico equilibrado para centralização total
                     let headerColumns = [];
                     
+                    // Coluna da Esquerda: Logo ou espaço vazio para balancear com o QR Code da direita
                     if (settings.value.logo) {
                         headerColumns.push({
+                            width: 70,
                             image: settings.value.logo,
-                            width: isEco ? 40 : 50,
-                            height: isEco ? 40 : 50, // Força a imagem a ficar quadrada/proporcional
-                            margin: [0, 0, 10, 0]
+                            fit: [isEco ? 45 : 55, isEco ? 45 : 55],
+                            alignment: 'left'
                         });
+                    } else {
+                        headerColumns.push({ width: 70, text: '' });
                     }
 
+                    // Coluna Central: Informações da Escola e Aluno (CENTRALIZADO)
                     headerColumns.push({
-                        width: '*', stack: [
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: isEco ? 11 : 14, bold: true },
-                            { text: `Aluno(a): ${std.name}`, fontSize: isEco ? 10 : 12, margin: [0, 4, 0, 2] },
+                        width: '*', 
+                        stack: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: isEco ? 12 : 15, bold: true },
+                            { text: `Aluno(a): ${std.name}`, fontSize: isEco ? 10 : 12, margin: [0, 4, 0, 2], bold: true },
                             { text: `Turma: ${getClassName(std.classId)} | Avaliação: ${ex.title}`, fontSize: isEco ? 9 : 10 },
                             { text: `Data: ${new Date(ex.date).toLocaleDateString('pt-BR')} | Tipo: ${vIdx + 1}`, fontSize: isEco ? 9 : 10 }
-                        ]
+                        ],
+                        alignment: 'center'
                     });
 
+                    // Coluna da Direita: QR Code
                     headerColumns.push({
                         width: 70, qr: JSON.stringify({e: ex.id, s: std.id, v: vIdx}), fit: isEco ? 60 : 70, alignment: 'right'
                     });
@@ -3433,6 +3472,36 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     downloadPDF(pdfMake.createPdf(doc), `Lote_Avaliacoes_${Date.now()}.pdf`, action);
                 };
 
+                const openMakeupExam = (e) => {
+                    makeupExam.value = e;
+                    makeupStudents.value = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
+                    makeupSelectedStudentIds.value = [];
+                    showMakeupExamModal.value = true;
+                };
+
+                const printMakeupExam = async (action) => {
+                    if(makeupSelectedStudentIds.value.length === 0) return;
+                    showToast("Gerando 2ª Chamada...", "loading");
+                    
+                    const content = [];
+                    let e = makeupExam.value;
+                    let stds = students.value.filter(s => makeupSelectedStudentIds.value.includes(s.id)).sort((a,b) => a.name.localeCompare(b.name));
+                    
+                    stds.forEach((s, i) => {
+                        if (i > 0) content.push({ text: '', pageBreak: 'before' });
+                        // Seleciona um tipo de prova baseado no índice (mesma lógica das provas regulares)
+                        let vIdx = i % (e.versions ? e.versions.length : 1);
+                        if (!e.versions) e.versions = [{questions: e.questions}];
+                        content.push(...buildExamContent(e, s, vIdx, printConfig.value));
+                    });
+
+                    const doc = { content: content, defaultStyle: { font: 'Roboto' } };
+                    if (printConfig.value.paperSaving) doc.pageMargins = [25, 25, 25, 25];
+                    
+                    downloadPDF(pdfMake.createPdf(doc), `2a_Chamada_${e.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, action);
+                    showMakeupExamModal.value = false;
+                };
+
                 // Função para gerar o bloco visual do "Espelho Vazado"
                 const buildEspelhoBlock = (v, vIdx) => {
                     return [
@@ -3528,6 +3597,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     qType, newQ, showQFormModal, formSource, examCart, examConfig, editingExamId, printConfig,
                     showStudentModal, studentDetails, selectedBimester, showExtraPointForm, newExtraPoint,
                     editingResultId, tempScore, tempBonus, selectedResultDetails, showResultDetailsModal,
+                    showMakeupExamModal, makeupExam, makeupStudents, makeupSelectedStudentIds, openMakeupExam, printMakeupExam,
                     
                     // Seating Plan
                     showSeatingModal, seatingClassId, seatingRows, seatingCols, seatingGrid, seatingSelectedIdx,
