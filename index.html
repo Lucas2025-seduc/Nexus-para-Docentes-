@@ -806,11 +806,11 @@
                             <p class="text-[10px] text-indigo-200 mt-0.5"><i class="fa-solid fa-camera mr-1"></i> Toque na câmara para alterar</p>
                         </div>
                     </div>
-                    <button @click="showStudentModal=false" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition self-start"><i class="fa-solid fa-times"></i></button>
+                    <button @click="showStudentModal=false; editingAverageBimester=null" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition self-start"><i class="fa-solid fa-times"></i></button>
                 </div>
                 <div class="flex border-b overflow-x-auto no-scrollbar">
-                    <button @click="selectedBimester='notes'" :class="selectedBimester==='notes'?'text-indigo-600 border-indigo-600':'text-gray-400'" class="flex-none px-4 py-3 text-xs font-bold border-b-2 whitespace-nowrap"><i class="fa-solid fa-clipboard-user mr-1"></i> PERFIL</button>
-                    <button v-for="b in 4" @click="selectedBimester=b" :class="selectedBimester===b?'text-indigo-600 border-indigo-600':'text-gray-400'" class="flex-1 py-3 text-xs font-bold border-b-2 whitespace-nowrap">{{b}}º BIM</button>
+                    <button @click="selectedBimester='notes'; editingAverageBimester=null" :class="selectedBimester==='notes'?'text-indigo-600 border-indigo-600':'text-gray-400'" class="flex-none px-4 py-3 text-xs font-bold border-b-2 whitespace-nowrap"><i class="fa-solid fa-clipboard-user mr-1"></i> PERFIL</button>
+                    <button v-for="b in 4" @click="selectedBimester=b; editingAverageBimester=null" :class="selectedBimester===b?'text-indigo-600 border-indigo-600':'text-gray-400'" class="flex-1 py-3 text-xs font-bold border-b-2 whitespace-nowrap">{{b}}º BIM</button>
                 </div>
                 <div class="flex-1 overflow-y-auto p-4 bg-gray-50/50">
                     <div v-if="selectedBimester==='notes'" class="space-y-4 animate-fade-in">
@@ -836,9 +836,23 @@
                     <div v-else class="animate-fade-in">
                         <!-- Média e Botão Ponto Extra -->
                         <div class="bg-white p-4 rounded-xl border flex justify-between items-center mb-4 shadow-sm">
-                            <div>
-                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Média do Bimestre</p>
-                                <div class="text-3xl font-black" :class="studentBimesterAverage >= 6 ? 'text-emerald-600' : 'text-red-500'">{{studentBimesterAverage}}</div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Média do Bimestre</p>
+                                    <button v-if="!editingAverageBimester" @click="startEditingAverage" class="w-5 h-5 rounded flex items-center justify-center bg-gray-50 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 border transition" title="Editar Média Manualmente"><i class="fa-solid fa-pencil text-[9px]"></i></button>
+                                    <button v-if="studentDetails?.manualAverages?.[selectedBimester] !== undefined && !editingAverageBimester" @click="clearManualAverage" class="w-5 h-5 rounded flex items-center justify-center bg-amber-50 text-amber-500 hover:text-red-500 hover:bg-red-50 border border-amber-100 transition" title="Remover Média Manual e Voltar ao Cálculo Automático"><i class="fa-solid fa-rotate-left text-[9px]"></i></button>
+                                </div>
+                                
+                                <div v-if="!editingAverageBimester" class="text-3xl font-black flex items-center gap-2" :class="studentBimesterAverage >= 6 ? 'text-emerald-600' : 'text-red-500'">
+                                    {{studentBimesterAverage}}
+                                    <span v-if="studentDetails?.manualAverages?.[selectedBimester] !== undefined" class="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-black uppercase tracking-widest border border-amber-200 shadow-sm self-center mt-1"><i class="fa-solid fa-hand-pointer mr-0.5"></i> Manual</span>
+                                </div>
+                                
+                                <div v-else class="flex items-center gap-1.5 mt-1">
+                                    <input v-model="tempAverage" type="number" step="0.1" max="10" min="0" class="w-20 p-2 border border-indigo-300 bg-indigo-50 rounded-lg text-center text-xl font-black text-indigo-700 outline-none">
+                                    <button @click="saveEditedAverage" class="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg shadow-sm transition"><i class="fa-solid fa-check"></i></button>
+                                    <button @click="cancelEditingAverage" class="w-10 h-10 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-lg transition"><i class="fa-solid fa-times"></i></button>
+                                </div>
                             </div>
                             <button @click="showExtraPointForm = !showExtraPointForm" class="px-3 py-2.5 bg-amber-50 text-amber-600 rounded-xl text-xs font-bold hover:bg-amber-100 transition shadow-sm border border-amber-200 flex items-center gap-1.5"><i class="fa-solid fa-star"></i> Ponto Extra</button>
                         </div>
@@ -1400,6 +1414,10 @@
                 const tempBonus = ref(0);
                 const selectedResultDetails = ref(null);
                 const showResultDetailsModal = ref(false);
+                
+                // Média Manual
+                const editingAverageBimester = ref(null);
+                const tempAverage = ref(0);
                 
                 // 2ª Chamada (Makeup Exam)
                 const showMakeupExamModal = ref(false);
@@ -3204,6 +3222,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 });
 
                 const studentBimesterAverage = computed(() => {
+                    if (!studentDetails.value || !studentDetails.value.id || selectedBimester.value === 'notes') return "0.0";
+                    
+                    const bim = selectedBimester.value.toString();
+                    if (studentDetails.value.manualAverages && studentDetails.value.manualAverages[bim] !== undefined) {
+                        return parseFloat(studentDetails.value.manualAverages[bim]).toFixed(1);
+                    }
+
                     let eps = studentExtraPointsList.value.reduce((acc, ep) => acc + parseFloat(ep.points), 0);
                     if (studentExamsList.value.length === 0) return eps > 0 ? eps.toFixed(1) : "0.0";
                     const sum = studentExamsList.value.reduce((acc, r) => acc + parseFloat(r.score), 0);
@@ -3212,6 +3237,51 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     if (finalScore > 10) finalScore = 10;
                     return finalScore.toFixed(1);
                 });
+
+                const startEditingAverage = () => {
+                    editingAverageBimester.value = selectedBimester.value;
+                    tempAverage.value = parseFloat(studentBimesterAverage.value);
+                };
+
+                const cancelEditingAverage = () => {
+                    editingAverageBimester.value = null;
+                };
+
+                const saveEditedAverage = async () => {
+                    if (!studentDetails.value) return;
+                    let s = await db.students.get(studentDetails.value.id);
+                    if (s) {
+                        if (!s.manualAverages) s.manualAverages = {};
+                        let val = parseFloat(tempAverage.value);
+                        if (isNaN(val) || val < 0) val = 0;
+                        if (val > 10) val = 10;
+                        
+                        s.manualAverages[selectedBimester.value] = val.toFixed(1);
+                        await db.students.put(JSON.parse(JSON.stringify(s)));
+                        
+                        const sIndex = students.value.findIndex(x => x.id === s.id);
+                        if(sIndex > -1) students.value[sIndex] = s;
+                        studentDetails.value.manualAverages = s.manualAverages;
+                        
+                        showToast("Média manual salva!", "success");
+                        editingAverageBimester.value = null;
+                    }
+                };
+
+                const clearManualAverage = async () => {
+                    if (!studentDetails.value || !studentDetails.value.manualAverages) return;
+                    let s = await db.students.get(studentDetails.value.id);
+                    if (s && s.manualAverages) {
+                        delete s.manualAverages[selectedBimester.value];
+                        await db.students.put(JSON.parse(JSON.stringify(s)));
+                        
+                        const sIndex = students.value.findIndex(x => x.id === s.id);
+                        if(sIndex > -1) students.value[sIndex] = s;
+                        studentDetails.value.manualAverages = s.manualAverages;
+                        
+                        showToast("Cálculo automático restaurado!", "info");
+                    }
+                };
 
                 const addExtraPoint = async () => {
                     if (!newExtraPoint.value.val || !newExtraPoint.value.reason) return;
@@ -3805,6 +3875,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     qType, newQ, showQFormModal, formSource, examCart, examConfig, editingExamId, printConfig,
                     showStudentModal, studentDetails, selectedBimester, showExtraPointForm, newExtraPoint,
                     editingResultId, tempScore, tempBonus, selectedResultDetails, showResultDetailsModal,
+                    editingAverageBimester, tempAverage, startEditingAverage, cancelEditingAverage, saveEditedAverage, clearManualAverage,
                     showMakeupExamModal, makeupExam, makeupStudents, makeupSelectedStudentIds, makeupTab, makeupExamCart, showMakeupBank, makeupBankFilter, filteredMakeupBank, openMakeupExam, printMakeupExam,
                     
                     // Seating Plan
