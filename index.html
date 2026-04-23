@@ -1113,18 +1113,29 @@
                     <button @click="showDirectGradeModal=false"><i class="fa-solid fa-times"></i></button>
                 </div>
                 <div class="p-4 flex flex-col flex-1 overflow-hidden space-y-3">
-                    <select v-model="directConfig.examId" @change="loadExistingDirectGrades" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold text-gray-700 outline-none flex-none">
-                        <option value="">Selecionar prova...</option>
-                        <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
-                    </select>
+                    <div class="flex gap-2">
+                        <select v-model="directConfig.examId" @change="loadExistingDirectGrades" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold text-gray-700 outline-none flex-1">
+                            <option value="">Selecionar prova...</option>
+                            <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
+                        </select>
+                        <button @click="startLiveQRScan('direct')" class="bg-purple-100 hover:bg-purple-200 text-purple-600 w-10 h-10 rounded-lg flex items-center justify-center transition border border-purple-200 flex-none" title="Localizar aluno por QR Code">
+                            <i class="fa-solid fa-qrcode"></i>
+                        </button>
+                    </div>
+
+                    <div v-if="directConfig.examId" class="flex gap-2 bg-white p-2 rounded-xl border border-gray-200 shadow-sm items-center focus-within:border-purple-400 transition-colors">
+                        <i class="fa-solid fa-search text-gray-400 ml-2"></i>
+                        <input v-model="directSearchQuery" placeholder="Pesquisar aluno..." class="w-full bg-transparent outline-none text-sm font-medium text-gray-700">
+                        <button v-if="directSearchQuery" @click="directSearchQuery=''" class="text-gray-400 hover:text-red-500 px-2 transition"><i class="fa-solid fa-times"></i></button>
+                    </div>
                     
                     <div v-if="directConfig.examId" class="overflow-y-auto flex-1 space-y-2 border p-2 rounded-xl bg-gray-50 min-h-[40vh]">
                         <div class="sticky top-0 bg-gray-50 pb-1 z-10 text-xs font-bold text-gray-500 text-center">Lista da Turma (Max 10 pontos)</div>
-                        <div v-for="s in directStudents" :key="s.id" class="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm">
+                        <div v-for="s in filteredDirectStudents" :key="s.id" class="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm" :class="{'ring-2 ring-purple-400 bg-purple-50': directSearchQuery}">
                             <span class="text-xs font-bold text-gray-700 truncate mr-2">{{s.name}}</span>
                             <input type="number" step="0.1" max="10" min="0" v-model="directGrades[s.id]" placeholder="Nota" class="w-20 p-2 text-center border rounded-lg outline-none font-black text-purple-600 focus:border-purple-500 transition">
                         </div>
-                        <div v-if="directStudents.length === 0" class="text-center text-xs text-gray-400 py-4">Nenhum aluno nesta turma.</div>
+                        <div v-if="filteredDirectStudents.length === 0" class="text-center text-xs text-gray-400 py-4">Nenhum aluno encontrado.</div>
                     </div>
                     
                     <button v-if="directConfig.examId" @click="saveDirectGrades" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold shadow-md transition flex justify-center items-center gap-2 flex-none mt-2">
@@ -1287,11 +1298,20 @@
                 const showDirectGradeModal = ref(false);
                 const directConfig = ref({examId: ''});
                 const directGrades = ref({});
+                const directSearchQuery = ref('');
                 const directStudents = computed(() => {
                     if (!directConfig.value.examId) return [];
                     const ex = exams.value.find(e => e.id === directConfig.value.examId);
                     if (!ex) return [];
                     return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                });
+                const filteredDirectStudents = computed(() => {
+                    let list = directStudents.value;
+                    if (directSearchQuery.value) {
+                        const f = directSearchQuery.value.toLowerCase();
+                        list = list.filter(s => s.name.toLowerCase().includes(f));
+                    }
+                    return list;
                 });
 
                 // External Exam Input
@@ -2538,7 +2558,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const confirmManualEntry=()=>{if(!manualConfig.value.examId||!manualConfig.value.studentId)return; activeExam.value=exams.value.find(e=>e.id===manualConfig.value.examId); activeStudent.value=students.value.find(s=>s.id===manualConfig.value.studentId); activeVersion.value=manualConfig.value.version; studentAnswers.value={}; showManualInputModal.value=false; correctionMode.value=true;};
                 
                 // Lançamento Direto (Pauta da Turma)
-                const startDirectGradeEntry = () => { directConfig.value = {examId: ''}; directGrades.value = {}; showDirectGradeModal.value = true; };
+                const startDirectGradeEntry = () => { directConfig.value = {examId: ''}; directGrades.value = {}; directSearchQuery.value = ''; showDirectGradeModal.value = true; };
                 const loadExistingDirectGrades = () => {
                     directGrades.value = {};
                     if (!directConfig.value.examId) return;
@@ -2743,6 +2763,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                             } else {
                                                 showToast(`Ainda não há nota lançada para ${std.name} nesta prova.`, "warning");
                                             }
+                                        } else if (qrScanMode.value === 'direct') {
+                                            // Modo Lançar Só Nota (Filtra pelo Aluno do QR)
+                                            directConfig.value.examId = exm.id;
+                                            loadExistingDirectGrades();
+                                            directSearchQuery.value = std.name;
+                                            showDirectGradeModal.value = true;
+                                            showToast(`Aluno localizado: ${std.name}`, "success");
                                         } else {
                                             // Modo Correção
                                             activeExam.value = exm;
@@ -3119,14 +3146,76 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             q.options.forEach((o, i) => {
                                 content.push({ text: `(   ) ${o.text}`, fontSize: qFontSize, margin: [15, 0, 0, isEco ? 2 : 4] });
                             });
+                            
+                            // GERAÇÃO AUTOMÁTICA DAS ALTERNATIVAS A, B, C, D, E PARA V/F
+                            let cIdx = (q.id || 0) % 5;
+                            let correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F');
+                            let optsText = [];
+                            
+                            for (let i = 0; i < 5; i++) {
+                                if (i === cIdx) {
+                                    optsText.push(correctSeq.join(', '));
+                                } else {
+                                    let fake = correctSeq.map(val => Math.random() > 0.5 ? 'V' : 'F');
+                                    if (fake.join(', ') === correctSeq.join(', ')) fake = fake.map(v => v === 'V' ? 'F' : 'V');
+                                    optsText.push(fake.join(', '));
+                                }
+                            }
+                            
+                            content.push({ text: 'A sequência correta é:', fontSize: qFontSize, bold: true, margin: [15, 6, 0, 2] });
+                            
+                            if (isEco) {
+                                let inlineOpts = [];
+                                optsText.forEach((txt, i) => {
+                                    inlineOpts.push({ text: `${['A)','B)','C)','D)','E)'][i]} `, bold: true });
+                                    inlineOpts.push({ text: `${txt}      ` });
+                                });
+                                content.push({ text: inlineOpts, fontSize: 8, margin: [10, 2, 0, 6] });
+                            } else {
+                                optsText.forEach((txt, i) => {
+                                    content.push({ text: `${['A)','B)','C)','D)','E)'][i]}  ${txt}`, fontSize: 10, margin: [15, 2, 0, 4] });
+                                });
+                            }
                         } else if (q.type === 'assoc') {
+                            let matchItems = q.options.map((o, i) => ({ id: i + 1, match: o.match }));
+                            matchItems.sort(() => Math.random() - 0.5); // Baralha as definições do lado direito
+                            
                             let cols = [[], []];
                             q.options.forEach((o, i) => {
                                 cols[0].push({ text: `${i + 1}. ${o.text}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
-                                cols[1].push({ text: `(   ) ${o.match}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
+                                cols[1].push({ text: `(   ) ${matchItems[i].match}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
                             });
-                            cols[1].sort(() => Math.random() - 0.5); // Embaralha a 2ª coluna na impressão
-                            content.push({ columns: [{width: '*', stack: cols[0]}, {width: '*', stack: cols[1]}], margin: [15, 0, 0, isEco ? 6 : 10] });
+                            content.push({ columns: [{width: '*', stack: cols[0]}, {width: '*', stack: cols[1]}], margin: [15, 0, 0, isEco ? 2 : 4] });
+                            
+                            // GERAÇÃO AUTOMÁTICA DAS ALTERNATIVAS A, B, C, D, E PARA ASSOCIAÇÃO
+                            let correctSeq = matchItems.map(m => m.id);
+                            let cIdx = (q.id || 0) % 5;
+                            let optsText = [];
+                            
+                            for (let i = 0; i < 5; i++) {
+                                if (i === cIdx) {
+                                    optsText.push(correctSeq.join(', '));
+                                } else {
+                                    let fake = [...correctSeq].sort(() => Math.random() - 0.5);
+                                    if (fake.join(', ') === correctSeq.join(', ')) fake.reverse();
+                                    optsText.push(fake.join(', '));
+                                }
+                            }
+                            
+                            content.push({ text: 'A sequência correta é:', fontSize: qFontSize, bold: true, margin: [15, 6, 0, 2] });
+                            
+                            if (isEco) {
+                                let inlineOpts = [];
+                                optsText.forEach((txt, i) => {
+                                    inlineOpts.push({ text: `${['A)','B)','C)','D)','E)'][i]} `, bold: true });
+                                    inlineOpts.push({ text: `${txt}      ` });
+                                });
+                                content.push({ text: inlineOpts, fontSize: 8, margin: [10, 2, 0, 6] });
+                            } else {
+                                optsText.forEach((txt, i) => {
+                                    content.push({ text: `${['A)','B)','C)','D)','E)'][i]}  ${txt}`, fontSize: 10, margin: [15, 2, 0, 4] });
+                                });
+                            }
                         }
                         
                         content.push({ text: '', margin: [0, 0, 0, isEco ? 6 : 15] });
@@ -3264,18 +3353,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     v.questions.forEach((q, qIdx) => {
                         let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 5, 0, 0] }];
+                        let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
+                        
                         for (let i = 0; i < 5; i++) {
                             if (q.type === 'ce' && i > 1) {
                                 row.push({ text: '-', alignment: 'center', margin: [0, 5, 0, 0], color: '#d1d5db' });
                                 continue;
                             }
-                            if (q.type === 'vf' || q.type === 'assoc') {
-                                if (i === 0) row.push({ text: 'Correção Textual', colSpan: 5, alignment: 'center', margin: [0, 5, 0, 0], color: '#9ca3af' });
-                                else row.push('');
-                                continue;
-                            }
                             
-                            let isCorrect = q.correctIndex === i;
+                            let isCorrect = cIdx === i;
                             if (isCorrect) {
                                 // Bolinha vazada (Tracejada Vermelha) para recortar/visualizar através
                                 row.push({
@@ -3329,9 +3415,20 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         let keyText = [];
                         v.questions.forEach((q, qIdx) => {
-                            let ans = getAlternativeLabel(q.type, q.correctIndex);
-                            if (q.type === 'vf') ans = q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
-                            if (q.type === 'assoc') ans = q.options.map((o, i) => `${i+1}-${o.match}`).join(' | ');
+                            let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
+                            let altLetra = ['A)','B)','C)','D)','E)'][cIdx] || '?'; 
+
+                            let ans = '';
+                            if (q.type === 'vf') {
+                                ans = `${altLetra} ` + q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
+                            } else if (q.type === 'assoc') {
+                                ans = `${altLetra} ` + q.options.map((o, i) => `${i+1} -> ${o.match}`).join(' | ');
+                            } else if (q.type === 'ce') {
+                                ans = q.correctIndex === 0 ? 'Certo' : 'Errado';
+                            } else {
+                                ans = `${altLetra} ` + getAlternativeLabel(q.type, q.correctIndex);
+                            }
+
                             keyText.push({ text: `Questão ${qIdx + 1}: ${ans}`, fontSize: 10, margin: [0, 2] });
                         });
 
@@ -3399,7 +3496,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     saveManualCorrection, openManualCorrectionForResult,
                     
                     // Direct Entry
-                    showDirectGradeModal, directConfig, directStudents, directGrades,
+                    showDirectGradeModal, directConfig, directStudents, directGrades, directSearchQuery, filteredDirectStudents,
                     startDirectGradeEntry, loadExistingDirectGrades, saveDirectGrades,
                     
                     // IA Generator
