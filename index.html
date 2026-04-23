@@ -3067,9 +3067,189 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     load();
                 });
 
-                // PDF GENERATION FUNCTIONS (Mock implementations for brevity)
-                const generatePDF = async (action) => { showToast("Gerar PDF...", "loading"); setTimeout(() => showToast("PDF gerado!", "success"), 1000); };
+                // --- GERAÇÃO DE PROVAS (PDF) ---
+                const buildExamContent = (ex, std, vIdx, printCfg) => {
+                    let content = [];
+                    let v = ex.versions[vIdx];
+                    let isEco = printCfg.paperSaving;
+                    
+                    // Cabeçalho
+                    content.push({
+                        columns: [
+                            { width: '*', stack: [
+                                { text: settings.value.schoolName || 'ESCOLA', fontSize: isEco ? 11 : 14, bold: true },
+                                { text: `Aluno(a): ${std.name}`, fontSize: isEco ? 10 : 12, margin: [0, 4, 0, 2] },
+                                { text: `Turma: ${getClassName(std.classId)} | Avaliação: ${ex.title}`, fontSize: isEco ? 9 : 10 },
+                                { text: `Data: ${new Date(ex.date).toLocaleDateString('pt-BR')} | Tipo: ${vIdx + 1}`, fontSize: isEco ? 9 : 10 }
+                            ]},
+                            { width: 70, qr: JSON.stringify({e: ex.id, s: std.id, v: vIdx}), fit: isEco ? 60 : 70, alignment: 'right' }
+                        ],
+                        margin: [0, 0, 0, isEco ? 10 : 20]
+                    });
+
+                    // Questões
+                    v.questions.forEach((q, qIdx) => {
+                        let qFontSize = isEco ? 9 : 11;
+                        content.push({ text: `${qIdx + 1}. ${q.text}`, fontSize: qFontSize, bold: true, margin: [0, 0, 0, isEco ? 4 : 8] });
+                        
+                        if (q.image) {
+                            let imgW = printCfg.qImageSize === 'large' ? 400 : 250;
+                            if (isEco) imgW = 200;
+                            content.push({ image: q.image, width: imgW, alignment: 'center', margin: [0, 0, 0, 8] });
+                        }
+
+                        if (q.type === 'mc') {
+                            if (isEco) {
+                                // MÁGICA DA ECONOMIA DE PAPEL: Alternativas na mesma linha (inline array)
+                                let inlineOpts = [];
+                                q.options.forEach((o, i) => {
+                                    inlineOpts.push({ text: `${['A)','B)','C)','D)','E)'][i]} `, bold: true });
+                                    inlineOpts.push({ text: `${o.text}      ` }); // Espaçamento grande entre alternativas horizontais
+                                });
+                                content.push({ text: inlineOpts, fontSize: 8, margin: [10, 0, 0, 6] });
+                            } else {
+                                // NORMAL: Uma alternativa por linha
+                                q.options.forEach((o, i) => {
+                                    content.push({ text: `${['A)','B)','C)','D)','E)'][i]}  ${o.text}`, fontSize: 10, margin: [15, 0, 0, 4] });
+                                });
+                            }
+                        } else if (q.type === 'ce') {
+                            content.push({ text: '(   ) Certo    (   ) Errado', fontSize: qFontSize, margin: [15, 0, 0, isEco ? 6 : 10] });
+                        } else if (q.type === 'vf') {
+                            q.options.forEach((o, i) => {
+                                content.push({ text: `(   ) ${o.text}`, fontSize: qFontSize, margin: [15, 0, 0, isEco ? 2 : 4] });
+                            });
+                        } else if (q.type === 'assoc') {
+                            let cols = [[], []];
+                            q.options.forEach((o, i) => {
+                                cols[0].push({ text: `${i + 1}. ${o.text}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
+                                cols[1].push({ text: `(   ) ${o.match}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
+                            });
+                            cols[1].sort(() => Math.random() - 0.5); // Embaralha a 2ª coluna na impressão
+                            content.push({ columns: [{width: '*', stack: cols[0]}, {width: '*', stack: cols[1]}], margin: [15, 0, 0, isEco ? 6 : 10] });
+                        }
+                        
+                        content.push({ text: '', margin: [0, 0, 0, isEco ? 6 : 15] });
+                    });
+                    return content;
+                };
+
+                const generatePDF = async (action) => { 
+                    showToast("Gerando Provas...", "loading"); 
+                    
+                    let exId = editingExamId.value;
+                    let exm;
+                    
+                    // Salvar prova nova no banco se não estiver em edição
+                    if (!exId) {
+                        let versions = [];
+                        let numVers = parseInt(examConfig.value.variationMode) || 1;
+                        if (isNaN(numVers)) numVers = 1;
+                        
+                        for(let i=0; i<numVers; i++) {
+                            let vQ = JSON.parse(JSON.stringify(examCart.value));
+                            if (i > 0) {
+                                vQ.sort(() => Math.random() - 0.5); // Baralha as questões
+                                vQ.forEach(q => {
+                                    if(q.type === 'mc') {
+                                        let origTxt = q.options[q.correct].text;
+                                        q.options.sort(() => Math.random() - 0.5); // Baralha as alternativas
+                                        q.correctIndex = q.options.findIndex(o => o.text === origTxt);
+                                    }
+                                });
+                            } else {
+                                vQ.forEach(q => q.correctIndex = q.correct);
+                            }
+                            versions.push({ questions: vQ });
+                        }
+                        
+                        exm = {
+                            title: examConfig.value.title || 'Avaliação',
+                            bimester: examConfig.value.bimester,
+                            date: new Date(examConfig.value.date + "T12:00:00.000Z").getTime(),
+                            classId: examConfig.value.classIds[0], // Usa a primeira turma como âncora no histórico
+                            type: examConfig.value.type,
+                            teacher: examConfig.value.teacher,
+                            versions: versions,
+                            isExternal: false
+                        };
+                        exId = await db.exams.add(exm);
+                        exm.id = exId;
+                        load();
+                    } else {
+                        exm = exams.value.find(e => e.id === exId);
+                    }
+
+                    const content = [];
+                    let firstStd = true;
+                    
+                    // Percorre as turmas selecionadas para gerar folha para cada aluno
+                    for (let cId of examConfig.value.classIds) {
+                        let stds = students.value.filter(s => s.classId === cId).sort((a,b) => a.name.localeCompare(b.name));
+                        for (let i = 0; i < stds.length; i++) {
+                            let s = stds[i];
+                            if (!firstStd) content.push({ text: '', pageBreak: 'before' });
+                            firstStd = false;
+                            
+                            let vIdx = i % exm.versions.length;
+                            content.push(...buildExamContent(exm, s, vIdx, printConfig.value));
+                        }
+                    }
+
+                    const doc = { content: content, defaultStyle: { font: 'Roboto' } };
+                    if (printConfig.value.paperSaving) {
+                        doc.pageMargins = [25, 25, 25, 25]; // Margens mínimas para economizar folha
+                    }
+                    
+                    downloadPDF(pdfMake.createPdf(doc), `Provas_${exm.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, action);
+                };
+
+                const reprintExamPDF = async (e, action) => { 
+                    showToast("Reimprimindo Provas...", "loading"); 
+                    const content = [];
+                    let stds = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
+                    
+                    stds.forEach((s, i) => {
+                        if (i > 0) content.push({ text: '', pageBreak: 'before' });
+                        let vIdx = i % (e.versions ? e.versions.length : 1);
+                        if (!e.versions) e.versions = [{questions: e.questions}];
+                        content.push(...buildExamContent(e, s, vIdx, printConfig.value));
+                    });
+
+                    const doc = { content: content, defaultStyle: { font: 'Roboto' } };
+                    if (printConfig.value.paperSaving) doc.pageMargins = [25, 25, 25, 25];
+                    
+                    downloadPDF(pdfMake.createPdf(doc), `Provas_${e.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, action);
+                };
                 
+                const generateMergedPDF = async (action) => { 
+                    if(selectedHistoryExams.value.length === 0) return;
+                    showToast("Gerando Lote...", "loading"); 
+                    
+                    const content = [];
+                    let firstPage = true;
+
+                    for(let exId of selectedHistoryExams.value) {
+                        let e = exams.value.find(x => x.id === exId);
+                        if(!e) continue;
+
+                        let stds = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
+                        stds.forEach((s, i) => {
+                            if (!firstPage) content.push({ text: '', pageBreak: 'before' });
+                            firstPage = false;
+                            
+                            let vIdx = i % (e.versions ? e.versions.length : 1);
+                            if (!e.versions) e.versions = [{questions: e.questions}];
+                            content.push(...buildExamContent(e, s, vIdx, printConfig.value));
+                        });
+                    }
+
+                    const doc = { content: content, defaultStyle: { font: 'Roboto' } };
+                    if (printConfig.value.paperSaving) doc.pageMargins = [25, 25, 25, 25];
+                    
+                    downloadPDF(pdfMake.createPdf(doc), `Lote_Avaliacoes_${Date.now()}.pdf`, action);
+                };
+
                 // Função para gerar o bloco visual do "Espelho Vazado"
                 const buildEspelhoBlock = (v, vIdx) => {
                     let gridBody = [];
@@ -3172,8 +3352,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     downloadPDF(pdfMake.createPdf(doc), fileName, action);
                 };
 
-                const generateMergedPDF = async (action) => { showToast("Gerar Lote...", "loading"); setTimeout(() => showToast("Lote gerado!", "success"), 1000); };
-                const reprintExamPDF = async (e, action) => { showToast("Reimprimir PDF...", "loading"); setTimeout(() => showToast("PDF reimpresso!", "success"), 1000); };
                 const generateClassReportPDF = () => showToast("Relatório de Turma gerado", "success");
                 const generateGeneralReportPDF = (cid) => showToast("Boletim Final gerado", "success");
                 const generateAttendanceReportPDF = (cid) => showToast("Relatório de Faltas gerado", "success");
