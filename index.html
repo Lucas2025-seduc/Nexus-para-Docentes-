@@ -361,6 +361,10 @@
                                 </div>
                             </div>
                             <div class="flex gap-3"><div class="flex-1"><p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Professor(a)</p><input v-model="examConfig.teacher" class="w-full p-1.5 bg-white rounded-lg text-xs border outline-none"></div></div>
+                            <div>
+                                <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Instruções para a Prova (Opcional)</p>
+                                <textarea v-model="examConfig.instructions" class="w-full p-2 bg-white rounded-lg text-xs border outline-none resize-y" rows="2" placeholder="Ex: Preencha todo o círculo da resposta certa. Use caneta azul ou preta..."></textarea>
+                            </div>
                             <div class="mt-3 border-t pt-2">
                                 <p class="text-[9px] font-bold text-gray-400 uppercase mb-2"><i class="fa-solid fa-print"></i> Layout</p>
                                 <div class="mb-2 flex gap-2">
@@ -1301,7 +1305,7 @@
                 const showQFormModal = ref(false);
                 const formSource = ref('');
                 const examCart = ref([]);
-                const examConfig = ref({bimester:1, variationMode:'1', date:new Date().toISOString().split('T')[0], classIds:[]});
+                const examConfig = ref({bimester:1, variationMode:'1', date:new Date().toISOString().split('T')[0], classIds:[], instructions: ''});
                 const editingExamId = ref(null);
                 const printConfig = ref({logoSize:50, qImageSize:'medium', fontSize:'10', addBlankPage:false, paperSaving: false, showStudentPhoto: false});
                 
@@ -3132,7 +3136,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         variationMode: e.versions.length.toString(),
                         classIds: [e.classId],
                         type: e.type || 'Mensal',
-                        teacher: e.teacher || ''
+                        teacher: e.teacher || '',
+                        instructions: e.instructions || ''
                     };
                     examCart.value = JSON.parse(JSON.stringify(e.versions[0].questions));
                     currentView.value = 'exams';
@@ -3357,14 +3362,40 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         content.push({ text: '', margin: [0, 0, 0, isEco ? 6 : 15] });
                     });
                     
-                    // GABARITO DO ALUNO (No final da prova)
-                    content.push({ text: 'CARTÃO DE RESPOSTAS', fontSize: 11, bold: true, alignment: 'center', margin: [0, 15, 0, 10] });
+                    // GABARITO DO ALUNO E INSTRUÇÕES (No final da prova)
+                    let footerColumns = [];
+                    
+                    if (ex.instructions) {
+                        footerColumns.push({
+                            width: '*',
+                            stack: [
+                                { text: 'INSTRUÇÕES:', fontSize: isEco ? 9 : 10, bold: true, margin: [0, 0, 0, 5] },
+                                { text: ex.instructions, fontSize: isEco ? 8 : 9, alignment: 'justify' }
+                            ],
+                            margin: [0, 0, 20, 0]
+                        });
+                        footerColumns.push({
+                            width: 'auto',
+                            stack: [
+                                { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 9 : 10, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
+                                buildAnswerGrid(v, false)
+                            ]
+                        });
+                    } else {
+                        footerColumns.push({ width: '*', text: '' });
+                        footerColumns.push({
+                            width: 'auto',
+                            stack: [
+                                { text: 'CARTÃO DE RESPOSTAS', fontSize: 11, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
+                                buildAnswerGrid(v, false)
+                            ]
+                        });
+                        footerColumns.push({ width: '*', text: '' });
+                    }
+
                     content.push({
-                        columns: [
-                            { width: '*', text: '' },
-                            buildAnswerGrid(v, false),
-                            { width: '*', text: '' }
-                        ]
+                        columns: footerColumns,
+                        margin: [0, 15, 0, 10]
                     });
                     
                     return content;
@@ -3406,6 +3437,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             classId: examConfig.value.classIds[0], // Usa a primeira turma como âncora no histórico
                             type: examConfig.value.type,
                             teacher: examConfig.value.teacher,
+                            instructions: examConfig.value.instructions || '',
                             versions: versions,
                             isExternal: false
                         };
