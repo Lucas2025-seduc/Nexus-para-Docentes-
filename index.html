@@ -455,13 +455,16 @@
                     </div>
                     
                     <div class="grid grid-cols-2 gap-3">
-                        <button @click="startManualEntry" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-gray-200 text-sm">
-                            <i class="fa-solid fa-keyboard text-lg"></i> Inserir s/ QR
+                        <button @click="startManualEntry" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-gray-200 text-sm" title="Preencher o gabarito do aluno manualmente">
+                            <i class="fa-solid fa-keyboard text-lg"></i> Grelha Manual
                         </button>
-                        <button @click="openExternalExamForm" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-blue-200 text-sm">
-                            <i class="fa-solid fa-file-pen text-lg"></i> Prova Externa
+                        <button @click="startDirectGradeEntry" class="w-full bg-purple-50 hover:bg-purple-100 text-purple-600 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-purple-200 text-sm" title="Dar apenas a nota final sem preencher gabarito">
+                            <i class="fa-solid fa-pen-to-square text-lg"></i> Lançar Só Nota
                         </button>
                     </div>
+                    <button @click="openExternalExamForm" class="w-full mt-3 bg-blue-50 hover:bg-blue-100 text-blue-600 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-blue-200 text-sm">
+                        <i class="fa-solid fa-file-pen text-lg"></i> Nova Prova Externa (Apenas Notas)
+                    </button>
                 </div>
 
                 <!-- NOVA ÁREA DE REVISÃO E DEMONSTRATIVO -->
@@ -1102,6 +1105,35 @@
         <!-- MODAL SCANNER MANUAL -->
         <div v-if="showManualInputModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-fade-in"><div class="flex justify-between mb-4"><h3 class="font-bold">Lançamento Manual</h3><button @click="showManualInputModal=false"><i class="fa-solid fa-times"></i></button></div><div class="space-y-4"><select v-model="manualConfig.examId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar prova...</option><option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option></select><select v-if="manualConfig.examId" v-model="manualConfig.studentId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar aluno...</option><option v-for="s in manualStudents" :key="s.id" :value="s.id">{{s.name}}</option></select><select v-if="manualConfig.studentId" v-model="manualConfig.version" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option v-for="(v,i) in selectedExamVersions" :key="i" :value="i">Tipo {{i+1}}</option></select><button @click="confirmManualEntry" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Avançar para Preenchimento</button></div></div></div>
 
+        <!-- MODAL LANÇAMENTO DIRETO DE NOTA (EM MASSA / TURMA) -->
+        <div v-if="showDirectGradeModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in flex flex-col max-h-[90vh]">
+                <div class="p-4 border-b flex justify-between bg-purple-600 text-white rounded-t-2xl">
+                    <h3 class="font-bold"><i class="fa-solid fa-pen-to-square"></i> Lançar Só Nota</h3>
+                    <button @click="showDirectGradeModal=false"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="p-4 flex flex-col flex-1 overflow-hidden space-y-3">
+                    <select v-model="directConfig.examId" @change="loadExistingDirectGrades" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold text-gray-700 outline-none flex-none">
+                        <option value="">Selecionar prova...</option>
+                        <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
+                    </select>
+                    
+                    <div v-if="directConfig.examId" class="overflow-y-auto flex-1 space-y-2 border p-2 rounded-xl bg-gray-50 min-h-[40vh]">
+                        <div class="sticky top-0 bg-gray-50 pb-1 z-10 text-xs font-bold text-gray-500 text-center">Lista da Turma (Max 10 pontos)</div>
+                        <div v-for="s in directStudents" :key="s.id" class="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm">
+                            <span class="text-xs font-bold text-gray-700 truncate mr-2">{{s.name}}</span>
+                            <input type="number" step="0.1" max="10" min="0" v-model="directGrades[s.id]" placeholder="Nota" class="w-20 p-2 text-center border rounded-lg outline-none font-black text-purple-600 focus:border-purple-500 transition">
+                        </div>
+                        <div v-if="directStudents.length === 0" class="text-center text-xs text-gray-400 py-4">Nenhum aluno nesta turma.</div>
+                    </div>
+                    
+                    <button v-if="directConfig.examId" @click="saveDirectGrades" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold shadow-md transition flex justify-center items-center gap-2 flex-none mt-2">
+                        <i class="fa-solid fa-save"></i> Salvar Notas
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- MODAL LIVE QR -->
         <div v-show="showLiveQRScanner" class="fixed inset-0 z-[400] flex flex-col bg-black animate-fade-in">
             <div class="p-4 flex justify-between bg-gray-900 text-white z-10 shadow-md"><h3 class="font-bold"><i class="fa-solid fa-qrcode"></i> Ler QR do Aluno</h3><button @click="stopLiveQRScan" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button></div>
@@ -1250,6 +1282,17 @@
                 const correctionMode = ref(false);
                 const showManualInputModal = ref(false);
                 const manualConfig = ref({examId:'',studentId:'',version:0});
+                
+                // Direct Grade Input (Em Massa)
+                const showDirectGradeModal = ref(false);
+                const directConfig = ref({examId: ''});
+                const directGrades = ref({});
+                const directStudents = computed(() => {
+                    if (!directConfig.value.examId) return [];
+                    const ex = exams.value.find(e => e.id === directConfig.value.examId);
+                    if (!ex) return [];
+                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                });
 
                 // External Exam Input
                 const showExternalExamModal = ref(false);
@@ -2494,6 +2537,65 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const startManualEntry=()=>{manualConfig.value={examId:'',studentId:'',version:0};showManualInputModal.value=true;};
                 const confirmManualEntry=()=>{if(!manualConfig.value.examId||!manualConfig.value.studentId)return; activeExam.value=exams.value.find(e=>e.id===manualConfig.value.examId); activeStudent.value=students.value.find(s=>s.id===manualConfig.value.studentId); activeVersion.value=manualConfig.value.version; studentAnswers.value={}; showManualInputModal.value=false; correctionMode.value=true;};
                 
+                // Lançamento Direto (Pauta da Turma)
+                const startDirectGradeEntry = () => { directConfig.value = {examId: ''}; directGrades.value = {}; showDirectGradeModal.value = true; };
+                const loadExistingDirectGrades = () => {
+                    directGrades.value = {};
+                    if (!directConfig.value.examId) return;
+                    const ex = exams.value.find(e => e.id === directConfig.value.examId);
+                    if (!ex) return;
+                    const stds = students.value.filter(s => s.classId === ex.classId);
+                    stds.forEach(s => {
+                        const r = results.value.find(res => res.examId === ex.id && res.studentId === s.id);
+                        if (r) directGrades.value[s.id] = parseFloat(r.score);
+                    });
+                };
+                const saveDirectGrades = async () => {
+                    if(!directConfig.value.examId) return showToast("Selecione uma prova", "warning");
+                    
+                    const ex = exams.value.find(e => e.id === directConfig.value.examId);
+                    if(!ex) return;
+                    const maxQ = ex.versions && ex.versions[0] ? ex.versions[0].questions.length : 10;
+                    
+                    let count = 0;
+                    for (const s of directStudents.value) {
+                        let scoreStr = directGrades.value[s.id];
+                        if (scoreStr !== undefined && scoreStr !== null && scoreStr !== '') {
+                            const scoreNum = parseFloat(scoreStr);
+                            if(!isNaN(scoreNum) && scoreNum >= 0 && scoreNum <= 10) {
+                                const exst = results.value.find(r => r.examId === ex.id && r.studentId === s.id);
+                                const dt = {
+                                    examId: ex.id, 
+                                    studentId: s.id, 
+                                    studentName: s.name, 
+                                    score: scoreNum.toFixed(1), 
+                                    bonus: exst ? parseFloat(exst.bonus || 0) : 0, 
+                                    date: Date.now(), 
+                                    answers: exst ? exst.answers : {}, 
+                                    maxScore: maxQ, 
+                                    version: exst ? (exst.version || 0) : 0, 
+                                    debugImage: exst ? exst.debugImage : null, 
+                                    needsReview: false, 
+                                    isManual: true, 
+                                    isIncomplete: false
+                                };
+                                
+                                if (exst) await db.results.put({...dt, id: exst.id});
+                                else await db.results.add(JSON.parse(JSON.stringify(dt)));
+                                count++;
+                            }
+                        }
+                    }
+                    
+                    if(count > 0) {
+                        results.value = await db.results.toArray();
+                        showToast(`${count} notas salvas com sucesso!`, "success");
+                        showDirectGradeModal.value = false;
+                    } else {
+                        showToast("Nenhuma nota válida foi inserida.", "warning");
+                    }
+                };
+                
                 const openManualCorrectionForResult = (r) => {
                     if (!r) return;
                     let realResultId = r.resultId !== undefined ? r.resultId : r.id;
@@ -2967,7 +3069,109 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 // PDF GENERATION FUNCTIONS (Mock implementations for brevity)
                 const generatePDF = async (action) => { showToast("Gerar PDF...", "loading"); setTimeout(() => showToast("PDF gerado!", "success"), 1000); };
-                const generateKeyPDF = async (e, action) => { showToast("Gerar Gabarito...", "loading"); setTimeout(() => showToast("Gabarito gerado!", "success"), 1000); };
+                
+                // Função para gerar o bloco visual do "Espelho Vazado"
+                const buildEspelhoBlock = (v, vIdx) => {
+                    let gridBody = [];
+                    gridBody.push([
+                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f3f4f6' }
+                    ]);
+
+                    v.questions.forEach((q, qIdx) => {
+                        let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 5, 0, 0] }];
+                        for (let i = 0; i < 5; i++) {
+                            if (q.type === 'ce' && i > 1) {
+                                row.push({ text: '-', alignment: 'center', margin: [0, 5, 0, 0], color: '#d1d5db' });
+                                continue;
+                            }
+                            if (q.type === 'vf' || q.type === 'assoc') {
+                                if (i === 0) row.push({ text: 'Correção Textual', colSpan: 5, alignment: 'center', margin: [0, 5, 0, 0], color: '#9ca3af' });
+                                else row.push('');
+                                continue;
+                            }
+                            
+                            let isCorrect = q.correctIndex === i;
+                            if (isCorrect) {
+                                // Bolinha vazada (Tracejada Vermelha) para recortar/visualizar através
+                                row.push({
+                                    canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1.5, linePattern: { length: 3, space: 2 }, lineColor: '#ef4444' }],
+                                    alignment: 'center', margin: [0, 2, 0, 2]
+                                });
+                            } else {
+                                // Bolinha preenchida cinza (Incorreta)
+                                row.push({
+                                    canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, color: '#e5e7eb', lineColor: '#d1d5db' }],
+                                    alignment: 'center', margin: [0, 2, 0, 2]
+                                });
+                            }
+                        }
+                        gridBody.push(row);
+                    });
+
+                    return [
+                        { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
+                        { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
+                        {
+                            columns: [
+                                { width: '*', text: '' },
+                                {
+                                    width: 'auto',
+                                    table: { headerRows: 1, widths: [25, 30, 30, 30, 30, 30], body: gridBody },
+                                    layout: {
+                                        hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
+                                        vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 2 : 1,
+                                        hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
+                                        paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 3
+                                    }
+                                },
+                                { width: '*', text: '' }
+                            ]
+                        }
+                    ];
+                };
+
+                const generateKeyPDF = async (e, action) => { 
+                    showToast("Gerando Gabarito e Espelho...", "loading"); 
+                    const versions = e.versions || [{ questions: e.questions }];
+                    const content = [];
+
+                    versions.forEach((v, vIdx) => {
+                        if (vIdx > 0) content.push({ text: '', pageBreak: 'before' });
+
+                        content.push({ text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' });
+                        content.push({ text: `GABARITO OFICIAL E ESPELHO DE CORREÇÃO`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] });
+                        content.push({ text: `Prova: ${e.title} | Tipo ${vIdx + 1}`, fontSize: 11, bold: true, alignment: 'center', margin: [0, 0, 0, 20] });
+
+                        let keyText = [];
+                        v.questions.forEach((q, qIdx) => {
+                            let ans = getAlternativeLabel(q.type, q.correctIndex);
+                            if (q.type === 'vf') ans = q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
+                            if (q.type === 'assoc') ans = q.options.map((o, i) => `${i+1}-${o.match}`).join(' | ');
+                            keyText.push({ text: `Questão ${qIdx + 1}: ${ans}`, fontSize: 10, margin: [0, 2] });
+                        });
+
+                        content.push({
+                            columns: [
+                                { width: '*', text: '' },
+                                { width: 'auto', stack: keyText },
+                                { width: '*', text: '' }
+                            ]
+                        });
+
+                        // Anexa o espelho vazado logo abaixo do gabarito textual
+                        content.push(...buildEspelhoBlock(v, vIdx));
+                    });
+
+                    const doc = { content: content, defaultStyle: { font: 'Roboto' } };
+                    const fileName = `Gabarito_Espelho_${e.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+                    downloadPDF(pdfMake.createPdf(doc), fileName, action);
+                };
+
                 const generateMergedPDF = async (action) => { showToast("Gerar Lote...", "loading"); setTimeout(() => showToast("Lote gerado!", "success"), 1000); };
                 const reprintExamPDF = async (e, action) => { showToast("Reimprimir PDF...", "loading"); setTimeout(() => showToast("PDF reimpresso!", "success"), 1000); };
                 const generateClassReportPDF = () => showToast("Relatório de Turma gerado", "success");
@@ -3015,6 +3219,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     correctionMode, showManualInputModal, manualConfig, activeStudent, activeExam, activeVersion,
                     studentAnswers, manualStudents, selectedExamVersions, startManualEntry, confirmManualEntry,
                     saveManualCorrection, openManualCorrectionForResult,
+                    
+                    // Direct Entry
+                    showDirectGradeModal, directConfig, directStudents, directGrades,
+                    startDirectGradeEntry, loadExistingDirectGrades, saveDirectGrades,
                     
                     // IA Generator
                     showAIGenModal, isGeneratingAI, aiGenConfig,
