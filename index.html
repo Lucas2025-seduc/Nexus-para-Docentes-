@@ -61,8 +61,9 @@
         <!-- HEADER E NAVEGAÇÃO -->
         <header class="bg-white shadow-sm z-50 flex-none border-b border-gray-200 relative">
             <div class="px-4 py-3 flex justify-between items-center">
-                <div class="flex items-center gap-3 text-indigo-700 select-none"><img src="logo-principal.png" class="w-20 h-20 rounded-xl object-cover shadow-md border border-gray-100 bg-white" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\' ry=\'2\'></rect><circle cx=\'8.5\' cy=\'8.5\' r=\'1.5\'></circle><polyline points=\'21 15 16 10 5 21\'></polyline></svg>'"><div><h1 class="font-black text-xl leading-none">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1><p class="text-[9px] font-medium text-gray-400 mt-0.5">Gestão Escolar</p></div></div>
+                <div class="flex items-center gap-3 text-indigo-700 select-none"><img v-if="!settings.hideAppLogo" src="logo-principal.png" class="w-20 h-20 rounded-xl object-cover shadow-md border border-gray-100 bg-white" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\' ry=\'2\'></rect><circle cx=\'8.5\' cy=\'8.5\' r=\'1.5\'></circle><polyline points=\'21 15 16 10 5 21\'></polyline></svg>'"><div v-if="!settings.hideAppLogo"><h1 class="font-black text-xl leading-none">Nexus <span class="text-[10px] font-bold text-indigo-400 uppercase bg-indigo-50 px-1.5 py-0.5 rounded-md">PRO</span></h1><p class="text-[9px] font-medium text-gray-400 mt-0.5">Gestão Escolar</p></div></div>
                 <div class="flex gap-1 text-gray-400 items-center">
+                    <button @click="settings.hideAppLogo = !settings.hideAppLogo; saveSettings(true)" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 flex items-center justify-center" title="Ocultar/Mostrar Logo"><i :class="settings.hideAppLogo ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i></button>
                     <button v-if="canInstall" @click="installPWA" class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-download"></i></button>
                     <button v-if="!isLicensed" @click="showLicenseModal=true" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-key"></i></button>
                     <button @click="triggerImport" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-cloud-arrow-up"></i></button><input type="file" id="importFile" class="hidden" accept=".json" @change="importBackup">
@@ -592,6 +593,11 @@
                 </button>
             </div>
         </nav>
+        <div class="flex-none bg-gray-50 py-1.5 px-3 text-center border-t border-gray-200 z-50">
+            <p class="text-[9px] font-medium text-gray-500 flex items-center justify-center gap-1.5 leading-tight">
+                <i class="fa-solid fa-shield-halved text-indigo-400"></i> Dados salvos 100% localmente (Offline). Proteção de Dados assegurada.
+            </p>
+        </div>
 
         <!-- HIDDEN & DATALISTS -->
         <div id="hidden-qr-reader" style="display:none;"></div>
@@ -1190,7 +1196,7 @@
                 const questions = ref([]);
                 const exams = ref([]);
                 const results = ref([]);
-                const settings = ref({schoolName:'',logo:null, activeModel: null});
+                const settings = ref({schoolName:'',logo:null, activeModel: null, hideAppLogo: false});
                 const extraPoints = ref([]);
                 
                 // License & Globals
@@ -1451,7 +1457,7 @@
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
                     extraPoints.value=await db.extraPoints.toArray(); const s=await db.settings.get('config');
                     if(s) { 
-                        settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null}; 
+                        settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null, hideAppLogo:s.hideAppLogo||false}; 
                         if(s.geminiKey) geminiKey.value=s.geminiKey; 
                         if(s.printConfig) printConfig.value = { ...printConfig.value, ...s.printConfig };
                     }
@@ -3095,22 +3101,99 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 });
 
                 // --- GERAÇÃO DE PROVAS (PDF) ---
+                
+                // FUNÇÃO UNIVERSAL DA GRELHA (Garante 100% de alinhamento entre Aluno e Espelho)
+                const buildAnswerGrid = (v, isMirror = false) => {
+                    let gridBody = [];
+                    gridBody.push([
+                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f3f4f6' }
+                    ]);
+
+                    v.questions.forEach((q, qIdx) => {
+                        let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 5, 0, 0] }];
+                        let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
+                        
+                        for (let i = 0; i < 5; i++) {
+                            if (q.type === 'ce' && i > 1) {
+                                row.push({ text: '-', alignment: 'center', margin: [0, 5, 0, 0], color: '#d1d5db' });
+                                continue;
+                            }
+                            
+                            if (isMirror) {
+                                let isCorrect = cIdx === i;
+                                if (isCorrect) {
+                                    // Bolinha vazada (Tracejada Vermelha) para recortar/visualizar através
+                                    row.push({
+                                        canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1.5, linePattern: { length: 3, space: 2 }, lineColor: '#ef4444' }],
+                                        alignment: 'center', margin: [0, 2, 0, 2]
+                                    });
+                                } else {
+                                    // Bolinha preenchida cinza (Incorreta)
+                                    row.push({
+                                        canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, color: '#e5e7eb', lineColor: '#d1d5db' }],
+                                        alignment: 'center', margin: [0, 2, 0, 2]
+                                    });
+                                }
+                            } else {
+                                // Folha do aluno: Bolinhas brancas para preencher
+                                row.push({
+                                    canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1, lineColor: '#9ca3af' }],
+                                    alignment: 'center', margin: [0, 2, 0, 2]
+                                });
+                            }
+                        }
+                        gridBody.push(row);
+                    });
+
+                    return {
+                        width: 'auto',
+                        table: { headerRows: 1, widths: [25, 30, 30, 30, 30, 30], body: gridBody },
+                        layout: {
+                            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
+                            vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 2 : 1,
+                            hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
+                            paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 3
+                        }
+                    };
+                };
+
                 const buildExamContent = (ex, std, vIdx, printCfg) => {
                     let content = [];
                     let v = ex.versions[vIdx];
                     let isEco = printCfg.paperSaving;
                     
-                    // Cabeçalho
+                    // Cabeçalho dinâmico (com logo se existir)
+                    let headerColumns = [];
+                    
+                    if (settings.value.logo) {
+                        headerColumns.push({
+                            image: settings.value.logo,
+                            width: isEco ? 40 : 50,
+                            height: isEco ? 40 : 50, // Força a imagem a ficar quadrada/proporcional
+                            margin: [0, 0, 10, 0]
+                        });
+                    }
+
+                    headerColumns.push({
+                        width: '*', stack: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: isEco ? 11 : 14, bold: true },
+                            { text: `Aluno(a): ${std.name}`, fontSize: isEco ? 10 : 12, margin: [0, 4, 0, 2] },
+                            { text: `Turma: ${getClassName(std.classId)} | Avaliação: ${ex.title}`, fontSize: isEco ? 9 : 10 },
+                            { text: `Data: ${new Date(ex.date).toLocaleDateString('pt-BR')} | Tipo: ${vIdx + 1}`, fontSize: isEco ? 9 : 10 }
+                        ]
+                    });
+
+                    headerColumns.push({
+                        width: 70, qr: JSON.stringify({e: ex.id, s: std.id, v: vIdx}), fit: isEco ? 60 : 70, alignment: 'right'
+                    });
+
                     content.push({
-                        columns: [
-                            { width: '*', stack: [
-                                { text: settings.value.schoolName || 'ESCOLA', fontSize: isEco ? 11 : 14, bold: true },
-                                { text: `Aluno(a): ${std.name}`, fontSize: isEco ? 10 : 12, margin: [0, 4, 0, 2] },
-                                { text: `Turma: ${getClassName(std.classId)} | Avaliação: ${ex.title}`, fontSize: isEco ? 9 : 10 },
-                                { text: `Data: ${new Date(ex.date).toLocaleDateString('pt-BR')} | Tipo: ${vIdx + 1}`, fontSize: isEco ? 9 : 10 }
-                            ]},
-                            { width: 70, qr: JSON.stringify({e: ex.id, s: std.id, v: vIdx}), fit: isEco ? 60 : 70, alignment: 'right' }
-                        ],
+                        columns: headerColumns,
                         margin: [0, 0, 0, isEco ? 10 : 20]
                     });
 
@@ -3220,6 +3303,17 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         content.push({ text: '', margin: [0, 0, 0, isEco ? 6 : 15] });
                     });
+                    
+                    // GABARITO DO ALUNO (No final da prova)
+                    content.push({ text: 'CARTÃO DE RESPOSTAS', fontSize: 11, bold: true, alignment: 'center', margin: [0, 15, 0, 10] });
+                    content.push({
+                        columns: [
+                            { width: '*', text: '' },
+                            buildAnswerGrid(v, false),
+                            { width: '*', text: '' }
+                        ]
+                    });
+                    
                     return content;
                 };
 
@@ -3341,60 +3435,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 // Função para gerar o bloco visual do "Espelho Vazado"
                 const buildEspelhoBlock = (v, vIdx) => {
-                    let gridBody = [];
-                    gridBody.push([
-                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f3f4f6' }
-                    ]);
-
-                    v.questions.forEach((q, qIdx) => {
-                        let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 5, 0, 0] }];
-                        let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
-                        
-                        for (let i = 0; i < 5; i++) {
-                            if (q.type === 'ce' && i > 1) {
-                                row.push({ text: '-', alignment: 'center', margin: [0, 5, 0, 0], color: '#d1d5db' });
-                                continue;
-                            }
-                            
-                            let isCorrect = cIdx === i;
-                            if (isCorrect) {
-                                // Bolinha vazada (Tracejada Vermelha) para recortar/visualizar através
-                                row.push({
-                                    canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1.5, linePattern: { length: 3, space: 2 }, lineColor: '#ef4444' }],
-                                    alignment: 'center', margin: [0, 2, 0, 2]
-                                });
-                            } else {
-                                // Bolinha preenchida cinza (Incorreta)
-                                row.push({
-                                    canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, color: '#e5e7eb', lineColor: '#d1d5db' }],
-                                    alignment: 'center', margin: [0, 2, 0, 2]
-                                });
-                            }
-                        }
-                        gridBody.push(row);
-                    });
-
                     return [
                         { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
                         { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
                         {
                             columns: [
                                 { width: '*', text: '' },
-                                {
-                                    width: 'auto',
-                                    table: { headerRows: 1, widths: [25, 30, 30, 30, 30, 30], body: gridBody },
-                                    layout: {
-                                        hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
-                                        vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 2 : 1,
-                                        hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
-                                        paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 3
-                                    }
-                                },
+                                buildAnswerGrid(v, true),
                                 { width: '*', text: '' }
                             ]
                         }
@@ -3409,6 +3456,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     versions.forEach((v, vIdx) => {
                         if (vIdx > 0) content.push({ text: '', pageBreak: 'before' });
 
+                        if (settings.value.logo) {
+                            content.push({ image: settings.value.logo, width: 50, height: 50, alignment: 'center', margin: [0, 0, 0, 5] });
+                        }
+                        
                         content.push({ text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' });
                         content.push({ text: `GABARITO OFICIAL E ESPELHO DE CORREÇÃO`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] });
                         content.push({ text: `Prova: ${e.title} | Tipo ${vIdx + 1}`, fontSize: 11, bold: true, alignment: 'center', margin: [0, 0, 0, 20] });
