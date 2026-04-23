@@ -1194,7 +1194,14 @@
     <script>
         const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
         const db = new Dexie('NexusAppDB');
-        // Aumentámos a versão da DB para adicionar a tabela do mapa de sala (seatingPlans)
+        
+        // Histórico de versões restaurado para garantir a migração segura e evitar bloqueios (UpgradeError)
+        db.version(1).stores({ classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', results:'++id', settings:'id' });
+        db.version(2).stores({ classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', results:'++id', settings:'id', extraPoints: '++id, studentId, bimester' });
+        db.version(3).stores({ classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', results:'++id', settings:'id', extraPoints: '++id, studentId, bimester', schedules: '++id, classId', attendance: '++id, classId, date, studentId' });
+        db.version(4).stores({ classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', results:'++id', settings:'id', extraPoints: '++id, studentId, bimester', schedules: '++id, classId', attendance: '++id, classId, date, studentId' });
+        
+        // Versão atual com o Mapa de Sala
         db.version(5).stores({ 
             classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
             results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
