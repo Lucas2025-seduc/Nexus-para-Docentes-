@@ -1318,7 +1318,7 @@
                 <div class="absolute inset-0 pointer-events-none flex items-center justify-center p-6">
                     <div id="omr-overlay-box" class="border-[3px] border-emerald-500 bg-emerald-500/10 relative shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] w-full max-w-sm flex flex-col mx-auto transition-all" :style="{ aspectRatio: 175 / (21 * (omrQuestionsCount + 1)) }">
                         <div class="absolute -top-12 left-0 right-0 text-center text-emerald-400 font-bold text-xs bg-black/70 py-2 rounded-lg backdrop-blur-sm shadow-lg flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-expand animate-pulse"></i> Alinhe a tabela ou aguarde o apito...
+                            <i class="fa-solid fa-expand animate-pulse"></i> Alinhe o gabarito e segure firme...
                         </div>
                         
                         <!-- Linhas da Grelha Auxiliares -->
@@ -1584,6 +1584,7 @@
                 const omrQuestionsCount = ref(10);
                 let omrStream = null;
                 let omrAutoCaptureInterval = null;
+                const omrAlignCount = ref(0);
 
                 // --- LIFECYCLE & HELPERS ---
                 window.addEventListener('beforeinstallprompt', e => { 
@@ -3060,6 +3061,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     omrExam.value = exam;
                     omrStudent.value = student;
                     omrVersion.value = version;
+                    omrAlignCount.value = 0; // Reinicia o contador de estabilidade
                     const qArr = getVersionQuestions(exam, version);
                     omrQuestionsCount.value = qArr.length;
                     showOMRScanner.value = true;
@@ -3125,7 +3127,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     let answers = {};
                     const debugImage = canvas.toDataURL('image/jpeg', 0.6);
-                    let qColumnIntensitySum = 0; // Ajuda a detetar se o enquadramento está a ler os números corretamente
+                    let qColumnIntensitySum = 0; // Contraste dos números na coluna Q
+                    let globalPaperDarknessSum = 0; // Nível de escuridão do papel (fundo)
+                    let totalMarksDetected = 0; // Quantidade de marcações totais detetadas
+                    let cellCount = 0;
 
                     for (let r = 1; r < rows; r++) { 
                         let rowMarks = [];
@@ -3170,6 +3175,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             // A "Intensidade" é a tinta calculada ignorando totalmente as sombras e a cor do papel!
                             let markIntensity = darkestAvg - lightestAvg;
                             
+                            globalPaperDarknessSum += lightestAvg;
+                            cellCount++;
+
                             if (c === 0) {
                                 // Acumula o contraste da coluna das numerações (1, 2, 3...)
                                 qColumnIntensitySum += markIntensity;
@@ -3177,6 +3185,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 // Limite de 20 é altamente sensível, ideal para lápis e cores fracas
                                 if (markIntensity > 20) {
                                     rowMarks.push({ col: c - 1, intensity: markIntensity });
+                                    totalMarksDetected++;
                                 }
                             }
                         }
@@ -3200,11 +3209,22 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         }
                     }
 
-                    // A magia do Auto-Enquadramento: Se ele está a ler os números impressos da Coluna Q com clareza, está alinhado!
+                    // Novas travas de segurança e Estabilização para Auto-Captura:
                     let avgQColumnIntensity = qColumnIntensitySum / omrQuestionsCount.value;
+                    let avgPaperDarkness = globalPaperDarknessSum / cellCount;
                     
-                    if (isManual || avgQColumnIntensity > 15) {
-                        if (!isManual) playBeep();
+                    // 1. Coluna Q tem de ter números visíveis (> 15)
+                    // 2. Fundo tem de ser claro (papel branco/cinza), não escuro (< 140)
+                    // 3. Não pode ter demasiadas marcações (evita capturar teclados, QR Codes ou blocos de texto)
+                    let isAligned = (avgQColumnIntensity > 15) && (avgPaperDarkness < 140) && (totalMarksDetected <= omrQuestionsCount.value * 1.5);
+                    
+                    if (isManual || isAligned) {
+                        if (!isManual) {
+                            omrAlignCount.value++;
+                            // Exige 2 frames seguidos de estabilidade (aprox 1.6 segundos a focar perfeitamente)
+                            if (omrAlignCount.value < 2) return; 
+                            playBeep();
+                        }
                         
                         stopOMRScan();
                         if (isManual) showToast("A processar captura...", "loading");
@@ -3214,6 +3234,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         openResultDetails(savedRes);
                         if (isManual) showToast("Gabarito manual processado.", "success");
+                    } else {
+                        // Se mover o telemóvel e perder o alinhamento, o contador reseta
+                        if (!isManual) omrAlignCount.value = 0; 
                     }
                 };
 
