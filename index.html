@@ -3191,15 +3191,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let scaleX = hidden.width / overlay.width;
                         let scaleY = hidden.height / overlay.height;
 
-                        // Calcular a posição exata da MOLDURA AR no vídeo
-                        let gRect = guide.getBoundingClientRect();
-                        let expectedCorners = [
-                            { x: gRect.left * scaleX, y: gRect.top * scaleY },      // Top-Left
-                            { x: gRect.right * scaleX, y: gRect.top * scaleY },     // Top-Right
-                            { x: gRect.right * scaleX, y: gRect.bottom * scaleY },  // Bottom-Right
-                            { x: gRect.left * scaleX, y: gRect.bottom * scaleY }    // Bottom-Left
-                        ];
-
                         let candidates = [];
                         for (let i = 0; i < contours.size(); ++i) {
                             let cnt = contours.get(i);
@@ -3209,7 +3200,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             let extent = area / (rect.width * rect.height);
                             
                             // Filtro rigoroso: O quadrado deve ser sólido, ter aspeto 1:1 e não ser gigante
-                            if (area > 20 && area < (hidden.width * hidden.height * 0.05) && aspect > 0.6 && aspect < 1.4 && extent > 0.6) {
+                            if (area > 30 && area < (hidden.width * hidden.height * 0.1) && aspect > 0.5 && aspect < 1.5 && extent > 0.5) {
                                 let M = cv.moments(cnt, false);
                                 if (M.m00 !== 0) {
                                     candidates.push({x: M.m10 / M.m00, y: M.m01 / M.m00});
@@ -3218,85 +3209,97 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             cnt.delete();
                         }
 
-                        // PROCURAR APENAS AS 4 ÂNCORAS PRÓXIMAS DOS CANTOS DO GUIA NA TELA
-                        let orderedPts = [];
-                        let searchTolerance = (gRect.width * scaleX) * 0.35; // Raio de tolerância (35% da largura do guia)
+                        // Calcular a posição da MOLDURA AR no vídeo
+                        let gRect = guide.getBoundingClientRect();
+                        let searchTolerance = (gRect.width * scaleX) * 0.6; // Maior tolerância para absorver gabaritos curtos
 
-                        for (let i = 0; i < 4; i++) {
-                            let exp = expectedCorners[i];
-                            let bestDist = searchTolerance;
-                            let bestCand = null;
+                        // Filtrar candidatos que estão dentro/perto da área geral da moldura
+                        let validCands = candidates.filter(c => 
+                            c.x > gRect.left * scaleX - searchTolerance && 
+                            c.x < gRect.right * scaleX + searchTolerance && 
+                            c.y > gRect.top * scaleY - searchTolerance && 
+                            c.y < gRect.bottom * scaleY + searchTolerance
+                        );
+
+                        let orderedPts = null;
+
+                        if (validCands.length >= 4) {
+                            // Solução Dinâmica: Ordenar os pontos para encontrar o topo e a base, não importa a altura
+                            validCands.sort((a, b) => a.y - b.y);
                             
-                            for (let c of candidates) {
-                                let d = Math.hypot(c.x - exp.x, c.y - exp.y);
-                                if (d < bestDist) {
-                                    bestDist = d;
-                                    bestCand = c;
+                            // Os dois mais acima formam o topo
+                            let topCands = validCands.slice(0, 2).sort((a, b) => a.x - b.x);
+                            let tl = topCands[0];
+                            let tr = topCands[1];
+                            
+                            // Os dois mais abaixo formam a base
+                            let bottomCands = validCands.slice(-2).sort((a, b) => a.x - b.x);
+                            let bl = bottomCands[0];
+                            let br = bottomCands[1];
+
+                            // Validar se a geometria bate certo (ex: não pegou lixo numa única linha)
+                            if (tr.x > tl.x + 50 && br.x > bl.x + 50 && bl.y > tl.y + 50 && br.y > tr.y + 50) {
+                                orderedPts = [tl, tr, br, bl];
+                                
+                                // Validar se o retângulo não é microscopicamente pequeno
+                                let quadArea = 0.5 * Math.abs(
+                                    (tl.x*tr.y + tr.x*br.y + br.x*bl.y + bl.x*tl.y) - 
+                                    (tl.y*tr.x + tr.y*br.x + br.y*bl.x + bl.y*tl.x)
+                                );
+                                if (quadArea < (hidden.width * hidden.height * 0.05)) {
+                                    orderedPts = null;
                                 }
                             }
-                            if (bestCand) orderedPts.push(bestCand);
                         }
 
-                        if (orderedPts.length === 4) {
-                            // Validar se os 4 pontos formam um polígono convexo plausível
-                            let quadArea = 0.5 * Math.abs(
-                                (orderedPts[0].x*orderedPts[1].y + orderedPts[1].x*orderedPts[2].y + orderedPts[2].x*orderedPts[3].y + orderedPts[3].x*orderedPts[0].y) - 
-                                (orderedPts[0].y*orderedPts[1].x + orderedPts[1].y*orderedPts[2].x + orderedPts[2].y*orderedPts[3].x + orderedPts[3].y*orderedPts[0].x)
-                            );
+                        if (orderedPts) {
+                            // Converter coordenadas do vídeo de volta para o ecrã
+                            let invScaleX = overlay.width / hidden.width;
+                            let invScaleY = overlay.height / hidden.height;
+
+                            ctxOverlay.beginPath();
+                            ctxOverlay.moveTo(orderedPts[0].x * invScaleX, orderedPts[0].y * invScaleY);
+                            for (let i = 1; i < 4; i++) ctxOverlay.lineTo(orderedPts[i].x * invScaleX, orderedPts[i].y * invScaleY);
+                            ctxOverlay.closePath();
                             
-                            if (quadArea > (hidden.width * hidden.height * 0.05)) {
-                                // Converter coordenadas do vídeo de volta para o ecrã
-                                let invScaleX = overlay.width / hidden.width;
-                                let invScaleY = overlay.height / hidden.height;
-
+                            // Desenhar pequenos círculos sobre as âncoras detetadas (para feedback)
+                            ctxOverlay.fillStyle = '#10b981';
+                            for (let i = 0; i < 4; i++) {
                                 ctxOverlay.beginPath();
-                                ctxOverlay.moveTo(orderedPts[0].x * invScaleX, orderedPts[0].y * invScaleY);
-                                for (let i = 1; i < 4; i++) ctxOverlay.lineTo(orderedPts[i].x * invScaleX, orderedPts[i].y * invScaleY);
-                                ctxOverlay.closePath();
-                                
-                                // Desenhar pequenos círculos sobre as âncoras detetadas (para feedback)
-                                ctxOverlay.fillStyle = '#10b981';
-                                for (let i = 0; i < 4; i++) {
-                                    ctxOverlay.beginPath();
-                                    ctxOverlay.arc(orderedPts[i].x * invScaleX, orderedPts[i].y * invScaleY, 5, 0, 2*Math.PI);
-                                    ctxOverlay.fill();
-                                }
-
-                                if (lastCorners) {
-                                    let diff = 0;
-                                    for(let i=0; i<4; i++) diff += Math.abs(orderedPts[i].x - lastCorners[i].x) + Math.abs(orderedPts[i].y - lastCorners[i].y);
-                                    
-                                    if (diff < 40) {
-                                        stableFrames++;
-                                        ctxOverlay.strokeStyle = '#10b981'; 
-                                        ctxOverlay.lineWidth = 4;
-                                        ctxOverlay.fillStyle = 'rgba(16, 185, 129, 0.25)';
-                                        omrStatus.value = 'Segure firmemente... Capturando!';
-                                    } else {
-                                        stableFrames = 0;
-                                        ctxOverlay.strokeStyle = '#f59e0b';
-                                        ctxOverlay.lineWidth = 3;
-                                        ctxOverlay.fillStyle = 'rgba(245, 158, 11, 0.1)';
-                                        omrStatus.value = 'Alinhado! Mantenha o telemóvel imóvel.';
-                                    }
-                                } else {
-                                    ctxOverlay.strokeStyle = '#3b82f6';
-                                    ctxOverlay.lineWidth = 3;
-                                }
-                                ctxOverlay.stroke();
+                                ctxOverlay.arc(orderedPts[i].x * invScaleX, orderedPts[i].y * invScaleY, 5, 0, 2*Math.PI);
                                 ctxOverlay.fill();
-                                
-                                lastCorners = orderedPts;
+                            }
 
-                                if (stableFrames >= 12) { 
-                                    captureOMR(src, orderedPts);
-                                    gray.delete(); bw.delete(); contours.delete(); hierarchy.delete();
-                                    return;
+                            if (lastCorners) {
+                                let diff = 0;
+                                for(let i=0; i<4; i++) diff += Math.abs(orderedPts[i].x - lastCorners[i].x) + Math.abs(orderedPts[i].y - lastCorners[i].y);
+                                
+                                if (diff < 40) {
+                                    stableFrames++;
+                                    ctxOverlay.strokeStyle = '#10b981'; 
+                                    ctxOverlay.lineWidth = 4;
+                                    ctxOverlay.fillStyle = 'rgba(16, 185, 129, 0.25)';
+                                    omrStatus.value = 'Segure firmemente... Capturando!';
+                                } else {
+                                    stableFrames = 0;
+                                    ctxOverlay.strokeStyle = '#f59e0b';
+                                    ctxOverlay.lineWidth = 3;
+                                    ctxOverlay.fillStyle = 'rgba(245, 158, 11, 0.1)';
+                                    omrStatus.value = 'Alinhado! Mantenha o telemóvel imóvel.';
                                 }
                             } else {
-                                stableFrames = 0;
-                                lastCorners = null;
-                                omrStatus.value = 'Aproximar câmara... Área da grelha muito pequena.';
+                                ctxOverlay.strokeStyle = '#3b82f6';
+                                ctxOverlay.lineWidth = 3;
+                            }
+                            ctxOverlay.stroke();
+                            ctxOverlay.fill();
+                            
+                            lastCorners = orderedPts;
+
+                            if (stableFrames >= 12) { 
+                                captureOMR(src, orderedPts);
+                                gray.delete(); bw.delete(); contours.delete(); hierarchy.delete();
+                                return;
                             }
                         } else {
                             stableFrames = 0;
