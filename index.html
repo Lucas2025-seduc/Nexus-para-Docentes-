@@ -3180,13 +3180,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let gray = new cv.Mat();
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
                         
-                        // Binarização adaptativa invertida (destaca pretos como branco)
+                        // Binarização invertida com bloco MAIOR (51) para que os quadrados fiquem sólidos (sem esburacar no meio)
                         let bw = new cv.Mat();
-                        cv.adaptiveThreshold(gray, bw, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10);
+                        cv.adaptiveThreshold(gray, bw, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 51, 15);
 
                         let contours = new cv.MatVector();
                         let hierarchy = new cv.Mat();
-                        cv.findContours(bw, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                        // RETR_LIST é vital: Encontra quadrados mesmo que estejam cercados por bordas/sombras do papel
+                        cv.findContours(bw, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
                         let scaleX = hidden.width / overlay.width;
                         let scaleY = hidden.height / overlay.height;
@@ -3199,49 +3200,51 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             let aspect = rect.width / rect.height;
                             let extent = area / (rect.width * rect.height);
                             
-                            // Filtro rigoroso: O quadrado deve ser sólido, ter aspeto 1:1 e não ser gigante
-                            if (area > 30 && area < (hidden.width * hidden.height * 0.1) && aspect > 0.5 && aspect < 1.5 && extent > 0.5) {
+                            // Filtro mais robusto: procurar formas blocadas, descartando pontos pequenos ou linhas
+                            if (area > 80 && area < (hidden.width * hidden.height * 0.1) && aspect > 0.4 && aspect < 2.5 && extent > 0.4) {
                                 let M = cv.moments(cnt, false);
                                 if (M.m00 !== 0) {
-                                    candidates.push({x: M.m10 / M.m00, y: M.m01 / M.m00});
+                                    candidates.push({
+                                        x: M.m10 / M.m00, 
+                                        y: M.m01 / M.m00,
+                                        area: area
+                                    });
                                 }
                             }
                             cnt.delete();
                         }
 
-                        // Calcular a posição da MOLDURA AR no vídeo
                         let gRect = guide.getBoundingClientRect();
-                        let searchTolerance = (gRect.width * scaleX) * 0.6; // Maior tolerância para absorver gabaritos curtos
+                        let margin = gRect.width * scaleX * 0.8; // Tolerância alargada de procura
 
-                        // Filtrar candidatos que estão dentro/perto da área geral da moldura
                         let validCands = candidates.filter(c => 
-                            c.x > gRect.left * scaleX - searchTolerance && 
-                            c.x < gRect.right * scaleX + searchTolerance && 
-                            c.y > gRect.top * scaleY - searchTolerance && 
-                            c.y < gRect.bottom * scaleY + searchTolerance
+                            c.x > gRect.left * scaleX - margin && 
+                            c.x < gRect.right * scaleX + margin && 
+                            c.y > gRect.top * scaleY - margin && 
+                            c.y < gRect.bottom * scaleY + margin
                         );
 
                         let orderedPts = null;
 
                         if (validCands.length >= 4) {
-                            // Solução Dinâmica: Ordenar os pontos para encontrar o topo e a base, não importa a altura
-                            validCands.sort((a, b) => a.y - b.y);
-                            
-                            // Os dois mais acima formam o topo
-                            let topCands = validCands.slice(0, 2).sort((a, b) => a.x - b.x);
-                            let tl = topCands[0];
-                            let tr = topCands[1];
-                            
-                            // Os dois mais abaixo formam a base
-                            let bottomCands = validCands.slice(-2).sort((a, b) => a.x - b.x);
-                            let bl = bottomCands[0];
-                            let br = bottomCands[1];
+                            // MAGIA AQUI: Os quadrados impressos são sempre as maiores manchas sólidas.
+                            // Ordenamos por área e pegamos só nas 8 maiores para descartar letras da prova.
+                            validCands.sort((a, b) => b.area - a.area);
+                            let topCands = validCands.slice(0, 8); 
 
-                            // Validar se a geometria bate certo (ex: não pegou lixo numa única linha)
+                            // Trigonometria simples para extrair os 4 cantos extremos de dentro destes 8 blocos
+                            topCands.sort((a,b) => (a.x + a.y) - (b.x + b.y));
+                            let tl = topCands[0];
+                            let br = topCands[topCands.length - 1];
+
+                            topCands.sort((a,b) => (a.x - a.y) - (b.x - b.y));
+                            let bl = topCands[0];
+                            let tr = topCands[topCands.length - 1];
+
+                            // Validar se os 4 pontos encontrados formam um retângulo plausível
                             if (tr.x > tl.x + 50 && br.x > bl.x + 50 && bl.y > tl.y + 50 && br.y > tr.y + 50) {
                                 orderedPts = [tl, tr, br, bl];
                                 
-                                // Validar se o retângulo não é microscopicamente pequeno
                                 let quadArea = 0.5 * Math.abs(
                                     (tl.x*tr.y + tr.x*br.y + br.x*bl.y + bl.x*tl.y) - 
                                     (tl.y*tr.x + tr.y*br.x + br.y*bl.x + bl.y*tl.x)
@@ -3253,7 +3256,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         }
 
                         if (orderedPts) {
-                            // Converter coordenadas do vídeo de volta para o ecrã
                             let invScaleX = overlay.width / hidden.width;
                             let invScaleY = overlay.height / hidden.height;
 
@@ -3262,7 +3264,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             for (let i = 1; i < 4; i++) ctxOverlay.lineTo(orderedPts[i].x * invScaleX, orderedPts[i].y * invScaleY);
                             ctxOverlay.closePath();
                             
-                            // Desenhar pequenos círculos sobre as âncoras detetadas (para feedback)
                             ctxOverlay.fillStyle = '#10b981';
                             for (let i = 0; i < 4; i++) {
                                 ctxOverlay.beginPath();
