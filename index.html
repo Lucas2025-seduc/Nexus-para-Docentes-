@@ -1311,6 +1311,16 @@
                 </div>
                 <button @click="stopOMRScan" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
+            
+            <!-- BARRA DE PROGRESSO DE ENQUADRAMENTO -->
+            <div class="absolute top-20 left-1/2 transform -translate-x-1/2 w-64 bg-gray-900/80 rounded-full h-6 border border-gray-700 overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.5)] z-50">
+                <div class="h-full transition-all duration-200 ease-out" :class="omrAlignmentProgress >= 100 ? 'bg-emerald-500' : 'bg-emerald-500/70'" :style="{ width: omrAlignmentProgress + '%' }"></div>
+                <div class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-md tracking-widest z-30">
+                    <span v-if="omrAlignmentProgress < 100">{{ omrAlignmentProgress }}% ENQUADRADO</span>
+                    <span v-else><i class="fa-solid fa-camera animate-pulse text-sm"></i> CAPTURANDO...</span>
+                </div>
+            </div>
+
             <div class="flex-1 relative flex items-center justify-center overflow-hidden bg-gray-800">
                 <video id="omr-video" class="absolute w-full h-full object-cover" autoplay playsinline></video>
                 
@@ -1318,15 +1328,12 @@
                 <div class="absolute inset-0 pointer-events-none flex items-center justify-center p-6">
                     <div id="omr-overlay-box" class="border-[3px] border-emerald-500 bg-emerald-500/10 relative shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] w-full max-w-sm flex flex-col mx-auto transition-all" :style="{ aspectRatio: 175 / (21 * (omrQuestionsCount + 1)) }">
                         <div class="absolute -top-12 left-0 right-0 text-center text-emerald-400 font-bold text-xs bg-black/70 py-2 rounded-lg backdrop-blur-sm shadow-lg flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-expand animate-pulse"></i> Alinhe o gabarito e segure firme...
+                            <i class="fa-solid fa-expand animate-pulse"></i> Alinhe a grelha e aguarde os 100%...
                         </div>
                         
-                        <!-- Linhas da Grelha Auxiliares -->
+                        <!-- Linhas da Grelha Auxiliares (Ajustadas para altura uniforme) -->
                         <div class="flex-1 flex flex-col w-full h-full">
-                            <!-- Linha de Cabeçalho -->
-                            <div class="border-b-2 border-emerald-500/40 w-full flex-none" :style="{ height: `${100 / (omrQuestionsCount + 1)}%` }"></div>
-                            <!-- Linhas das Questões -->
-                            <div v-for="i in omrQuestionsCount" :key="'r'+i" class="border-b border-emerald-500/20 w-full flex-1"></div>
+                            <div v-for="i in (omrQuestionsCount + 1)" :key="'r'+i" class="border-b w-full flex-1" :class="i === 1 ? 'border-emerald-500/50 border-b-2' : 'border-emerald-500/20'"></div>
                         </div>
                         
                         <div class="absolute inset-0 flex">
@@ -1585,6 +1592,7 @@
                 let omrStream = null;
                 let omrAutoCaptureInterval = null;
                 const omrAlignCount = ref(0);
+                const omrAlignmentProgress = ref(0); // Nova Ref para a UI de progresso
 
                 // --- LIFECYCLE & HELPERS ---
                 window.addEventListener('beforeinstallprompt', e => { 
@@ -3062,6 +3070,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     omrStudent.value = student;
                     omrVersion.value = version;
                     omrAlignCount.value = 0; // Reinicia o contador de estabilidade
+                    omrAlignmentProgress.value = 0; // Reinicia a barra
                     const qArr = getVersionQuestions(exam, version);
                     omrQuestionsCount.value = qArr.length;
                     showOMRScanner.value = true;
@@ -3072,12 +3081,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         video.srcObject = omrStream;
                         video.play();
 
-                        // Inicia a tentativa de Auto-Captura a cada 800ms
+                        // Inicia a tentativa de Auto-Captura de forma mais rápida (400ms para fluidez na barra)
                         omrAutoCaptureInterval = setInterval(() => {
                             if (showOMRScanner.value && video.videoWidth > 0) {
                                 performOMRScan(false);
                             }
-                        }, 800);
+                        }, 400);
                         
                     } catch (err) {
                         showToast("Erro ao abrir a câmara para correção do gabarito.", "error");
@@ -3095,30 +3104,32 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         omrStream = null;
                     }
                     showOMRScanner.value = false;
+                    omrAlignmentProgress.value = 0;
                 };
 
                 const performOMRScan = async (isManual = false) => {
-                    if (!showOMRScanner.value) return; // Evita duplicação se o intervalo correr logo após a captura manual
+                    if (!showOMRScanner.value) return; 
                     
                     const video = document.getElementById('omr-video');
                     const canvas = document.getElementById('omr-canvas');
-                    const ctx = canvas.getContext('2d');
-
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
                     const videoRect = video.getBoundingClientRect();
                     const overlay = document.getElementById('omr-overlay-box');
                     const overlayRect = overlay.getBoundingClientRect();
 
-                    const scaleX = canvas.width / videoRect.width;
-                    const scaleY = canvas.height / videoRect.height;
+                    const scaleX = video.videoWidth / videoRect.width;
+                    const scaleY = video.videoHeight / videoRect.height;
 
                     const roiX = (overlayRect.left - videoRect.left) * scaleX;
                     const roiY = (overlayRect.top - videoRect.top) * scaleY;
                     const roiW = overlayRect.width * scaleX;
                     const roiH = overlayRect.height * scaleY;
+
+                    // 1. RECORTE PERFEITO (CROP): Trabalha apenas com a área do gabarito
+                    canvas.width = roiW;
+                    canvas.height = roiH;
+                    ctx.drawImage(video, roiX, roiY, roiW, roiH, 0, 0, roiW, roiH);
 
                     const rows = omrQuestionsCount.value + 1;
                     const pdfColWidths = [25, 30, 30, 30, 30, 30]; 
@@ -3126,14 +3137,25 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     const cellH = roiH / rows;
 
                     let answers = {};
-                    const debugImage = canvas.toDataURL('image/jpeg', 0.6);
-                    let qColumnIntensitySum = 0; // Contraste dos números na coluna Q
-                    let globalPaperDarknessSum = 0; // Nível de escuridão do papel (fundo)
-                    let totalMarksDetected = 0; // Quantidade de marcações totais detetadas
-                    let cellCount = 0;
+                    let qColumnIntensitySum = 0; 
+                    let totalMarksDetected = 0; 
+
+                    // Função para calcular a "quantidade de tinta/cor" de uma região
+                    const getDarkness = (x, y, w, h) => {
+                        const imgData = ctx.getImageData(x, y, w, h);
+                        const data = imgData.data;
+                        let sum = 0;
+                        for (let i = 0; i < data.length; i += 4) {
+                            // Pega o canal com MAIS COR. Detecta tinta preta, marcador verde, caneta azul, etc.
+                            const minVal = Math.min(data[i], data[i+1], data[i+2]);
+                            sum += (255 - minVal);
+                        }
+                        return sum / (data.length / 4);
+                    };
 
                     for (let r = 1; r < rows; r++) { 
                         let rowMarks = [];
+                        let cellCenters = [];
 
                         for (let c = 0; c < 6; c++) { 
                             let startRatio = 0;
@@ -3141,49 +3163,43 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             startRatio /= totalPdfW;
                             
                             let colRatio = pdfColWidths[c] / totalPdfW;
-                            let colStartX = roiX + (roiW * startRatio);
+                            let cellX = roiW * startRatio;
+                            let cellY = r * cellH;
                             let currentCellW = roiW * colRatio;
 
-                            // Aumenta a área de visão para 80% da célula (Resolve problemas de inclinação)
-                            const sampleX = colStartX + (currentCellW * 0.1);
-                            const sampleY = roiY + r * cellH + (cellH * 0.1);
-                            const sampleW = currentCellW * 0.8;
-                            const sampleH = cellH * 0.8;
-
-                            const imgData = ctx.getImageData(sampleX, sampleY, sampleW, sampleH);
-                            const data = imgData.data;
+                            // 2. LÓGICA CENTRO-HALO (Imune a Sombras e Distorções de Ângulo)
+                            // Centro (onde o aluno preenche a bolha)
+                            const cx = cellX + currentCellW * 0.35;
+                            const cy = cellY + cellH * 0.35;
+                            const cw = currentCellW * 0.30;
+                            const ch = cellH * 0.30;
                             
-                            let pixelDarkness = [];
-                            for (let i = 0; i < data.length; i += 4) {
-                                // Converte para nível de escuridão puro (Luma invertido)
-                                const luma = data[i]*0.299 + data[i+1]*0.587 + data[i+2]*0.114;
-                                pixelDarkness.push(255 - luma); 
-                            }
-                            // Ordena os píxeis do mais escuro para o mais claro
-                            pixelDarkness.sort((a, b) => b - a);
+                            // Halo (anel imediatamente ao redor da bolha, evitando as linhas da tabela)
+                            const hx = cellX + currentCellW * 0.15;
+                            const hy = cellY + cellH * 0.15;
+                            const hw = currentCellW * 0.70;
+                            const hh = cellH * 0.70;
 
-                            // Pega a média dos 10% mais escuros (A marcação real do aluno)
-                            let t10 = Math.max(1, Math.floor(pixelDarkness.length * 0.10));
-                            let sumD = 0; for(let i=0; i<t10; i++) sumD += pixelDarkness[i];
-                            let darkestAvg = sumD / t10;
-
-                            // Pega a média dos 30% mais claros (A cor do papel de fundo daquela célula específica)
-                            let b30 = Math.max(1, Math.floor(pixelDarkness.length * 0.30));
-                            let sumL = 0; for(let i=pixelDarkness.length-b30; i<pixelDarkness.length; i++) sumL += pixelDarkness[i];
-                            let lightestAvg = sumL / b30;
-
-                            // A "Intensidade" é a tinta calculada ignorando totalmente as sombras e a cor do papel!
-                            let markIntensity = darkestAvg - lightestAvg;
+                            const centerD = getDarkness(cx, cy, cw, ch);
                             
-                            globalPaperDarknessSum += lightestAvg;
-                            cellCount++;
+                            // Amostras do papel em volta da bolha
+                            const topD = getDarkness(cx, hy, cw, cy - hy);
+                            const bottomD = getDarkness(cx, cy + ch, cw, (hy + hh) - (cy + ch));
+                            const leftD = getDarkness(hx, cy, cx - hx, ch);
+                            const rightD = getDarkness(cx + cw, cy, (hx + hw) - (cx + cw), ch);
+                            
+                            const surroundD = (topD + bottomD + leftD + rightD) / 4;
+
+                            // A intensidade da marca é a diferença entre a bolha e o papel ao lado dela!
+                            let markIntensity = centerD - surroundD;
+                            
+                            cellCenters.push({x: cellX + currentCellW/2, y: cellY + cellH/2});
 
                             if (c === 0) {
-                                // Acumula o contraste da coluna das numerações (1, 2, 3...)
                                 qColumnIntensitySum += markIntensity;
                             } else {
-                                // Limite de 20 é altamente sensível, ideal para lápis e cores fracas
-                                if (markIntensity > 20) {
+                                // Limite de 12 para garantir captação de lápis fraco ou cores vivas
+                                if (markIntensity > 12) {
                                     rowMarks.push({ col: c - 1, intensity: markIntensity });
                                     totalMarksDetected++;
                                 }
@@ -3192,37 +3208,50 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         if (rowMarks.length > 0) {
                             rowMarks.sort((a, b) => b.intensity - a.intensity);
-                            
-                            if (rowMarks.length === 1) {
-                                answers[r - 1] = rowMarks[0].col;
-                            } else {
-                                // Se a mais forte tem pelo menos 15 pontos de vantagem sobre a segunda, considera.
-                                // Se as duas forem muito parecidas, anula por ser rasura.
-                                if (rowMarks[0].intensity - rowMarks[1].intensity > 15) {
-                                    answers[r - 1] = rowMarks[0].col;
-                                } else {
-                                    answers[r - 1] = null; // Rasura detetada
-                                }
+                            if (rowMarks.length === 1) answers[r - 1] = rowMarks[0].col;
+                            else {
+                                // Se a marcação primária for bem mais forte que a secundária (ignora rastos de apagador)
+                                if (rowMarks[0].intensity - rowMarks[1].intensity > 10) answers[r - 1] = rowMarks[0].col;
+                                else answers[r - 1] = null; // Rasura real (Duas bolhas pintadas com força)
                             }
                         } else {
                             answers[r - 1] = null;
                         }
-                    }
 
-                    // Novas travas de segurança e Estabilização para Auto-Captura:
+                        // 3. DESENHAR FEEDBACK VISUAL NO CANVAS RECORTADO
+                        ctx.lineWidth = Math.max(1, roiW / 150);
+                        for(let i=1; i<6; i++) {
+                            let isMarked = answers[r-1] === (i-1);
+                            let pt = cellCenters[i];
+                            ctx.beginPath();
+                            ctx.arc(pt.x, pt.y, cellH * 0.25, 0, 2 * Math.PI);
+                            // Círculo Verde onde a IA detetou, Círculo Esbatido onde ignorou
+                            ctx.strokeStyle = isMarked ? '#10b981' : 'rgba(255, 255, 255, 0.4)';
+                            ctx.stroke();
+                            if (isMarked) {
+                                ctx.fillStyle = 'rgba(16, 185, 129, 0.4)';
+                                ctx.fill();
+                            }
+                        }
+                    }
+                    
+                    // Salva a imagem final processada e limpa
+                    const debugImage = canvas.toDataURL('image/jpeg', 0.8);
+
                     let avgQColumnIntensity = qColumnIntensitySum / omrQuestionsCount.value;
-                    let avgPaperDarkness = globalPaperDarknessSum / cellCount;
+                    let isAligned = (avgQColumnIntensity > 8) && (totalMarksDetected <= omrQuestionsCount.value * 1.5);
                     
-                    // 1. Coluna Q tem de ter números visíveis (> 15)
-                    // 2. Fundo tem de ser claro (papel branco/cinza), não escuro (< 140)
-                    // 3. Não pode ter demasiadas marcações (evita capturar teclados, QR Codes ou blocos de texto)
-                    let isAligned = (avgQColumnIntensity > 15) && (avgPaperDarkness < 140) && (totalMarksDetected <= omrQuestionsCount.value * 1.5);
-                    
+                    // LÓGICA DA BARRA DE PROGRESSO VISUAL
+                    let frameQuality = 0;
+                    if (totalMarksDetected > omrQuestionsCount.value * 1.5) frameQuality = 10; 
+                    else frameQuality = Math.min(100, Math.round((avgQColumnIntensity / 8) * 100)); 
+
                     if (isManual || isAligned) {
                         if (!isManual) {
                             omrAlignCount.value++;
-                            // Exige 2 frames seguidos de estabilidade (aprox 1.6 segundos a focar perfeitamente)
-                            if (omrAlignCount.value < 2) return; 
+                            omrAlignmentProgress.value = Math.min(100, Math.round(70 + (30 * (omrAlignCount.value / 4))));
+
+                            if (omrAlignCount.value < 4) return; 
                             playBeep();
                         }
                         
@@ -3235,8 +3264,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         openResultDetails(savedRes);
                         if (isManual) showToast("Gabarito manual processado.", "success");
                     } else {
-                        // Se mover o telemóvel e perder o alinhamento, o contador reseta
-                        if (!isManual) omrAlignCount.value = 0; 
+                        if (!isManual) {
+                            omrAlignCount.value = 0; 
+                            omrAlignmentProgress.value = Math.min(70, Math.round(frameQuality * 0.7)); 
+                        }
                     }
                 };
 
@@ -4188,7 +4219,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     fullScreenImageUrl, viewFullScreen,
                     
                     // OMR
-                    showOMRScanner, omrStudent, omrExam, omrVersion, omrQuestionsCount, captureAndProcessOMR, stopOMRScan,
+                    showOMRScanner, omrStudent, omrExam, omrVersion, omrQuestionsCount, captureAndProcessOMR, stopOMRScan, omrAlignmentProgress,
                     
                     // External Exam
                     showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades,
