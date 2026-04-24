@@ -1331,6 +1331,12 @@
                             <i class="fa-solid fa-expand animate-pulse"></i> Alinhe a grelha e aguarde os 100%...
                         </div>
                         
+                        <!-- MARCAÇÕES FIDUCIÁRIAS (GUIAS DE ENQUADRAMENTO) -->
+                        <svg class="absolute text-emerald-500 w-[9%] h-auto drop-shadow-md" style="top: -2%; left: 0; transform: translateY(-100%);" viewBox="0 0 16 16"><rect width="16" height="16" fill="currentColor"/><polygon points="2,2 14,2 2,14" fill="#1f2937"/></svg>
+                        <svg class="absolute text-emerald-500 w-[9%] h-auto drop-shadow-md" style="top: -2%; right: 0; transform: translateY(-100%);" viewBox="0 0 16 16"><rect width="16" height="16" fill="currentColor"/><polygon points="2,2 14,2 14,14" fill="#1f2937"/></svg>
+                        <svg class="absolute text-emerald-500 w-[9%] h-auto drop-shadow-md" style="bottom: -2%; left: 0; transform: translateY(100%);" viewBox="0 0 16 16"><rect width="16" height="16" fill="currentColor"/><polygon points="2,2 2,14 14,14" fill="#1f2937"/></svg>
+                        <svg class="absolute text-emerald-500 w-[9%] h-auto drop-shadow-md" style="bottom: -2%; right: 0; transform: translateY(100%);" viewBox="0 0 16 16"><rect width="16" height="16" fill="currentColor"/><polygon points="14,2 14,14 2,14" fill="#1f2937"/></svg>
+
                         <!-- Linhas da Grelha Auxiliares (Ajustadas para altura uniforme) -->
                         <div class="flex-1 flex flex-col w-full h-full">
                             <div v-for="i in (omrQuestionsCount + 1)" :key="'r'+i" class="border-b w-full flex-1" :class="i === 1 ? 'border-emerald-500/50 border-b-2' : 'border-emerald-500/20'"></div>
@@ -3699,6 +3705,23 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 
                 // FUNÇÃO UNIVERSAL DA GRELHA (Garante 100% de alinhamento entre Aluno e Espelho)
                 const buildAnswerGrid = (v, isMirror = false) => {
+                    // Ícones Fiduciários em Canvas para o PDFMake
+                    const getMarker = (type) => {
+                        const pts = {
+                            'tl': [{x:2, y:2}, {x:14, y:2}, {x:2, y:14}],
+                            'tr': [{x:2, y:2}, {x:14, y:2}, {x:14, y:14}],
+                            'bl': [{x:2, y:2}, {x:2, y:14}, {x:14, y:14}],
+                            'br': [{x:14, y:2}, {x:14, y:14}, {x:2, y:14}]
+                        };
+                        return {
+                            canvas: [
+                                { type: 'rect', x: 0, y: 0, w: 16, h: 16, color: '#000' },
+                                { type: 'polyline', closePath: true, points: pts[type], color: '#fff' }
+                            ],
+                            width: 16, height: 16
+                        };
+                    };
+
                     let gridBody = [];
                     gridBody.push([
                         { text: 'Q', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
@@ -3745,8 +3768,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         gridBody.push(row);
                     });
 
-                    return {
-                        width: 'auto',
+                    let gridTable = {
                         table: { headerRows: 1, widths: [25, 30, 30, 30, 30, 30], body: gridBody },
                         layout: {
                             hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
@@ -3754,6 +3776,28 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
                             paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 3
                         }
+                    };
+
+                    return {
+                        stack: [
+                            {
+                                columns: [
+                                    { width: 16, ...getMarker('tl') },
+                                    { width: '*', text: '' }, // Espaçador dinâmico
+                                    { width: 16, ...getMarker('tr') }
+                                ],
+                                margin: [0, 0, 0, 4]
+                            },
+                            gridTable,
+                            {
+                                columns: [
+                                    { width: 16, ...getMarker('bl') },
+                                    { width: '*', text: '' }, // Espaçador dinâmico
+                                    { width: 16, ...getMarker('br') }
+                                ],
+                                margin: [0, 4, 0, 0]
+                            }
+                        ]
                     };
                 };
 
