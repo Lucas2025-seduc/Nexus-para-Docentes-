@@ -3114,33 +3114,57 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             let colStartX = roiX + (roiW * startRatio);
                             let currentCellW = roiW * colRatio;
 
-                            // Captura apenas o miolo (centro) da célula para ignorar as linhas pretas da tabela
-                            const sampleX = colStartX + (currentCellW * 0.35);
-                            const sampleY = roiY + r * cellH + (cellH * 0.35);
-                            const sampleW = currentCellW * 0.3;
-                            const sampleH = cellH * 0.3;
+                            // Aumenta a área de captura para 60% (pega marcações descentralizadas e bolhas maiores)
+                            const sampleX = colStartX + (currentCellW * 0.2);
+                            const sampleY = roiY + r * cellH + (cellH * 0.2);
+                            const sampleW = currentCellW * 0.6;
+                            const sampleH = cellH * 0.6;
 
                             const imgData = ctx.getImageData(sampleX, sampleY, sampleW, sampleH);
                             const data = imgData.data;
                             
-                            let sum = 0;
+                            let sumDarkness = 0;
                             for (let i = 0; i < data.length; i += 4) {
-                                // Conversão para Luma (Escala de cinzentos)
-                                const luma = data[i]*0.299 + data[i+1]*0.587 + data[i+2]*0.114;
-                                sum += luma;
+                                // Calcula a diferença para o "Branco" absoluto
+                                // Detecta tinta preta, lápis, e cores brilhantes (ex: verde digital, azul claro)
+                                const distFromWhite = ((255 - data[i]) + (255 - data[i+1]) + (255 - data[i+2])) / 3;
+                                sumDarkness += distFromWhite;
                             }
-                            const avgBrightness = sum / (data.length / 4);
-                            rowBrightnesses.push(avgBrightness);
+                            
+                            // "Darkness" médio da célula (0 = papel branco, >0 = marcado com cor/tinta)
+                            const avgDarkness = sumDarkness / (data.length / 4);
+                            rowBrightnesses.push(avgDarkness);
                         }
                         
-                        const sortedB = [...rowBrightnesses].sort((a,b)=>a-b);
-                        const darkest = sortedB[0];
-                        const secondDarkest = sortedB[1];
+                        // Encontra a célula mais clara da linha (que representa a cor real do papel)
+                        const paperDarkness = Math.min(...rowBrightnesses);
                         
-                        // Lógica de Threshold: Se a bolha mais escura for notavelmente mais escura que o papel, foi marcada
-                        if ((secondDarkest - darkest > 15) && darkest < 200) {
-                            // rowBrightnesses tem os valores de A, B, C, D e E (índices 0 a 4)
-                            darkestCol = rowBrightnesses.indexOf(darkest); 
+                        let marks = [];
+                        for (let i = 0; i < 5; i++) {
+                            // Calcula o pico de saturação da bolha em relação ao fundo do papel
+                            const darknessPeak = rowBrightnesses[i] - paperDarkness;
+                            
+                            // Se a diferença for considerável (ignora sujeiras e os tracinhos " - ")
+                            if (darknessPeak > 20) {
+                                marks.push({ col: i, peak: darknessPeak });
+                            }
+                        }
+                        
+                        if (marks.length > 0) {
+                            // Ordena das marcações mais fortes para as mais fracas
+                            marks.sort((a, b) => b.peak - a.peak);
+                            
+                            if (marks.length === 1) {
+                                darkestCol = marks[0].col;
+                            } else {
+                                // Múltiplas marcas. Se a principal for muito mais forte que a segunda, assume a principal.
+                                // Se forem parecidas (diferença < 15), é uma rasura e a questão é anulada.
+                                if (marks[0].peak - marks[1].peak > 15) {
+                                    darkestCol = marks[0].col;
+                                } else {
+                                    darkestCol = null; // Rasura real
+                                }
+                            }
                         }
                         
                         answers[r - 1] = darkestCol !== -1 ? darkestCol : null;
