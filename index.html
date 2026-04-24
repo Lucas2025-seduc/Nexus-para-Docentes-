@@ -1320,6 +1320,22 @@
                 <canvas id="omr-overlay" class="absolute inset-0 z-10 pointer-events-none w-full h-full"></canvas>
                 <canvas id="omr-hidden" class="hidden"></canvas>
                 
+                <!-- Guia de Alinhamento AR (Máscara Vazada) -->
+                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20 p-8">
+                    <div class="w-full max-w-sm aspect-[1/1.4] border-2 border-white/30 rounded-lg relative flex items-center justify-center transition-all duration-300 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" id="omr-guide">
+                        <!-- Marcadores visuais nos cantos -->
+                        <div class="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-emerald-500"></div>
+                        <div class="absolute -top-1 -right-1 w-10 h-10 border-t-4 border-r-4 border-emerald-500"></div>
+                        <div class="absolute -bottom-1 -left-1 w-10 h-10 border-b-4 border-l-4 border-emerald-500"></div>
+                        <div class="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-emerald-500"></div>
+                        
+                        <div class="text-white/80 font-bold text-center px-4 text-xs">
+                            <i class="fa-solid fa-expand mb-2 text-2xl"></i><br>
+                            Enquadre os 4 quadrados pretos<br>da folha DENTRO desta área.
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="absolute bottom-8 left-0 right-0 px-6 z-20 flex flex-col gap-3">
                     <div class="bg-black/80 backdrop-blur-md text-white p-4 rounded-xl border border-white/20 text-sm font-bold text-center shadow-lg transition-colors" :class="{'text-emerald-400 border-emerald-500/50 bg-emerald-900/60': omrStatus.includes('Capturando')}">
                         <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> {{ omrStatus }}
