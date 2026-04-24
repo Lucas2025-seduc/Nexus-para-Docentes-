@@ -3963,6 +3963,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     
                     // GABARITO DO ALUNO (No final da prova, centralizado)
                     content.push({
+                        unbreakable: true, // Impede que o gabarito seja cortado ao meio
                         columns: [
                             { width: '*', text: '' },
                             {
@@ -4155,13 +4156,18 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 // Função para gerar o bloco visual do "Espelho Vazado"
                 const buildEspelhoBlock = (v, vIdx) => {
                     return [
-                        { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
-                        { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
                         {
-                            columns: [
-                                { width: '*', text: '' },
-                                buildAnswerGrid(v, true),
-                                { width: '*', text: '' }
+                            unbreakable: true, // Impede que o espelho seja cortado ao meio
+                            stack: [
+                                { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
+                                { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
+                                {
+                                    columns: [
+                                        { width: '*', text: '' },
+                                        buildAnswerGrid(v, true),
+                                        { width: '*', text: '' }
+                                    ]
+                                }
                             ]
                         }
                     ];
