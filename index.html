@@ -1301,63 +1301,6 @@
                 <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : 'Aponte para o QR Code impresso no topo da prova' }}</p>
             </div>
         </div>
-
-        <!-- NOVO: MODAL OMR SCANNER (ENQUADRAMENTO DE GABARITO) -->
-        <div v-show="showOMRScanner" class="fixed inset-0 z-[450] flex flex-col bg-black animate-fade-in">
-            <div class="p-4 flex justify-between bg-gray-900 text-white z-10 shadow-md">
-                <div>
-                    <h3 class="font-bold"><i class="fa-solid fa-camera-viewfinder"></i> Alinhar Gabarito</h3>
-                    <p class="text-[10px] text-emerald-400">{{omrStudent?.name}} - Tipo {{omrVersion+1}}</p>
-                </div>
-                <button @click="stopOMRScan" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
-            </div>
-            
-            <!-- BARRA DE PROGRESSO DE ENQUADRAMENTO -->
-            <div class="absolute top-20 left-1/2 transform -translate-x-1/2 w-64 bg-gray-900/80 rounded-full h-6 border border-gray-700 overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.5)] z-50">
-                <div class="h-full transition-all duration-200 ease-out" :class="omrAlignmentProgress >= 100 ? 'bg-emerald-500' : 'bg-emerald-500/70'" :style="{ width: omrAlignmentProgress + '%' }"></div>
-                <div class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-md tracking-widest z-30">
-                    <span v-if="omrAlignmentProgress < 100">{{ omrAlignmentProgress }}% ENQUADRADO</span>
-                    <span v-else><i class="fa-solid fa-camera animate-pulse text-sm"></i> CAPTURANDO...</span>
-                </div>
-            </div>
-
-            <div class="flex-1 relative flex items-center justify-center overflow-hidden bg-gray-800">
-                <video id="omr-video" class="absolute w-full h-full object-cover" autoplay playsinline></video>
-                
-                <!-- OVERLAY INTELIGENTE PARA ENQUADRAMENTO (Proporções Matemáticas Exatas do PDF) -->
-                <div class="absolute inset-0 pointer-events-none flex items-center justify-center p-6">
-                    <div id="omr-overlay-box" class="border-[3px] border-emerald-500 bg-emerald-500/10 relative shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] w-full max-w-sm flex flex-col mx-auto transition-all" :style="{ aspectRatio: 175 / (21 * (omrQuestionsCount + 1)) }">
-                        <div class="absolute -top-12 left-0 right-0 text-center text-emerald-400 font-bold text-xs bg-black/70 py-2 rounded-lg backdrop-blur-sm shadow-lg flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-expand animate-pulse"></i> Alinhe a grelha e aguarde os 100%...
-                        </div>
-                        
-                        <!-- MARCAÇÕES FIDUCIÁRIAS (GUIAS DE ENQUADRAMENTO) -->
-                        <svg class="absolute text-emerald-500 w-[9%] h-auto drop-shadow-md" style="top: -2%; left: 0; transform: translateY(-100%);" viewBox="0 0 16 16"><rect width="16" height="16" fill="currentColor"/><polygon points="2,2 14,2 2,14" fill="#1f2937"/></svg>
-                        <svg class="absolute text-emerald-500 w-[9%] h-auto drop-shadow-md" style="top: -2%; right: 0; transform: translateY(-100%);" viewBox="0 0 16 16"><rect width="16" height="16" fill="currentColor"/><polygon points="2,2 14,2 14,14" fill="#1f2937"/></svg>
-                        <svg class="absolute text-emerald-500 w-[9%] h-auto drop-shadow-md" style="bottom: -2%; left: 0; transform: translateY(100%);" viewBox="0 0 16 16"><rect width="16" height="16" fill="currentColor"/><polygon points="2,2 2,14 14,14" fill="#1f2937"/></svg>
-                        <svg class="absolute text-emerald-500 w-[9%] h-auto drop-shadow-md" style="bottom: -2%; right: 0; transform: translateY(100%);" viewBox="0 0 16 16"><rect width="16" height="16" fill="currentColor"/><polygon points="14,2 14,14 2,14" fill="#1f2937"/></svg>
-
-                        <!-- Linhas da Grelha Auxiliares (Ajustadas para altura uniforme) -->
-                        <div class="flex-1 flex flex-col w-full h-full">
-                            <div v-for="i in (omrQuestionsCount + 1)" :key="'r'+i" class="border-b w-full flex-1" :class="i === 1 ? 'border-emerald-500/50 border-b-2' : 'border-emerald-500/20'"></div>
-                        </div>
-                        
-                        <div class="absolute inset-0 flex">
-                            <!-- Coluna Q (No PDF tem largura 25 de 175 = 14.28%) -->
-                            <div class="border-r-2 border-emerald-500/40 h-full flex-none" style="width: 14.28%;"></div>
-                            <!-- Colunas A, B, C, D, E (Restantes divididos igualmente) -->
-                            <div v-for="i in 5" :key="'c'+i" class="border-r border-emerald-500/20 h-full flex-1"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="p-6 bg-gray-900 z-10">
-                <button @click="captureAndProcessOMR" class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2 text-lg transition-transform active:scale-95">
-                    <i class="fa-solid fa-camera"></i> Capturar e Corrigir
-                </button>
-            </div>
-            <canvas id="omr-canvas" class="hidden"></canvas>
-        </div>
     </div>
 
     <!-- SCRIPT -->
@@ -1588,17 +1531,6 @@
                 const showLiveQRScanner = ref(false);
                 const qrScanMode = ref('correction');
                 let html5QrCode = null;
-
-                // OMR Scanner (Gabarito Analógico)
-                const showOMRScanner = ref(false);
-                const omrStudent = ref(null);
-                const omrExam = ref(null);
-                const omrVersion = ref(0);
-                const omrQuestionsCount = ref(10);
-                let omrStream = null;
-                let omrAutoCaptureInterval = null;
-                const omrAlignCount = ref(0);
-                const omrAlignmentProgress = ref(0); // Nova Ref para a UI de progresso
 
                 // --- LIFECYCLE & HELPERS ---
                 window.addEventListener('beforeinstallprompt', e => { 
@@ -3054,259 +2986,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const openFixKey=(ex)=>{fixKeyExam.value=ex;if(!ex.versions)ex.versions=[{id:0,questions:ex.questions}]; fixKeySelectedVersion.value=0; loadFixKeyQuestions(); showFixKeyModal.value=true;};
                 const saveFixedKey=async()=>{let uEx=JSON.parse(JSON.stringify(fixKeyExam.value)), vi=fixKeySelectedVersion.value; uEx.versions[vi].questions.forEach((q,i)=>q.correctIndex=fixKeyQuestions.value[i].newCorrectIndex); await db.exams.put(uEx); exams.value=await db.exams.orderBy('id').reverse().toArray(); let rs=results.value.filter(r=>r.examId===uEx.id&&r.version===vi); for(let r of rs) await saveExamResult(uEx.id,r.studentId,r.studentName,r.version,r.answers); showFixKeyModal.value=false; showToast(`Gabarito V${vi+1} salvo! ${rs.length} notas recalculadas.`,"success");};
 
-                // --- MOTOR OMR (LEITURA ÓTICA DE GABARITO) ---
-                const playBeep = () => {
-                    try {
-                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                        const osc = ctx.createOscillator();
-                        const gain = ctx.createGain();
-                        osc.connect(gain);
-                        gain.connect(ctx.destination);
-                        osc.type = 'sine';
-                        osc.frequency.setValueAtTime(880, ctx.currentTime); // Tom Agudo (A5)
-                        gain.gain.setValueAtTime(0.1, ctx.currentTime); // Volume Suave
-                        osc.start();
-                        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.15); // Fade out rápido
-                        osc.stop(ctx.currentTime + 0.15);
-                    } catch(e) {}
-                };
-
-                const startOMRPhase = async (exam, student, version) => {
-                    omrExam.value = exam;
-                    omrStudent.value = student;
-                    omrVersion.value = version;
-                    omrAlignCount.value = 0; // Reinicia o contador de estabilidade
-                    omrAlignmentProgress.value = 0; // Reinicia a barra
-                    const qArr = getVersionQuestions(exam, version);
-                    omrQuestionsCount.value = qArr.length;
-                    showOMRScanner.value = true;
-                    
-                    try {
-                        omrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', advanced: [{ focusMode: "continuous" }] } });
-                        const video = document.getElementById('omr-video');
-                        video.srcObject = omrStream;
-                        video.play();
-
-                        // Inicia a tentativa de Auto-Captura de forma mais rápida (400ms para fluidez na barra)
-                        omrAutoCaptureInterval = setInterval(() => {
-                            if (showOMRScanner.value && video.videoWidth > 0) {
-                                performOMRScan(false);
-                            }
-                        }, 400);
-                        
-                    } catch (err) {
-                        showToast("Erro ao abrir a câmara para correção do gabarito.", "error");
-                        showOMRScanner.value = false;
-                    }
-                };
-
-                const stopOMRScan = () => {
-                    if (omrAutoCaptureInterval) {
-                        clearInterval(omrAutoCaptureInterval);
-                        omrAutoCaptureInterval = null;
-                    }
-                    if (omrStream) {
-                        omrStream.getTracks().forEach(track => track.stop());
-                        omrStream = null;
-                    }
-                    showOMRScanner.value = false;
-                    omrAlignmentProgress.value = 0;
-                };
-
-                const performOMRScan = async (isManual = false) => {
-                    if (!showOMRScanner.value) return; 
-                    
-                    const video = document.getElementById('omr-video');
-                    const canvas = document.getElementById('omr-canvas');
-                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-                    const videoRect = video.getBoundingClientRect();
-                    const overlay = document.getElementById('omr-overlay-box');
-                    const overlayRect = overlay.getBoundingClientRect();
-
-                    const scaleX = video.videoWidth / videoRect.width;
-                    const scaleY = video.videoHeight / videoRect.height;
-
-                    const roiX = (overlayRect.left - videoRect.left) * scaleX;
-                    const roiY = (overlayRect.top - videoRect.top) * scaleY;
-                    const roiW = overlayRect.width * scaleX;
-                    const roiH = overlayRect.height * scaleY;
-
-                    // 1. CAPTURA FULL FRAME (Para ler os marcadores fiduciários fora da grelha central)
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                    const rows = omrQuestionsCount.value + 1;
-                    const pdfColWidths = [25, 30, 30, 30, 30, 30]; 
-                    const totalPdfW = 175;
-                    const cellH = roiH / rows;
-
-                    let answers = {};
-                    let qColumnIntensitySum = 0; 
-                    let totalMarksDetected = 0; 
-                    let globalPaperDarknessSum = 0;
-                    let cellCount = 0;
-
-                    // Função para calcular a "tinta/cor" blindada contra falhas nas bordas do vídeo
-                    const getSafeDarkness = (x, y, w, h) => {
-                        if (x < 0 || y < 0 || x + w > canvas.width || y + h > canvas.height) return 0;
-                        const imgData = ctx.getImageData(x, y, w, h);
-                        const data = imgData.data;
-                        let sum = 0;
-                        for (let i = 0; i < data.length; i += 4) {
-                            const minVal = Math.min(data[i], data[i+1], data[i+2]);
-                            sum += (255 - minVal);
-                        }
-                        return sum / (data.length / 4);
-                    };
-
-                    // 2. LER MARCADORES FIDUCIÁRIOS (Trava de Segurança)
-                    const mSize = roiW * 0.09;
-                    const mGapY = roiH * 0.02;
-
-                    const mTL = getSafeDarkness(roiX, roiY - mGapY - mSize, mSize, mSize);
-                    const mTR = getSafeDarkness(roiX + roiW - mSize, roiY - mGapY - mSize, mSize, mSize);
-                    const mBL = getSafeDarkness(roiX, roiY + roiH + mGapY, mSize, mSize);
-                    const mBR = getSafeDarkness(roiX + roiW - mSize, roiY + roiH + mGapY, mSize, mSize);
-
-                    const avgMarkerDarkness = (mTL + mTR + mBL + mBR) / 4;
-
-                    for (let r = 1; r < rows; r++) { 
-                        let rowMarks = [];
-                        let cellCenters = [];
-                        let rawDarkness = [];
-
-                        for (let c = 0; c < 6; c++) { 
-                            let startRatio = 0;
-                            for (let k = 0; k < c; k++) startRatio += pdfColWidths[k];
-                            startRatio /= totalPdfW;
-                            
-                            let colRatio = pdfColWidths[c] / totalPdfW;
-                            let cellX = roiX + (roiW * startRatio); // Coordenadas Absolutas
-                            let cellY = roiY + (r * cellH); // Coordenadas Absolutas
-                            let currentCellW = roiW * colRatio;
-
-                            // LÓGICA CENTRO-HALO
-                            const cx = cellX + currentCellW * 0.35;
-                            const cy = cellY + cellH * 0.35;
-                            const cw = currentCellW * 0.30;
-                            const ch = cellH * 0.30;
-                            
-                            const hx = cellX + currentCellW * 0.15;
-                            const hy = cellY + cellH * 0.15;
-                            const hw = currentCellW * 0.70;
-                            const hh = cellH * 0.70;
-
-                            const centerD = getSafeDarkness(cx, cy, cw, ch);
-                            
-                            const topD = getSafeDarkness(cx, hy, cw, cy - hy);
-                            const bottomD = getSafeDarkness(cx, cy + ch, cw, (hy + hh) - (cy + ch));
-                            const leftD = getSafeDarkness(hx, cy, cx - hx, ch);
-                            const rightD = getSafeDarkness(cx + cw, cy, (hx + hw) - (cx + cw), ch);
-                            
-                            const surroundD = (topD + bottomD + leftD + rightD) / 4;
-
-                            let markIntensity = centerD - surroundD;
-                            
-                            rawDarkness.push(surroundD); // Cor do papel
-                            cellCenters.push({x: cellX + currentCellW/2, y: cellY + cellH/2});
-
-                            if (c === 0) {
-                                qColumnIntensitySum += markIntensity;
-                            } else {
-                                if (markIntensity > 12) {
-                                    rowMarks.push({ col: c - 1, intensity: markIntensity });
-                                    totalMarksDetected++;
-                                }
-                            }
-                        }
-                        
-                        let rowBaseline = Math.min(rawDarkness[1], rawDarkness[2], rawDarkness[3], rawDarkness[4], rawDarkness[5]);
-                        globalPaperDarknessSum += rowBaseline;
-                        cellCount++;
-
-                        if (rowMarks.length > 0) {
-                            rowMarks.sort((a, b) => b.intensity - a.intensity);
-                            if (rowMarks.length === 1) answers[r - 1] = rowMarks[0].col;
-                            else {
-                                if (rowMarks[0].intensity - rowMarks[1].intensity > 10) answers[r - 1] = rowMarks[0].col;
-                                else answers[r - 1] = null; 
-                            }
-                        } else {
-                            answers[r - 1] = null;
-                        }
-
-                        // 3. DESENHAR FEEDBACK VISUAL
-                        ctx.lineWidth = Math.max(1, roiW / 150);
-                        for(let i=1; i<6; i++) {
-                            let isMarked = answers[r-1] === (i-1);
-                            let pt = cellCenters[i];
-                            ctx.beginPath();
-                            ctx.arc(pt.x, pt.y, cellH * 0.25, 0, 2 * Math.PI);
-                            ctx.strokeStyle = isMarked ? '#10b981' : 'rgba(255, 255, 255, 0.4)';
-                            ctx.stroke();
-                            if (isMarked) {
-                                ctx.fillStyle = 'rgba(16, 185, 129, 0.4)';
-                                ctx.fill();
-                            }
-                        }
-                    }
-                    
-                    let avgPaperDarkness = globalPaperDarknessSum / cellCount;
-                    let markerContrast = avgMarkerDarkness - avgPaperDarkness;
-                    let avgQColumnIntensity = qColumnIntensitySum / omrQuestionsCount.value;
-                    
-                    // TRAVA MÁXIMA DE SEGURANÇA: Só aceita se houver os marcadores fiduciários com alto contraste (> 25)
-                    let isAligned = (markerContrast > 25) && (avgQColumnIntensity > 8) && (totalMarksDetected <= omrQuestionsCount.value * 1.5);
-                    
-                    // A barra de progresso visual é agora controlada primariamente pelo foco nos Marcadores
-                    let frameQuality = 0;
-                    if (totalMarksDetected > omrQuestionsCount.value * 1.5) frameQuality = 10; 
-                    else frameQuality = Math.min(100, Math.max(0, Math.round((markerContrast / 25) * 100))); 
-
-                    // 4. CORTE FINAL DO ESPELHO (Incluindo os Marcadores para Auditoria Perfeita)
-                    const cropCanvas = document.createElement('canvas');
-                    const expandTop = mSize + (mGapY * 2);
-                    const expandBottom = mSize + (mGapY * 2);
-                    cropCanvas.width = roiW;
-                    cropCanvas.height = roiH + expandTop + expandBottom;
-                    const cropCtx = cropCanvas.getContext('2d');
-                    cropCtx.drawImage(canvas,
-                        roiX, roiY - expandTop, roiW, cropCanvas.height,
-                        0, 0, cropCanvas.width, cropCanvas.height
-                    );
-                    const debugImage = cropCanvas.toDataURL('image/jpeg', 0.8);
-
-                    if (isManual || isAligned) {
-                        if (!isManual) {
-                            omrAlignCount.value++;
-                            omrAlignmentProgress.value = Math.min(100, Math.round(70 + (30 * (omrAlignCount.value / 4))));
-
-                            if (omrAlignCount.value < 4) return; 
-                            playBeep();
-                        }
-                        
-                        stopOMRScan();
-                        if (isManual) showToast("A processar captura...", "loading");
-                        
-                        const resultId = await saveExamResult(omrExam.value.id, omrStudent.value.id, omrStudent.value.name, omrVersion.value, answers, debugImage, true, false, false);
-                        const savedRes = results.value.find(r => r.id === resultId);
-                        
-                        openResultDetails(savedRes);
-                        if (isManual) showToast("Gabarito manual processado.", "success");
-                    } else {
-                        if (!isManual) {
-                            omrAlignCount.value = 0; 
-                            omrAlignmentProgress.value = Math.min(70, Math.round(frameQuality * 0.7)); 
-                        }
-                    }
-                };
-
-                const captureAndProcessOMR = () => {
-                    performOMRScan(true); // Força a captura ignorando o alinhamento perfeito
-                };
-
                 // --- QR SCANNER ---
                 const startLiveQRScan = (mode = 'correction') => {
                     qrScanMode.value = mode;
@@ -3353,9 +3032,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                             showDirectGradeModal.value = true;
                                             showToast(`Aluno localizado: ${std.name}`, "success");
                                         } else {
-                                            // INICIA O MOTOR OMR AUTOMATICAMENTE
-                                            showToast(`QR Lido: ${std.name}. Alinhe o gabarito.`, "success");
-                                            startOMRPhase(exm, std, Number(qd.v) || 0);
+                                            activeExam.value = exm;
+                                            activeStudent.value = std;
+                                            activeVersion.value = Number(qd.v) || 0;
+                                            studentAnswers.value = {};
+                                            correctionMode.value = true;
+                                            showToast(`Identificado: ${std.name}`, "success");
                                         }
                                     }).catch(()=>{});
                                 } catch(err) {
@@ -3735,23 +3417,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 
                 // FUNÇÃO UNIVERSAL DA GRELHA (Garante 100% de alinhamento entre Aluno e Espelho)
                 const buildAnswerGrid = (v, isMirror = false) => {
-                    // Ícones Fiduciários em Canvas para o PDFMake
-                    const getMarker = (type) => {
-                        const pts = {
-                            'tl': [{x:2, y:2}, {x:14, y:2}, {x:2, y:14}],
-                            'tr': [{x:2, y:2}, {x:14, y:2}, {x:14, y:14}],
-                            'bl': [{x:2, y:2}, {x:2, y:14}, {x:14, y:14}],
-                            'br': [{x:14, y:2}, {x:14, y:14}, {x:2, y:14}]
-                        };
-                        return {
-                            canvas: [
-                                { type: 'rect', x: 0, y: 0, w: 16, h: 16, color: '#000' },
-                                { type: 'polyline', closePath: true, points: pts[type], color: '#fff' }
-                            ],
-                            width: 16, height: 16
-                        };
-                    };
-
                     let gridBody = [];
                     gridBody.push([
                         { text: 'Q', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
@@ -3798,7 +3463,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         gridBody.push(row);
                     });
 
-                    let gridTable = {
+                    return {
+                        width: 'auto',
                         table: { headerRows: 1, widths: [25, 30, 30, 30, 30, 30], body: gridBody },
                         layout: {
                             hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
@@ -3806,28 +3472,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
                             paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 3
                         }
-                    };
-
-                    return {
-                        stack: [
-                            {
-                                columns: [
-                                    { width: 16, ...getMarker('tl') },
-                                    { width: '*', text: '' }, // Espaçador dinâmico
-                                    { width: 16, ...getMarker('tr') }
-                                ],
-                                margin: [0, 0, 0, 4]
-                            },
-                            gridTable,
-                            {
-                                columns: [
-                                    { width: 16, ...getMarker('bl') },
-                                    { width: '*', text: '' }, // Espaçador dinâmico
-                                    { width: 16, ...getMarker('br') }
-                                ],
-                                margin: [0, 4, 0, 0]
-                            }
-                        ]
                     };
                 };
 
@@ -3993,7 +3637,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     
                     // GABARITO DO ALUNO (No final da prova, centralizado)
                     content.push({
-                        unbreakable: true, // Impede que o gabarito seja cortado ao meio
                         columns: [
                             { width: '*', text: '' },
                             {
@@ -4186,18 +3829,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 // Função para gerar o bloco visual do "Espelho Vazado"
                 const buildEspelhoBlock = (v, vIdx) => {
                     return [
+                        { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
+                        { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
                         {
-                            unbreakable: true, // Impede que o espelho seja cortado ao meio
-                            stack: [
-                                { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
-                                { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
-                                {
-                                    columns: [
-                                        { width: '*', text: '' },
-                                        buildAnswerGrid(v, true),
-                                        { width: '*', text: '' }
-                                    ]
-                                }
+                            columns: [
+                                { width: '*', text: '' },
+                                buildAnswerGrid(v, true),
+                                { width: '*', text: '' }
                             ]
                         }
                     ];
@@ -4293,9 +3931,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     // Live QR
                     showLiveQRScanner, qrScanMode, startLiveQRScan, stopLiveQRScan, showFullScreenImage,
                     fullScreenImageUrl, viewFullScreen,
-                    
-                    // OMR
-                    showOMRScanner, omrStudent, omrExam, omrVersion, omrQuestionsCount, captureAndProcessOMR, stopOMRScan, omrAlignmentProgress,
                     
                     // External Exam
                     showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades,
