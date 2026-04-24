@@ -3140,23 +3140,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     let qColumnIntensitySum = 0; 
                     let totalMarksDetected = 0; 
 
-                    // Função para calcular a "quantidade de tinta/cor" de uma região
-                    const getDarkness = (x, y, w, h) => {
-                        const imgData = ctx.getImageData(x, y, w, h);
-                        const data = imgData.data;
-                        let sum = 0;
-                        for (let i = 0; i < data.length; i += 4) {
-                            // Pega o canal com MAIS COR. Detecta tinta preta, marcador verde, caneta azul, etc.
-                            const minVal = Math.min(data[i], data[i+1], data[i+2]);
-                            sum += (255 - minVal);
-                        }
-                        return sum / (data.length / 4);
-                    };
-
                     for (let r = 1; r < rows; r++) { 
                         let rowMarks = [];
                         let cellCenters = [];
+                        let rawDarkness = [];
 
+                        // 2. LÓGICA DE CONTRASTE RELATIVO POR LINHA (Imune a Sombras e Fotos de Telas)
                         for (let c = 0; c < 6; c++) { 
                             let startRatio = 0;
                             for (let k = 0; k < c; k++) startRatio += pdfColWidths[k];
@@ -3167,42 +3156,49 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             let cellY = r * cellH;
                             let currentCellW = roiW * colRatio;
 
-                            // 2. LÓGICA CENTRO-HALO (Imune a Sombras e Distorções de Ângulo)
-                            // Centro (onde o aluno preenche a bolha)
-                            const cx = cellX + currentCellW * 0.35;
-                            const cy = cellY + cellH * 0.35;
-                            const cw = currentCellW * 0.30;
-                            const ch = cellH * 0.30;
-                            
-                            // Halo (anel imediatamente ao redor da bolha, evitando as linhas da tabela)
-                            const hx = cellX + currentCellW * 0.15;
-                            const hy = cellY + cellH * 0.15;
-                            const hw = currentCellW * 0.70;
-                            const hh = cellH * 0.70;
+                            // Foco nos 60% centrais da célula (perdoa grandes inclinações e tremores)
+                            const cx = cellX + currentCellW * 0.20;
+                            const cy = cellY + cellH * 0.20;
+                            const cw = currentCellW * 0.60;
+                            const ch = cellH * 0.60;
 
-                            const centerD = getDarkness(cx, cy, cw, ch);
+                            const imgData = ctx.getImageData(cx, cy, cw, ch);
+                            const data = imgData.data;
                             
-                            // Amostras do papel em volta da bolha
-                            const topD = getDarkness(cx, hy, cw, cy - hy);
-                            const bottomD = getDarkness(cx, cy + ch, cw, (hy + hh) - (cy + ch));
-                            const leftD = getDarkness(hx, cy, cx - hx, ch);
-                            const rightD = getDarkness(cx + cw, cy, (hx + hw) - (cx + cw), ch);
+                            let pixelValues = [];
+                            for (let i = 0; i < data.length; i += 4) {
+                                // Distância do branco absoluto (captura preto, verde brilhante, azul, etc)
+                                const distWhite = ((255 - data[i]) + (255 - data[i+1]) + (255 - data[i+2])) / 3;
+                                pixelValues.push(distWhite);
+                            }
                             
-                            const surroundD = (topD + bottomD + leftD + rightD) / 4;
+                            // Ordena do mais escuro/saturado para o mais claro
+                            pixelValues.sort((a,b) => b - a);
 
-                            // A intensidade da marca é a diferença entre a bolha e o papel ao lado dela!
-                            let markIntensity = centerD - surroundD;
-                            
+                            // Pega a média dos 40% mais escuros dessa região central (a marcação em si, ignorando ruído de fundo)
+                            let sampleSize = Math.max(1, Math.floor(pixelValues.length * 0.40));
+                            let sum = 0;
+                            for (let i = 0; i < sampleSize; i++) sum += pixelValues[i];
+                            let cellDarkness = sum / sampleSize;
+
+                            rawDarkness.push(cellDarkness);
                             cellCenters.push({x: cellX + currentCellW/2, y: cellY + cellH/2});
+                        }
 
-                            if (c === 0) {
-                                qColumnIntensitySum += markIntensity;
-                            } else {
-                                // Limite de 12 para garantir captação de lápis fraco ou cores vivas
-                                if (markIntensity > 12) {
-                                    rowMarks.push({ col: c - 1, intensity: markIntensity });
-                                    totalMarksDetected++;
-                                }
+                        // A mágica: A célula MAIS CLARA das opções A-E define a "cor real do papel/tela" daquela linha!
+                        let rowBaseline = Math.min(rawDarkness[1], rawDarkness[2], rawDarkness[3], rawDarkness[4], rawDarkness[5]);
+
+                        // Verifica a coluna Q (Tem de ser mais escura que o papel pois tem os números 1, 2, 3 impressos)
+                        qColumnIntensitySum += (rawDarkness[0] - rowBaseline);
+
+                        // Verifica as colunas A-E
+                        for (let c = 1; c < 6; c++) {
+                            let markIntensity = rawDarkness[c] - rowBaseline;
+                            
+                            // Se for 15 pontos mais escura/saturada que o papel vazio ao lado, é uma marcação do aluno!
+                            if (markIntensity > 15) {
+                                rowMarks.push({ col: c - 1, intensity: markIntensity });
+                                totalMarksDetected++;
                             }
                         }
                         
@@ -3210,23 +3206,22 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             rowMarks.sort((a, b) => b.intensity - a.intensity);
                             if (rowMarks.length === 1) answers[r - 1] = rowMarks[0].col;
                             else {
-                                // Se a marcação primária for bem mais forte que a secundária (ignora rastos de apagador)
+                                // Se a marca primária for 10 pontos mais forte que a secundária, não é rasura
                                 if (rowMarks[0].intensity - rowMarks[1].intensity > 10) answers[r - 1] = rowMarks[0].col;
-                                else answers[r - 1] = null; // Rasura real (Duas bolhas pintadas com força)
+                                else answers[r - 1] = null; // Rasura real (duas bolhas pintadas forte)
                             }
                         } else {
                             answers[r - 1] = null;
                         }
 
                         // 3. DESENHAR FEEDBACK VISUAL NO CANVAS RECORTADO
-                        ctx.lineWidth = Math.max(1, roiW / 150);
+                        ctx.lineWidth = Math.max(1.5, roiW / 120);
                         for(let i=1; i<6; i++) {
                             let isMarked = answers[r-1] === (i-1);
                             let pt = cellCenters[i];
                             ctx.beginPath();
-                            ctx.arc(pt.x, pt.y, cellH * 0.25, 0, 2 * Math.PI);
-                            // Círculo Verde onde a IA detetou, Círculo Esbatido onde ignorou
-                            ctx.strokeStyle = isMarked ? '#10b981' : 'rgba(255, 255, 255, 0.4)';
+                            ctx.arc(pt.x, pt.y, cellH * 0.30, 0, 2 * Math.PI); // Círculo de feedback
+                            ctx.strokeStyle = isMarked ? '#10b981' : 'rgba(255, 255, 255, 0.3)';
                             ctx.stroke();
                             if (isMarked) {
                                 ctx.fillStyle = 'rgba(16, 185, 129, 0.4)';
@@ -3239,12 +3234,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     const debugImage = canvas.toDataURL('image/jpeg', 0.8);
 
                     let avgQColumnIntensity = qColumnIntensitySum / omrQuestionsCount.value;
-                    let isAligned = (avgQColumnIntensity > 8) && (totalMarksDetected <= omrQuestionsCount.value * 1.5);
+                    // Alinhado se os números da coluna Q estão visíveis e não há excesso de lixo visual
+                    let isAligned = (avgQColumnIntensity > 10) && (totalMarksDetected <= omrQuestionsCount.value * 1.5);
                     
                     // LÓGICA DA BARRA DE PROGRESSO VISUAL
                     let frameQuality = 0;
                     if (totalMarksDetected > omrQuestionsCount.value * 1.5) frameQuality = 10; 
-                    else frameQuality = Math.min(100, Math.round((avgQColumnIntensity / 8) * 100)); 
+                    else frameQuality = Math.min(100, Math.round((avgQColumnIntensity / 10) * 100)); 
 
                     if (isManual || isAligned) {
                         if (!isManual) {
