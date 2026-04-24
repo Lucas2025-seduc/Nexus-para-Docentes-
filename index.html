@@ -3141,8 +3141,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     const video = document.getElementById('omr-video');
                     const overlay = document.getElementById('omr-overlay');
                     const hidden = document.getElementById('omr-hidden');
+                    const guide = document.getElementById('omr-guide');
                     
-                    if (!video || !overlay || !hidden || video.videoWidth === 0) {
+                    if (!video || !overlay || !hidden || !guide || video.videoWidth === 0) {
                         omrScanFrameId = requestAnimationFrame(processOMRFrame);
                         return;
                     }
@@ -3163,7 +3164,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let gray = new cv.Mat();
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
                         
-                        // Binarização invertida (Destaca os quadrados pretos como manchas brancas sólidas)
+                        // Binarização adaptativa invertida (destaca pretos como branco)
                         let bw = new cv.Mat();
                         cv.adaptiveThreshold(gray, bw, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 21, 10);
 
@@ -3171,10 +3172,19 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let hierarchy = new cv.Mat();
                         cv.findContours(bw, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                        let candidates = [];
-                        let scaleX = overlay.width / hidden.width;
-                        let scaleY = overlay.height / hidden.height;
+                        let scaleX = hidden.width / overlay.width;
+                        let scaleY = hidden.height / overlay.height;
 
+                        // Calcular a posição exata da MOLDURA AR no vídeo
+                        let gRect = guide.getBoundingClientRect();
+                        let expectedCorners = [
+                            { x: gRect.left * scaleX, y: gRect.top * scaleY },      // Top-Left
+                            { x: gRect.right * scaleX, y: gRect.top * scaleY },     // Top-Right
+                            { x: gRect.right * scaleX, y: gRect.bottom * scaleY },  // Bottom-Right
+                            { x: gRect.left * scaleX, y: gRect.bottom * scaleY }    // Bottom-Left
+                        ];
+
+                        let candidates = [];
                         for (let i = 0; i < contours.size(); ++i) {
                             let cnt = contours.get(i);
                             let area = cv.contourArea(cnt);
@@ -3182,80 +3192,100 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             let aspect = rect.width / rect.height;
                             let extent = area / (rect.width * rect.height);
                             
-                            // Filtro: Procurar formas pequenas, quadradas (aspecto ~1) e sólidas (extent > 0.7)
-                            if (area > 50 && area < (hidden.width * hidden.height * 0.05) && aspect > 0.7 && aspect < 1.3 && extent > 0.7) {
+                            // Filtro rigoroso: O quadrado deve ser sólido, ter aspeto 1:1 e não ser gigante
+                            if (area > 20 && area < (hidden.width * hidden.height * 0.05) && aspect > 0.6 && aspect < 1.4 && extent > 0.6) {
                                 let M = cv.moments(cnt, false);
                                 if (M.m00 !== 0) {
-                                    let cx = M.m10 / M.m00;
-                                    let cy = M.m01 / M.m00;
-                                    candidates.push({x: cx, y: cy});
+                                    candidates.push({x: M.m10 / M.m00, y: M.m01 / M.m00});
                                 }
                             }
                             cnt.delete();
                         }
 
-                        let orderedPts = null;
-                        if (candidates.length >= 4) {
-                            // Encontrar as 4 âncoras mais extremas
-                            candidates.sort((a, b) => (a.x + a.y) - (b.x + b.y));
-                            let tl = candidates[0];
-                            let br = candidates[candidates.length - 1];
+                        // PROCURAR APENAS AS 4 ÂNCORAS PRÓXIMAS DOS CANTOS DO GUIA NA TELA
+                        let orderedPts = [];
+                        let searchTolerance = (gRect.width * scaleX) * 0.35; // Raio de tolerância (35% da largura do guia)
+
+                        for (let i = 0; i < 4; i++) {
+                            let exp = expectedCorners[i];
+                            let bestDist = searchTolerance;
+                            let bestCand = null;
                             
-                            candidates.sort((a, b) => (a.x - a.y) - (b.x - b.y));
-                            let bl = candidates[0];
-                            let tr = candidates[candidates.length - 1];
-                            
-                            orderedPts = [tl, tr, br, bl];
-                            
-                            // Validar se as 4 âncoras formam uma grelha grande o suficiente
-                            let quadArea = 0.5 * Math.abs((tl.x*tr.y + tr.x*br.y + br.x*bl.y + bl.x*tl.y) - (tl.y*tr.x + tr.y*br.x + br.y*bl.x + bl.y*tl.x));
-                            if (quadArea < (hidden.width * hidden.height * 0.08)) {
-                                orderedPts = null;
+                            for (let c of candidates) {
+                                let d = Math.hypot(c.x - exp.x, c.y - exp.y);
+                                if (d < bestDist) {
+                                    bestDist = d;
+                                    bestCand = c;
+                                }
                             }
+                            if (bestCand) orderedPts.push(bestCand);
                         }
 
-                        if (orderedPts) {
-                            // Desenhar o Polígono AR no ecrã para dar feedback visual ao professor
-                            ctxOverlay.beginPath();
-                            ctxOverlay.moveTo(orderedPts[0].x * scaleX, orderedPts[0].y * scaleY);
-                            for (let i = 1; i < 4; i++) ctxOverlay.lineTo(orderedPts[i].x * scaleX, orderedPts[i].y * scaleY);
-                            ctxOverlay.closePath();
+                        if (orderedPts.length === 4) {
+                            // Validar se os 4 pontos formam um polígono convexo plausível
+                            let quadArea = 0.5 * Math.abs(
+                                (orderedPts[0].x*orderedPts[1].y + orderedPts[1].x*orderedPts[2].y + orderedPts[2].x*orderedPts[3].y + orderedPts[3].x*orderedPts[0].y) - 
+                                (orderedPts[0].y*orderedPts[1].x + orderedPts[1].y*orderedPts[2].x + orderedPts[2].y*orderedPts[3].x + orderedPts[3].y*orderedPts[0].x)
+                            );
                             
-                            if (lastCorners) {
-                                let diff = 0;
-                                for(let i=0; i<4; i++) diff += Math.abs(orderedPts[i].x - lastCorners[i].x) + Math.abs(orderedPts[i].y - lastCorners[i].y);
+                            if (quadArea > (hidden.width * hidden.height * 0.05)) {
+                                // Converter coordenadas do vídeo de volta para o ecrã
+                                let invScaleX = overlay.width / hidden.width;
+                                let invScaleY = overlay.height / hidden.height;
+
+                                ctxOverlay.beginPath();
+                                ctxOverlay.moveTo(orderedPts[0].x * invScaleX, orderedPts[0].y * invScaleY);
+                                for (let i = 1; i < 4; i++) ctxOverlay.lineTo(orderedPts[i].x * invScaleX, orderedPts[i].y * invScaleY);
+                                ctxOverlay.closePath();
                                 
-                                if (diff < 30) {
-                                    stableFrames++;
-                                    ctxOverlay.strokeStyle = '#10b981'; // Verde (Estável)
-                                    ctxOverlay.lineWidth = 4;
-                                    ctxOverlay.fillStyle = 'rgba(16, 185, 129, 0.25)';
-                                    omrStatus.value = 'Segure firmemente... Capturando!';
+                                // Desenhar pequenos círculos sobre as âncoras detetadas (para feedback)
+                                ctxOverlay.fillStyle = '#10b981';
+                                for (let i = 0; i < 4; i++) {
+                                    ctxOverlay.beginPath();
+                                    ctxOverlay.arc(orderedPts[i].x * invScaleX, orderedPts[i].y * invScaleY, 5, 0, 2*Math.PI);
+                                    ctxOverlay.fill();
+                                }
+
+                                if (lastCorners) {
+                                    let diff = 0;
+                                    for(let i=0; i<4; i++) diff += Math.abs(orderedPts[i].x - lastCorners[i].x) + Math.abs(orderedPts[i].y - lastCorners[i].y);
+                                    
+                                    if (diff < 40) {
+                                        stableFrames++;
+                                        ctxOverlay.strokeStyle = '#10b981'; 
+                                        ctxOverlay.lineWidth = 4;
+                                        ctxOverlay.fillStyle = 'rgba(16, 185, 129, 0.25)';
+                                        omrStatus.value = 'Segure firmemente... Capturando!';
+                                    } else {
+                                        stableFrames = 0;
+                                        ctxOverlay.strokeStyle = '#f59e0b';
+                                        ctxOverlay.lineWidth = 3;
+                                        ctxOverlay.fillStyle = 'rgba(245, 158, 11, 0.1)';
+                                        omrStatus.value = 'Alinhado! Mantenha o telemóvel imóvel.';
+                                    }
                                 } else {
-                                    stableFrames = 0;
-                                    ctxOverlay.strokeStyle = '#f59e0b'; // Laranja (A tremer)
+                                    ctxOverlay.strokeStyle = '#3b82f6';
                                     ctxOverlay.lineWidth = 3;
-                                    ctxOverlay.fillStyle = 'rgba(245, 158, 11, 0.1)';
-                                    omrStatus.value = 'Alinhado! Mantenha o telemóvel imóvel.';
+                                }
+                                ctxOverlay.stroke();
+                                ctxOverlay.fill();
+                                
+                                lastCorners = orderedPts;
+
+                                if (stableFrames >= 12) { 
+                                    captureOMR(src, orderedPts);
+                                    gray.delete(); bw.delete(); contours.delete(); hierarchy.delete();
+                                    return;
                                 }
                             } else {
-                                ctxOverlay.strokeStyle = '#3b82f6';
-                                ctxOverlay.lineWidth = 3;
-                            }
-                            ctxOverlay.stroke();
-                            ctxOverlay.fill();
-                            
-                            lastCorners = orderedPts;
-
-                            if (stableFrames >= 15) { // Snapshot automático após estabilização
-                                captureOMR(src, orderedPts);
-                                gray.delete(); bw.delete(); contours.delete(); hierarchy.delete();
-                                return;
+                                stableFrames = 0;
+                                lastCorners = null;
+                                omrStatus.value = 'Aproximar câmara... Área da grelha muito pequena.';
                             }
                         } else {
                             stableFrames = 0;
                             lastCorners = null;
-                            omrStatus.value = 'Enquadre os 4 quadrados pretos da grelha de respostas.';
+                            omrStatus.value = 'Enquadre os 4 quadrados pretos DENTRO da moldura verde.';
                         }
 
                         src.delete(); gray.delete(); bw.delete(); contours.delete(); hierarchy.delete();
@@ -3266,11 +3296,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const captureOMR = async (srcMat, orderedPts) => {
-                    omrStatus.value = 'A processar e a corrigir gabarito...';
+                    omrStatus.value = 'A processar e a extrair o QR Code...';
                     
+                    // orderedPts já vem na ordem exata (TL, TR, BR, BL) devido ao algoritmo de matching com a moldura
                     let tl = orderedPts[0], tr = orderedPts[1], br = orderedPts[2], bl = orderedPts[3];
                     
-                    // Calcular as dimensões reais da caixa detetada
                     let widthA = Math.hypot(br.x - bl.x, br.y - bl.y);
                     let widthB = Math.hypot(tr.x - tl.x, tr.y - tl.y);
                     let width = Math.max(widthA, widthB);
@@ -3279,9 +3309,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     let heightB = Math.hypot(tl.x - bl.x, tl.y - bl.y);
                     let height = Math.max(heightA, heightB);
                     
-                    // Margem de segurança de 5% (Não recorta rente aos limites para preservar o QR)
-                    let padX = width * 0.05;
-                    let padY = height * 0.05;
+                    // Padding extra p/ garantir que as âncoras e o QR não fiquem colados na margem
+                    let padX = width * 0.08;
+                    let padY = height * 0.08;
                     let outWidth = width + (padX * 2);
                     let outHeight = height + (padY * 2);
 
@@ -3297,44 +3327,52 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         padX, outHeight - padY
                     ]);
 
-                    // Warp Perspective: Esticar o papel capturado para torná-lo um retângulo plano 2D
                     let M = cv.getPerspectiveTransform(srcTri, dstTri);
                     let warped = new cv.Mat();
-                    cv.warpPerspective(srcMat, warped, M, new cv.Size(outWidth, outHeight), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+                    cv.warpPerspective(srcMat, warped, M, new cv.Size(outWidth, outHeight), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
 
-                    // Converter imagem para tons de cinza
                     let grayWarped = new cv.Mat();
                     cv.cvtColor(warped, grayWarped, cv.COLOR_RGBA2GRAY, 0);
 
-                    // Adaptive Threshold Invertido: Tinta = Branco (255) | Papel/Fundo = Preto (0)
-                    let bwInv = new cv.Mat();
-                    cv.adaptiveThreshold(grayWarped, bwInv, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, 15);
-
                     // ============================================
-                    // ETAPA 1: LEITURA DO CÓDIGO QR INTERNO
+                    // ETAPA 1: LEITURA DO CÓDIGO QR COM DUPLA TENTATIVA
                     // ============================================
-                    let qrCropHeight = Math.floor(outHeight * 0.35); // O QR está no topo da caixa (top 35%)
+                    // O QR Code encontra-se centralizado no topo (primeiros 35% de altura)
+                    let qrCropHeight = Math.floor(outHeight * 0.35); 
                     let qrRect = new cv.Rect(0, 0, outWidth, qrCropHeight);
                     let qrRoi = warped.roi(qrRect);
                     
                     let qrCanvas = document.createElement('canvas');
                     qrCanvas.width = outWidth; qrCanvas.height = qrCropHeight;
+                    let qrCtx = qrCanvas.getContext('2d', { willReadFrequently: true });
+                    
+                    // Tentativa 1: Imagem Cores (RGB Original Esticada)
                     cv.imshow(qrCanvas, qrRoi);
-                    let qrCtx = qrCanvas.getContext('2d');
                     let qrImageData = qrCtx.getImageData(0, 0, outWidth, qrCropHeight);
+                    let decodedQR = jsQR(qrImageData.data, qrImageData.width, qrImageData.height, { inversionAttempts: "dontInvert" });
                     
-                    let decodedQR = jsQR(qrImageData.data, qrImageData.width, qrImageData.height);
-                    
+                    // Tentativa 2: Se falhar, forçar alto contraste na imagem
+                    if (!decodedQR) {
+                        let grayQr = new cv.Mat();
+                        cv.cvtColor(qrRoi, grayQr, cv.COLOR_RGBA2GRAY, 0);
+                        let bwQr = new cv.Mat();
+                        cv.threshold(grayQr, bwQr, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+                        cv.imshow(qrCanvas, bwQr);
+                        qrImageData = qrCtx.getImageData(0, 0, outWidth, qrCropHeight);
+                        decodedQR = jsQR(qrImageData.data, qrImageData.width, qrImageData.height, { inversionAttempts: "dontInvert" });
+                        grayQr.delete(); bwQr.delete();
+                    }
+
                     qrRoi.delete(); srcTri.delete(); dstTri.delete(); M.delete();
 
                     if (!decodedQR) {
-                        showToast("Erro crítico: QR Code de identificação não encontrado na área do gabarito.", "error");
-                        stopOMRScan(); srcMat.delete(); warped.delete(); grayWarped.delete(); bwInv.delete(); return;
+                        showToast("Erro: QR Code não foi decifrado. Verifique a iluminação ou borrões.", "error");
+                        stopOMRScan(); srcMat.delete(); warped.delete(); grayWarped.delete(); return;
                     }
 
                     let qrData;
                     try { qrData = JSON.parse(decodedQR.data); } 
-                    catch(e) { showToast("Dados do QR corrompidos.", "error"); stopOMRScan(); srcMat.delete(); warped.delete(); grayWarped.delete(); bwInv.delete(); return; }
+                    catch(e) { showToast("Dados do QR corrompidos.", "error"); stopOMRScan(); srcMat.delete(); warped.delete(); grayWarped.delete(); return; }
 
                     const exm = exams.value.find(e => e.id === Number(qrData.e));
                     const std = students.value.find(s => s.id === Number(qrData.s));
@@ -3342,15 +3380,20 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     if (!exm || !std) {
                         showToast("Prova ou Aluno não existem na sua base de dados atual.", "error");
-                        stopOMRScan(); srcMat.delete(); warped.delete(); grayWarped.delete(); bwInv.delete(); return;
+                        stopOMRScan(); srcMat.delete(); warped.delete(); grayWarped.delete(); return;
                     }
-
-                    const questions = exm.versions[vIdx].questions;
-                    const N = questions.length;
 
                     // ============================================
                     // ETAPA 2: MAPEAMENTO DE BOLHAS E CORREÇÃO
                     // ============================================
+                    omrStatus.value = `A corrigir prova de ${std.name.split(' ')[0]}...`;
+
+                    let bwInv = new cv.Mat();
+                    cv.adaptiveThreshold(grayWarped, bwInv, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, 15);
+
+                    const questions = exm.versions[vIdx].questions;
+                    const N = questions.length;
+
                     let contours = new cv.MatVector();
                     let hierarchy = new cv.Mat();
                     cv.findContours(bwInv, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
@@ -3361,34 +3404,33 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         let rect = cv.boundingRect(cnt);
                         let aspect = rect.width / rect.height;
                         let area = cv.contourArea(cnt);
-                        // Filtra formas que sejam razoavelmente redondas (bolhas das alternativas)
-                        if (aspect >= 0.5 && aspect <= 1.5 && area > 100 && area < 3000) {
+                        
+                        // Bolhas da grelha (ajuste fino do raio e formato)
+                        if (aspect >= 0.5 && aspect <= 1.5 && area > 80 && area < 4000) {
                             validBubbles.push({ x: rect.x, y: rect.y, w: rect.width, h: rect.height, cx: rect.x + rect.width/2, cy: rect.y + rect.height/2 });
                         }
                     }
                     contours.delete(); hierarchy.delete();
 
-                    // Remover bolhas duplicadas (O OpenCV encontra o contorno interior e o exterior da mesma bolha)
                     let uniqueBubbles = [];
                     validBubbles.forEach(b => {
-                        if (!uniqueBubbles.some(ub => Math.hypot(ub.cx - b.cx, ub.cy - b.cy) < 10)) uniqueBubbles.push(b);
+                        if (!uniqueBubbles.some(ub => Math.hypot(ub.cx - b.cx, ub.cy - b.cy) < 15)) uniqueBubbles.push(b);
                     });
 
-                    // Agrupar as bolhas em linhas (Questão 1, Questão 2, etc.) baseando na coordenada Y
                     uniqueBubbles.sort((a, b) => a.cy - b.cy);
                     let rows = [];
                     if (uniqueBubbles.length > 0) {
                         let currentRow = [uniqueBubbles[0]];
                         for (let i = 1; i < uniqueBubbles.length; i++) {
-                             if (Math.abs(uniqueBubbles[i].cy - currentRow[0].cy) < 20) currentRow.push(uniqueBubbles[i]);
+                             if (Math.abs(uniqueBubbles[i].cy - currentRow[0].cy) < 25) currentRow.push(uniqueBubbles[i]);
                              else { rows.push(currentRow); currentRow = [uniqueBubbles[i]]; }
                         }
                         rows.push(currentRow);
                     }
 
-                    // Filtrar apenas linhas que tenham entre 2 e 5 alternativas (Ignora lixo detetado)
+                    // Filtrar apenas as linhas de opções que contenham 2 a 5 bolhas
                     let qRows = rows.filter(r => r.length >= 2 && r.length <= 5);
-                    qRows.forEach(r => r.sort((a, b) => a.cx - b.cx)); // Ordenar as bolhas (A, B, C, D, E) da esquerda para a direita
+                    qRows.forEach(r => r.sort((a, b) => a.cx - b.cx)); 
                     qRows.sort((a, b) => a[0].cy - b[0].cy);
 
                     let studentAnswers = {};
@@ -3396,23 +3438,21 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     
                     if (qRows.length !== N) {
                         needsReviewFlag = true;
-                        showToast(`Leitura imprecisa: Detetadas ${qRows.length} linhas para ${N} questões. Exige validação.`, "warning");
+                        showToast(`Cuidado: Lido ${qRows.length} linhas mas a prova tem ${N} questões.`, "warning");
                     }
 
-                    // Fazer a contagem dos píxeis para determinar a resposta do aluno
                     qRows.forEach((row, rIdx) => {
                         if (rIdx >= N) return;
                         let maxFill = 0;
                         let markedIdx = null;
                         
                         row.forEach((b, cIdx) => {
+                            // Extrair o quadrado apertado do interior da bolha e calcular a "mancha"
                             let roi = bwInv.roi(new cv.Rect(b.x, b.y, b.w, b.h));
-                            let fillRatio = cv.countNonZero(roi) / (b.w * b.h); // Razão de píxeis de tinta sobre a área total
+                            let fillRatio = cv.countNonZero(roi) / (b.w * b.h);
                             roi.delete();
                             
                             b.fillRatio = fillRatio;
-                            
-                            // Se a bolha tiver mais de 35% de preenchimento de caneta
                             if (fillRatio > 0.35 && fillRatio > maxFill) {
                                 maxFill = fillRatio;
                                 markedIdx = cIdx;
@@ -3421,14 +3461,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         let marks = row.filter(b => b.fillRatio > 0.35);
                         if (marks.length > 1 || marks.length === 0) {
-                            studentAnswers[rIdx] = null; // Questão Anulada / Rasurada ou Em Branco
+                            studentAnswers[rIdx] = null; // Rasura ou vazio
                             needsReviewFlag = true;
                         } else {
-                            studentAnswers[rIdx] = markedIdx; // Questão registada com sucesso
+                            studentAnswers[rIdx] = markedIdx; 
                         }
                     });
 
-                    // Caso o scanner não tenha visto uma linha, preenche à força para manter a sanidade da DB
                     for(let i=0; i<N; i++) {
                         if(studentAnswers[i] === undefined) {
                             studentAnswers[i] = null;
@@ -3437,34 +3476,30 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     }
 
                     // ============================================
-                    // ETAPA 3: GERAR IMAGEM DEBUG (RAIO-X PARA O PROFESSOR)
+                    // ETAPA 3: GERAR IMAGEM DEBUG E SALVAR
                     // ============================================
                     let displayMat = warped.clone();
                     qRows.forEach((row, rIdx) => {
                         if (rIdx >= N) return;
                         row.forEach((b, cIdx) => {
                             let isMarked = studentAnswers[rIdx] === cIdx;
-                            // Desenha um retângulo Verde para "Marcada" e Vermelho Fino para "Ignorada"
                             let color = isMarked ? new cv.Scalar(16, 185, 129, 255) : new cv.Scalar(239, 68, 68, 255);
-                            cv.rectangle(displayMat, new cv.Point(b.x, b.y), new cv.Point(b.x + b.w, b.y + b.h), color, isMarked ? 3 : 1);
+                            cv.rectangle(displayMat, new cv.Point(b.x, b.y), new cv.Point(b.x + b.w, b.y + b.h), color, isMarked ? 4 : 2);
                         });
                     });
 
                     let hidden = document.getElementById('omr-hidden');
                     hidden.width = outWidth; hidden.height = outHeight;
                     cv.imshow(hidden, displayMat);
-                    const debugBase64 = hidden.toDataURL('image/jpeg', 0.6); // Base64 comprimido p/ poupar BD
+                    const debugBase64 = hidden.toDataURL('image/jpeg', 0.6); 
 
                     displayMat.delete(); warped.delete(); grayWarped.delete(); bwInv.delete(); srcMat.delete();
                     stopOMRScan();
 
-                    // ============================================
-                    // ETAPA 4: SALVAR RESULTADOS E APRESENTAR
-                    // ============================================
                     const sid = await saveExamResult(exm.id, std.id, std.name, vIdx, studentAnswers, debugBase64, needsReviewFlag, false, false);
                     const resultRow = results.value.find(r => r.id === sid);
                     
-                    showToast("Prova corrigida e nota lançada!", "success");
+                    showToast(`Nota lançada para ${std.name.split(' ')[0]}!`, "success");
                     openResultDetails(resultRow);
                 };
 
@@ -3884,18 +3919,20 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         margin: [0, 0]
                     });
 
-                    let topCenterContent = { text: '', margin: [0, 5] };
+                    // Colocamos o QR Code e a Grelha numa 'stack' central para garantir que ficam ABAIXO das âncoras de topo
+                    let centerStack = [];
                     if (qrData && !isMirror) {
-                        // QR Code interno para identificação automática no OMR
-                        topCenterContent = { qr: qrData, fit: 50, alignment: 'center', margin: [0, 0, 0, 10] };
+                        // QR Code interno deslocado para a área 100% segura
+                        centerStack.push({ qr: qrData, fit: 60, alignment: 'center', margin: [0, 5, 0, 10] });
                     }
+                    centerStack.push(innerTable);
 
                     return {
                         table: {
-                            widths: [anchorSize, 'auto', anchorSize],
+                            widths: [anchorSize, '*', anchorSize],
                             body: [
-                                [ makeAnchor('left'), topCenterContent, makeAnchor('right') ],
-                                [ '', { stack: [ innerTable ], margin: [15, 0, 15, 0], alignment: 'center' }, '' ],
+                                [ makeAnchor('left'), '', makeAnchor('right') ],
+                                [ '', { stack: centerStack, margin: [10, 0, 10, 0], alignment: 'center' }, '' ],
                                 [ makeAnchor('left'), { text: 'NEXUS OMR - NÃO RASURE OS QUADRADOS PRETOS', fontSize: 7, alignment: 'center', margin: [0, 10, 0, 0], color: '#6b7280', bold: true }, makeAnchor('right') ]
                             ]
                         },
