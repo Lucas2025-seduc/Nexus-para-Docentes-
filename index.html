@@ -720,7 +720,10 @@
                     <h2 class="font-bold leading-tight">Mapa de Sala</h2>
                     <p class="text-[10px] text-indigo-200">{{ getClassName(seatingClassId) }}</p>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-indigo-100 hover:text-white transition">
+                        <input type="checkbox" v-model="seatingPrintQR" class="w-3.5 h-3.5 accent-indigo-400"> Com QR
+                    </label>
                     <button @click="printSeatingPlan" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center justify-center" title="Imprimir PDF"><i class="fa-solid fa-print"></i></button>
                     <button @click="showSeatingModal=false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
                 </div>
@@ -1448,6 +1451,7 @@
                 const seatingGrid = ref([]);
                 const seatingSelectedIdx = ref(null);
                 const seatingStudents = ref([]);
+                const seatingPrintQR = ref(true);
                 
                 // AI Generator
                 const showAIGenModal = ref(false);
@@ -1773,22 +1777,31 @@
                             
                             if (std) {
                                 let qrData = JSON.stringify({ s: std.id, action: 'attendance' });
-                                let qSize = cols > 5 ? 26 : 32; // Ajusta o tamanho se houver muitas colunas
+                                let qSize = seatingPrintQR.value ? (cols > 5 ? 26 : 32) : (cols > 5 ? 36 : 46); // Aumenta a foto se não tiver QR
                                 let photoNode = std.photo ? { image: std.photo, width: qSize, height: qSize, alignment: 'center' } : { canvas: [{ type: 'rect', x: 0, y: 0, w: qSize, h: qSize, color: '#e5e7eb' }], alignment: 'center' };
                                 
+                                let studentStack = [];
+                                
+                                if (seatingPrintQR.value) {
+                                    studentStack.push({
+                                        columns: [
+                                            { width: '*', text: '' }, // Espaçador esquerdo (força a centralização)
+                                            { width: 'auto', ...photoNode },
+                                            { width: 'auto', qr: qrData, fit: qSize, alignment: 'center' },
+                                            { width: '*', text: '' } // Espaçador direito
+                                        ],
+                                        columnGap: 4,
+                                        alignment: 'center',
+                                        margin: [0, 0, 0, 4]
+                                    });
+                                } else {
+                                    studentStack.push({ ...photoNode, margin: [0, 0, 0, 4] });
+                                }
+                                
+                                studentStack.push({ text: std.name, fontSize: 7, bold: true, alignment: 'center', leadingIndent: 0, lineHeight: 1.1 });
+
                                 rowData.push({
-                                    stack: [
-                                        {
-                                            columns: [
-                                                photoNode,
-                                                { qr: qrData, fit: qSize, alignment: 'center' }
-                                            ],
-                                            columnGap: 4,
-                                            alignment: 'center',
-                                            margin: [0, 0, 0, 4]
-                                        },
-                                        { text: std.name, fontSize: 7, bold: true, alignment: 'center', leadingIndent: 0, lineHeight: 1.1 }
-                                    ],
+                                    stack: studentStack,
                                     margin: [2, 5],
                                     alignment: 'center'
                                 });
@@ -3913,7 +3926,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     
                     // Seating Plan
                     showSeatingModal, seatingClassId, seatingRows, seatingCols, seatingGrid, seatingSelectedIdx,
-                    seatingStudents, openSeatingPlan, generateSeatingPlan, handleSeatClick, saveSeatingPlan, printSeatingPlan,
+                    seatingStudents, seatingPrintQR, openSeatingPlan, generateSeatingPlan, handleSeatClick, saveSeatingPlan, printSeatingPlan,
                     
                     // Live QR
                     showLiveQRScanner, qrScanMode, startLiveQRScan, stopLiveQRScan, showFullScreenImage,
