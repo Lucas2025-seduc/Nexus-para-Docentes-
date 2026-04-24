@@ -3132,10 +3132,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     const roiW = overlayRect.width * scaleX;
                     const roiH = overlayRect.height * scaleY;
 
-                    // 1. RECORTE PERFEITO (CROP): Trabalha apenas com a área do gabarito
-                    canvas.width = roiW;
-                    canvas.height = roiH;
-                    ctx.drawImage(video, roiX, roiY, roiW, roiH, 0, 0, roiW, roiH);
+                    // 1. CAPTURA FULL FRAME (Para ler os marcadores fiduciários fora da grelha central)
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
                     const rows = omrQuestionsCount.value + 1;
                     const pdfColWidths = [25, 30, 30, 30, 30, 30]; 
@@ -3145,89 +3145,106 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     let answers = {};
                     let qColumnIntensitySum = 0; 
                     let totalMarksDetected = 0; 
+                    let globalPaperDarknessSum = 0;
+                    let cellCount = 0;
+
+                    // Função para calcular a "tinta/cor" blindada contra falhas nas bordas do vídeo
+                    const getSafeDarkness = (x, y, w, h) => {
+                        if (x < 0 || y < 0 || x + w > canvas.width || y + h > canvas.height) return 0;
+                        const imgData = ctx.getImageData(x, y, w, h);
+                        const data = imgData.data;
+                        let sum = 0;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const minVal = Math.min(data[i], data[i+1], data[i+2]);
+                            sum += (255 - minVal);
+                        }
+                        return sum / (data.length / 4);
+                    };
+
+                    // 2. LER MARCADORES FIDUCIÁRIOS (Trava de Segurança)
+                    const mSize = roiW * 0.09;
+                    const mGapY = roiH * 0.02;
+
+                    const mTL = getSafeDarkness(roiX, roiY - mGapY - mSize, mSize, mSize);
+                    const mTR = getSafeDarkness(roiX + roiW - mSize, roiY - mGapY - mSize, mSize, mSize);
+                    const mBL = getSafeDarkness(roiX, roiY + roiH + mGapY, mSize, mSize);
+                    const mBR = getSafeDarkness(roiX + roiW - mSize, roiY + roiH + mGapY, mSize, mSize);
+
+                    const avgMarkerDarkness = (mTL + mTR + mBL + mBR) / 4;
 
                     for (let r = 1; r < rows; r++) { 
                         let rowMarks = [];
                         let cellCenters = [];
                         let rawDarkness = [];
 
-                        // 2. LÓGICA DE CONTRASTE RELATIVO POR LINHA (Imune a Sombras e Fotos de Telas)
                         for (let c = 0; c < 6; c++) { 
                             let startRatio = 0;
                             for (let k = 0; k < c; k++) startRatio += pdfColWidths[k];
                             startRatio /= totalPdfW;
                             
                             let colRatio = pdfColWidths[c] / totalPdfW;
-                            let cellX = roiW * startRatio;
-                            let cellY = r * cellH;
+                            let cellX = roiX + (roiW * startRatio); // Coordenadas Absolutas
+                            let cellY = roiY + (r * cellH); // Coordenadas Absolutas
                             let currentCellW = roiW * colRatio;
 
-                            // Foco nos 60% centrais da célula (perdoa grandes inclinações e tremores)
-                            const cx = cellX + currentCellW * 0.20;
-                            const cy = cellY + cellH * 0.20;
-                            const cw = currentCellW * 0.60;
-                            const ch = cellH * 0.60;
-
-                            const imgData = ctx.getImageData(cx, cy, cw, ch);
-                            const data = imgData.data;
+                            // LÓGICA CENTRO-HALO
+                            const cx = cellX + currentCellW * 0.35;
+                            const cy = cellY + cellH * 0.35;
+                            const cw = currentCellW * 0.30;
+                            const ch = cellH * 0.30;
                             
-                            let pixelValues = [];
-                            for (let i = 0; i < data.length; i += 4) {
-                                // Distância do branco absoluto (captura preto, verde brilhante, azul, etc)
-                                const distWhite = ((255 - data[i]) + (255 - data[i+1]) + (255 - data[i+2])) / 3;
-                                pixelValues.push(distWhite);
-                            }
+                            const hx = cellX + currentCellW * 0.15;
+                            const hy = cellY + cellH * 0.15;
+                            const hw = currentCellW * 0.70;
+                            const hh = cellH * 0.70;
+
+                            const centerD = getSafeDarkness(cx, cy, cw, ch);
                             
-                            // Ordena do mais escuro/saturado para o mais claro
-                            pixelValues.sort((a,b) => b - a);
+                            const topD = getSafeDarkness(cx, hy, cw, cy - hy);
+                            const bottomD = getSafeDarkness(cx, cy + ch, cw, (hy + hh) - (cy + ch));
+                            const leftD = getSafeDarkness(hx, cy, cx - hx, ch);
+                            const rightD = getSafeDarkness(cx + cw, cy, (hx + hw) - (cx + cw), ch);
+                            
+                            const surroundD = (topD + bottomD + leftD + rightD) / 4;
 
-                            // Pega a média dos 40% mais escuros dessa região central (a marcação em si, ignorando ruído de fundo)
-                            let sampleSize = Math.max(1, Math.floor(pixelValues.length * 0.40));
-                            let sum = 0;
-                            for (let i = 0; i < sampleSize; i++) sum += pixelValues[i];
-                            let cellDarkness = sum / sampleSize;
-
-                            rawDarkness.push(cellDarkness);
+                            let markIntensity = centerD - surroundD;
+                            
+                            rawDarkness.push(surroundD); // Cor do papel
                             cellCenters.push({x: cellX + currentCellW/2, y: cellY + cellH/2});
-                        }
 
-                        // A mágica: A célula MAIS CLARA das opções A-E define a "cor real do papel/tela" daquela linha!
-                        let rowBaseline = Math.min(rawDarkness[1], rawDarkness[2], rawDarkness[3], rawDarkness[4], rawDarkness[5]);
-
-                        // Verifica a coluna Q (Tem de ser mais escura que o papel pois tem os números 1, 2, 3 impressos)
-                        qColumnIntensitySum += (rawDarkness[0] - rowBaseline);
-
-                        // Verifica as colunas A-E
-                        for (let c = 1; c < 6; c++) {
-                            let markIntensity = rawDarkness[c] - rowBaseline;
-                            
-                            // Se for 15 pontos mais escura/saturada que o papel vazio ao lado, é uma marcação do aluno!
-                            if (markIntensity > 15) {
-                                rowMarks.push({ col: c - 1, intensity: markIntensity });
-                                totalMarksDetected++;
+                            if (c === 0) {
+                                qColumnIntensitySum += markIntensity;
+                            } else {
+                                if (markIntensity > 12) {
+                                    rowMarks.push({ col: c - 1, intensity: markIntensity });
+                                    totalMarksDetected++;
+                                }
                             }
                         }
                         
+                        let rowBaseline = Math.min(rawDarkness[1], rawDarkness[2], rawDarkness[3], rawDarkness[4], rawDarkness[5]);
+                        globalPaperDarknessSum += rowBaseline;
+                        cellCount++;
+
                         if (rowMarks.length > 0) {
                             rowMarks.sort((a, b) => b.intensity - a.intensity);
                             if (rowMarks.length === 1) answers[r - 1] = rowMarks[0].col;
                             else {
-                                // Se a marca primária for 10 pontos mais forte que a secundária, não é rasura
                                 if (rowMarks[0].intensity - rowMarks[1].intensity > 10) answers[r - 1] = rowMarks[0].col;
-                                else answers[r - 1] = null; // Rasura real (duas bolhas pintadas forte)
+                                else answers[r - 1] = null; 
                             }
                         } else {
                             answers[r - 1] = null;
                         }
 
-                        // 3. DESENHAR FEEDBACK VISUAL NO CANVAS RECORTADO
-                        ctx.lineWidth = Math.max(1.5, roiW / 120);
+                        // 3. DESENHAR FEEDBACK VISUAL
+                        ctx.lineWidth = Math.max(1, roiW / 150);
                         for(let i=1; i<6; i++) {
                             let isMarked = answers[r-1] === (i-1);
                             let pt = cellCenters[i];
                             ctx.beginPath();
-                            ctx.arc(pt.x, pt.y, cellH * 0.30, 0, 2 * Math.PI); // Círculo de feedback
-                            ctx.strokeStyle = isMarked ? '#10b981' : 'rgba(255, 255, 255, 0.3)';
+                            ctx.arc(pt.x, pt.y, cellH * 0.25, 0, 2 * Math.PI);
+                            ctx.strokeStyle = isMarked ? '#10b981' : 'rgba(255, 255, 255, 0.4)';
                             ctx.stroke();
                             if (isMarked) {
                                 ctx.fillStyle = 'rgba(16, 185, 129, 0.4)';
@@ -3236,17 +3253,30 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         }
                     }
                     
-                    // Salva a imagem final processada e limpa
-                    const debugImage = canvas.toDataURL('image/jpeg', 0.8);
-
+                    let avgPaperDarkness = globalPaperDarknessSum / cellCount;
+                    let markerContrast = avgMarkerDarkness - avgPaperDarkness;
                     let avgQColumnIntensity = qColumnIntensitySum / omrQuestionsCount.value;
-                    // Alinhado se os números da coluna Q estão visíveis e não há excesso de lixo visual
-                    let isAligned = (avgQColumnIntensity > 10) && (totalMarksDetected <= omrQuestionsCount.value * 1.5);
                     
-                    // LÓGICA DA BARRA DE PROGRESSO VISUAL
+                    // TRAVA MÁXIMA DE SEGURANÇA: Só aceita se houver os marcadores fiduciários com alto contraste (> 25)
+                    let isAligned = (markerContrast > 25) && (avgQColumnIntensity > 8) && (totalMarksDetected <= omrQuestionsCount.value * 1.5);
+                    
+                    // A barra de progresso visual é agora controlada primariamente pelo foco nos Marcadores
                     let frameQuality = 0;
                     if (totalMarksDetected > omrQuestionsCount.value * 1.5) frameQuality = 10; 
-                    else frameQuality = Math.min(100, Math.round((avgQColumnIntensity / 10) * 100)); 
+                    else frameQuality = Math.min(100, Math.max(0, Math.round((markerContrast / 25) * 100))); 
+
+                    // 4. CORTE FINAL DO ESPELHO (Incluindo os Marcadores para Auditoria Perfeita)
+                    const cropCanvas = document.createElement('canvas');
+                    const expandTop = mSize + (mGapY * 2);
+                    const expandBottom = mSize + (mGapY * 2);
+                    cropCanvas.width = roiW;
+                    cropCanvas.height = roiH + expandTop + expandBottom;
+                    const cropCtx = cropCanvas.getContext('2d');
+                    cropCtx.drawImage(canvas,
+                        roiX, roiY - expandTop, roiW, cropCanvas.height,
+                        0, 0, cropCanvas.width, cropCanvas.height
+                    );
+                    const debugImage = cropCanvas.toDataURL('image/jpeg', 0.8);
 
                     if (isManual || isAligned) {
                         if (!isManual) {
