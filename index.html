@@ -1317,7 +1317,9 @@
                 <!-- OVERLAY INTELIGENTE PARA ENQUADRAMENTO (Proporções Matemáticas Exatas do PDF) -->
                 <div class="absolute inset-0 pointer-events-none flex items-center justify-center p-6">
                     <div id="omr-overlay-box" class="border-[3px] border-emerald-500 bg-emerald-500/10 relative shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] w-full max-w-sm flex flex-col mx-auto transition-all" :style="{ aspectRatio: 175 / (21 * (omrQuestionsCount + 1)) }">
-                        <div class="absolute -top-8 left-0 right-0 text-center text-emerald-400 font-bold text-xs bg-black/70 py-1 rounded-lg backdrop-blur-sm shadow-lg">Alinhe a tabela de respostas AQUI</div>
+                        <div class="absolute -top-12 left-0 right-0 text-center text-emerald-400 font-bold text-xs bg-black/70 py-2 rounded-lg backdrop-blur-sm shadow-lg flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-expand animate-pulse"></i> Alinhe a tabela ou aguarde o apito...
+                        </div>
                         
                         <!-- Linhas da Grelha Auxiliares -->
                         <div class="flex-1 flex flex-col w-full h-full">
@@ -1581,6 +1583,7 @@
                 const omrVersion = ref(0);
                 const omrQuestionsCount = ref(10);
                 let omrStream = null;
+                let omrAutoCaptureInterval = null;
 
                 // --- LIFECYCLE & HELPERS ---
                 window.addEventListener('beforeinstallprompt', e => { 
@@ -3037,6 +3040,22 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const saveFixedKey=async()=>{let uEx=JSON.parse(JSON.stringify(fixKeyExam.value)), vi=fixKeySelectedVersion.value; uEx.versions[vi].questions.forEach((q,i)=>q.correctIndex=fixKeyQuestions.value[i].newCorrectIndex); await db.exams.put(uEx); exams.value=await db.exams.orderBy('id').reverse().toArray(); let rs=results.value.filter(r=>r.examId===uEx.id&&r.version===vi); for(let r of rs) await saveExamResult(uEx.id,r.studentId,r.studentName,r.version,r.answers); showFixKeyModal.value=false; showToast(`Gabarito V${vi+1} salvo! ${rs.length} notas recalculadas.`,"success");};
 
                 // --- MOTOR OMR (LEITURA ÓTICA DE GABARITO) ---
+                const playBeep = () => {
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(880, ctx.currentTime); // Tom Agudo (A5)
+                        gain.gain.setValueAtTime(0.1, ctx.currentTime); // Volume Suave
+                        osc.start();
+                        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.15); // Fade out rápido
+                        osc.stop(ctx.currentTime + 0.15);
+                    } catch(e) {}
+                };
+
                 const startOMRPhase = async (exam, student, version) => {
                     omrExam.value = exam;
                     omrStudent.value = student;
@@ -3050,6 +3069,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         const video = document.getElementById('omr-video');
                         video.srcObject = omrStream;
                         video.play();
+
+                        // Inicia a tentativa de Auto-Captura a cada 800ms
+                        omrAutoCaptureInterval = setInterval(() => {
+                            if (showOMRScanner.value && video.videoWidth > 0) {
+                                performOMRScan(false);
+                            }
+                        }, 800);
+                        
                     } catch (err) {
                         showToast("Erro ao abrir a câmara para correção do gabarito.", "error");
                         showOMRScanner.value = false;
@@ -3057,6 +3084,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const stopOMRScan = () => {
+                    if (omrAutoCaptureInterval) {
+                        clearInterval(omrAutoCaptureInterval);
+                        omrAutoCaptureInterval = null;
+                    }
                     if (omrStream) {
                         omrStream.getTracks().forEach(track => track.stop());
                         omrStream = null;
@@ -3064,8 +3095,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     showOMRScanner.value = false;
                 };
 
-                const captureAndProcessOMR = async () => {
-                    showToast("Analisando preenchimento...", "loading");
+                const performOMRScan = async (isManual = false) => {
+                    if (!showOMRScanner.value) return; // Evita duplicação se o intervalo correr logo após a captura manual
+                    
                     const video = document.getElementById('omr-video');
                     const canvas = document.getElementById('omr-canvas');
                     const ctx = canvas.getContext('2d');
@@ -3074,7 +3106,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     canvas.height = video.videoHeight;
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                    // Pega as coordenadas reais do overlay na tela para mapear no canvas do vídeo original
                     const videoRect = video.getBoundingClientRect();
                     const overlay = document.getElementById('omr-overlay-box');
                     const overlayRect = overlay.getBoundingClientRect();
@@ -3082,102 +3113,112 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     const scaleX = canvas.width / videoRect.width;
                     const scaleY = canvas.height / videoRect.height;
 
-                    // Região de Interesse (Onde o professor enquadrou a tabela)
                     const roiX = (overlayRect.left - videoRect.left) * scaleX;
                     const roiY = (overlayRect.top - videoRect.top) * scaleY;
                     const roiW = overlayRect.width * scaleX;
                     const roiH = overlayRect.height * scaleY;
 
-                    const rows = omrQuestionsCount.value + 1; // +1 devido ao Cabeçalho (Q, A, B, C...)
-                    
-                    // As larguras exatas das colunas no PDFMaker (25 para a coluna Q, 30 para A, B, C, D e E)
+                    const rows = omrQuestionsCount.value + 1;
                     const pdfColWidths = [25, 30, 30, 30, 30, 30]; 
                     const totalPdfW = 175;
                     const cellH = roiH / rows;
 
                     let answers = {};
-                    const debugImage = canvas.toDataURL('image/jpeg', 0.5); // Salva para o professor auditar depois
+                    const debugImage = canvas.toDataURL('image/jpeg', 0.6);
+                    let qColumnIntensitySum = 0; // Ajuda a detetar se o enquadramento está a ler os números corretamente
 
-                    // Processamento píxel a píxel das bolhas
                     for (let r = 1; r < rows; r++) { 
-                        let darkestCol = -1;
-                        let rowBrightnesses = [];
+                        let rowMarks = [];
 
-                        for (let c = 1; c < 6; c++) { // Percorre apenas as opções A até E (índices 1 a 5)
-                            // Calcula a posição X exata baseada nas proporções do PDF impresso
+                        for (let c = 0; c < 6; c++) { 
                             let startRatio = 0;
                             for (let k = 0; k < c; k++) startRatio += pdfColWidths[k];
                             startRatio /= totalPdfW;
                             
                             let colRatio = pdfColWidths[c] / totalPdfW;
-                            
                             let colStartX = roiX + (roiW * startRatio);
                             let currentCellW = roiW * colRatio;
 
-                            // Aumenta a área de captura para 60% (pega marcações descentralizadas e bolhas maiores)
-                            const sampleX = colStartX + (currentCellW * 0.2);
-                            const sampleY = roiY + r * cellH + (cellH * 0.2);
-                            const sampleW = currentCellW * 0.6;
-                            const sampleH = cellH * 0.6;
+                            // Aumenta a área de visão para 80% da célula (Resolve problemas de inclinação)
+                            const sampleX = colStartX + (currentCellW * 0.1);
+                            const sampleY = roiY + r * cellH + (cellH * 0.1);
+                            const sampleW = currentCellW * 0.8;
+                            const sampleH = cellH * 0.8;
 
                             const imgData = ctx.getImageData(sampleX, sampleY, sampleW, sampleH);
                             const data = imgData.data;
                             
-                            let sumDarkness = 0;
+                            let pixelDarkness = [];
                             for (let i = 0; i < data.length; i += 4) {
-                                // Calcula a diferença para o "Branco" absoluto
-                                // Detecta tinta preta, lápis, e cores brilhantes (ex: verde digital, azul claro)
-                                const distFromWhite = ((255 - data[i]) + (255 - data[i+1]) + (255 - data[i+2])) / 3;
-                                sumDarkness += distFromWhite;
+                                // Converte para nível de escuridão puro (Luma invertido)
+                                const luma = data[i]*0.299 + data[i+1]*0.587 + data[i+2]*0.114;
+                                pixelDarkness.push(255 - luma); 
                             }
+                            // Ordena os píxeis do mais escuro para o mais claro
+                            pixelDarkness.sort((a, b) => b - a);
+
+                            // Pega a média dos 10% mais escuros (A marcação real do aluno)
+                            let t10 = Math.max(1, Math.floor(pixelDarkness.length * 0.10));
+                            let sumD = 0; for(let i=0; i<t10; i++) sumD += pixelDarkness[i];
+                            let darkestAvg = sumD / t10;
+
+                            // Pega a média dos 30% mais claros (A cor do papel de fundo daquela célula específica)
+                            let b30 = Math.max(1, Math.floor(pixelDarkness.length * 0.30));
+                            let sumL = 0; for(let i=pixelDarkness.length-b30; i<pixelDarkness.length; i++) sumL += pixelDarkness[i];
+                            let lightestAvg = sumL / b30;
+
+                            // A "Intensidade" é a tinta calculada ignorando totalmente as sombras e a cor do papel!
+                            let markIntensity = darkestAvg - lightestAvg;
                             
-                            // "Darkness" médio da célula (0 = papel branco, >0 = marcado com cor/tinta)
-                            const avgDarkness = sumDarkness / (data.length / 4);
-                            rowBrightnesses.push(avgDarkness);
-                        }
-                        
-                        // Encontra a célula mais clara da linha (que representa a cor real do papel)
-                        const paperDarkness = Math.min(...rowBrightnesses);
-                        
-                        let marks = [];
-                        for (let i = 0; i < 5; i++) {
-                            // Calcula o pico de saturação da bolha em relação ao fundo do papel
-                            const darknessPeak = rowBrightnesses[i] - paperDarkness;
-                            
-                            // Se a diferença for considerável (ignora sujeiras e os tracinhos " - ")
-                            if (darknessPeak > 20) {
-                                marks.push({ col: i, peak: darknessPeak });
-                            }
-                        }
-                        
-                        if (marks.length > 0) {
-                            // Ordena das marcações mais fortes para as mais fracas
-                            marks.sort((a, b) => b.peak - a.peak);
-                            
-                            if (marks.length === 1) {
-                                darkestCol = marks[0].col;
+                            if (c === 0) {
+                                // Acumula o contraste da coluna das numerações (1, 2, 3...)
+                                qColumnIntensitySum += markIntensity;
                             } else {
-                                // Múltiplas marcas. Se a principal for muito mais forte que a segunda, assume a principal.
-                                // Se forem parecidas (diferença < 15), é uma rasura e a questão é anulada.
-                                if (marks[0].peak - marks[1].peak > 15) {
-                                    darkestCol = marks[0].col;
-                                } else {
-                                    darkestCol = null; // Rasura real
+                                // Limite de 20 é altamente sensível, ideal para lápis e cores fracas
+                                if (markIntensity > 20) {
+                                    rowMarks.push({ col: c - 1, intensity: markIntensity });
                                 }
                             }
                         }
                         
-                        answers[r - 1] = darkestCol !== -1 ? darkestCol : null;
+                        if (rowMarks.length > 0) {
+                            rowMarks.sort((a, b) => b.intensity - a.intensity);
+                            
+                            if (rowMarks.length === 1) {
+                                answers[r - 1] = rowMarks[0].col;
+                            } else {
+                                // Se a mais forte tem pelo menos 15 pontos de vantagem sobre a segunda, considera.
+                                // Se as duas forem muito parecidas, anula por ser rasura.
+                                if (rowMarks[0].intensity - rowMarks[1].intensity > 15) {
+                                    answers[r - 1] = rowMarks[0].col;
+                                } else {
+                                    answers[r - 1] = null; // Rasura detetada
+                                }
+                            }
+                        } else {
+                            answers[r - 1] = null;
+                        }
                     }
 
-                    stopOMRScan();
+                    // A magia do Auto-Enquadramento: Se ele está a ler os números impressos da Coluna Q com clareza, está alinhado!
+                    let avgQColumnIntensity = qColumnIntensitySum / omrQuestionsCount.value;
                     
-                    // Salva com needsReview = true para que o professor confira o espelho da IA vs Papel
-                    const resultId = await saveExamResult(omrExam.value.id, omrStudent.value.id, omrStudent.value.name, omrVersion.value, answers, debugImage, true, false, false);
-                    
-                    const savedRes = results.value.find(r => r.id === resultId);
-                    openResultDetails(savedRes);
-                    showToast("Correção concluída. Verifique o espelho visual.", "success");
+                    if (isManual || avgQColumnIntensity > 15) {
+                        if (!isManual) playBeep();
+                        
+                        stopOMRScan();
+                        if (isManual) showToast("A processar captura...", "loading");
+                        
+                        const resultId = await saveExamResult(omrExam.value.id, omrStudent.value.id, omrStudent.value.name, omrVersion.value, answers, debugImage, true, false, false);
+                        const savedRes = results.value.find(r => r.id === resultId);
+                        
+                        openResultDetails(savedRes);
+                        if (isManual) showToast("Gabarito manual processado.", "success");
+                    }
+                };
+
+                const captureAndProcessOMR = () => {
+                    performOMRScan(true); // Força a captura ignorando o alinhamento perfeito
                 };
 
                 // --- QR SCANNER ---
