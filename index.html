@@ -162,6 +162,11 @@
                             <i class="fa-solid fa-triangle-exclamation"></i> Aviso: Você não tem horário cadastrado nesta turma para este dia e aula.
                         </div>
 
+                        <!-- BOTAO SCANNER DE FALTAS -->
+                        <button @click="startLiveQRScan('attendance')" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl font-bold shadow-sm transition border border-red-200 mb-3 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-qrcode text-lg"></i> Registrar Faltas via Mapa de Sala (QR)
+                        </button>
+
                         <!-- NOVA BARRA DE PESQUISA DE ALUNOS NA CHAMADA -->
                         <div class="flex gap-2 bg-white p-2.5 rounded-xl border shadow-sm items-center focus-within:border-indigo-500 transition-colors">
                             <i class="fa-solid fa-search text-gray-400 ml-1"></i>
@@ -1290,7 +1295,7 @@
                 <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20">
                     <div class="w-64 h-64 border-2 border-dashed border-emerald-500 rounded-3xl animate-pulse"></div>
                 </div>
-                <p class="text-white font-bold text-center mt-6 px-4 z-20">Aponte para o QR Code impresso no topo da prova</p>
+                <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : 'Aponte para o QR Code impresso no topo da prova' }}</p>
             </div>
         </div>
     </div>
@@ -1767,11 +1772,22 @@
                             let std = getStudent(sId);
                             
                             if (std) {
-                                let photoNode = std.photo ? { image: std.photo, width: 35, height: 35, margin: [0, 2] } : { canvas: [{ type: 'rect', x: 0, y: 0, w: 35, h: 35, color: '#e5e7eb' }], margin: [0, 2] };
+                                let qrData = JSON.stringify({ s: std.id, action: 'attendance' });
+                                let qSize = cols > 5 ? 26 : 32; // Ajusta o tamanho se houver muitas colunas
+                                let photoNode = std.photo ? { image: std.photo, width: qSize, height: qSize, alignment: 'center' } : { canvas: [{ type: 'rect', x: 0, y: 0, w: qSize, h: qSize, color: '#e5e7eb' }], alignment: 'center' };
+                                
                                 rowData.push({
                                     stack: [
-                                        photoNode,
-                                        { text: std.name.split(' ')[0], fontSize: 9, bold: true, alignment: 'center' }
+                                        {
+                                            columns: [
+                                                photoNode,
+                                                { qr: qrData, fit: qSize, alignment: 'center' }
+                                            ],
+                                            columnGap: 4,
+                                            alignment: 'center',
+                                            margin: [0, 0, 0, 4]
+                                        },
+                                        { text: std.name, fontSize: 7, bold: true, alignment: 'center', leadingIndent: 0, lineHeight: 1.1 }
                                     ],
                                     margin: [2, 5],
                                     alignment: 'center'
@@ -1784,7 +1800,7 @@
                     }
 
                     const doc = {
-                        pageOrientation: cols > 6 ? 'landscape' : 'portrait',
+                        pageOrientation: cols > 5 ? 'landscape' : 'portrait',
                         content: [
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: title, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
@@ -2965,17 +2981,30 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         html5QrCode = new Html5Qrcode("live-qr-reader");
                         html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 250 } },
                             (decodedText) => {
-                                html5QrCode.stop().then(() => {
-                                    showLiveQRScanner.value = false;
-                                    try {
-                                        let qd = JSON.parse(decodedText);
+                                try {
+                                    let qd = JSON.parse(decodedText);
+                                    
+                                    // --- MODO: FALTAS CONTÍNUAS (MAPA DE SALA) ---
+                                    if (qrScanMode.value === 'attendance' || qd.action === 'attendance') {
+                                        let std = students.value.find(s => s.id === Number(qd.s));
+                                        if (std) {
+                                            if (attendanceMap.value[std.id] !== 'F') {
+                                                attendanceMap.value[std.id] = 'F';
+                                                showToast(`Falta registrada: ${std.name.split(' ')[0]}`, "error");
+                                            }
+                                        }
+                                        return; // Retorna sem parar o scanner para permitir leitura em cadeia
+                                    }
+
+                                    // --- MODO PADRÃO DE CORREÇÃO (Para o Scanner) ---
+                                    html5QrCode.stop().then(() => {
+                                        showLiveQRScanner.value = false;
                                         let exm = exams.value.find(e => e.id === Number(qd.e));
                                         let std = students.value.find(s => s.id === Number(qd.s));
                                         
                                         if(!exm || !std) throw new Error("Prova ou Aluno não encontrados no dispositivo.");
                                         
                                         if (qrScanMode.value === 'view') {
-                                            // Modo Consulta
                                             let res = results.value.find(r => r.examId === exm.id && r.studentId === std.id);
                                             if (res) {
                                                 showToast(`Nota encontrada: ${std.name}`, "success");
@@ -2984,14 +3013,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                                 showToast(`Ainda não há nota lançada para ${std.name} nesta prova.`, "warning");
                                             }
                                         } else if (qrScanMode.value === 'direct') {
-                                            // Modo Lançar Só Nota (Filtra pelo Aluno do QR)
                                             directConfig.value.examId = exm.id;
                                             loadExistingDirectGrades();
                                             directSearchQuery.value = std.name;
                                             showDirectGradeModal.value = true;
                                             showToast(`Aluno localizado: ${std.name}`, "success");
                                         } else {
-                                            // Modo Correção
                                             activeExam.value = exm;
                                             activeStudent.value = std;
                                             activeVersion.value = Number(qd.v) || 0;
@@ -2999,10 +3026,16 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                             correctionMode.value = true;
                                             showToast(`Identificado: ${std.name}`, "success");
                                         }
-                                    } catch(err) {
-                                        showToast(err.message || "QR Code inválido ou não reconhecido.", "error");
+                                    }).catch(()=>{});
+                                } catch(err) {
+                                    // Ignora erros de JSON no modo contínuo para não travar o scanner ao ver algo que não é QR
+                                    if (qrScanMode.value !== 'attendance') {
+                                        html5QrCode.stop().then(() => {
+                                            showLiveQRScanner.value = false;
+                                            showToast("QR Code inválido ou não reconhecido.", "error");
+                                        });
                                     }
-                                }).catch(()=>{});
+                                }
                             },
                             (errorMessage) => {}
                         ).catch(err => { showToast("Erro ao aceder à câmara.", "error"); showLiveQRScanner.value = false; });
