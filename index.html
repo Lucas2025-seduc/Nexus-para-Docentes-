@@ -3330,7 +3330,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         return;
                     }
 
-                    showToast("Lendo bolhas via OMR...", "loading");
+                    showToast("Analisando grelha e lendo bolhas...", "loading");
 
                     const video = document.getElementById('cv-video');
                     const canvas = document.createElement('canvas');
@@ -3339,7 +3339,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                    // Dimensões exatas da janela guia verde na UI (85% Width, 60% Height)
+                    // Dimensões da janela guia verde
                     const boxWidth = canvas.width * 0.85;
                     const boxHeight = canvas.height * 0.60;
                     const startX = (canvas.width - boxWidth) / 2;
@@ -3348,61 +3348,92 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     try {
                         let src = cv.imread(canvas);
                         let rect = new cv.Rect(startX, startY, boxWidth, boxHeight);
-                        let cropped = src.roi(rect);
+                        let roi = src.roi(rect);
 
-                        // Threshold Adaptativo Invertido (Bolhas pintadas com tinta preta tornam-se grandes manchas brancas)
-                        cv.cvtColor(cropped, cropped, cv.COLOR_RGBA2GRAY);
-                        cv.adaptiveThreshold(cropped, cropped, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 6);
+                        // 1. Deteção Automática do Tamanho Real da Tabela (Ignora espaços em branco)
+                        let gray = new cv.Mat();
+                        cv.cvtColor(roi, gray, cv.COLOR_RGBA2GRAY);
+                        
+                        let thresh = new cv.Mat();
+                        cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 6);
+
+                        let kernel = cv.Mat.ones(5, 5, cv.CV_8U);
+                        let dilated = new cv.Mat();
+                        cv.dilate(thresh, dilated, kernel);
+
+                        let contours = new cv.MatVector();
+                        let hierarchy = new cv.Mat();
+                        cv.findContours(dilated, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                        let maxArea = 0;
+                        let tableRect = null;
+                        for (let i = 0; i < contours.size(); ++i) {
+                            let cnt = contours.get(i);
+                            let brect = cv.boundingRect(cnt);
+                            let area = brect.width * brect.height;
+                            if (area > maxArea && area > (boxWidth * boxHeight * 0.1)) {
+                                maxArea = area;
+                                tableRect = brect;
+                            }
+                        }
+
+                        // Se não encontrar a tabela clara, usa a caixa verde inteira como fallback
+                        if (!tableRect) tableRect = new cv.Rect(0, 0, boxWidth, boxHeight);
+
+                        // 2. Extração e Fatiamento (Slicing) com as medidas reais
+                        let tableImg = thresh.roi(tableRect); // Imagem binarizada exata da tabela
 
                         const vIdx = cvContext.value.version;
                         const vQuestions = getVersionQuestions(cvContext.value.exam, vIdx);
-                        const rows = vQuestions.length + 1; // +1 para a linha de cabeçalho 'Q, A, B, C, D, E'
-                        const cellH = boxHeight / rows;
+                        const rows = vQuestions.length + 1; // +1 para a linha de cabeçalho
+                        const cellH = tableRect.height / rows;
 
-                        // Proporções exatas geradas no PDFMake (25, 30, 30, 30, 30, 30 de um total de 175pts)
                         const colWidths = [0.142, 0.1714, 0.1714, 0.1714, 0.1714, 0.1714];
                         let cellXs = [], cellWs = [], currentX = 0;
-                        for(let c=0; c<6; c++){
-                            cellWs.push(boxWidth * colWidths[c]);
+                        for(let c = 0; c < 6; c++){
+                            cellWs.push(tableRect.width * colWidths[c]);
                             cellXs.push(currentX);
                             currentX += cellWs[c];
                         }
 
                         let parsedAnswers = {};
+                        
+                        // Desenhar feedback visual para o utilizador (espelho)
                         let debugCanvas = document.createElement('canvas');
-                        cv.imshow(debugCanvas, cropped);
+                        let debugVisual = roi.roi(tableRect); // Versão colorida apenas da tabela
+                        cv.imshow(debugCanvas, debugVisual);
                         let debugImgData = debugCanvas.toDataURL('image/jpeg', 0.5);
 
-                        for (let r = 1; r < rows; r++) { // Inicia na linha 1 ignorando o cabeçalho (linha 0)
+                        // 3. Avaliação da Densidade das Bolhas
+                        for (let r = 1; r < rows; r++) { 
                             let bestOpt = null;
                             let maxDensity = 0;
                             let cellY = r * cellH;
 
-                            for (let c = 1; c < 6; c++) { // Inicia na col 1 ignorando números (col 0)
+                            for (let c = 1; c < 6; c++) {
                                 let cX = cellXs[c];
                                 let cW = cellWs[c];
 
-                                // Extraímos o 'Miolo' da célula (ignorando os 30% das bordas) 
-                                // Isso impede a leitura da letra "A", "B" impressa ou das bordas da tabela
+                                // Miolo da célula (ignora as bordas em 30% de cada lado)
                                 let innerX = cX + (cW * 0.30);
                                 let innerY = cellY + (cellH * 0.30);
                                 let innerW = cW * 0.40;
                                 let innerH = cellH * 0.40;
 
                                 let cellRect = new cv.Rect(innerX, innerY, innerW, innerH);
-                                let cellRoi = cropped.roi(cellRect);
+                                let cellRoi = tableImg.roi(cellRect);
                                 
                                 let nonZero = cv.countNonZero(cellRoi);
                                 let density = nonZero / (innerW * innerH);
 
                                 if (density > maxDensity) {
                                     maxDensity = density;
-                                    bestOpt = c - 1; // Onde 0=A, 1=B...
+                                    bestOpt = c - 1; 
                                 }
                                 cellRoi.delete();
                             }
 
-                            // Se a densidade > 20%, o aluno marcou com esferográfica forte. Caso contrário, em branco.
+                            // Limiar de 20% de densidade de pixels pretos
                             if (maxDensity > 0.20) {
                                 parsedAnswers[r - 1] = bestOpt;
                             } else {
@@ -3410,26 +3441,28 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             }
                         }
 
-                        src.delete();
-                        cropped.delete();
+                        // Limpeza de memória do OpenCV
+                        src.delete(); roi.delete(); gray.delete(); thresh.delete(); 
+                        kernel.delete(); dilated.delete(); contours.delete(); hierarchy.delete();
+                        tableImg.delete(); debugVisual.delete();
+
                         stopOpenCVCamera();
 
                         const needsReview = Object.values(parsedAnswers).includes(null);
-                        // Guarda o resultado gerado 100% offline
                         const rId = await saveExamResult(cvContext.value.exam.id, cvContext.value.student.id, cvContext.value.student.name, cvContext.value.version, parsedAnswers, debugImgData, needsReview, false, false);
                         
                         let finalScore = results.value.find(res => res.id === rId).score;
-                        showToast(`Nota OMR: ${finalScore}. Leitura OMR concluída!`, "success");
+                        showToast(`Nota OMR: ${finalScore}. Correção concluída!`, "success");
                         
                         setTimeout(() => {
                             openResultDetails(results.value.find(res => res.id === rId));
-                            if (needsReview) showToast("Revise as questões rasuradas no espelho visual.", "warning");
+                            if (needsReview) showToast("Atenção: Verifique as questões rasuradas ou em branco.", "warning");
                         }, 500);
 
                     } catch (err) {
                         console.error(err);
                         stopOpenCVCamera();
-                        showToast("Erro no OpenCV. Tente alinhar as bordas do cartão com as bordas do guia verde.", "error");
+                        showToast("Erro na leitura. Tente aproximar mais e focar a grelha.", "error");
                     }
                 };
 
