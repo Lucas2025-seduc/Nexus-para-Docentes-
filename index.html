@@ -162,10 +162,15 @@
                             <i class="fa-solid fa-triangle-exclamation"></i> Aviso: Você não tem horário cadastrado nesta turma para este dia e aula.
                         </div>
 
-                        <!-- BOTAO SCANNER DE FALTAS -->
-                        <button @click="startLiveQRScan('attendance')" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl font-bold shadow-sm transition border border-red-200 mb-3 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-qrcode text-lg"></i> Registrar Faltas via Mapa de Sala (QR)
-                        </button>
+                        <!-- BOTOES DE AÇÃO -->
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <button @click="startLiveQRScan('attendance')" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl font-bold shadow-sm transition border border-red-200 flex items-center justify-center gap-2 text-xs">
+                                <i class="fa-solid fa-qrcode text-base"></i> Falta via QR
+                            </button>
+                            <button @click="openAttendancePrintModal" class="w-full py-3 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-xl font-bold shadow-sm transition border border-blue-200 flex items-center justify-center gap-2 text-xs">
+                                <i class="fa-solid fa-print text-base"></i> Imprimir Lista
+                            </button>
+                        </div>
 
                         <!-- NOVA BARRA DE PESQUISA DE ALUNOS NA CHAMADA -->
                         <div class="flex gap-2 bg-white p-2.5 rounded-xl border shadow-sm items-center focus-within:border-indigo-500 transition-colors">
@@ -622,6 +627,53 @@
 
         <!-- MODAIS SECUNDÁRIOS -->
         
+        <!-- MODAL IMPRESSÃO DE FREQUÊNCIA -->
+        <div v-if="showAttendancePrintModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm animate-fade-in flex flex-col border border-gray-100">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="font-bold text-lg text-gray-800"><i class="fa-solid fa-print text-blue-600 mr-2"></i> Imprimir Lista</h3>
+                    <button @click="showAttendancePrintModal=false" class="text-gray-400 hover:text-red-500 transition w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Tipo de Lista</label>
+                        <select v-model="attPrintConfig.type" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                            <option value="daily">Dia Específico (Com Assinatura)</option>
+                            <option value="monthly">Mensal (Grelha de Dias)</option>
+                        </select>
+                    </div>
+
+                    <div v-if="attPrintConfig.type === 'daily'" class="animate-fade-in">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Data Base</label>
+                        <input type="date" v-model="attPrintConfig.date" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                    </div>
+
+                    <div v-if="attPrintConfig.type === 'monthly'" class="grid grid-cols-2 gap-3 animate-fade-in">
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Mês</label>
+                            <select v-model="attPrintConfig.month" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                                <option v-for="(m, i) in ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']" :value="i">{{m}}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Ano</label>
+                            <input type="number" v-model="attPrintConfig.year" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                        </div>
+                    </div>
+
+                    <label class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors mt-2">
+                        <input type="checkbox" v-model="attPrintConfig.withPhoto" class="w-5 h-5 accent-blue-600 rounded">
+                        <span class="text-xs font-bold text-gray-700">Incluir fotos dos alunos</span>
+                    </label>
+
+                    <button @click="printAttendanceSheet" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 mt-4">
+                        <i class="fa-solid fa-file-pdf"></i> Gerar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- GERADOR IA -->
         <div v-if="showAIGenModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4">
             <div class="bg-white rounded-2xl w-full max-w-sm flex flex-col max-h-[90vh]">
@@ -1385,6 +1437,15 @@
                 const attendanceMap = ref({});
                 const schedulesList = ref([]);
                 const newSchedule = ref({ day: 'Segunda', period: '1ª Aula' });
+                
+                const showAttendancePrintModal = ref(false);
+                const attPrintConfig = ref({
+                    type: 'monthly',
+                    date: new Date().toISOString().split('T')[0],
+                    month: new Date().getMonth(),
+                    year: new Date().getFullYear(),
+                    withPhoto: false
+                });
 
                 // Assistente Virtual IA
                 const showAssistant = ref(false);
@@ -1919,6 +1980,128 @@
                         await db.settings.put(JSON.parse(JSON.stringify({...settings.value, id:'config', geminiKey: geminiKey.value, printConfig: printConfig.value})));
                         if(!silent) showToast('Configurações salvas!', 'success');
                     } catch(e){}
+                };
+
+                const openAttendancePrintModal = () => {
+                    if(!diaryClassId.value) return showToast('Selecione uma turma no Diário primeiro.', 'warning');
+                    showAttendancePrintModal.value = true;
+                };
+
+                const printAttendanceSheet = () => {
+                    if(!diaryClassId.value) return;
+                    const cName = getClassName(diaryClassId.value);
+                    let stds = students.value.filter(s => s.classId === diaryClassId.value).sort((a,b) => a.name.localeCompare(b.name));
+                    
+                    if(stds.length === 0) return showToast('Esta turma não tem alunos registrados.', 'warning');
+
+                    showToast("Processando documento PDF...", "loading");
+                    
+                    let doc = {
+                        pageOrientation: attPrintConfig.value.type === 'monthly' ? 'landscape' : 'portrait',
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' }
+                        ],
+                        defaultStyle: { font: 'Roboto' },
+                        pageMargins: attPrintConfig.value.type === 'monthly' ? [20, 30, 20, 30] : [40, 40, 40, 40]
+                    };
+
+                    if (attPrintConfig.value.type === 'daily') {
+                        const dateObj = new Date(attPrintConfig.value.date + "T12:00:00");
+                        const dateStr = dateObj.toLocaleDateString('pt-BR');
+                        doc.content.push({ text: `LISTA DE FREQUÊNCIA - ${cName}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 2] });
+                        doc.content.push({ text: `Data da Aula: ${dateStr}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' });
+
+                        let tableBody = [];
+                        let headers = [{text:'Nº', bold:true, alignment:'center', fillColor:'#f3f4f6', margin:[0, 4]}];
+                        if(attPrintConfig.value.withPhoto) headers.push({text:'Foto', bold:true, alignment:'center', fillColor:'#f3f4f6', margin:[0, 4]});
+                        headers.push({text:'Nome do Aluno', bold:true, fillColor:'#f3f4f6', margin:[0, 4]});
+                        headers.push({text:'Assinatura / Presença', bold:true, alignment:'center', fillColor:'#f3f4f6', margin:[0, 4]});
+                        tableBody.push(headers);
+
+                        stds.forEach((s, i) => {
+                            let marginY = attPrintConfig.value.withPhoto ? 10 : 6;
+                            let row = [{text: (i+1).toString(), alignment:'center', margin:[0, marginY]}];
+                            
+                            if(attPrintConfig.value.withPhoto) {
+                                row.push(s.photo ? { image: s.photo, width: 30, height: 30, alignment:'center' } : { text: 'S/F', fontSize: 8, alignment:'center', color: '#ccc', margin:[0, 10] });
+                            }
+                            
+                            row.push({text: s.name, fontSize: 10, bold: true, margin:[0, marginY]});
+                            row.push({text: '', margin:[0, marginY]}); // Espaço em branco para assinar
+                            tableBody.push(row);
+                        });
+
+                        let widths = ['auto'];
+                        if(attPrintConfig.value.withPhoto) widths.push(35);
+                        widths.push('*', 160); // 160 é um bom tamanho para assinatura
+
+                        doc.content.push({
+                            table: { headerRows: 1, widths: widths, body: tableBody },
+                            layout: {
+                                hLineWidth: function(i, node) { return (i === 0 || i === node.table.body.length) ? 1.5 : 1; },
+                                vLineWidth: function(i, node) { return (i === 0 || i === node.table.widths.length) ? 1.5 : 1; },
+                                hLineColor: function(i, node) { return '#d1d5db'; },
+                                vLineColor: function(i, node) { return '#d1d5db'; },
+                            }
+                        });
+
+                    } else {
+                        // Mensal
+                        const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+                        const mName = monthNames[attPrintConfig.value.month];
+                        const y = attPrintConfig.value.year;
+                        const daysInMonth = new Date(y, attPrintConfig.value.month + 1, 0).getDate();
+
+                        doc.content.push({ text: `DIÁRIO DE CLASSE / FREQUÊNCIA MENSAL - ${cName}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 2] });
+                        doc.content.push({ text: `Mês de Referência: ${mName} / ${y}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' });
+
+                        let tableBody = [];
+                        let headers = [{text:'Nº', bold:true, alignment:'center', fillColor:'#f3f4f6', fontSize:8, margin:[0, 3]}];
+                        if(attPrintConfig.value.withPhoto) headers.push({text:'Foto', bold:true, alignment:'center', fillColor:'#f3f4f6', fontSize:8, margin:[0, 3]});
+                        headers.push({text:'Nome do Aluno', bold:true, fillColor:'#f3f4f6', fontSize:9, margin:[0, 3]});
+                        
+                        let widths = ['auto'];
+                        if(attPrintConfig.value.withPhoto) widths.push(25);
+                        widths.push('*');
+
+                        for(let d=1; d<=daysInMonth; d++) {
+                            headers.push({text: d.toString(), bold:true, alignment:'center', fillColor:'#f3f4f6', fontSize:7, margin:[0, 4]});
+                            widths.push(11); // Coluna estreita para os dias
+                        }
+                        tableBody.push(headers);
+
+                        stds.forEach((s, i) => {
+                            let marginY = attPrintConfig.value.withPhoto ? 6 : 2;
+                            let row = [{text: (i+1).toString(), alignment:'center', fontSize:8, margin:[0, marginY]}];
+                            
+                            if(attPrintConfig.value.withPhoto) {
+                                row.push(s.photo ? { image: s.photo, width: 20, height: 20, alignment:'center' } : { text: '-', fontSize: 6, alignment:'center', color: '#ccc', margin:[0, 8] });
+                            }
+                            
+                            row.push({text: s.name, fontSize: 8, bold:true, margin:[0, marginY]});
+                            
+                            for(let d=1; d<=daysInMonth; d++) {
+                                row.push({text: '', margin:[0, marginY]}); // Quadrado para o P ou F
+                            }
+                            tableBody.push(row);
+                        });
+
+                        doc.content.push({
+                            table: { headerRows: 1, widths: widths, body: tableBody },
+                            layout: {
+                                hLineWidth: function(i, node) { return 0.5; },
+                                vLineWidth: function(i, node) { return 0.5; },
+                                hLineColor: function(i, node) { return '#9ca3af'; },
+                                vLineColor: function(i, node) { return '#9ca3af'; },
+                                paddingLeft: function(i, node) { return 1; },
+                                paddingRight: function(i, node) { return 1; },
+                            }
+                        });
+                    }
+
+                    const fileName = `Frequencia_${cName}_${attPrintConfig.value.type==='daily'?attPrintConfig.value.date:attPrintConfig.value.month+'_'+attPrintConfig.value.year}.pdf`;
+                    downloadPDF(pdfMake.createPdf(doc), fileName, 'download');
+                    showAttendancePrintModal.value = false;
                 };
 
                 const deleteAllGrades = () => {
@@ -3932,6 +4115,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     showLiveQRScanner, qrScanMode, startLiveQRScan, stopLiveQRScan, showFullScreenImage,
                     fullScreenImageUrl, viewFullScreen,
                     
+                    // Frequência Impressão
+                    showAttendancePrintModal, attPrintConfig, openAttendancePrintModal, printAttendanceSheet,
+
                     // External Exam
                     showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades,
                     openExternalExamForm, goToExternalGrades, saveExternalExam,
