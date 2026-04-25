@@ -15,6 +15,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -477,6 +478,9 @@
                             <i class="fa-solid fa-pen-to-square text-lg"></i> Lançar Só Nota
                         </button>
                     </div>
+                    <button @click="startOpenCVFlow" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 border border-indigo-700 text-sm" title="Reconhecimento Ótico Local de alta precisão">
+                        <i class="fa-solid fa-camera-retro text-lg"></i> Corrigir via OpenCV (Rápido/Local)
+                    </button>
                     <button @click="openExternalExamForm" class="w-full mt-3 bg-blue-50 hover:bg-blue-100 text-blue-600 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-blue-200 text-sm">
                         <i class="fa-solid fa-file-pen text-lg"></i> Nova Prova Externa (Apenas Notas)
                     </button>
@@ -1353,6 +1357,33 @@
                 <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : 'Aponte para o QR Code impresso no topo da prova' }}</p>
             </div>
         </div>
+
+        <!-- MODAL OPENCV CAMERA -->
+        <div v-show="showCvCamera" class="fixed inset-0 z-[500] flex flex-col bg-black animate-fade-in">
+            <div class="p-4 flex justify-between bg-gray-900 text-white z-10 shadow-md">
+                <div>
+                    <h3 class="font-bold"><i class="fa-solid fa-camera"></i> Escanear Gabarito OMR</h3>
+                    <p class="text-[10px] text-gray-300">{{cvContext?.student?.name}} - Tipo {{ (cvContext?.version || 0) + 1 }}</p>
+                </div>
+                <button @click="stopOpenCVCamera" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="flex-1 relative flex flex-col items-center justify-center bg-black overflow-hidden">
+                <video id="cv-video" autoplay playsinline class="absolute inset-0 w-full h-full object-cover opacity-60"></video>
+                <!-- Guias de Alinhamento Matemático para Slicing -->
+                <div class="relative z-20 border-2 border-emerald-400 bg-emerald-400/10 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.8)] pointer-events-none flex items-center justify-center" style="width: 85%; height: 60%;">
+                    <div class="absolute -top-8 left-0 right-0 text-center text-emerald-400 text-xs font-bold bg-black/70 py-1 rounded">Enquadre APENAS a grelha de respostas aqui dentro</div>
+                    <div class="w-full border-t border-dashed border-emerald-400/30 absolute" style="top: 15%"></div>
+                    <div class="h-full border-l border-dashed border-emerald-400/30 absolute" style="left: 14%"></div>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-900 z-10 pb-12 flex justify-center relative">
+                <p class="absolute top-2 left-0 right-0 text-center text-[10px] font-bold text-gray-500">Mantenha a câmara firme e clique no botão verde</p>
+                <button @click="captureAndProcessOMR" class="w-20 h-20 mt-4 bg-white rounded-full border-4 border-gray-400 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] active:scale-95 transition-transform">
+                    <div class="w-16 h-16 bg-emerald-500 rounded-full"></div>
+                </button>
+            </div>
+        </div>
+
     </div>
 
     <!-- SCRIPT -->
@@ -1592,6 +1623,10 @@
                 const showLiveQRScanner = ref(false);
                 const qrScanMode = ref('correction');
                 let html5QrCode = null;
+
+                // OpenCV OMR State
+                const showCvCamera = ref(false);
+                const cvContext = ref(null);
 
                 // --- LIFECYCLE & HELPERS ---
                 window.addEventListener('beforeinstallprompt', e => { 
@@ -3192,6 +3227,21 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         return; // Retorna sem parar o scanner para permitir leitura em cadeia
                                     }
 
+                                    // --- MODO OPENCV (Lê QR e invoca Câmara OpenCV) ---
+                                    if (qrScanMode.value === 'opencv_init') {
+                                        html5QrCode.stop().then(() => {
+                                            showLiveQRScanner.value = false;
+                                            let exm = exams.value.find(e => e.id === Number(qd.e));
+                                            let std = students.value.find(s => s.id === Number(qd.s));
+                                            if(!exm || !std) return showToast("Prova ou Aluno não encontrados no dispositivo.", "error");
+                                            
+                                            cvContext.value = { exam: exm, student: std, version: Number(qd.v) || 0 };
+                                            showToast(`Aluno: ${std.name.split(' ')[0]}. Enquadre o gabarito.`, "success");
+                                            startOpenCVCamera();
+                                        }).catch(()=>{});
+                                        return;
+                                    }
+
                                     // --- MODO PADRÃO DE CORREÇÃO (Para o Scanner) ---
                                     html5QrCode.stop().then(() => {
                                         showLiveQRScanner.value = false;
@@ -3246,6 +3296,140 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         });
                     } else {
                         showLiveQRScanner.value = false;
+                    }
+                };
+
+                // --- PROCESSAMENTO LOCAL OPENCV OMR ---
+                const startOpenCVFlow = () => {
+                    startLiveQRScan('opencv_init');
+                };
+
+                const startOpenCVCamera = async () => {
+                    showCvCamera.value = true;
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+                        const video = document.getElementById('cv-video');
+                        video.srcObject = stream;
+                    } catch (err) {
+                        showToast("Erro ao aceder à câmara.", "error");
+                        showCvCamera.value = false;
+                    }
+                };
+
+                const stopOpenCVCamera = () => {
+                    showCvCamera.value = false;
+                    const video = document.getElementById('cv-video');
+                    if (video && video.srcObject) {
+                        video.srcObject.getTracks().forEach(track => track.stop());
+                    }
+                };
+
+                const captureAndProcessOMR = async () => {
+                    if (typeof cv === 'undefined' || !cv.Mat) {
+                        showToast("O motor da Biblioteca OpenCV ainda está a carregar. Tente em 3 segundos.", "warning");
+                        return;
+                    }
+
+                    showToast("Lendo bolhas via OMR...", "loading");
+
+                    const video = document.getElementById('cv-video');
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // Dimensões exatas da janela guia verde na UI (85% Width, 60% Height)
+                    const boxWidth = canvas.width * 0.85;
+                    const boxHeight = canvas.height * 0.60;
+                    const startX = (canvas.width - boxWidth) / 2;
+                    const startY = (canvas.height - boxHeight) / 2;
+
+                    try {
+                        let src = cv.imread(canvas);
+                        let rect = new cv.Rect(startX, startY, boxWidth, boxHeight);
+                        let cropped = src.roi(rect);
+
+                        // Threshold Adaptativo Invertido (Bolhas pintadas com tinta preta tornam-se grandes manchas brancas)
+                        cv.cvtColor(cropped, cropped, cv.COLOR_RGBA2GRAY);
+                        cv.adaptiveThreshold(cropped, cropped, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 6);
+
+                        const vIdx = cvContext.value.version;
+                        const vQuestions = getVersionQuestions(cvContext.value.exam, vIdx);
+                        const rows = vQuestions.length + 1; // +1 para a linha de cabeçalho 'Q, A, B, C, D, E'
+                        const cellH = boxHeight / rows;
+
+                        // Proporções exatas geradas no PDFMake (25, 30, 30, 30, 30, 30 de um total de 175pts)
+                        const colWidths = [0.142, 0.1714, 0.1714, 0.1714, 0.1714, 0.1714];
+                        let cellXs = [], cellWs = [], currentX = 0;
+                        for(let c=0; c<6; c++){
+                            cellWs.push(boxWidth * colWidths[c]);
+                            cellXs.push(currentX);
+                            currentX += cellWs[c];
+                        }
+
+                        let parsedAnswers = {};
+                        let debugCanvas = document.createElement('canvas');
+                        cv.imshow(debugCanvas, cropped);
+                        let debugImgData = debugCanvas.toDataURL('image/jpeg', 0.5);
+
+                        for (let r = 1; r < rows; r++) { // Inicia na linha 1 ignorando o cabeçalho (linha 0)
+                            let bestOpt = null;
+                            let maxDensity = 0;
+                            let cellY = r * cellH;
+
+                            for (let c = 1; c < 6; c++) { // Inicia na col 1 ignorando números (col 0)
+                                let cX = cellXs[c];
+                                let cW = cellWs[c];
+
+                                // Extraímos o 'Miolo' da célula (ignorando os 30% das bordas) 
+                                // Isso impede a leitura da letra "A", "B" impressa ou das bordas da tabela
+                                let innerX = cX + (cW * 0.30);
+                                let innerY = cellY + (cellH * 0.30);
+                                let innerW = cW * 0.40;
+                                let innerH = cellH * 0.40;
+
+                                let cellRect = new cv.Rect(innerX, innerY, innerW, innerH);
+                                let cellRoi = cropped.roi(cellRect);
+                                
+                                let nonZero = cv.countNonZero(cellRoi);
+                                let density = nonZero / (innerW * innerH);
+
+                                if (density > maxDensity) {
+                                    maxDensity = density;
+                                    bestOpt = c - 1; // Onde 0=A, 1=B...
+                                }
+                                cellRoi.delete();
+                            }
+
+                            // Se a densidade > 20%, o aluno marcou com esferográfica forte. Caso contrário, em branco.
+                            if (maxDensity > 0.20) {
+                                parsedAnswers[r - 1] = bestOpt;
+                            } else {
+                                parsedAnswers[r - 1] = null;
+                            }
+                        }
+
+                        src.delete();
+                        cropped.delete();
+                        stopOpenCVCamera();
+
+                        const needsReview = Object.values(parsedAnswers).includes(null);
+                        // Guarda o resultado gerado 100% offline
+                        const rId = await saveExamResult(cvContext.value.exam.id, cvContext.value.student.id, cvContext.value.student.name, cvContext.value.version, parsedAnswers, debugImgData, needsReview, false, false);
+                        
+                        let finalScore = results.value.find(res => res.id === rId).score;
+                        showToast(`Nota OMR: ${finalScore}. Leitura OMR concluída!`, "success");
+                        
+                        setTimeout(() => {
+                            openResultDetails(results.value.find(res => res.id === rId));
+                            if (needsReview) showToast("Revise as questões rasuradas no espelho visual.", "warning");
+                        }, 500);
+
+                    } catch (err) {
+                        console.error(err);
+                        stopOpenCVCamera();
+                        showToast("Erro no OpenCV. Tente alinhar as bordas do cartão com as bordas do guia verde.", "error");
                     }
                 };
 
@@ -4115,6 +4299,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     showLiveQRScanner, qrScanMode, startLiveQRScan, stopLiveQRScan, showFullScreenImage,
                     fullScreenImageUrl, viewFullScreen,
                     
+                    // OpenCV OMR
+                    showCvCamera, cvContext, startOpenCVFlow, stopOpenCVCamera, captureAndProcessOMR,
+
                     // Frequência Impressão
                     showAttendancePrintModal, attPrintConfig, openAttendancePrintModal, printAttendanceSheet,
 
