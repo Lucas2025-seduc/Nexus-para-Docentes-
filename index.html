@@ -4589,16 +4589,16 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const buildAnswerGrid = (v, isMirror = false) => {
                     let gridBody = [];
                     gridBody.push([
-                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f3f4f6' }
+                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 2] },
+                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 2] },
+                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 2] },
+                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 2] },
+                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 2] },
+                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 2] }
                     ]);
 
                     v.questions.forEach((q, qIdx) => {
-                        let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 5, 0, 0] }];
+                        let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, color: '#0f172a', margin: [0, 5, 0, 0] }];
                         let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
                         
                         for (let i = 0; i < 5; i++) {
@@ -4637,9 +4637,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         width: 'auto',
                         table: { headerRows: 1, widths: [25, 30, 30, 30, 30, 30], body: gridBody },
                         layout: {
-                            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
-                            vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 2 : 1,
-                            hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
+                            // Bordas extremas e do topo grossas (3px) para detecção de Canny, as restantes finas (1px)
+                            hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 3 : 1,
+                            vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 3 : 1,
+                            // Cor preta opaca (#020617) para bordas externas, cinza (#94a3b8) para internas
+                            hLineColor: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? '#020617' : '#94a3b8',
+                            vLineColor: (i, node) => (i === 0 || i === node.table.widths.length) ? '#020617' : '#94a3b8',
                             paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 3
                         }
                     };
@@ -4807,27 +4810,32 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     let qrDataString = JSON.stringify({e: ex.id, s: std.id, v: vIdx});
                     
                     content.push({
-                        columns: [
-                            { width: '*', text: '' }, // Espaçador esquerdo
+                        unbreakable: true, // Força a não quebrar de página a meio deste bloco
+                        stack: [
                             {
-                                width: 'auto',
-                                stack: [
-                                    { text: 'IDENTIFICAÇÃO (NÃO RISQUE)', fontSize: isEco ? 7 : 8, bold: true, alignment: 'center', margin: [0, 0, 0, 8], color: '#6b7280' },
-                                    { qr: qrDataString, fit: isEco ? 65 : 85, alignment: 'center' }
+                                columns: [
+                                    { width: '*', text: '' }, // Espaçador esquerdo
+                                    {
+                                        width: 'auto',
+                                        stack: [
+                                            { text: 'IDENTIFICAÇÃO (NÃO RISQUE)', fontSize: isEco ? 7 : 8, bold: true, alignment: 'center', margin: [0, 0, 0, 8], color: '#6b7280' },
+                                            { qr: qrDataString, fit: isEco ? 65 : 85, alignment: 'center' }
+                                        ],
+                                        margin: [0, 15, 20, 0] // Margem direita para afastar 20px da grelha
+                                    },
+                                    {
+                                        width: 'auto',
+                                        stack: [
+                                            { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 10 : 11, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
+                                            buildAnswerGrid(v, false)
+                                        ]
+                                    },
+                                    { width: '*', text: '' } // Espaçador direito
                                 ],
-                                margin: [0, 15, 20, 0] // Margem direita para afastar 20px da grelha
-                            },
-                            {
-                                width: 'auto',
-                                stack: [
-                                    { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 10 : 11, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
-                                    buildAnswerGrid(v, false)
-                                ]
-                            },
-                            { width: '*', text: '' } // Espaçador direito
+                                alignment: 'center'
+                            }
                         ],
-                        margin: [0, 15, 0, 10],
-                        alignment: 'center'
+                        margin: [0, 15, 0, 10]
                     });
                     
                     return content;
@@ -5008,13 +5016,18 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 // Função para gerar o bloco visual do "Espelho Vazado"
                 const buildEspelhoBlock = (v, vIdx) => {
                     return [
-                        { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
-                        { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
                         {
-                            columns: [
-                                { width: '*', text: '' },
-                                buildAnswerGrid(v, true),
-                                { width: '*', text: '' }
+                            unbreakable: true, // Garante que o espelho fica sempre junto
+                            stack: [
+                                { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
+                                { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
+                                {
+                                    columns: [
+                                        { width: '*', text: '' },
+                                        buildAnswerGrid(v, true),
+                                        { width: '*', text: '' }
+                                    ]
+                                }
                             ]
                         }
                     ];
