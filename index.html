@@ -1376,11 +1376,20 @@
                     <div class="h-full border-l border-dashed border-emerald-400/30 absolute" style="left: 14%"></div>
                 </div>
             </div>
-            <div class="p-6 bg-gray-900 z-10 pb-12 flex justify-center relative">
-                <p class="absolute top-2 left-0 right-0 text-center text-[10px] font-bold text-gray-500">Mantenha a câmara firme e clique no botão verde</p>
-                <button @click="captureAndProcessOMR" class="w-20 h-20 mt-4 bg-white rounded-full border-4 border-gray-400 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] active:scale-95 transition-transform">
+            <div class="p-6 bg-gray-900 z-10 pb-12 flex justify-center relative items-center gap-6">
+                <p class="absolute top-2 left-0 right-0 text-center text-[10px] font-bold text-gray-500">Mantenha a câmara firme ou envie uma foto</p>
+                
+                <!-- BOTÃO DE UPLOAD -->
+                <label class="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center text-white shadow hover:bg-gray-700 cursor-pointer mt-4 border border-gray-700 transition" title="Enviar Foto (Upload)">
+                    <i class="fa-solid fa-upload"></i>
+                    <input type="file" accept="image/*" class="hidden" @change="uploadAndProcessOMR">
+                </label>
+
+                <button @click="captureAndProcessOMR(null)" class="w-20 h-20 mt-4 bg-white rounded-full border-4 border-gray-400 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] active:scale-95 transition-transform">
                     <div class="w-16 h-16 bg-emerald-500 rounded-full"></div>
                 </button>
+                
+                <div class="w-12 h-12 mt-4"></div> <!-- Espaçador para simetria visual -->
             </div>
         </div>
 
@@ -3324,32 +3333,76 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     }
                 };
 
-                const captureAndProcessOMR = async () => {
+                const uploadAndProcessOMR = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    showToast("Processando imagem...", "loading");
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            captureAndProcessOMR(img);
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                    
+                    event.target.value = ''; // Reset do input
+                };
+
+                const captureAndProcessOMR = async (uploadedImg = null) => {
+                    // Evita que o evento de clique do rato seja interpretado como uma imagem
+                    if (uploadedImg instanceof Event) uploadedImg = null;
+
                     if (typeof cv === 'undefined' || !cv.Mat) {
                         showToast("O motor da Biblioteca OpenCV ainda está a carregar. Tente em 3 segundos.", "warning");
                         return;
                     }
 
-                    showToast("Lendo bolhas via OMR Ultra...", "loading");
+                    showToast(uploadedImg ? "Lendo gabarito enviado..." : "Lendo bolhas via OMR Ultra...", "loading");
 
-                    const video = document.getElementById('cv-video');
                     const canvas = document.createElement('canvas');
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    let boxWidth, boxHeight, startX, startY;
 
-                    // A câmera exibe uma caixa verde (85% x 60%) para ajudar o professor a focar.
-                    // Vamos focar o OpenCV apenas nessa região para acelerar e evitar sujeira do cenário.
-                    const boxWidth = canvas.width * 0.85;
-                    const boxHeight = canvas.height * 0.60;
-                    const startX = (canvas.width - boxWidth) / 2;
-                    const startY = (canvas.height - boxHeight) / 2;
+                    // Se vier do botão Upload, usa toda a imagem e ignora a caixa verde
+                    if (uploadedImg && uploadedImg instanceof HTMLImageElement) {
+                        const MAX_DIM = 2500; // Limite de tamanho para evitar crash na memória do telemóvel
+                        let w = uploadedImg.width;
+                        let h = uploadedImg.height;
+                        if (w > MAX_DIM || h > MAX_DIM) {
+                            const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+                            w = Math.round(w * ratio);
+                            h = Math.round(h * ratio);
+                        }
+                        
+                        canvas.width = w;
+                        canvas.height = h;
+                        ctx.drawImage(uploadedImg, 0, 0, w, h);
+
+                        boxWidth = canvas.width;
+                        boxHeight = canvas.height;
+                        startX = 0;
+                        startY = 0;
+                    } else {
+                        const video = document.getElementById('cv-video');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                        boxWidth = canvas.width * 0.85;
+                        boxHeight = canvas.height * 0.60;
+                        startX = (canvas.width - boxWidth) / 2;
+                        startY = (canvas.height - boxHeight) / 2;
+                    }
 
                     try {
                         let srcFull = cv.imread(canvas);
                         let rect = new cv.Rect(startX, startY, boxWidth, boxHeight);
-                        let src = srcFull.roi(rect); // src agora é a área dentro da caixa verde
+                        let src = srcFull.roi(rect); // src agora é a área isolada
 
                         let gray = new cv.Mat();
                         let blurred = new cv.Mat();
@@ -3548,7 +3601,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     } catch (err) {
                         console.error(err);
                         stopOpenCVCamera();
-                        showToast("Erro na leitura OMR. Tente afastar um pouco e alinhar as bordas.", "error");
+                        showToast("Erro na leitura OMR. A imagem não continha uma grelha clara.", "error");
                     }
                 };
 
@@ -4423,7 +4476,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     fullScreenImageUrl, viewFullScreen,
                     
                     // OpenCV OMR
-                    showCvCamera, cvContext, startOpenCVFlow, stopOpenCVCamera, captureAndProcessOMR,
+                    showCvCamera, cvContext, startOpenCVFlow, stopOpenCVCamera, captureAndProcessOMR, uploadAndProcessOMR,
 
                     // Frequência Impressão
                     showAttendancePrintModal, attPrintConfig, openAttendancePrintModal, printAttendanceSheet,
