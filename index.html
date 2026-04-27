@@ -1335,7 +1335,7 @@
                         <option v-for="(v,i) in omrExamVersions" :key="i" :value="i">Tipo {{i+1}}</option>
                     </select>
 
-                    <div v-if="omrConfig.studentId && typeof cv !== 'undefined'" class="space-y-3 pt-2">
+                    <div v-if="omrConfig.studentId && isCvReady" class="space-y-3 pt-2">
                         <div class="relative flex py-2 items-center">
                             <div class="flex-grow border-t border-gray-200"></div>
                             <span class="flex-shrink-0 mx-4 text-gray-400 text-[10px] font-bold uppercase tracking-widest">2. Enviar Imagem</span>
@@ -1555,6 +1555,7 @@
                 const isTemporal = ref(false);
                 const toast = ref({show:false,message:'',type:'info'});
                 const confirmModal = ref({show:false,message:'',onConfirm:null});
+                const isCvReady = ref(false);
                 
                 // API
                 const geminiKey = ref('');
@@ -1962,7 +1963,7 @@
                 };
 
                 const testSimulatorOMR = () => {
-                    if (typeof cv === 'undefined' || !cv.Mat) return showToast("Aguarde o carregamento do OpenCV.", "warning");
+                    if (!isCvReady.value) return showToast("Aguarde o carregamento do OpenCV.", "warning");
                     if (simQuestions.value.length === 0) return;
 
                     simStatus.value = "Calculando...";
@@ -2177,7 +2178,7 @@
                 };
 
                 const handleOMRFile = (e) => {
-                    if (typeof cv === 'undefined' || !cv.Mat) return showToast("Aguarde, o OpenCV ainda está carregando...", "warning");
+                    if (!isCvReady.value) return showToast("Aguarde, o OpenCV ainda está carregando...", "warning");
                     const file = e.target.files[0];
                     
                     // Reset do input para permitir reenviar o mesmo ficheiro se necessário
@@ -4970,6 +4971,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 onMounted(() => {
                     initLicenseSystem();
                     load();
+                    
+                    // Verifica ativamente o carregamento assíncrono do OpenCV
+                    const cvInterval = setInterval(() => {
+                        if (typeof cv !== 'undefined' && cv.Mat) {
+                            isCvReady.value = true;
+                            clearInterval(cvInterval);
+                        }
+                    }, 500);
                 });
 
                 return {
@@ -4978,7 +4987,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal,
                     toast, confirmModal, geminiKey, qFilter, filterType, filterSubject, filterTopic,
                     examFilterSubject, examFilterTopic, examFilter, examTab, studentFilter, dashboardStudentFilter,
-                    examHistoryFilter, selectedHistoryExams, recentCorrectionsFilter,
+                    examHistoryFilter, selectedHistoryExams, recentCorrectionsFilter, isCvReady,
                     
                     // Diary
                     periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter,
