@@ -1974,182 +1974,204 @@
                 };
 
                 const processSimulatorOMR = (imageObj) => {
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = imageObj.width; tempCanvas.height = imageObj.height;
-                    const ctx = tempCanvas.getContext('2d'); ctx.drawImage(imageObj, 0, 0);
+                    let src, gray, blurred, edged, M_edge_dilate, contours, hierarchy, warped, warpedGray, thresh, M_kernel;
+                    try {
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = imageObj.width; tempCanvas.height = imageObj.height;
+                        const ctx = tempCanvas.getContext('2d'); ctx.drawImage(imageObj, 0, 0);
 
-                    let src = cv.imread(tempCanvas);
-                    let gray = new cv.Mat(); let blurred = new cv.Mat(); let edged = new cv.Mat();
+                        src = cv.imread(tempCanvas);
+                        gray = new cv.Mat(); blurred = new cv.Mat(); edged = new cv.Mat();
 
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                    cv.medianBlur(gray, gray, 3);
-                    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-                    cv.Canny(blurred, edged, 30, 150); 
-                    
-                    let M_edge_dilate = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-                    cv.dilate(edged, edged, M_edge_dilate);
-
-                    let contours = new cv.MatVector(); let hierarchy = new cv.Mat();
-                    cv.findContours(edged, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                    let tableContour = null; let maxArea = 0;
-
-                    for (let i = 0; i < contours.size(); ++i) {
-                        let cnt = contours.get(i);
-                        let area = cv.contourArea(cnt);
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                        cv.medianBlur(gray, gray, 3);
+                        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+                        cv.Canny(blurred, edged, 30, 150); 
                         
-                        if(area > (src.cols * src.rows * 0.05)) {
-                            let peri = cv.arcLength(cnt, true);
-                            let approx = new cv.Mat();
-                            let epsilon_multiplier = 0.02;
-                            let isQuad = false;
+                        M_edge_dilate = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+                        cv.dilate(edged, edged, M_edge_dilate);
+
+                        contours = new cv.MatVector(); hierarchy = new cv.Mat();
+                        cv.findContours(edged, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                        let tableContour = null; let maxArea = 0;
+
+                        for (let i = 0; i < contours.size(); ++i) {
+                            let cnt = contours.get(i);
+                            let area = cv.contourArea(cnt);
                             
-                            while (epsilon_multiplier <= 0.1) {
-                                cv.approxPolyDP(cnt, approx, epsilon_multiplier * peri, true);
-                                if (approx.rows === 4) { isQuad = true; break; }
-                                epsilon_multiplier += 0.01;
-                            }
+                            if(area > (src.cols * src.rows * 0.05)) {
+                                let peri = cv.arcLength(cnt, true);
+                                let approx = new cv.Mat();
+                                let epsilon_multiplier = 0.02;
+                                let isQuad = false;
+                                
+                                while (epsilon_multiplier <= 0.1) {
+                                    cv.approxPolyDP(cnt, approx, epsilon_multiplier * peri, true);
+                                    if (approx.rows === 4) { isQuad = true; break; }
+                                    epsilon_multiplier += 0.01;
+                                }
 
-                            if (isQuad && area > maxArea) {
-                                maxArea = area;
-                                if(tableContour) tableContour.delete();
-                                tableContour = approx.clone();
-                            }
-                            approx.delete();
-                        }
-                    }
-
-                    let warped = new cv.Mat();
-
-                    if (tableContour !== null) {
-                        let ptsArray = [];
-                        for (let i = 0; i < 4; i++) ptsArray.push({x: tableContour.data32S[i*2], y: tableContour.data32S[i*2+1]});
-                        
-                        ptsArray.sort((a,b) => a.y - b.y);
-                        let topPts = ptsArray.slice(0,2).sort((a,b) => a.x - b.x);
-                        let botPts = ptsArray.slice(2,4).sort((a,b) => a.x - b.x);
-                        let orderedPts = [topPts[0], topPts[1], botPts[1], botPts[0]];
-
-                        let widthA = Math.hypot(orderedPts[2].x - orderedPts[3].x, orderedPts[2].y - orderedPts[3].y);
-                        let widthB = Math.hypot(orderedPts[1].x - orderedPts[0].x, orderedPts[1].y - orderedPts[0].y);
-                        let maxWidth = Math.max(Math.floor(widthA), Math.floor(widthB));
-
-                        let heightA = Math.hypot(orderedPts[1].x - orderedPts[2].x, orderedPts[1].y - orderedPts[2].y);
-                        let heightB = Math.hypot(orderedPts[0].x - orderedPts[3].x, orderedPts[0].y - orderedPts[3].y);
-                        let maxHeight = Math.max(Math.floor(heightA), Math.floor(heightB));
-
-                        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [ orderedPts[0].x, orderedPts[0].y, orderedPts[1].x, orderedPts[1].y, orderedPts[2].x, orderedPts[2].y, orderedPts[3].x, orderedPts[3].y ]);
-                        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [ 0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1 ]);
-
-                        let M = cv.getPerspectiveTransform(srcTri, dstTri);
-                        let dsize = new cv.Size(maxWidth, maxHeight);
-                        cv.warpPerspective(src, warped, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-                        M.delete(); srcTri.delete(); dstTri.delete(); tableContour.delete();
-                    } else {
-                        src.copyTo(warped);
-                    }
-
-                    const numQuestions = simQuestions.value.length;
-                    const numCols = 6; 
-                    const numRows = numQuestions + 1; 
-
-                    const cellW = warped.cols / numCols;
-                    const cellH = warped.rows / numRows;
-
-                    let warpedGray = new cv.Mat(); let thresh = new cv.Mat();
-                    cv.cvtColor(warped, warpedGray, cv.COLOR_RGBA2GRAY, 0);
-                    cv.medianBlur(warpedGray, warpedGray, 3);
-                    cv.adaptiveThreshold(warpedGray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 17, 15);
-
-                    let M_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-                    cv.dilate(thresh, thresh, M_kernel);
-
-                    let resultsArr = [];
-                    let correctCount = 0;
-                    const letters = ['A', 'B', 'C', 'D', 'E'];
-
-                    for (let q = 1; q <= numQuestions; q++) { 
-                        let rowScores = [];
-                        let qData = simQuestions.value[q-1];
-                        let numOpts = qData.type === 'ce' ? 2 : 5;
-
-                        for (let opt = 1; opt <= numOpts; opt++) { 
-                            let x = Math.round(opt * cellW);
-                            let y = Math.round(q * cellH);
-                            
-                            let roiW = Math.round(cellW * 0.65); 
-                            let roiH = Math.round(cellH * 0.65);
-                            let roiX = Math.round(x + (cellW - roiW) / 2);
-                            let roiY = Math.round(y + (cellH - roiH) / 2);
-
-                            if(roiX < 0) roiX = 0; if(roiY < 0) roiY = 0;
-                            if(roiX + roiW > thresh.cols) roiW = thresh.cols - roiX;
-                            if(roiY + roiH > thresh.rows) roiH = thresh.rows - roiY;
-
-                            let rect = new cv.Rect(roiX, roiY, roiW, roiH);
-                            
-                            try {
-                                let roiThresh = thresh.roi(rect);
-                                let score = cv.countNonZero(roiThresh);
-                                rowScores.push({ index: opt - 1, score: score, rect: rect });
-                                roiThresh.delete();
-                            } catch(e) {
-                                rowScores.push({ index: opt - 1, score: 0, rect: rect });
+                                if (isQuad && area > maxArea) {
+                                    maxArea = area;
+                                    if(tableContour) tableContour.delete();
+                                    tableContour = approx.clone();
+                                }
+                                approx.delete();
                             }
                         }
 
-                        rowScores.sort((a, b) => b.score - a.score);
-                        let highest = rowScores[0] || {score:0, index:0, rect:new cv.Rect()};
-                        let secondHighest = rowScores[1] || {score: 0, rect:new cv.Rect()}; 
+                        warped = new cv.Mat();
 
-                        let finalAnswer = "Branco";
-                        let isInvalid = false;
-                        let roiArea = highest.rect ? (highest.rect.width * highest.rect.height) : 100;
-                        let threshold = roiArea * 0.10; 
+                        if (tableContour !== null) {
+                            let ptsArray = [];
+                            for (let i = 0; i < 4; i++) ptsArray.push({x: tableContour.data32S[i*2], y: tableContour.data32S[i*2+1]});
+                            
+                            ptsArray.sort((a,b) => a.y - b.y);
+                            let topPts = ptsArray.slice(0,2).sort((a,b) => a.x - b.x);
+                            let botPts = ptsArray.slice(2,4).sort((a,b) => a.x - b.x);
+                            let orderedPts = [topPts[0], topPts[1], botPts[1], botPts[0]];
 
-                        if (highest.score > threshold) {
-                            if (secondHighest.score > threshold && secondHighest.score > (highest.score * 0.55)) { 
-                                finalAnswer = "NULA";
-                                isInvalid = true;
-                                if(highest.rect) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [220,38,38,255], 4);
-                                if(secondHighest.rect) cv.circle(warped, new cv.Point(secondHighest.rect.x + secondHighest.rect.width/2, secondHighest.rect.y + secondHighest.rect.height/2), Math.min(secondHighest.rect.width, secondHighest.rect.height)/2, [220,38,38,255], 4);
+                            let widthA = Math.hypot(orderedPts[2].x - orderedPts[3].x, orderedPts[2].y - orderedPts[3].y);
+                            let widthB = Math.hypot(orderedPts[1].x - orderedPts[0].x, orderedPts[1].y - orderedPts[0].y);
+                            let maxWidth = Math.max(Math.floor(widthA), Math.floor(widthB));
+
+                            let heightA = Math.hypot(orderedPts[1].x - orderedPts[2].x, orderedPts[1].y - orderedPts[2].y);
+                            let heightB = Math.hypot(orderedPts[0].x - orderedPts[3].x, orderedPts[0].y - orderedPts[3].y);
+                            let maxHeight = Math.max(Math.floor(heightA), Math.floor(heightB));
+
+                            let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [ orderedPts[0].x, orderedPts[0].y, orderedPts[1].x, orderedPts[1].y, orderedPts[2].x, orderedPts[2].y, orderedPts[3].x, orderedPts[3].y ]);
+                            let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [ 0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1 ]);
+
+                            let M = cv.getPerspectiveTransform(srcTri, dstTri);
+                            let dsize = new cv.Size(maxWidth, maxHeight);
+                            cv.warpPerspective(src, warped, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+                            M.delete(); srcTri.delete(); dstTri.delete(); tableContour.delete();
+                        } else {
+                            src.copyTo(warped);
+                        }
+
+                        const numQuestions = simQuestions.value.length;
+                        const numCols = 6; 
+                        const numRows = numQuestions + 1; 
+
+                        const cellW = warped.cols / numCols;
+                        const cellH = warped.rows / numRows;
+
+                        warpedGray = new cv.Mat(); thresh = new cv.Mat();
+                        cv.cvtColor(warped, warpedGray, cv.COLOR_RGBA2GRAY, 0);
+                        cv.medianBlur(warpedGray, warpedGray, 3);
+                        cv.adaptiveThreshold(warpedGray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 17, 15);
+
+                        M_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+                        cv.dilate(thresh, thresh, M_kernel);
+
+                        let resultsArr = [];
+                        let correctCount = 0;
+                        const letters = ['A', 'B', 'C', 'D', 'E'];
+
+                        for (let q = 1; q <= numQuestions; q++) { 
+                            let rowScores = [];
+                            let qData = simQuestions.value[q-1];
+                            let numOpts = qData.type === 'ce' ? 2 : 5;
+
+                            for (let opt = 1; opt <= numOpts; opt++) { 
+                                let x = Math.round(opt * cellW);
+                                let y = Math.round(q * cellH);
+                                
+                                let roiW = Math.round(cellW * 0.65); 
+                                let roiH = Math.round(cellH * 0.65);
+                                let roiX = Math.round(x + (cellW - roiW) / 2);
+                                let roiY = Math.round(y + (cellH - roiH) / 2);
+
+                                if(roiX < 0) roiX = 0; if(roiY < 0) roiY = 0;
+                                if(roiX + roiW > thresh.cols) roiW = thresh.cols - roiX;
+                                if(roiY + roiH > thresh.rows) roiH = thresh.rows - roiY;
+
+                                if (roiW <= 0 || roiH <= 0) {
+                                    rowScores.push({ index: opt - 1, score: 0, rect: new cv.Rect(roiX, roiY, 0, 0) });
+                                    continue;
+                                }
+
+                                let rect = new cv.Rect(roiX, roiY, roiW, roiH);
+                                
+                                try {
+                                    let roiThresh = thresh.roi(rect);
+                                    let score = cv.countNonZero(roiThresh);
+                                    rowScores.push({ index: opt - 1, score: score, rect: rect });
+                                    roiThresh.delete();
+                                } catch(e) {
+                                    rowScores.push({ index: opt - 1, score: 0, rect: rect });
+                                }
+                            }
+
+                            rowScores.sort((a, b) => b.score - a.score);
+                            let highest = rowScores[0] || {score:0, index:0, rect:new cv.Rect(0,0,0,0)};
+                            let secondHighest = rowScores[1] || {score: 0, rect:new cv.Rect(0,0,0,0)}; 
+
+                            let finalAnswer = "Branco";
+                            let isInvalid = false;
+                            let roiArea = highest.rect && highest.rect.width > 0 ? (highest.rect.width * highest.rect.height) : 100;
+                            let threshold = roiArea * 0.10; 
+
+                            if (highest.score > threshold) {
+                                if (secondHighest.score > threshold && secondHighest.score > (highest.score * 0.55)) { 
+                                    finalAnswer = "NULA";
+                                    isInvalid = true;
+                                    if(highest.rect && highest.rect.width > 0) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [220,38,38,255], 4);
+                                    if(secondHighest.rect && secondHighest.rect.width > 0) cv.circle(warped, new cv.Point(secondHighest.rect.x + secondHighest.rect.width/2, secondHighest.rect.y + secondHighest.rect.height/2), Math.min(secondHighest.rect.width, secondHighest.rect.height)/2, [220,38,38,255], 4);
+                                } else {
+                                    finalAnswer = letters[highest.index];
+                                    if(highest.rect && highest.rect.width > 0) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [16,185,129,255], 4);
+                                }
                             } else {
-                                finalAnswer = letters[highest.index];
-                                if(highest.rect) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [16,185,129,255], 4);
+                                isInvalid = true;
                             }
-                        } else {
-                            isInvalid = true;
+
+                            let expectedArr = simAnswers.value[q-1] || [];
+                            let expectedAnswer = "Branco";
+                            if (expectedArr.length === 1) expectedAnswer = letters[expectedArr[0].idx];
+                            if (expectedArr.length > 1) expectedAnswer = "NULA";
+
+                            let hasError = false;
+                            if (finalAnswer === expectedAnswer) {
+                                correctCount++;
+                            } else {
+                                hasError = true;
+                            }
+
+                            resultsArr.push({ 
+                                question: q, 
+                                answer: finalAnswer, 
+                                expected: expectedAnswer,
+                                isInvalid: isInvalid,
+                                hasError: hasError
+                            });
                         }
 
-                        let expectedArr = simAnswers.value[q-1] || [];
-                        let expectedAnswer = "Branco";
-                        if (expectedArr.length === 1) expectedAnswer = letters[expectedArr[0].idx];
-                        if (expectedArr.length > 1) expectedAnswer = "NULA";
+                        cv.imshow('simOutputCanvas', warped);
+                        
+                        simResults.value = resultsArr;
+                        simAccuracy.value = ((correctCount / numQuestions) * 100).toFixed(1);
+                        simStatus.value = '';
 
-                        let hasError = false;
-                        if (finalAnswer === expectedAnswer) {
-                            correctCount++;
-                        } else {
-                            hasError = true;
-                        }
-
-                        resultsArr.push({ 
-                            question: q, 
-                            answer: finalAnswer, 
-                            expected: expectedAnswer,
-                            isInvalid: isInvalid,
-                            hasError: hasError
-                        });
+                    } catch(error) {
+                        console.error("OpenCV Simulator Error:", error);
+                        simStatus.value = '';
+                        showToast("Falha ao simular OMR. Tabela distorcida demais.", "error");
+                    } finally {
+                        if (src) src.delete();
+                        if (gray) gray.delete();
+                        if (blurred) blurred.delete();
+                        if (edged) edged.delete();
+                        if (contours) contours.delete();
+                        if (hierarchy) hierarchy.delete();
+                        if (warped) warped.delete();
+                        if (warpedGray) warpedGray.delete();
+                        if (thresh) thresh.delete();
+                        if (M_kernel) M_kernel.delete();
+                        if (M_edge_dilate) M_edge_dilate.delete();
                     }
-
-                    cv.imshow('simOutputCanvas', warped);
-                    
-                    simResults.value = resultsArr;
-                    simAccuracy.value = ((correctCount / numQuestions) * 100).toFixed(1);
-                    simStatus.value = '';
-
-                    src.delete(); gray.delete(); blurred.delete(); edged.delete(); contours.delete(); hierarchy.delete();
-                    warped.delete(); warpedGray.delete(); thresh.delete(); M_kernel.delete(); M_edge_dilate.delete();
                 };
 
                 // OMR Integration
@@ -2204,13 +2226,7 @@
                         const img = new Image();
                         img.onload = () => {
                             setTimeout(() => {
-                                try {
-                                    executeOpenCVLogic(img, numCols, numRows, questionsArr);
-                                } catch(err) {
-                                    console.error(err);
-                                    omrStatus.value = "";
-                                    showToast("Falha ao ler a imagem. Tente uma foto mais nítida e enquadrada.", "error");
-                                }
+                                executeOpenCVLogic(img, numCols, numRows, questionsArr);
                             }, 50);
                         };
                         img.src = event.target.result;
@@ -2219,194 +2235,217 @@
                 };
 
                 const executeOpenCVLogic = async (imageObj, numCols, numRows, questionsArr) => {
-                    const tempCanvas = document.createElement('canvas');
-                    const MAX_DIM = 1200;
-                    let scale = 1;
-                    if (imageObj.width > MAX_DIM || imageObj.height > MAX_DIM) {
-                        scale = Math.min(MAX_DIM / imageObj.width, MAX_DIM / imageObj.height);
-                    }
-                    tempCanvas.width = imageObj.width * scale;
-                    tempCanvas.height = imageObj.height * scale;
-                    const ctx = tempCanvas.getContext('2d');
-                    ctx.drawImage(imageObj, 0, 0, tempCanvas.width, tempCanvas.height);
+                    let src, gray, blurred, edged, M_edge_dilate, contours, hierarchy, warped, warpedGray, thresh, M_kernel;
+                    
+                    try {
+                        const tempCanvas = document.createElement('canvas');
+                        const MAX_DIM = 1200;
+                        let scale = 1;
+                        if (imageObj.width > MAX_DIM || imageObj.height > MAX_DIM) {
+                            scale = Math.min(MAX_DIM / imageObj.width, MAX_DIM / imageObj.height);
+                        }
+                        tempCanvas.width = imageObj.width * scale;
+                        tempCanvas.height = imageObj.height * scale;
+                        const ctx = tempCanvas.getContext('2d');
+                        ctx.drawImage(imageObj, 0, 0, tempCanvas.width, tempCanvas.height);
 
-                    let src = cv.imread(tempCanvas);
-                    let gray = new cv.Mat();
-                    let blurred = new cv.Mat();
-                    let edged = new cv.Mat();
+                        src = cv.imread(tempCanvas);
+                        gray = new cv.Mat();
+                        blurred = new cv.Mat();
+                        edged = new cv.Mat();
 
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                    cv.medianBlur(gray, gray, 3);
-                    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-                    cv.Canny(blurred, edged, 30, 150);
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                        cv.medianBlur(gray, gray, 3);
+                        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+                        cv.Canny(blurred, edged, 30, 150);
 
-                    let M_edge_dilate = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-                    cv.dilate(edged, edged, M_edge_dilate);
+                        M_edge_dilate = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+                        cv.dilate(edged, edged, M_edge_dilate);
 
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(edged, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                        contours = new cv.MatVector();
+                        hierarchy = new cv.Mat();
+                        cv.findContours(edged, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                    let tableContour = null;
-                    let maxArea = 0;
+                        let tableContour = null;
+                        let maxArea = 0;
 
-                    for (let i = 0; i < contours.size(); ++i) {
-                        let cnt = contours.get(i);
-                        let area = cv.contourArea(cnt);
-                        if(area > (src.cols * src.rows * 0.05)) {
-                            let peri = cv.arcLength(cnt, true);
-                            let approx = new cv.Mat();
-                            let epsilon_multiplier = 0.02;
-                            let isQuad = false;
+                        for (let i = 0; i < contours.size(); ++i) {
+                            let cnt = contours.get(i);
+                            let area = cv.contourArea(cnt);
+                            if(area > (src.cols * src.rows * 0.05)) {
+                                let peri = cv.arcLength(cnt, true);
+                                let approx = new cv.Mat();
+                                let epsilon_multiplier = 0.02;
+                                let isQuad = false;
 
-                            while (epsilon_multiplier <= 0.1) {
-                                cv.approxPolyDP(cnt, approx, epsilon_multiplier * peri, true);
-                                if (approx.rows === 4) { isQuad = true; break; }
-                                epsilon_multiplier += 0.01;
+                                while (epsilon_multiplier <= 0.1) {
+                                    cv.approxPolyDP(cnt, approx, epsilon_multiplier * peri, true);
+                                    if (approx.rows === 4) { isQuad = true; break; }
+                                    epsilon_multiplier += 0.01;
+                                }
+
+                                if (isQuad && area > maxArea) {
+                                    maxArea = area;
+                                    if(tableContour) tableContour.delete();
+                                    tableContour = approx.clone();
+                                }
+                                approx.delete();
+                            }
+                        }
+
+                        warped = new cv.Mat();
+                        if (tableContour !== null) {
+                            let ptsArray = [];
+                            for (let i = 0; i < 4; i++) {
+                                ptsArray.push({x: tableContour.data32S[i*2], y: tableContour.data32S[i*2+1]});
+                            }
+                            ptsArray.sort((a,b) => a.y - b.y);
+                            let topPts = ptsArray.slice(0,2).sort((a,b) => a.x - b.x);
+                            let botPts = ptsArray.slice(2,4).sort((a,b) => a.x - b.x);
+                            let orderedPts = [topPts[0], topPts[1], botPts[1], botPts[0]];
+
+                            let widthA = Math.hypot(orderedPts[2].x - orderedPts[3].x, orderedPts[2].y - orderedPts[3].y);
+                            let widthB = Math.hypot(orderedPts[1].x - orderedPts[0].x, orderedPts[1].y - orderedPts[0].y);
+                            let maxWidth = Math.max(Math.floor(widthA), Math.floor(widthB));
+
+                            let heightA = Math.hypot(orderedPts[1].x - orderedPts[2].x, orderedPts[1].y - orderedPts[2].y);
+                            let heightB = Math.hypot(orderedPts[0].x - orderedPts[3].x, orderedPts[0].y - orderedPts[3].y);
+                            let maxHeight = Math.max(Math.floor(heightA), Math.floor(heightB));
+
+                            let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                                orderedPts[0].x, orderedPts[0].y, orderedPts[1].x, orderedPts[1].y,
+                                orderedPts[2].x, orderedPts[2].y, orderedPts[3].x, orderedPts[3].y
+                            ]);
+                            let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                                0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1
+                            ]);
+
+                            let M = cv.getPerspectiveTransform(srcTri, dstTri);
+                            let dsize = new cv.Size(maxWidth, maxHeight);
+                            cv.warpPerspective(src, warped, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+                            M.delete(); srcTri.delete(); dstTri.delete(); tableContour.delete();
+                        } else {
+                            console.warn("Distorção impediu alinhamento perfeito.");
+                            src.copyTo(warped);
+                        }
+
+                        const cellW = warped.cols / numCols;
+                        const cellH = warped.rows / numRows;
+
+                        warpedGray = new cv.Mat();
+                        thresh = new cv.Mat();
+                        cv.cvtColor(warped, warpedGray, cv.COLOR_RGBA2GRAY, 0);
+                        cv.medianBlur(warpedGray, warpedGray, 3);
+                        cv.adaptiveThreshold(warpedGray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 17, 15);
+
+                        M_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+                        cv.dilate(thresh, thresh, M_kernel);
+
+                        let finalAnswers = {}; 
+
+                        for (let q = 1; q <= numQuestions; q++) {
+                            let rowScores = [];
+                            let qType = questionsArr[q-1].type;
+                            let numOpts = (qType === 'ce') ? 2 : 5;
+
+                            for (let opt = 1; opt <= numOpts; opt++) {
+                                let x = Math.round(opt * cellW); 
+                                let y = Math.round(q * cellH);
+                                
+                                let roiW = Math.round(cellW * 0.65);
+                                let roiH = Math.round(cellH * 0.65);
+                                let roiX = Math.round(x + (cellW - roiW) / 2);
+                                let roiY = Math.round(y + (cellH - roiH) / 2);
+
+                                if(roiX < 0) roiX = 0; if(roiY < 0) roiY = 0;
+                                if(roiX + roiW > thresh.cols) roiW = thresh.cols - roiX;
+                                if(roiY + roiH > thresh.rows) roiH = thresh.rows - roiY;
+
+                                if (roiW <= 0 || roiH <= 0) {
+                                    rowScores.push({ index: opt - 1, score: 0, rect: new cv.Rect(roiX, roiY, 0, 0) });
+                                    continue;
+                                }
+
+                                let rect = new cv.Rect(roiX, roiY, roiW, roiH);
+                                
+                                try {
+                                    let roiThresh = thresh.roi(rect);
+                                    let score = cv.countNonZero(roiThresh);
+                                    rowScores.push({ index: opt - 1, score: score, rect: rect });
+                                    roiThresh.delete();
+                                } catch(e) {
+                                    rowScores.push({ index: opt - 1, score: 0, rect: rect });
+                                }
                             }
 
-                            if (isQuad && area > maxArea) {
-                                maxArea = area;
-                                if(tableContour) tableContour.delete();
-                                tableContour = approx.clone();
+                            rowScores.sort((a, b) => b.score - a.score);
+                            let highest = rowScores[0] || {score:0, index:null, rect: new cv.Rect(0,0,0,0)};
+                            let secondHighest = rowScores[1] || {score: 0, rect: new cv.Rect(0,0,0,0)};
+
+                            let roiArea = highest.rect && highest.rect.width > 0 ? (highest.rect.width * highest.rect.height) : 100;
+                            let threshold = roiArea * 0.10;
+
+                            let selectedOpt = null;
+                            if (highest.score > threshold) {
+                                if (secondHighest.score > threshold && secondHighest.score > (highest.score * 0.55)) {
+                                    selectedOpt = null; 
+                                    if (highest.rect && highest.rect.width > 0) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [220,38,38,255], 4);
+                                    if(secondHighest.rect && secondHighest.rect.width > 0) cv.circle(warped, new cv.Point(secondHighest.rect.x + secondHighest.rect.width/2, secondHighest.rect.y + secondHighest.rect.height/2), Math.min(secondHighest.rect.width, secondHighest.rect.height)/2, [220,38,38,255], 4);
+                                } else {
+                                    selectedOpt = highest.index;
+                                    if (highest.rect && highest.rect.width > 0) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [16,185,129,255], 4);
+                                }
                             }
-                            approx.delete();
-                        }
-                    }
-
-                    let warped = new cv.Mat();
-                    if (tableContour !== null) {
-                        let ptsArray = [];
-                        for (let i = 0; i < 4; i++) {
-                            ptsArray.push({x: tableContour.data32S[i*2], y: tableContour.data32S[i*2+1]});
-                        }
-                        ptsArray.sort((a,b) => a.y - b.y);
-                        let topPts = ptsArray.slice(0,2).sort((a,b) => a.x - b.x);
-                        let botPts = ptsArray.slice(2,4).sort((a,b) => a.x - b.x);
-                        let orderedPts = [topPts[0], topPts[1], botPts[1], botPts[0]];
-
-                        let widthA = Math.hypot(orderedPts[2].x - orderedPts[3].x, orderedPts[2].y - orderedPts[3].y);
-                        let widthB = Math.hypot(orderedPts[1].x - orderedPts[0].x, orderedPts[1].y - orderedPts[0].y);
-                        let maxWidth = Math.max(Math.floor(widthA), Math.floor(widthB));
-
-                        let heightA = Math.hypot(orderedPts[1].x - orderedPts[2].x, orderedPts[1].y - orderedPts[2].y);
-                        let heightB = Math.hypot(orderedPts[0].x - orderedPts[3].x, orderedPts[0].y - orderedPts[3].y);
-                        let maxHeight = Math.max(Math.floor(heightA), Math.floor(heightB));
-
-                        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-                            orderedPts[0].x, orderedPts[0].y, orderedPts[1].x, orderedPts[1].y,
-                            orderedPts[2].x, orderedPts[2].y, orderedPts[3].x, orderedPts[3].y
-                        ]);
-                        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-                            0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1
-                        ]);
-
-                        let M = cv.getPerspectiveTransform(srcTri, dstTri);
-                        let dsize = new cv.Size(maxWidth, maxHeight);
-                        cv.warpPerspective(src, warped, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-                        M.delete(); srcTri.delete(); dstTri.delete(); tableContour.delete();
-                    } else {
-                        console.warn("Distorção impediu alinhamento perfeito.");
-                        src.copyTo(warped);
-                    }
-
-                    const cellW = warped.cols / numCols;
-                    const cellH = warped.rows / numRows;
-
-                    let warpedGray = new cv.Mat();
-                    let thresh = new cv.Mat();
-                    cv.cvtColor(warped, warpedGray, cv.COLOR_RGBA2GRAY, 0);
-                    cv.medianBlur(warpedGray, warpedGray, 3);
-                    cv.adaptiveThreshold(warpedGray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 17, 15);
-
-                    let M_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-                    cv.dilate(thresh, thresh, M_kernel);
-
-                    let finalAnswers = {}; 
-
-                    for (let q = 1; q <= numQuestions; q++) {
-                        let rowScores = [];
-                        let qType = questionsArr[q-1].type;
-                        let numOpts = (qType === 'ce') ? 2 : 5;
-
-                        for (let opt = 1; opt <= numOpts; opt++) {
-                            let x = Math.round(opt * cellW); 
-                            let y = Math.round(q * cellH);
                             
-                            let roiW = Math.round(cellW * 0.65);
-                            let roiH = Math.round(cellH * 0.65);
-                            let roiX = Math.round(x + (cellW - roiW) / 2);
-                            let roiY = Math.round(y + (cellH - roiH) / 2);
-
-                            if(roiX < 0) roiX = 0; if(roiY < 0) roiY = 0;
-                            if(roiX + roiW > thresh.cols) roiW = thresh.cols - roiX;
-                            if(roiY + roiH > thresh.rows) roiH = thresh.rows - roiY;
-
-                            let rect = new cv.Rect(roiX, roiY, roiW, roiH);
-                            
-                            try {
-                                let roiThresh = thresh.roi(rect);
-                                let score = cv.countNonZero(roiThresh);
-                                rowScores.push({ index: opt - 1, score: score, rect: rect });
-                                roiThresh.delete();
-                            } catch(e) {
-                                rowScores.push({ index: opt - 1, score: 0, rect: rect });
-                            }
+                            finalAnswers[q-1] = selectedOpt;
                         }
 
-                        rowScores.sort((a, b) => b.score - a.score);
-                        let highest = rowScores[0] || {score:0, index:null};
-                        let secondHighest = rowScores[1] || {score: 0};
+                        let debugCanvas = document.createElement('canvas');
+                        cv.imshow(debugCanvas, warped);
+                        let debugImgData = debugCanvas.toDataURL('image/jpeg', 0.5);
 
-                        let roiArea = highest.rect ? (highest.rect.width * highest.rect.height) : 100;
-                        let threshold = roiArea * 0.10;
-
-                        let selectedOpt = null;
-                        if (highest.score > threshold) {
-                            if (secondHighest.score > threshold && secondHighest.score > (highest.score * 0.55)) {
-                                selectedOpt = null; 
-                                if (highest.rect) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [220,38,38,255], 4);
-                                if(secondHighest.rect) cv.circle(warped, new cv.Point(secondHighest.rect.x + secondHighest.rect.width/2, secondHighest.rect.y + secondHighest.rect.height/2), Math.min(secondHighest.rect.width, secondHighest.rect.height)/2, [220,38,38,255], 4);
-                            } else {
-                                selectedOpt = highest.index;
-                                if (highest.rect) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [16,185,129,255], 4);
-                            }
-                        }
+                        studentAnswers.value = finalAnswers;
                         
-                        finalAnswers[q-1] = selectedOpt;
+                        let pa = {};
+                        questionsArr.forEach((q,i) => {
+                            if(studentAnswers.value[i] != null) pa[i] = parseInt(studentAnswers.value[i]);
+                        });
+                        
+                        let sid = await saveExamResult(
+                            omrActiveExam.value.id, 
+                            omrActiveStudent.value.id, 
+                            omrActiveStudent.value.name, 
+                            omrConfig.value.version, 
+                            pa, 
+                            debugImgData, 
+                            true,
+                            false, 
+                            false
+                        );
+                        
+                        showToast('Gabarito OMR Lido com Sucesso!', 'success');
+                        showOMRModal.value = false;
+                        omrStatus.value = '';
+                        
+                        openResultDetails(results.value.find(r => r.id === sid));
+
+                    } catch (error) {
+                        console.error("OpenCV OMR Error: ", error);
+                        omrStatus.value = '';
+                        showToast("Falha ao analisar o gabarito. Tente alinhar as bordas.", "error");
+                    } finally {
+                        if (src) src.delete();
+                        if (gray) gray.delete();
+                        if (blurred) blurred.delete();
+                        if (edged) edged.delete();
+                        if (contours) contours.delete();
+                        if (hierarchy) hierarchy.delete();
+                        if (warped) warped.delete();
+                        if (warpedGray) warpedGray.delete();
+                        if (thresh) thresh.delete();
+                        if (M_kernel) M_kernel.delete();
+                        if (M_edge_dilate) M_edge_dilate.delete();
                     }
-
-                    let debugCanvas = document.createElement('canvas');
-                    cv.imshow(debugCanvas, warped);
-                    let debugImgData = debugCanvas.toDataURL('image/jpeg', 0.5);
-
-                    src.delete(); gray.delete(); blurred.delete(); edged.delete(); contours.delete(); hierarchy.delete();
-                    warped.delete(); warpedGray.delete(); thresh.delete(); M_kernel.delete(); M_edge_dilate.delete();
-
-                    studentAnswers.value = finalAnswers;
-                    
-                    let pa = {};
-                    questionsArr.forEach((q,i) => {
-                        if(studentAnswers.value[i] != null) pa[i] = parseInt(studentAnswers.value[i]);
-                    });
-                    
-                    let sid = await saveExamResult(
-                        omrActiveExam.value.id, 
-                        omrActiveStudent.value.id, 
-                        omrActiveStudent.value.name, 
-                        omrConfig.value.version, 
-                        pa, 
-                        debugImgData, 
-                        true,
-                        false, 
-                        false
-                    );
-                    
-                    showToast('Gabarito OMR Lido com Sucesso!', 'success');
-                    showOMRModal.value = false;
-                    omrStatus.value = '';
-                    
-                    openResultDetails(results.value.find(r => r.id === sid));
                 };
 
                 // Direct Grade Input (Em Massa)
