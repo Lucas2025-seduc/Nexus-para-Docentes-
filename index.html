@@ -15,6 +15,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -162,10 +163,15 @@
                             <i class="fa-solid fa-triangle-exclamation"></i> Aviso: Você não tem horário cadastrado nesta turma para este dia e aula.
                         </div>
 
-                        <!-- BOTAO SCANNER DE FALTAS -->
-                        <button @click="startLiveQRScan('attendance')" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl font-bold shadow-sm transition border border-red-200 mb-3 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-qrcode text-lg"></i> Registrar Faltas via Mapa de Sala (QR)
-                        </button>
+                        <!-- BOTOES DE AÇÃO -->
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <button @click="startLiveQRScan('attendance')" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl font-bold shadow-sm transition border border-red-200 flex items-center justify-center gap-2 text-xs">
+                                <i class="fa-solid fa-qrcode text-base"></i> Falta via QR
+                            </button>
+                            <button @click="openAttendancePrintModal" class="w-full py-3 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-xl font-bold shadow-sm transition border border-blue-200 flex items-center justify-center gap-2 text-xs">
+                                <i class="fa-solid fa-print text-base"></i> Imprimir Lista
+                            </button>
+                        </div>
 
                         <!-- NOVA BARRA DE PESQUISA DE ALUNOS NA CHAMADA -->
                         <div class="flex gap-2 bg-white p-2.5 rounded-xl border shadow-sm items-center focus-within:border-indigo-500 transition-colors">
@@ -472,6 +478,9 @@
                             <i class="fa-solid fa-pen-to-square text-lg"></i> Lançar Só Nota
                         </button>
                     </div>
+                    <button @click="startOpenCVFlow" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 border border-indigo-700 text-sm" title="Reconhecimento Ótico Local de alta precisão">
+                        <i class="fa-solid fa-camera-retro text-lg"></i> Corrigir via OpenCV (Rápido/Local)
+                    </button>
                     <button @click="openExternalExamForm" class="w-full mt-3 bg-blue-50 hover:bg-blue-100 text-blue-600 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-blue-200 text-sm">
                         <i class="fa-solid fa-file-pen text-lg"></i> Nova Prova Externa (Apenas Notas)
                     </button>
@@ -622,6 +631,53 @@
 
         <!-- MODAIS SECUNDÁRIOS -->
         
+        <!-- MODAL IMPRESSÃO DE FREQUÊNCIA -->
+        <div v-if="showAttendancePrintModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm animate-fade-in flex flex-col border border-gray-100">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="font-bold text-lg text-gray-800"><i class="fa-solid fa-print text-blue-600 mr-2"></i> Imprimir Lista</h3>
+                    <button @click="showAttendancePrintModal=false" class="text-gray-400 hover:text-red-500 transition w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Tipo de Lista</label>
+                        <select v-model="attPrintConfig.type" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                            <option value="daily">Dia Específico (Com Assinatura)</option>
+                            <option value="monthly">Mensal (Grelha de Dias)</option>
+                        </select>
+                    </div>
+
+                    <div v-if="attPrintConfig.type === 'daily'" class="animate-fade-in">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Data Base</label>
+                        <input type="date" v-model="attPrintConfig.date" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                    </div>
+
+                    <div v-if="attPrintConfig.type === 'monthly'" class="grid grid-cols-2 gap-3 animate-fade-in">
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Mês</label>
+                            <select v-model="attPrintConfig.month" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                                <option v-for="(m, i) in ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']" :value="i">{{m}}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Ano</label>
+                            <input type="number" v-model="attPrintConfig.year" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                        </div>
+                    </div>
+
+                    <label class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors mt-2">
+                        <input type="checkbox" v-model="attPrintConfig.withPhoto" class="w-5 h-5 accent-blue-600 rounded">
+                        <span class="text-xs font-bold text-gray-700">Incluir fotos dos alunos</span>
+                    </label>
+
+                    <button @click="printAttendanceSheet" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 mt-4">
+                        <i class="fa-solid fa-file-pdf"></i> Gerar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- GERADOR IA -->
         <div v-if="showAIGenModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4">
             <div class="bg-white rounded-2xl w-full max-w-sm flex flex-col max-h-[90vh]">
@@ -1301,6 +1357,33 @@
                 <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : 'Aponte para o QR Code impresso no topo da prova' }}</p>
             </div>
         </div>
+
+        <!-- MODAL OPENCV CAMERA -->
+        <div v-show="showCvCamera" class="fixed inset-0 z-[500] flex flex-col bg-black animate-fade-in">
+            <div class="p-4 flex justify-between bg-gray-900 text-white z-10 shadow-md">
+                <div>
+                    <h3 class="font-bold"><i class="fa-solid fa-camera"></i> Escanear Gabarito OMR</h3>
+                    <p class="text-[10px] text-gray-300">{{cvContext?.student?.name}} - Tipo {{ (cvContext?.version || 0) + 1 }}</p>
+                </div>
+                <button @click="stopOpenCVCamera" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="flex-1 relative flex flex-col items-center justify-center bg-black overflow-hidden">
+                <video id="cv-video" autoplay playsinline class="absolute inset-0 w-full h-full object-cover opacity-60"></video>
+                <!-- Guias de Alinhamento Matemático para Slicing -->
+                <div class="relative z-20 border-2 border-emerald-400 bg-emerald-400/10 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.8)] pointer-events-none flex items-center justify-center" style="width: 85%; height: 60%;">
+                    <div class="absolute -top-8 left-0 right-0 text-center text-emerald-400 text-xs font-bold bg-black/70 py-1 rounded">Enquadre APENAS a grelha de respostas aqui dentro</div>
+                    <div class="w-full border-t border-dashed border-emerald-400/30 absolute" style="top: 15%"></div>
+                    <div class="h-full border-l border-dashed border-emerald-400/30 absolute" style="left: 14%"></div>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-900 z-10 pb-12 flex justify-center relative">
+                <p class="absolute top-2 left-0 right-0 text-center text-[10px] font-bold text-gray-500">Mantenha a câmara firme e clique no botão verde</p>
+                <button @click="captureAndProcessOMR" class="w-20 h-20 mt-4 bg-white rounded-full border-4 border-gray-400 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] active:scale-95 transition-transform">
+                    <div class="w-16 h-16 bg-emerald-500 rounded-full"></div>
+                </button>
+            </div>
+        </div>
+
     </div>
 
     <!-- SCRIPT -->
@@ -1385,6 +1468,15 @@
                 const attendanceMap = ref({});
                 const schedulesList = ref([]);
                 const newSchedule = ref({ day: 'Segunda', period: '1ª Aula' });
+                
+                const showAttendancePrintModal = ref(false);
+                const attPrintConfig = ref({
+                    type: 'monthly',
+                    date: new Date().toISOString().split('T')[0],
+                    month: new Date().getMonth(),
+                    year: new Date().getFullYear(),
+                    withPhoto: false
+                });
 
                 // Assistente Virtual IA
                 const showAssistant = ref(false);
@@ -1531,6 +1623,10 @@
                 const showLiveQRScanner = ref(false);
                 const qrScanMode = ref('correction');
                 let html5QrCode = null;
+
+                // OpenCV OMR State
+                const showCvCamera = ref(false);
+                const cvContext = ref(null);
 
                 // --- LIFECYCLE & HELPERS ---
                 window.addEventListener('beforeinstallprompt', e => { 
@@ -1919,6 +2015,128 @@
                         await db.settings.put(JSON.parse(JSON.stringify({...settings.value, id:'config', geminiKey: geminiKey.value, printConfig: printConfig.value})));
                         if(!silent) showToast('Configurações salvas!', 'success');
                     } catch(e){}
+                };
+
+                const openAttendancePrintModal = () => {
+                    if(!diaryClassId.value) return showToast('Selecione uma turma no Diário primeiro.', 'warning');
+                    showAttendancePrintModal.value = true;
+                };
+
+                const printAttendanceSheet = () => {
+                    if(!diaryClassId.value) return;
+                    const cName = getClassName(diaryClassId.value);
+                    let stds = students.value.filter(s => s.classId === diaryClassId.value).sort((a,b) => a.name.localeCompare(b.name));
+                    
+                    if(stds.length === 0) return showToast('Esta turma não tem alunos registrados.', 'warning');
+
+                    showToast("Processando documento PDF...", "loading");
+                    
+                    let doc = {
+                        pageOrientation: attPrintConfig.value.type === 'monthly' ? 'landscape' : 'portrait',
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' }
+                        ],
+                        defaultStyle: { font: 'Roboto' },
+                        pageMargins: attPrintConfig.value.type === 'monthly' ? [20, 30, 20, 30] : [40, 40, 40, 40]
+                    };
+
+                    if (attPrintConfig.value.type === 'daily') {
+                        const dateObj = new Date(attPrintConfig.value.date + "T12:00:00");
+                        const dateStr = dateObj.toLocaleDateString('pt-BR');
+                        doc.content.push({ text: `LISTA DE FREQUÊNCIA - ${cName}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 2] });
+                        doc.content.push({ text: `Data da Aula: ${dateStr}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' });
+
+                        let tableBody = [];
+                        let headers = [{text:'Nº', bold:true, alignment:'center', fillColor:'#f3f4f6', margin:[0, 4]}];
+                        if(attPrintConfig.value.withPhoto) headers.push({text:'Foto', bold:true, alignment:'center', fillColor:'#f3f4f6', margin:[0, 4]});
+                        headers.push({text:'Nome do Aluno', bold:true, fillColor:'#f3f4f6', margin:[0, 4]});
+                        headers.push({text:'Assinatura / Presença', bold:true, alignment:'center', fillColor:'#f3f4f6', margin:[0, 4]});
+                        tableBody.push(headers);
+
+                        stds.forEach((s, i) => {
+                            let marginY = attPrintConfig.value.withPhoto ? 10 : 6;
+                            let row = [{text: (i+1).toString(), alignment:'center', margin:[0, marginY]}];
+                            
+                            if(attPrintConfig.value.withPhoto) {
+                                row.push(s.photo ? { image: s.photo, width: 30, height: 30, alignment:'center' } : { text: 'S/F', fontSize: 8, alignment:'center', color: '#ccc', margin:[0, 10] });
+                            }
+                            
+                            row.push({text: s.name, fontSize: 10, bold: true, margin:[0, marginY]});
+                            row.push({text: '', margin:[0, marginY]}); // Espaço em branco para assinar
+                            tableBody.push(row);
+                        });
+
+                        let widths = ['auto'];
+                        if(attPrintConfig.value.withPhoto) widths.push(35);
+                        widths.push('*', 160); // 160 é um bom tamanho para assinatura
+
+                        doc.content.push({
+                            table: { headerRows: 1, widths: widths, body: tableBody },
+                            layout: {
+                                hLineWidth: function(i, node) { return (i === 0 || i === node.table.body.length) ? 1.5 : 1; },
+                                vLineWidth: function(i, node) { return (i === 0 || i === node.table.widths.length) ? 1.5 : 1; },
+                                hLineColor: function(i, node) { return '#d1d5db'; },
+                                vLineColor: function(i, node) { return '#d1d5db'; },
+                            }
+                        });
+
+                    } else {
+                        // Mensal
+                        const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+                        const mName = monthNames[attPrintConfig.value.month];
+                        const y = attPrintConfig.value.year;
+                        const daysInMonth = new Date(y, attPrintConfig.value.month + 1, 0).getDate();
+
+                        doc.content.push({ text: `DIÁRIO DE CLASSE / FREQUÊNCIA MENSAL - ${cName}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 2] });
+                        doc.content.push({ text: `Mês de Referência: ${mName} / ${y}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' });
+
+                        let tableBody = [];
+                        let headers = [{text:'Nº', bold:true, alignment:'center', fillColor:'#f3f4f6', fontSize:8, margin:[0, 3]}];
+                        if(attPrintConfig.value.withPhoto) headers.push({text:'Foto', bold:true, alignment:'center', fillColor:'#f3f4f6', fontSize:8, margin:[0, 3]});
+                        headers.push({text:'Nome do Aluno', bold:true, fillColor:'#f3f4f6', fontSize:9, margin:[0, 3]});
+                        
+                        let widths = ['auto'];
+                        if(attPrintConfig.value.withPhoto) widths.push(25);
+                        widths.push('*');
+
+                        for(let d=1; d<=daysInMonth; d++) {
+                            headers.push({text: d.toString(), bold:true, alignment:'center', fillColor:'#f3f4f6', fontSize:7, margin:[0, 4]});
+                            widths.push(11); // Coluna estreita para os dias
+                        }
+                        tableBody.push(headers);
+
+                        stds.forEach((s, i) => {
+                            let marginY = attPrintConfig.value.withPhoto ? 6 : 2;
+                            let row = [{text: (i+1).toString(), alignment:'center', fontSize:8, margin:[0, marginY]}];
+                            
+                            if(attPrintConfig.value.withPhoto) {
+                                row.push(s.photo ? { image: s.photo, width: 20, height: 20, alignment:'center' } : { text: '-', fontSize: 6, alignment:'center', color: '#ccc', margin:[0, 8] });
+                            }
+                            
+                            row.push({text: s.name, fontSize: 8, bold:true, margin:[0, marginY]});
+                            
+                            for(let d=1; d<=daysInMonth; d++) {
+                                row.push({text: '', margin:[0, marginY]}); // Quadrado para o P ou F
+                            }
+                            tableBody.push(row);
+                        });
+
+                        doc.content.push({
+                            table: { headerRows: 1, widths: widths, body: tableBody },
+                            layout: {
+                                hLineWidth: function(i, node) { return 0.5; },
+                                vLineWidth: function(i, node) { return 0.5; },
+                                hLineColor: function(i, node) { return '#9ca3af'; },
+                                vLineColor: function(i, node) { return '#9ca3af'; },
+                                paddingLeft: function(i, node) { return 1; },
+                                paddingRight: function(i, node) { return 1; },
+                            }
+                        });
+                    }
+
+                    const fileName = `Frequencia_${cName}_${attPrintConfig.value.type==='daily'?attPrintConfig.value.date:attPrintConfig.value.month+'_'+attPrintConfig.value.year}.pdf`;
+                    downloadPDF(pdfMake.createPdf(doc), fileName, 'download');
+                    showAttendancePrintModal.value = false;
                 };
 
                 const deleteAllGrades = () => {
@@ -3009,6 +3227,21 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         return; // Retorna sem parar o scanner para permitir leitura em cadeia
                                     }
 
+                                    // --- MODO OPENCV (Lê QR e invoca Câmara OpenCV) ---
+                                    if (qrScanMode.value === 'opencv_init') {
+                                        html5QrCode.stop().then(() => {
+                                            showLiveQRScanner.value = false;
+                                            let exm = exams.value.find(e => e.id === Number(qd.e));
+                                            let std = students.value.find(s => s.id === Number(qd.s));
+                                            if(!exm || !std) return showToast("Prova ou Aluno não encontrados no dispositivo.", "error");
+                                            
+                                            cvContext.value = { exam: exm, student: std, version: Number(qd.v) || 0 };
+                                            showToast(`Aluno: ${std.name.split(' ')[0]}. Enquadre o gabarito.`, "success");
+                                            startOpenCVCamera();
+                                        }).catch(()=>{});
+                                        return;
+                                    }
+
                                     // --- MODO PADRÃO DE CORREÇÃO (Para o Scanner) ---
                                     html5QrCode.stop().then(() => {
                                         showLiveQRScanner.value = false;
@@ -3063,6 +3296,259 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         });
                     } else {
                         showLiveQRScanner.value = false;
+                    }
+                };
+
+                // --- PROCESSAMENTO LOCAL OPENCV OMR ---
+                const startOpenCVFlow = () => {
+                    startLiveQRScan('opencv_init');
+                };
+
+                const startOpenCVCamera = async () => {
+                    showCvCamera.value = true;
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+                        const video = document.getElementById('cv-video');
+                        video.srcObject = stream;
+                    } catch (err) {
+                        showToast("Erro ao aceder à câmara.", "error");
+                        showCvCamera.value = false;
+                    }
+                };
+
+                const stopOpenCVCamera = () => {
+                    showCvCamera.value = false;
+                    const video = document.getElementById('cv-video');
+                    if (video && video.srcObject) {
+                        video.srcObject.getTracks().forEach(track => track.stop());
+                    }
+                };
+
+                const captureAndProcessOMR = async () => {
+                    if (typeof cv === 'undefined' || !cv.Mat) {
+                        showToast("O motor da Biblioteca OpenCV ainda está a carregar. Tente em 3 segundos.", "warning");
+                        return;
+                    }
+
+                    showToast("Lendo bolhas via OMR Ultra...", "loading");
+
+                    const video = document.getElementById('cv-video');
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // A câmera exibe uma caixa verde (85% x 60%) para ajudar o professor a focar.
+                    // Vamos focar o OpenCV apenas nessa região para acelerar e evitar sujeira do cenário.
+                    const boxWidth = canvas.width * 0.85;
+                    const boxHeight = canvas.height * 0.60;
+                    const startX = (canvas.width - boxWidth) / 2;
+                    const startY = (canvas.height - boxHeight) / 2;
+
+                    try {
+                        let srcFull = cv.imread(canvas);
+                        let rect = new cv.Rect(startX, startY, boxWidth, boxHeight);
+                        let src = srcFull.roi(rect); // src agora é a área dentro da caixa verde
+
+                        let gray = new cv.Mat();
+                        let blurred = new cv.Mat();
+                        let edged = new cv.Mat();
+
+                        // 1. Pré-processamento Anti-Caos (Idêntico ao OMR Ultra)
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+                        cv.Canny(blurred, edged, 30, 150); 
+                        
+                        // MELHORIA 1: Dilata levemente as bordas do Canny para fechar "buracos" causados por rabiscos cruzando a tabela
+                        let M_edge_dilate = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+                        cv.dilate(edged, edged, M_edge_dilate);
+
+                        let contours = new cv.MatVector();
+                        let hierarchy = new cv.Mat();
+                        cv.findContours(edged, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                        let tableContour = null;
+                        let maxArea = 0;
+
+                        // MELHORIA 2: Busca Elástica (Iterative Epsilon). Tenta forçar a detecção de um quadrado perfeito
+                        for (let i = 0; i < contours.size(); ++i) {
+                            let cnt = contours.get(i);
+                            let area = cv.contourArea(cnt);
+                            
+                            if(area > (src.cols * src.rows * 0.05)) { // Filtra sujeiras pequenas
+                                let peri = cv.arcLength(cnt, true);
+                                let approx = new cv.Mat();
+                                
+                                let epsilon_multiplier = 0.02;
+                                let isQuad = false;
+                                
+                                // Loop tentando achar 4 pontas aumentando a tolerância
+                                while (epsilon_multiplier <= 0.1) {
+                                    cv.approxPolyDP(cnt, approx, epsilon_multiplier * peri, true);
+                                    if (approx.rows === 4) {
+                                        isQuad = true;
+                                        break;
+                                    }
+                                    epsilon_multiplier += 0.01;
+                                }
+
+                                if (isQuad && area > maxArea) {
+                                    maxArea = area;
+                                    if(tableContour) tableContour.delete();
+                                    tableContour = approx.clone();
+                                }
+                                approx.delete();
+                            }
+                        }
+
+                        let warped = new cv.Mat();
+
+                        if (tableContour !== null) {
+                            let ptsArray = [];
+                            for (let i = 0; i < 4; i++) {
+                                ptsArray.push({x: tableContour.data32S[i*2], y: tableContour.data32S[i*2+1]});
+                            }
+                            
+                            ptsArray.sort((a,b) => a.y - b.y);
+                            let topPts = ptsArray.slice(0,2).sort((a,b) => a.x - b.x);
+                            let botPts = ptsArray.slice(2,4).sort((a,b) => a.x - b.x);
+                            let orderedPts = [topPts[0], topPts[1], botPts[1], botPts[0]];
+
+                            let widthA = Math.hypot(orderedPts[2].x - orderedPts[3].x, orderedPts[2].y - orderedPts[3].y);
+                            let widthB = Math.hypot(orderedPts[1].x - orderedPts[0].x, orderedPts[1].y - orderedPts[0].y);
+                            let maxWidth = Math.max(Math.floor(widthA), Math.floor(widthB));
+
+                            let heightA = Math.hypot(orderedPts[1].x - orderedPts[2].x, orderedPts[1].y - orderedPts[2].y);
+                            let heightB = Math.hypot(orderedPts[0].x - orderedPts[3].x, orderedPts[0].y - orderedPts[3].y);
+                            let maxHeight = Math.max(Math.floor(heightA), Math.floor(heightB));
+
+                            let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                                orderedPts[0].x, orderedPts[0].y, orderedPts[1].x, orderedPts[1].y,
+                                orderedPts[2].x, orderedPts[2].y, orderedPts[3].x, orderedPts[3].y
+                            ]);
+                            let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                                0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1
+                            ]);
+
+                            let M = cv.getPerspectiveTransform(srcTri, dstTri);
+                            let dsize = new cv.Size(maxWidth, maxHeight);
+                            cv.warpPerspective(src, warped, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+                            M.delete(); srcTri.delete(); dstTri.delete(); tableContour.delete();
+                        } else {
+                            console.warn("Extrema distorção impediu alinhamento perfeito. Tentando ler imagem pura.");
+                            src.copyTo(warped);
+                        }
+
+                        // 4. Lógica de Análise V2 (Precisão Absoluta)
+                        const vIdx = cvContext.value.version;
+                        const vQuestions = getVersionQuestions(cvContext.value.exam, vIdx);
+                        const numQuestions = vQuestions.length;
+                        const letters = ['A', 'B', 'C', 'D', 'E']; // OMR Ultra Nexus Standard Array
+                        const numCols = 6; // Q, A, B, C, D, E
+                        const numRows = numQuestions + 1; // Cabeçalho + Questões
+
+                        const cellW = warped.cols / numCols;
+                        const cellH = warped.rows / numRows;
+
+                        let warpedGray = new cv.Mat();
+                        let thresh = new cv.Mat();
+                        cv.cvtColor(warped, warpedGray, cv.COLOR_RGBA2GRAY, 0);
+                        
+                        // MELHORIA 3: Median Blur para matar o ruído de Scanner/Papel antes do threshold
+                        cv.medianBlur(warpedGray, warpedGray, 3);
+
+                        // Adaptive Threshold isola luz/sombra
+                        cv.adaptiveThreshold(warpedGray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 17, 15);
+
+                        // MELHORIA 4: DILATAÇÃO ao invés de Fechamento. Engrossa propositalmente traços finos (X, V) para garantir o volume de pixels.
+                        let M_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+                        cv.dilate(thresh, thresh, M_kernel);
+
+                        let parsedAnswers = {};
+
+                        // Loop célula a célula
+                        for (let q = 1; q <= numQuestions; q++) { 
+                            let rowScores = [];
+
+                            for (let opt = 1; opt <= letters.length; opt++) { 
+                                let x = Math.round(opt * cellW);
+                                let y = Math.round(q * cellH);
+                                
+                                // MELHORIA 5: ROI Dinâmica Expandida (65%).
+                                let roiW = Math.round(cellW * 0.65); 
+                                let roiH = Math.round(cellH * 0.65);
+                                let roiX = Math.round(x + (cellW - roiW) / 2);
+                                let roiY = Math.round(y + (cellH - roiH) / 2);
+
+                                // Segurança de bounds da matriz
+                                if(roiX < 0) roiX = 0; if(roiY < 0) roiY = 0;
+                                if(roiX + roiW > thresh.cols) roiW = thresh.cols - roiX;
+                                if(roiY + roiH > thresh.rows) roiH = thresh.rows - roiY;
+
+                                let rect = new cv.Rect(roiX, roiY, roiW, roiH);
+                                
+                                try {
+                                    let roiThresh = thresh.roi(rect);
+                                    let score = cv.countNonZero(roiThresh);
+                                    rowScores.push({ index: opt - 1, score: score, rect: rect });
+                                    roiThresh.delete();
+                                } catch(e) {
+                                    rowScores.push({ index: opt - 1, score: 0, rect: rect });
+                                }
+                            }
+
+                            rowScores.sort((a, b) => b.score - a.score);
+                            let highest = rowScores[0];
+                            let secondHighest = rowScores[1] || {score: 0}; 
+
+                            let finalAnswer = null; // Em branco
+                            let roiArea = highest.rect.width * highest.rect.height;
+                            
+                            // 10% da área da ROI é o limiar perfeito e hiper-seguro.
+                            let threshold = roiArea * 0.10; 
+
+                            if (highest.score > threshold) {
+                                // Proteção rigorosa contra overflow: A 2º opção tem que ter pelo menos 55% da tinta da primeira
+                                if (secondHighest.score > threshold && secondHighest.score > (highest.score * 0.55)) { 
+                                    finalAnswer = null; // NULA / Dupla marcação
+                                    cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [220,38,38,255], 4);
+                                    if(secondHighest.rect) cv.circle(warped, new cv.Point(secondHighest.rect.x + secondHighest.rect.width/2, secondHighest.rect.y + secondHighest.rect.height/2), Math.min(secondHighest.rect.width, secondHighest.rect.height)/2, [220,38,38,255], 4);
+                                } else {
+                                    finalAnswer = highest.index; // 0=A, 1=B...
+                                    cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [16,185,129,255], 4);
+                                }
+                            }
+
+                            parsedAnswers[q - 1] = finalAnswer;
+                        }
+
+                        // Feedback visual final da correção
+                        let debugCanvas = document.createElement('canvas');
+                        cv.imshow(debugCanvas, warped);
+                        let debugImgData = debugCanvas.toDataURL('image/jpeg', 0.5);
+
+                        // Limpeza de cache obrigatória do OpenCV WebAssembly
+                        srcFull.delete(); src.delete(); gray.delete(); blurred.delete(); edged.delete(); contours.delete(); hierarchy.delete();
+                        warped.delete(); warpedGray.delete(); thresh.delete(); M_kernel.delete(); M_edge_dilate.delete();
+
+                        stopOpenCVCamera();
+
+                        const needsReview = Object.values(parsedAnswers).includes(null);
+                        const rId = await saveExamResult(cvContext.value.exam.id, cvContext.value.student.id, cvContext.value.student.name, cvContext.value.version, parsedAnswers, debugImgData, needsReview, false, false);
+                        
+                        let finalScore = results.value.find(res => res.id === rId).score;
+                        showToast(`Nota OMR: ${finalScore}. Correção concluída!`, "success");
+                        
+                        setTimeout(() => {
+                            openResultDetails(results.value.find(res => res.id === rId));
+                            if (needsReview) showToast("Atenção: Verifique as questões rasuradas ou em branco.", "warning");
+                        }, 500);
+
+                    } catch (err) {
+                        console.error(err);
+                        stopOpenCVCamera();
+                        showToast("Erro na leitura OMR. Tente afastar um pouco e alinhar as bordas.", "error");
                     }
                 };
 
@@ -3415,48 +3901,48 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 // --- GERAÇÃO DE PROVAS (PDF) ---
                 
-                // FUNÇÃO UNIVERSAL DA GRELHA (Garante 100% de alinhamento entre Aluno e Espelho)
+                // FUNÇÃO UNIVERSAL DA GRELHA (Idêntica ao OMR Pro: bordas grossas, larguras iguais)
                 const buildAnswerGrid = (v, isMirror = false) => {
                     let gridBody = [];
                     gridBody.push([
-                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f3f4f6' }
+                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f1f5f9', margin: [0, 6, 0, 6] },
+                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f1f5f9', margin: [0, 6, 0, 6] },
+                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f1f5f9', margin: [0, 6, 0, 6] },
+                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f1f5f9', margin: [0, 6, 0, 6] },
+                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f1f5f9', margin: [0, 6, 0, 6] },
+                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f1f5f9', margin: [0, 6, 0, 6] }
                     ]);
 
                     v.questions.forEach((q, qIdx) => {
-                        let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 5, 0, 0] }];
+                        let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 8, 0, 8] }];
                         let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
                         
                         for (let i = 0; i < 5; i++) {
                             if (q.type === 'ce' && i > 1) {
-                                row.push({ text: '-', alignment: 'center', margin: [0, 5, 0, 0], color: '#d1d5db' });
+                                row.push({ text: '-', alignment: 'center', margin: [0, 8, 0, 8], color: '#cbd5e1' });
                                 continue;
                             }
                             
                             if (isMirror) {
                                 let isCorrect = cIdx === i;
                                 if (isCorrect) {
-                                    // Bolinha vazada (Tracejada Vermelha) para recortar/visualizar através
+                                    // Bolinha vazada vermelha
                                     row.push({
-                                        canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1.5, linePattern: { length: 3, space: 2 }, lineColor: '#ef4444' }],
-                                        alignment: 'center', margin: [0, 2, 0, 2]
+                                        canvas: [{ type: 'ellipse', x: 15, y: 12, r1: 9, r2: 9, lineWidth: 1.5, linePattern: { length: 3, space: 2 }, lineColor: '#ef4444' }],
+                                        margin: [0, 4, 0, 4]
                                     });
                                 } else {
-                                    // Bolinha preenchida cinza (Incorreta)
+                                    // Bolinha cinza clara (Incorreta)
                                     row.push({
-                                        canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, color: '#e5e7eb', lineColor: '#d1d5db' }],
-                                        alignment: 'center', margin: [0, 2, 0, 2]
+                                        canvas: [{ type: 'ellipse', x: 15, y: 12, r1: 9, r2: 9, color: '#e5e7eb', lineColor: '#cbd5e1' }],
+                                        margin: [0, 4, 0, 4]
                                     });
                                 }
                             } else {
-                                // Folha do aluno: Bolinhas brancas para preencher
+                                // Folha do aluno: Bolinhas para preencher (Cores idênticas ao simulador)
                                 row.push({
-                                    canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1, lineColor: '#9ca3af' }],
-                                    alignment: 'center', margin: [0, 2, 0, 2]
+                                    canvas: [{ type: 'ellipse', x: 15, y: 12, r1: 9, r2: 9, lineWidth: 1, lineColor: '#94a3b8' }],
+                                    margin: [0, 4, 0, 4]
                                 });
                             }
                         }
@@ -3465,12 +3951,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     return {
                         width: 'auto',
-                        table: { headerRows: 1, widths: [25, 30, 30, 30, 30, 30], body: gridBody },
+                        // Força larguras exatamente iguais (como o OMR Pro)
+                        table: { headerRows: 1, widths: [30, 30, 30, 30, 30, 30], body: gridBody },
                         layout: {
-                            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
+                            // Bordas extremas grossas, bordas internas finas
+                            hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 2 : 1,
                             vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 2 : 1,
-                            hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
-                            paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 3
+                            hLineColor: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? '#020617' : '#cbd5e1', 
+                            vLineColor: (i, node) => (i === 0 || i === node.table.widths.length) ? '#020617' : '#cbd5e1',
+                            paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 0
                         }
                     };
                 };
@@ -3637,6 +4126,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     
                     // GABARITO DO ALUNO (No final da prova, centralizado)
                     content.push({
+                        unbreakable: true,
                         columns: [
                             { width: '*', text: '' },
                             {
@@ -3932,6 +4422,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     showLiveQRScanner, qrScanMode, startLiveQRScan, stopLiveQRScan, showFullScreenImage,
                     fullScreenImageUrl, viewFullScreen,
                     
+                    // OpenCV OMR
+                    showCvCamera, cvContext, startOpenCVFlow, stopOpenCVCamera, captureAndProcessOMR,
+
+                    // Frequência Impressão
+                    showAttendancePrintModal, attPrintConfig, openAttendancePrintModal, printAttendanceSheet,
+
                     // External Exam
                     showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades,
                     openExternalExamForm, goToExternalGrades, saveExternalExam,
