@@ -1304,61 +1304,56 @@
         <div v-if="showOMRModal" class="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm animate-fade-in flex flex-col border border-gray-100">
                 <div class="flex justify-between items-center mb-5">
-                    <h3 class="font-bold text-lg text-blue-600"><i class="fa-solid fa-camera-retro mr-2"></i> Leitura OMR</h3>
+                    <h3 class="font-bold text-lg text-blue-600"><i class="fa-solid fa-camera-retro mr-2"></i> Leitura OMR Inteligente</h3>
                     <button @click="showOMRModal=false" class="text-gray-400 hover:text-red-500 transition w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
                 </div>
                 
                 <div class="space-y-4">
-                    <!-- BOTÃO SCAN QR CODE -->
-                    <button @click="startLiveQRScan('omr')" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-4 rounded-xl font-bold shadow-sm transition border border-indigo-200 flex flex-col items-center justify-center gap-2">
-                        <i class="fa-solid fa-qrcode text-3xl"></i>
-                        <span>1. Ler QR Code da Prova</span>
-                    </button>
-
-                    <div class="relative flex py-2 items-center">
-                        <div class="flex-grow border-t border-gray-200"></div>
-                        <span class="flex-shrink-0 mx-4 text-gray-400 text-[10px] font-bold uppercase tracking-widest">Ou selecione manualmente</span>
-                        <div class="flex-grow border-t border-gray-200"></div>
-                    </div>
-
-                    <select v-model="omrConfig.examId" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold text-gray-700 outline-none">
-                        <option value="">Selecionar prova...</option>
-                        <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
-                    </select>
-                    
-                    <select v-if="omrConfig.examId" v-model="omrConfig.studentId" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold text-gray-700 outline-none">
-                        <option value="">Selecionar aluno...</option>
-                        <option v-for="s in omrStudents" :key="s.id" :value="s.id">{{s.name}}</option>
-                    </select>
-
-                    <select v-if="omrConfig.studentId" v-model="omrConfig.version" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold text-gray-700 outline-none">
-                        <option v-for="(v,i) in omrExamVersions" :key="i" :value="i">Tipo {{i+1}}</option>
-                    </select>
-
-                    <div v-if="omrConfig.studentId && isCvReady" class="space-y-3 pt-2">
-                        <div class="relative flex py-2 items-center">
-                            <div class="flex-grow border-t border-gray-200"></div>
-                            <span class="flex-shrink-0 mx-4 text-gray-400 text-[10px] font-bold uppercase tracking-widest">2. Enviar Imagem</span>
-                            <div class="flex-grow border-t border-gray-200"></div>
-                        </div>
+                    <div v-if="isCvReady" class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center shadow-inner">
+                        <p class="text-xs font-bold text-blue-800 mb-4 leading-relaxed"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Fotografe a prova inteira. O sistema identificará o <span class="font-black bg-blue-200 px-1 rounded shadow-sm">QR Code</span> e o <span class="font-black bg-blue-200 px-1 rounded shadow-sm">Gabarito</span> automaticamente!</p>
                         <div class="grid grid-cols-2 gap-3">
-                            <label class="flex flex-col items-center justify-center bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold cursor-pointer transition shadow-md border border-blue-700 text-center">
-                                <i class="fa-solid fa-camera text-2xl mb-1"></i>
-                                <span class="text-[10px] uppercase tracking-wide">Tirar Foto</span>
+                            <label class="flex flex-col items-center justify-center bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold cursor-pointer transition shadow-md border border-blue-700 text-center transform active:scale-95">
+                                <i class="fa-solid fa-camera text-2xl mb-1.5"></i>
+                                <span class="text-[10px] uppercase tracking-wider">Tirar Foto</span>
                                 <input type="file" accept="image/*" capture="environment" class="hidden" @change="handleOMRFile">
                             </label>
-                            <label class="flex flex-col items-center justify-center bg-white hover:bg-blue-50 text-blue-600 py-3.5 rounded-xl font-bold cursor-pointer transition shadow-sm border border-blue-200 text-center">
-                                <i class="fa-solid fa-image text-2xl mb-1"></i>
-                                <span class="text-[10px] uppercase tracking-wide">Galeria / Upload</span>
+                            <label class="flex flex-col items-center justify-center bg-white hover:bg-blue-50 text-blue-600 py-4 rounded-xl font-bold cursor-pointer transition shadow-sm border border-blue-200 text-center transform active:scale-95">
+                                <i class="fa-solid fa-image text-2xl mb-1.5"></i>
+                                <span class="text-[10px] uppercase tracking-wider">Galeria / Arquivo</span>
                                 <input type="file" accept="image/*" class="hidden" @change="handleOMRFile">
                             </label>
                         </div>
                     </div>
-                    <div v-else-if="omrConfig.studentId" class="text-center text-xs font-bold text-amber-600 bg-amber-50 p-3 rounded-xl border border-amber-200">
-                        <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Aguarde, carregando motor de Visão Computacional (OpenCV)...
+                    <div v-else class="text-center text-xs font-bold text-amber-600 bg-amber-50 p-5 rounded-xl border border-amber-200 shadow-inner flex flex-col items-center gap-2">
+                        <i class="fa-solid fa-circle-notch fa-spin text-2xl"></i>
+                        <span>Carregando Inteligência Visual (OpenCV)...</span>
                     </div>
 
-                    <p v-if="omrStatus" class="text-center text-xs font-bold text-blue-600 animate-pulse mt-2 p-2 bg-blue-50 rounded-xl border border-blue-100">{{omrStatus}}</p>
+                    <details class="group border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
+                        <summary class="p-3 text-xs font-bold text-gray-600 cursor-pointer bg-gray-50 flex justify-between items-center hover:bg-gray-100 transition">
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-gray-400"></i> Seleção Manual (Opcional)</span>
+                            <i class="fa-solid fa-chevron-down text-gray-400 group-open:rotate-180 transition"></i>
+                        </summary>
+                        <div class="p-3 space-y-3 border-t border-gray-100">
+                            <p class="text-[10px] text-gray-500 leading-tight">Utilize apenas se o QR Code da prova estiver rasgado ou ilegível.</p>
+                            <select v-model="omrConfig.examId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                                <option value="">Selecionar prova...</option>
+                                <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
+                            </select>
+                            <select v-if="omrConfig.examId" v-model="omrConfig.studentId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                                <option value="">Selecionar aluno...</option>
+                                <option v-for="s in omrStudents" :key="s.id" :value="s.id">{{s.name}}</option>
+                            </select>
+                            <select v-if="omrConfig.studentId" v-model="omrConfig.version" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
+                                <option v-for="(v,i) in omrExamVersions" :key="i" :value="i">Tipo {{i+1}}</option>
+                            </select>
+                        </div>
+                    </details>
+
+                    <div v-if="omrStatus" class="text-center text-xs font-bold text-blue-600 bg-blue-50/80 p-3 rounded-xl border border-blue-100 flex items-center justify-center gap-2 shadow-sm animate-pulse">
+                        <i class="fa-solid fa-microchip text-base"></i>
+                        <span>{{omrStatus}}</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2200,41 +2195,107 @@
                 };
 
                 const handleOMRFile = (e) => {
-                    if (!isCvReady.value) return showToast("Aguarde, o OpenCV ainda está carregando...", "warning");
-                    const file = e.target.files[0];
-                    
-                    // Reset do input para permitir reenviar o mesmo ficheiro se necessário
-                    e.target.value = '';
-                    
-                    if (!file) return;
+                    try {
+                        if (!isCvReady.value) return showToast("Aguarde, o OpenCV ainda está carregando...", "warning");
+                        const file = e.target.files[0];
+                        
+                        // Reset do input para permitir reenviar o mesmo ficheiro se necessário
+                        e.target.value = '';
+                        
+                        if (!file) return;
 
-                    omrActiveExam.value = exams.value.find(ex => ex.id === omrConfig.value.examId);
-                    omrActiveStudent.value = students.value.find(s => s.id === omrConfig.value.studentId);
-                    
-                    if (!omrActiveExam.value || !omrActiveStudent.value) return showToast("Selecione a prova e o aluno.", "warning");
+                        omrStatus.value = "Extraindo QR Code e processando...";
 
-                    let vIdx = omrConfig.value.version || 0;
-                    let questionsArr = omrActiveExam.value.versions[vIdx] ? omrActiveExam.value.versions[vIdx].questions : omrActiveExam.value.questions;
-                    const numQuestions = questionsArr.length;
-                    const numCols = 6; 
-                    const numRows = numQuestions + 1; 
+                        const reader = new FileReader();
+                        reader.onerror = () => { omrStatus.value = ''; showToast("Erro ao ler o ficheiro.", "error"); };
+                        reader.onload = (event) => {
+                            const img = new Image();
+                            img.onerror = () => { omrStatus.value = ''; showToast("Erro ao carregar a imagem.", "error"); };
+                            img.onload = () => {
+                                setTimeout(() => {
+                                    // 1. Extração Automática via QR Code na Foto
+                                    const qrCanvas = document.createElement('canvas');
+                                    const MAX_QR_DIM = 1600; // Resolução suficiente para achar o QR
+                                    let scale = 1;
+                                    if (img.width > MAX_QR_DIM || img.height > MAX_QR_DIM) {
+                                        scale = Math.min(MAX_QR_DIM / img.width, MAX_QR_DIM / img.height);
+                                    }
+                                    qrCanvas.width = img.width * scale;
+                                    qrCanvas.height = img.height * scale;
+                                    const qrCtx = qrCanvas.getContext('2d');
+                                    qrCtx.drawImage(img, 0, 0, qrCanvas.width, qrCanvas.height);
+                                    
+                                    const imageData = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+                                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                        inversionAttempts: "attemptBoth",
+                                    });
 
-                    omrStatus.value = "Analisando gabarito... Por favor aguarde.";
+                                    let detectedExamId = omrConfig.value.examId;
+                                    let detectedStudentId = omrConfig.value.studentId;
+                                    let detectedVersion = omrConfig.value.version || 0;
 
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            setTimeout(() => {
-                                executeOpenCVLogic(img, numCols, numRows, questionsArr);
-                            }, 50);
+                                    if (code) {
+                                        try {
+                                            let qd = JSON.parse(code.data);
+                                            if (qd.e && qd.s) {
+                                                detectedExamId = Number(qd.e);
+                                                detectedStudentId = Number(qd.s);
+                                                detectedVersion = Number(qd.v) || 0;
+                                                showToast("QR Code e Aluno detectados com sucesso!", "success");
+                                            }
+                                        } catch(err) { console.warn("JSON inválido no QR", err); }
+                                    }
+
+                                    // Se falhou no QR e não tem seleção manual, aborta a execução pedindo foco.
+                                    if (!detectedExamId || !detectedStudentId) {
+                                        omrStatus.value = '';
+                                        return showToast("QR Code não encontrado. Tire uma foto mais clara ou use a 'Seleção Manual'.", "warning");
+                                    }
+
+                                    omrActiveExam.value = exams.value.find(ex => ex.id === detectedExamId);
+                                    omrActiveStudent.value = students.value.find(s => s.id === detectedStudentId);
+
+                                    if (!omrActiveExam.value || !omrActiveStudent.value) {
+                                        omrStatus.value = '';
+                                        return showToast("A Prova ou o Aluno detetados já não existem no sistema.", "error");
+                                    }
+
+                                    // Preenche a interface visual com os dados corretos que a máquina identificou
+                                    omrConfig.value.examId = detectedExamId;
+                                    omrConfig.value.studentId = detectedStudentId;
+                                    omrConfig.value.version = detectedVersion;
+
+                                    let questionsArr = omrActiveExam.value.versions && omrActiveExam.value.versions[detectedVersion] ? omrActiveExam.value.versions[detectedVersion].questions : omrActiveExam.value.questions;
+                                    
+                                    if (!questionsArr || questionsArr.length === 0) {
+                                        omrStatus.value = '';
+                                        return showToast("Esta prova não tem questões configuradas.", "error");
+                                    }
+
+                                    const numCols = 6; 
+                                    const numRows = questionsArr.length + 1; 
+
+                                    // 2. Acionar a Visão Computacional para as Bolhas
+                                    omrStatus.value = "Analisando gabarito... Por favor aguarde.";
+                                    
+                                    executeOpenCVLogic(img, numCols, numRows, questionsArr, detectedVersion).catch(err => {
+                                        console.error(err);
+                                        omrStatus.value = '';
+                                        showToast("Falha ao analisar o gabarito. Tente alinhar as bordas.", "error");
+                                    });
+                                }, 50);
+                            };
+                            img.src = event.target.result;
                         };
-                        img.src = event.target.result;
-                    };
-                    reader.readAsDataURL(file);
+                        reader.readAsDataURL(file);
+                    } catch (error) {
+                        console.error(error);
+                        omrStatus.value = '';
+                        showToast("Erro crítico ao preparar leitura.", "error");
+                    }
                 };
 
-                const executeOpenCVLogic = async (imageObj, numCols, numRows, questionsArr) => {
+                const executeOpenCVLogic = async (imageObj, numCols, numRows, questionsArr, versionIndex) => {
                     let src, gray, blurred, edged, M_edge_dilate, contours, hierarchy, warped, warpedGray, thresh, M_kernel;
                     
                     try {
@@ -2415,7 +2476,7 @@
                             omrActiveExam.value.id, 
                             omrActiveStudent.value.id, 
                             omrActiveStudent.value.name, 
-                            omrConfig.value.version, 
+                            versionIndex, // Passando a versão lida do QR diretamente 
                             pa, 
                             debugImgData, 
                             true,
@@ -2432,7 +2493,7 @@
                     } catch (error) {
                         console.error("OpenCV OMR Error: ", error);
                         omrStatus.value = '';
-                        showToast("Falha ao analisar o gabarito. Tente alinhar as bordas.", "error");
+                        throw error;
                     } finally {
                         if (src) src.delete();
                         if (gray) gray.delete();
@@ -4616,10 +4677,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         alignment: 'center'
                     });
 
-                    // Coluna da Direita: QR Code
-                    headerColumns.push({
-                        width: 70, qr: JSON.stringify({e: ex.id, s: std.id, v: vIdx}), fit: isEco ? 60 : 70, alignment: 'right'
-                    });
+                    // Coluna da Direita: Espaçador vazio para manter o texto centralizado (QR Code movido para junto do gabarito)
+                    headerColumns.push({ width: 70, text: '' });
 
                     content.push({
                         columns: headerColumns,
@@ -4744,10 +4803,20 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         content.push({ text: '', margin: [0, 0, 0, isEco ? 6 : 15] });
                     });
                     
-                    // GABARITO DO ALUNO (No final da prova, centralizado)
+                    // GABARITO DO ALUNO E QR CODE (No final da prova, lado a lado)
+                    let qrDataString = JSON.stringify({e: ex.id, s: std.id, v: vIdx});
+                    
                     content.push({
                         columns: [
-                            { width: '*', text: '' },
+                            { width: '*', text: '' }, // Espaçador esquerdo
+                            {
+                                width: 'auto',
+                                stack: [
+                                    { text: 'IDENTIFICAÇÃO (NÃO RISQUE)', fontSize: isEco ? 7 : 8, bold: true, alignment: 'center', margin: [0, 0, 0, 8], color: '#6b7280' },
+                                    { qr: qrDataString, fit: isEco ? 65 : 85, alignment: 'center' }
+                                ],
+                                margin: [0, 15, 20, 0] // Margem direita para afastar 20px da grelha
+                            },
                             {
                                 width: 'auto',
                                 stack: [
@@ -4755,9 +4824,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                     buildAnswerGrid(v, false)
                                 ]
                             },
-                            { width: '*', text: '' }
+                            { width: '*', text: '' } // Espaçador direito
                         ],
-                        margin: [0, 15, 0, 10]
+                        margin: [0, 15, 0, 10],
+                        alignment: 'center'
                     });
                     
                     return content;
