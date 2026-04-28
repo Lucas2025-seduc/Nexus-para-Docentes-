@@ -15,7 +15,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -461,12 +460,12 @@
                 </div>
 
                 <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
-                    <div class="flex gap-2">
-                        <button @click="startOMR" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2 border border-blue-700 text-sm">
-                            <i class="fa-solid fa-camera-retro text-lg"></i> Corrigir Gabarito (Foto)
+                    <div class="grid grid-cols-2 gap-3">
+                        <button @click="startLiveQRScan('correction')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-sm transition flex flex-col items-center justify-center gap-1 text-sm border border-emerald-600">
+                            <i class="fa-solid fa-qrcode text-lg"></i> Corrigir QR Code
                         </button>
-                        <button @click="openSimulator" class="w-14 bg-slate-800 hover:bg-slate-900 text-white rounded-xl flex items-center justify-center transition shadow-md" title="Simulador de Caos OMR (Testes de Precisão)">
-                            <i class="fa-solid fa-flask text-lg"></i>
+                        <button @click="startLiveQRScan('view')" class="w-full bg-cyan-500 hover:bg-cyan-600 text-white py-3 rounded-xl font-bold shadow-sm transition flex flex-col items-center justify-center gap-1 text-sm border border-cyan-600">
+                            <i class="fa-solid fa-magnifying-glass-chart text-lg"></i> Consultar Nota QR
                         </button>
                     </div>
                     
@@ -1300,147 +1299,6 @@
             <div class="p-4 bg-white border-t max-w-2xl mx-auto w-full"><button @click="saveManualCorrection" class="w-full bg-emerald-500 text-white py-4 rounded-xl font-black text-lg shadow-lg">Finalizar Avaliação</button></div>
         </div>
 
-        <!-- MODAL LEITURA OMR -->
-        <div v-if="showOMRModal" class="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm animate-fade-in flex flex-col border border-gray-100">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="font-bold text-lg text-blue-600"><i class="fa-solid fa-camera-retro mr-2"></i> Leitura OMR Inteligente</h3>
-                    <button @click="showOMRModal=false" class="text-gray-400 hover:text-red-500 transition w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
-                </div>
-                
-                <div class="space-y-4">
-                    <div v-if="isCvReady" class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center shadow-inner">
-                        <p class="text-xs font-bold text-blue-800 mb-4 leading-relaxed"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Fotografe a prova inteira. O sistema identificará o <span class="font-black bg-blue-200 px-1 rounded shadow-sm">QR Code</span> e o <span class="font-black bg-blue-200 px-1 rounded shadow-sm">Gabarito</span> automaticamente!</p>
-                        <div class="grid grid-cols-2 gap-3">
-                            <label class="flex flex-col items-center justify-center bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold cursor-pointer transition shadow-md border border-blue-700 text-center transform active:scale-95">
-                                <i class="fa-solid fa-camera text-2xl mb-1.5"></i>
-                                <span class="text-[10px] uppercase tracking-wider">Tirar Foto</span>
-                                <input type="file" accept="image/*" capture="environment" class="hidden" @change="handleOMRFile">
-                            </label>
-                            <label class="flex flex-col items-center justify-center bg-white hover:bg-blue-50 text-blue-600 py-4 rounded-xl font-bold cursor-pointer transition shadow-sm border border-blue-200 text-center transform active:scale-95">
-                                <i class="fa-solid fa-image text-2xl mb-1.5"></i>
-                                <span class="text-[10px] uppercase tracking-wider">Galeria / Arquivo</span>
-                                <input type="file" accept="image/*" class="hidden" @change="handleOMRFile">
-                            </label>
-                        </div>
-                    </div>
-                    <div v-else class="text-center text-xs font-bold text-amber-600 bg-amber-50 p-5 rounded-xl border border-amber-200 shadow-inner flex flex-col items-center gap-2">
-                        <i class="fa-solid fa-circle-notch fa-spin text-2xl"></i>
-                        <span>Carregando Inteligência Visual (OpenCV)...</span>
-                    </div>
-
-                    <details class="group border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
-                        <summary class="p-3 text-xs font-bold text-gray-600 cursor-pointer bg-gray-50 flex justify-between items-center hover:bg-gray-100 transition">
-                            <span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-gray-400"></i> Seleção Manual (Opcional)</span>
-                            <i class="fa-solid fa-chevron-down text-gray-400 group-open:rotate-180 transition"></i>
-                        </summary>
-                        <div class="p-3 space-y-3 border-t border-gray-100">
-                            <p class="text-[10px] text-gray-500 leading-tight">Utilize apenas se o QR Code da prova estiver rasgado ou ilegível.</p>
-                            <select v-model="omrConfig.examId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
-                                <option value="">Selecionar prova...</option>
-                                <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
-                            </select>
-                            <select v-if="omrConfig.examId" v-model="omrConfig.studentId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
-                                <option value="">Selecionar aluno...</option>
-                                <option v-for="s in omrStudents" :key="s.id" :value="s.id">{{s.name}}</option>
-                            </select>
-                            <select v-if="omrConfig.studentId" v-model="omrConfig.version" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors">
-                                <option v-for="(v,i) in omrExamVersions" :key="i" :value="i">Tipo {{i+1}}</option>
-                            </select>
-                        </div>
-                    </details>
-
-                    <div v-if="omrStatus" class="text-center text-xs font-bold text-blue-600 bg-blue-50/80 p-3 rounded-xl border border-blue-100 flex items-center justify-center gap-2 shadow-sm animate-pulse">
-                        <i class="fa-solid fa-microchip text-base"></i>
-                        <span>{{omrStatus}}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- MODAL SIMULADOR DE CAOS OMR -->
-        <div v-if="showSimulatorModal" class="fixed inset-0 z-[500] flex justify-center items-center bg-black/80 p-4 backdrop-blur-sm overflow-y-auto">
-            <div class="max-w-6xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 my-auto flex flex-col max-h-[95vh] animate-fade-in">
-                <div class="bg-slate-900 p-4 text-white flex justify-between items-center flex-none">
-                    <div>
-                        <h1 class="text-xl font-black tracking-tight"><i class="fa-solid fa-flask text-indigo-400 mr-2"></i> OMR Master <span class="text-indigo-400">Ultra</span></h1>
-                        <p class="text-xs text-slate-300 mt-1 font-medium">Laboratório de Testes e Simulação de Caos para o Visão Computacional</p>
-                    </div>
-                    <button @click="showSimulatorModal=false" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
-                </div>
-
-                <div class="p-4 md:p-6 overflow-y-auto flex-1 bg-slate-50">
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <!-- PAINEL ESQUERDO: Controles e Resultados -->
-                        <div class="lg:col-span-1 space-y-6 flex flex-col">
-                            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                <label class="block text-sm font-bold text-slate-800 mb-3"><i class="fa-solid fa-gears text-indigo-600 mr-1"></i> Motor do Simulador</label>
-                                <div class="space-y-3">
-                                    <select v-model="simConfig.examId" class="w-full p-2.5 bg-slate-50 rounded-lg text-xs font-bold border outline-none focus:border-indigo-500">
-                                        <option value="">Selecione uma Prova Base...</option>
-                                        <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
-                                    </select>
-                                    <select v-if="simConfig.examId && simExamVersions.length > 1" v-model="simConfig.version" class="w-full p-2.5 bg-slate-50 rounded-lg text-xs font-bold border outline-none focus:border-indigo-500">
-                                        <option v-for="(v,i) in simExamVersions" :key="i" :value="i">Tipo {{i+1}}</option>
-                                    </select>
-                                    
-                                    <div class="bg-rose-50 p-3 rounded-lg border border-rose-200 space-y-3 mt-4">
-                                        <h4 class="text-xs font-black text-rose-900 flex items-center"><i class="fa-solid fa-burst text-rose-600 mr-1.5"></i> Estresse Extremo</h4>
-                                        <p class="text-[10px] text-rose-700 leading-tight">Injeta textura, sombras duras, rabiscos e giros absurdos.</p>
-                                        
-                                        <button @click="generateRealisticSimulatorTest" :disabled="!simConfig.examId" class="w-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-2.5 rounded-lg transition shadow-sm disabled:opacity-50">
-                                            1. Bagunçar Gabarito
-                                        </button>
-                                        <button @click="testSimulatorOMR" :disabled="!simConfig.examId" class="w-full bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold py-2.5 rounded-lg transition shadow-md disabled:opacity-50">
-                                            2. Testar OMR Ultra (Alvo 100%)
-                                        </button>
-                                    </div>
-
-                                    <div class="grid grid-cols-2 gap-2 mt-2">
-                                        <button @click="generateCleanSimulatorGrid" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 rounded-lg transition">Limpar Tela</button>
-                                        <button @click="downloadSimulatorImage" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 rounded-lg transition">Baixar PNG</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Resultados do OMR -->
-                            <div v-if="simStatus || simResults.length > 0" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[250px]">
-                                <h3 class="text-sm font-black text-slate-800 border-b border-slate-100 pb-2 mb-3 flex justify-between items-center">
-                                    Resultados
-                                    <span v-if="simStatus" class="text-[10px] px-2 py-1 rounded-full bg-indigo-100 text-indigo-800 font-bold animate-pulse">{{simStatus}}</span>
-                                    <span v-else-if="simAccuracy" class="text-[10px] px-2 py-1 rounded-full font-black shadow-inner" :class="simAccuracy === '100.0' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">Precisão {{simAccuracy}}%</span>
-                                </h3>
-                                
-                                <div class="mb-3 text-center">
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Raio-X (Visão da IA)</span>
-                                    <canvas id="simOutputCanvas" class="w-full max-w-[200px] mx-auto rounded border border-slate-300 shadow-inner bg-slate-100"></canvas>
-                                </div>
-
-                                <div class="flex-1 overflow-y-auto pr-1 space-y-1.5">
-                                    <div v-for="res in simResults" :key="res.question" class="flex flex-col py-2 px-2 border border-slate-100 bg-slate-50 rounded-lg" :class="{'border-rose-200 bg-rose-50': res.hasError}">
-                                        <div class="flex justify-between items-center w-full">
-                                            <span class="text-slate-700 font-black text-xs uppercase">Q{{res.question}}</span>
-                                            <div class="text-right">
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold" :class="res.isInvalid ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800 shadow-sm'">{{res.answer}}</span>
-                                                <span v-if="res.hasError" class="block text-[9px] text-rose-500 mt-0.5 uppercase font-bold tracking-wide">Esperado: {{res.expected}}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <p v-if="simResults.length === 0 && !simStatus" class="text-center text-xs text-slate-400 mt-4">Nenhum teste executado.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- PAINEL DIREITO: Visualizador Canvas -->
-                        <div class="lg:col-span-2 flex justify-center items-start bg-slate-200 p-4 rounded-xl border border-slate-300 overflow-auto h-[600px] shadow-inner relative">
-                            <div v-if="!simConfig.examId" class="absolute inset-0 flex items-center justify-center text-slate-400 font-bold text-sm">Selecione uma prova para gerar o gabarito.</div>
-                            <canvas v-show="simConfig.examId" id="simGeneratorCanvas" @click="handleSimulatorClick" class="shadow-2xl bg-white cursor-pointer transition-transform transform origin-top hover:scale-[1.02]"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- MODAL SCANNER MANUAL -->
         <div v-if="showManualInputModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-fade-in"><div class="flex justify-between mb-4"><h3 class="font-bold">Lançamento Manual</h3><button @click="showManualInputModal=false"><i class="fa-solid fa-times"></i></button></div><div class="space-y-4"><select v-model="manualConfig.examId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar prova...</option><option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option></select><select v-if="manualConfig.examId" v-model="manualConfig.studentId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar aluno...</option><option v-for="s in manualStudents" :key="s.id" :value="s.id">{{s.name}}</option></select><select v-if="manualConfig.studentId" v-model="manualConfig.version" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option v-for="(v,i) in selectedExamVersions" :key="i" :value="i">Tipo {{i+1}}</option></select><button @click="confirmManualEntry" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Avançar para Preenchimento</button></div></div></div>
 
@@ -1485,14 +1343,14 @@
         </div>
 
         <!-- MODAL LIVE QR -->
-        <div v-show="showLiveQRScanner" class="fixed inset-0 z-[600] flex flex-col bg-black animate-fade-in">
+        <div v-show="showLiveQRScanner" class="fixed inset-0 z-[400] flex flex-col bg-black animate-fade-in">
             <div class="p-4 flex justify-between bg-gray-900 text-white z-10 shadow-md"><h3 class="font-bold"><i class="fa-solid fa-qrcode"></i> Ler QR do Aluno</h3><button @click="stopLiveQRScan" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button></div>
             <div class="flex-1 flex flex-col items-center justify-center p-4 relative">
                 <div id="live-qr-reader" class="w-full max-w-md bg-black rounded-xl overflow-hidden shadow-2xl z-10"></div>
                 <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20">
                     <div class="w-64 h-64 border-2 border-dashed border-emerald-500 rounded-3xl animate-pulse"></div>
                 </div>
-                <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : (qrScanMode === 'omr' ? 'Aponte para o QR Code impresso no topo da prova para iniciar a leitura OMR' : 'Aponte para o QR Code impresso no topo da prova') }}</p>
+                <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : 'Aponte para o QR Code impresso no topo da prova' }}</p>
             </div>
         </div>
     </div>
@@ -1550,7 +1408,6 @@
                 const isTemporal = ref(false);
                 const toast = ref({show:false,message:'',type:'info'});
                 const confirmModal = ref({show:false,message:'',onConfirm:null});
-                const isCvReady = ref(false);
                 
                 // API
                 const geminiKey = ref('');
@@ -1671,844 +1528,6 @@
                 const showManualInputModal = ref(false);
                 const manualConfig = ref({examId:'',studentId:'',version:0});
                 
-                // OMR Simulator State
-                const showSimulatorModal = ref(false);
-                const simConfig = ref({ examId: '', version: 0 });
-                const simAnswers = ref({});
-                const simCurrentMode = ref('clean');
-                const simResults = ref([]);
-                const simAccuracy = ref('');
-                const simStatus = ref('');
-
-                const simExamVersions = computed(() => {
-                    if (!simConfig.value.examId) return [];
-                    const ex = exams.value.find(e => e.id === simConfig.value.examId);
-                    return ex ? ex.versions : [];
-                });
-
-                const simQuestions = computed(() => {
-                    if (!simConfig.value.examId) return [];
-                    const ex = exams.value.find(e => e.id === simConfig.value.examId);
-                    return ex ? (ex.versions[simConfig.value.version]?.questions || ex.questions) : [];
-                });
-
-                watch(() => simConfig.value, () => {
-                    if (showSimulatorModal.value && simQuestions.value.length > 0) {
-                        simAnswers.value = {};
-                        simResults.value = [];
-                        simAccuracy.value = '';
-                        nextTick(() => generateCleanSimulatorGrid());
-                    }
-                }, { deep: true });
-
-                const openSimulator = () => {
-                    simConfig.value = {examId: '', version: 0};
-                    simAnswers.value = {};
-                    simResults.value = [];
-                    simAccuracy.value = '';
-                    simStatus.value = '';
-                    showSimulatorModal.value = true;
-                };
-
-                // Simulator Drawing Logic
-                const simDrawConfig = { cellWidth: 60, cellHeight: 50, headerHeight: 40, radius: 12 };
-                
-                const drawSimGridCore = (ctx, numQ, questionsArray) => {
-                    const cols = 6; // Q + A, B, C, D, E
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(0, 0, cols * simDrawConfig.cellWidth, simDrawConfig.headerHeight + (numQ * simDrawConfig.cellHeight));
-
-                    ctx.fillStyle = '#f1f5f9';
-                    ctx.fillRect(0, 0, cols * simDrawConfig.cellWidth, simDrawConfig.headerHeight);
-                    
-                    ctx.fillStyle = '#0f172a';
-                    ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    
-                    const headers = ['Q', 'A', 'B', 'C', 'D', 'E'];
-                    headers.forEach((text, i) => {
-                        ctx.fillText(text, (i * simDrawConfig.cellWidth) + (simDrawConfig.cellWidth / 2), simDrawConfig.headerHeight / 2);
-                    });
-
-                    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1;
-                    for (let i = 0; i <= numQ; i++) {
-                        let y = simDrawConfig.headerHeight + (i * simDrawConfig.cellHeight);
-                        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cols * simDrawConfig.cellWidth, y); ctx.stroke();
-                    }
-                    
-                    ctx.lineWidth = 3; ctx.strokeStyle = '#020617';
-                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(cols * simDrawConfig.cellWidth, 0); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(0, simDrawConfig.headerHeight); ctx.lineTo(cols * simDrawConfig.cellWidth, simDrawConfig.headerHeight); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(0, simDrawConfig.headerHeight + (numQ * simDrawConfig.cellHeight)); ctx.lineTo(cols * simDrawConfig.cellWidth, simDrawConfig.headerHeight + (numQ * simDrawConfig.cellHeight)); ctx.stroke();
-
-                    ctx.lineWidth = 1; ctx.strokeStyle = '#94a3b8';
-                    for (let i = 1; i < cols; i++) {
-                        let x = i * simDrawConfig.cellWidth;
-                        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, simDrawConfig.headerHeight + (numQ * simDrawConfig.cellHeight)); ctx.stroke();
-                    }
-                    
-                    ctx.lineWidth = 3; ctx.strokeStyle = '#020617';
-                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, simDrawConfig.headerHeight + (numQ * simDrawConfig.cellHeight)); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(cols * simDrawConfig.cellWidth, 0); ctx.lineTo(cols * simDrawConfig.cellWidth, simDrawConfig.headerHeight + (numQ * simDrawConfig.cellHeight)); ctx.stroke();
-
-                    ctx.lineWidth = 1; ctx.font = 'bold 16px Arial';
-                    
-                    for (let q = 1; q <= numQ; q++) {
-                        let yCenter = simDrawConfig.headerHeight + ((q - 1) * simDrawConfig.cellHeight) + (simDrawConfig.cellHeight / 2);
-                        let qData = questionsArray[q-1];
-                        
-                        ctx.fillStyle = '#0f172a';
-                        ctx.fillText(q.toString(), simDrawConfig.cellWidth / 2, yCenter);
-                        
-                        for (let opt = 1; opt <= 5; opt++) {
-                            let xCenter = (opt * simDrawConfig.cellWidth) + (simDrawConfig.cellWidth / 2);
-                            
-                            if (qData && qData.type === 'ce' && opt > 2) {
-                                ctx.fillStyle = '#d1d5db';
-                                ctx.fillText('-', xCenter, yCenter);
-                                continue;
-                            }
-
-                            ctx.beginPath();
-                            ctx.arc(xCenter, yCenter, simDrawConfig.radius, 0, Math.PI * 2);
-                            ctx.strokeStyle = '#cbd5e1'; 
-                            ctx.stroke();
-                            
-                            let markArr = simAnswers.value[q-1] || [];
-                            let markObj = markArr.find(m => m.idx === (opt - 1));
-                            
-                            if (markObj) {
-                                ctx.fillStyle = '#0f172a';
-                                ctx.strokeStyle = '#0f172a';
-
-                                if (markObj.style === 'perfect') {
-                                    ctx.beginPath(); ctx.arc(xCenter, yCenter, simDrawConfig.radius - 1, 0, Math.PI * 2); ctx.fill();
-                                } else if (markObj.style === 'overflow') {
-                                    ctx.beginPath(); ctx.arc(xCenter, yCenter, simDrawConfig.radius + 5, 0, Math.PI * 2); ctx.fill();
-                                } else if (markObj.style === 'x') {
-                                    ctx.lineWidth = 2;
-                                    ctx.beginPath();
-                                    ctx.moveTo(xCenter - simDrawConfig.radius + 2, yCenter - simDrawConfig.radius + 2);
-                                    ctx.lineTo(xCenter + simDrawConfig.radius - 2, yCenter + simDrawConfig.radius - 2);
-                                    ctx.moveTo(xCenter + simDrawConfig.radius - 2, yCenter - simDrawConfig.radius + 2);
-                                    ctx.lineTo(xCenter - simDrawConfig.radius + 2, yCenter + simDrawConfig.radius - 2);
-                                    ctx.stroke();
-                                    ctx.lineWidth = 1;
-                                } else if (markObj.style === 'v') {
-                                    ctx.lineWidth = 2.5;
-                                    ctx.beginPath();
-                                    ctx.moveTo(xCenter - 8, yCenter);
-                                    ctx.lineTo(xCenter - 2, yCenter + 8);
-                                    ctx.lineTo(xCenter + 14, yCenter - 14); 
-                                    ctx.stroke();
-                                    ctx.lineWidth = 1;
-                                } else if (markObj.style === 'half') {
-                                    ctx.beginPath();
-                                    ctx.arc(xCenter, yCenter, simDrawConfig.radius, Math.PI, Math.PI * 2); 
-                                    ctx.fill();
-                                }
-                            }
-                        }
-                    }
-                };
-
-                const generateCleanSimulatorGrid = () => {
-                    const canvas = document.getElementById('simGeneratorCanvas');
-                    if (!canvas || simQuestions.value.length === 0) return;
-                    const ctx = canvas.getContext('2d');
-                    
-                    simCurrentMode.value = 'clean';
-                    const numQ = simQuestions.value.length;
-                    const cols = 6;
-                    const margin = 20;
-                    
-                    canvas.width = (cols * simDrawConfig.cellWidth) + (margin * 2);
-                    canvas.height = (numQ * simDrawConfig.cellHeight) + simDrawConfig.headerHeight + (margin * 2);
-                    
-                    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.save(); ctx.translate(margin, margin);
-                    drawSimGridCore(ctx, numQ, simQuestions.value);
-                    ctx.restore();
-                };
-
-                const generateRealisticSimulatorTest = () => {
-                    const canvas = document.getElementById('simGeneratorCanvas');
-                    if (!canvas || simQuestions.value.length === 0) return;
-                    const ctx = canvas.getContext('2d');
-                    
-                    simCurrentMode.value = 'realistic';
-                    const numQ = simQuestions.value.length;
-                    const cols = 6;
-                    const styles = ['perfect', 'overflow', 'x', 'v', 'half']; 
-                    
-                    simAnswers.value = {};
-
-                    for (let i = 0; i < numQ; i++) {
-                        const q = simQuestions.value[i];
-                        const optsLen = q.type === 'ce' ? 2 : 5;
-                        const rand = Math.random();
-                        
-                        if (rand < 0.1) {
-                            simAnswers.value[i] = []; 
-                        } else if (rand < 0.2) {
-                            let opt1 = Math.floor(Math.random() * optsLen);
-                            let opt2 = Math.floor(Math.random() * optsLen);
-                            while(opt1 === opt2 && optsLen > 1) opt2 = Math.floor(Math.random() * optsLen);
-                            simAnswers.value[i] = [
-                                {idx: opt1, style: styles[Math.floor(Math.random()*styles.length)]},
-                                {idx: opt2, style: styles[Math.floor(Math.random()*styles.length)]}
-                            ];
-                        } else {
-                            let opt = Math.floor(Math.random() * optsLen);
-                            simAnswers.value[i] = [{idx: opt, style: styles[Math.floor(Math.random()*styles.length)]}];
-                        }
-                    }
-
-                    canvas.width = 800;
-                    canvas.height = Math.max(1000, 400 + (numQ * simDrawConfig.cellHeight)); 
-                    
-                    ctx.fillStyle = '#f8fafc'; 
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    for(let i=0; i<8000; i++) {
-                        ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.04})`;
-                        ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, Math.random()*3, Math.random()*3);
-                    }
-
-                    ctx.fillStyle = '#0f172a'; ctx.textAlign = 'left'; ctx.font = 'black 32px Arial';
-                    ctx.fillText("MINISTÉRIO DA EDUCAÇÃO", 50, 70);
-                    
-                    ctx.font = 'italic 18px "Comic Sans MS", cursive'; ctx.fillStyle = '#2563eb'; 
-                    ctx.fillText("João Pedro da Silva Junior - 3º Ano B", 50, 150);
-                    
-                    ctx.beginPath(); ctx.moveTo(0, 300);
-                    for(let i=0; i<800; i+=20) ctx.lineTo(i, 300 + Math.sin(i)*50);
-                    ctx.strokeStyle = 'rgba(37, 99, 235, 0.4)'; ctx.lineWidth = 2; ctx.stroke();
-
-                    const gridW = cols * simDrawConfig.cellWidth;
-                    const gridH = simDrawConfig.headerHeight + (numQ * simDrawConfig.cellHeight);
-                    const offsetX = (canvas.width - gridW) / 2 + (Math.random() * 80 - 40); 
-                    const offsetY = 250; 
-                    const angle = (Math.random() * 24 - 12) * Math.PI / 180; 
-
-                    ctx.save();
-                    ctx.translate(offsetX + gridW/2, offsetY + gridH/2);
-                    ctx.rotate(angle);
-                    ctx.translate(-gridW/2, -gridH/2);
-                    drawSimGridCore(ctx, numQ, simQuestions.value);
-                    ctx.restore();
-
-                    let grad;
-                    if(Math.random() > 0.5) {
-                        grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-                        grad.addColorStop(0, "rgba(0, 0, 0, 0.6)"); 
-                        grad.addColorStop(0.4, "rgba(0, 0, 0, 0.1)");
-                        grad.addColorStop(1, "rgba(0, 0, 0, 0.5)"); 
-                    } else {
-                        grad = ctx.createRadialGradient(canvas.width/2, canvas.height, 10, canvas.width/2, canvas.height/2, canvas.width);
-                        grad.addColorStop(0, "rgba(0, 0, 0, 0.7)");
-                        grad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
-                    }
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                };
-
-                const handleSimulatorClick = (event) => {
-                    if (simCurrentMode.value !== 'clean') return;
-                    const canvas = document.getElementById('simGeneratorCanvas');
-                    const rect = canvas.getBoundingClientRect();
-                    const scaleX = canvas.width / rect.width;
-                    const scaleY = canvas.height / rect.height;
-                    const margin = 20;
-                    let x = (event.clientX - rect.left) * scaleX - margin;
-                    let y = (event.clientY - rect.top) * scaleY - margin;
-
-                    const cols = 6;
-                    const numQ = simQuestions.value.length;
-
-                    if (x < simDrawConfig.cellWidth || y < simDrawConfig.headerHeight) return;
-                    if (x > cols * simDrawConfig.cellWidth || y > simDrawConfig.headerHeight + (numQ * simDrawConfig.cellHeight)) return;
-
-                    let colIndex = Math.floor(x / simDrawConfig.cellWidth);
-                    let rowIndex = Math.floor((y - simDrawConfig.headerHeight) / simDrawConfig.cellHeight);
-
-                    if (colIndex > 0 && rowIndex >= 0 && rowIndex < numQ) {
-                        let optIndex = colIndex - 1;
-                        let q = simQuestions.value[rowIndex];
-                        
-                        if (q.type === 'ce' && optIndex > 1) return;
-                        
-                        if (!simAnswers.value[rowIndex]) simAnswers.value[rowIndex] = [];
-                        
-                        const idx = simAnswers.value[rowIndex].findIndex(a => a.idx === optIndex);
-                        if (idx > -1) simAnswers.value[rowIndex].splice(idx, 1);
-                        else simAnswers.value[rowIndex].push({idx: optIndex, style: 'perfect'});
-                        
-                        generateCleanSimulatorGrid();
-                    }
-                };
-
-                const downloadSimulatorImage = () => {
-                    const canvas = document.getElementById('simGeneratorCanvas');
-                    if (!canvas) return;
-                    const link = document.createElement('a');
-                    link.download = simCurrentMode.value === 'realistic' ? 'simulado_caos_extremo.png' : 'gabarito_limpo.png';
-                    link.href = canvas.toDataURL("image/png");
-                    link.click();
-                };
-
-                const testSimulatorOMR = () => {
-                    if (!isCvReady.value) return showToast("Aguarde o carregamento do OpenCV.", "warning");
-                    if (simQuestions.value.length === 0) return;
-
-                    simStatus.value = "Calculando...";
-                    const canvas = document.getElementById('simGeneratorCanvas');
-                    const img = new Image();
-                    img.onload = () => processSimulatorOMR(img);
-                    img.src = canvas.toDataURL("image/png");
-                };
-
-                const processSimulatorOMR = (imageObj) => {
-                    let src, gray, blurred, edged, M_edge_dilate, contours, hierarchy, warped, warpedGray, thresh, M_kernel;
-                    try {
-                        const tempCanvas = document.createElement('canvas');
-                        tempCanvas.width = imageObj.width; tempCanvas.height = imageObj.height;
-                        const ctx = tempCanvas.getContext('2d'); ctx.drawImage(imageObj, 0, 0);
-
-                        src = cv.imread(tempCanvas);
-                        gray = new cv.Mat(); blurred = new cv.Mat(); edged = new cv.Mat();
-
-                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                        cv.medianBlur(gray, gray, 3);
-                        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-                        cv.Canny(blurred, edged, 30, 150); 
-                        
-                        M_edge_dilate = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-                        cv.dilate(edged, edged, M_edge_dilate);
-
-                        contours = new cv.MatVector(); hierarchy = new cv.Mat();
-                        cv.findContours(edged, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                        let tableContour = null; let maxArea = 0;
-
-                        for (let i = 0; i < contours.size(); ++i) {
-                            let cnt = contours.get(i);
-                            let area = cv.contourArea(cnt);
-                            
-                            if(area > (src.cols * src.rows * 0.05)) {
-                                let peri = cv.arcLength(cnt, true);
-                                let approx = new cv.Mat();
-                                let epsilon_multiplier = 0.02;
-                                let isQuad = false;
-                                
-                                while (epsilon_multiplier <= 0.1) {
-                                    cv.approxPolyDP(cnt, approx, epsilon_multiplier * peri, true);
-                                    if (approx.rows === 4) { isQuad = true; break; }
-                                    epsilon_multiplier += 0.01;
-                                }
-
-                                if (isQuad && area > maxArea) {
-                                    maxArea = area;
-                                    if(tableContour) tableContour.delete();
-                                    tableContour = approx.clone();
-                                }
-                                approx.delete();
-                            }
-                        }
-
-                        warped = new cv.Mat();
-
-                        if (tableContour !== null) {
-                            let ptsArray = [];
-                            for (let i = 0; i < 4; i++) ptsArray.push({x: tableContour.data32S[i*2], y: tableContour.data32S[i*2+1]});
-                            
-                            ptsArray.sort((a,b) => a.y - b.y);
-                            let topPts = ptsArray.slice(0,2).sort((a,b) => a.x - b.x);
-                            let botPts = ptsArray.slice(2,4).sort((a,b) => a.x - b.x);
-                            let orderedPts = [topPts[0], topPts[1], botPts[1], botPts[0]];
-
-                            let widthA = Math.hypot(orderedPts[2].x - orderedPts[3].x, orderedPts[2].y - orderedPts[3].y);
-                            let widthB = Math.hypot(orderedPts[1].x - orderedPts[0].x, orderedPts[1].y - orderedPts[0].y);
-                            let maxWidth = Math.max(Math.floor(widthA), Math.floor(widthB));
-
-                            let heightA = Math.hypot(orderedPts[1].x - orderedPts[2].x, orderedPts[1].y - orderedPts[2].y);
-                            let heightB = Math.hypot(orderedPts[0].x - orderedPts[3].x, orderedPts[0].y - orderedPts[3].y);
-                            let maxHeight = Math.max(Math.floor(heightA), Math.floor(heightB));
-
-                            let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [ orderedPts[0].x, orderedPts[0].y, orderedPts[1].x, orderedPts[1].y, orderedPts[2].x, orderedPts[2].y, orderedPts[3].x, orderedPts[3].y ]);
-                            let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [ 0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1 ]);
-
-                            let M = cv.getPerspectiveTransform(srcTri, dstTri);
-                            let dsize = new cv.Size(maxWidth, maxHeight);
-                            cv.warpPerspective(src, warped, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-                            M.delete(); srcTri.delete(); dstTri.delete(); tableContour.delete();
-                        } else {
-                            src.copyTo(warped);
-                        }
-
-                        const numQuestions = simQuestions.value.length;
-                        const numCols = 6; 
-                        const numRows = numQuestions + 1; 
-
-                        const cellW = warped.cols / numCols;
-                        const cellH = warped.rows / numRows;
-
-                        warpedGray = new cv.Mat(); thresh = new cv.Mat();
-                        cv.cvtColor(warped, warpedGray, cv.COLOR_RGBA2GRAY, 0);
-                        cv.medianBlur(warpedGray, warpedGray, 3);
-                        cv.adaptiveThreshold(warpedGray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 17, 15);
-
-                        M_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-                        cv.dilate(thresh, thresh, M_kernel);
-
-                        let resultsArr = [];
-                        let correctCount = 0;
-                        const letters = ['A', 'B', 'C', 'D', 'E'];
-
-                        for (let q = 1; q <= numQuestions; q++) { 
-                            let rowScores = [];
-                            let qData = simQuestions.value[q-1];
-                            let numOpts = qData.type === 'ce' ? 2 : 5;
-
-                            for (let opt = 1; opt <= numOpts; opt++) { 
-                                let x = Math.round(opt * cellW);
-                                let y = Math.round(q * cellH);
-                                
-                                let roiW = Math.round(cellW * 0.65); 
-                                let roiH = Math.round(cellH * 0.65);
-                                let roiX = Math.round(x + (cellW - roiW) / 2);
-                                let roiY = Math.round(y + (cellH - roiH) / 2);
-
-                                if(roiX < 0) roiX = 0; if(roiY < 0) roiY = 0;
-                                if(roiX + roiW > thresh.cols) roiW = thresh.cols - roiX;
-                                if(roiY + roiH > thresh.rows) roiH = thresh.rows - roiY;
-
-                                if (roiW <= 0 || roiH <= 0) {
-                                    rowScores.push({ index: opt - 1, score: 0, rect: new cv.Rect(roiX, roiY, 0, 0) });
-                                    continue;
-                                }
-
-                                let rect = new cv.Rect(roiX, roiY, roiW, roiH);
-                                
-                                try {
-                                    let roiThresh = thresh.roi(rect);
-                                    let score = cv.countNonZero(roiThresh);
-                                    rowScores.push({ index: opt - 1, score: score, rect: rect });
-                                    roiThresh.delete();
-                                } catch(e) {
-                                    rowScores.push({ index: opt - 1, score: 0, rect: rect });
-                                }
-                            }
-
-                            rowScores.sort((a, b) => b.score - a.score);
-                            let highest = rowScores[0] || {score:0, index:0, rect:new cv.Rect(0,0,0,0)};
-                            let secondHighest = rowScores[1] || {score: 0, rect:new cv.Rect(0,0,0,0)}; 
-
-                            let finalAnswer = "Branco";
-                            let isInvalid = false;
-                            let roiArea = highest.rect && highest.rect.width > 0 ? (highest.rect.width * highest.rect.height) : 100;
-                            let threshold = roiArea * 0.10; 
-
-                            if (highest.score > threshold) {
-                                if (secondHighest.score > threshold && secondHighest.score > (highest.score * 0.55)) { 
-                                    finalAnswer = "NULA";
-                                    isInvalid = true;
-                                    if(highest.rect && highest.rect.width > 0) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [220,38,38,255], 4);
-                                    if(secondHighest.rect && secondHighest.rect.width > 0) cv.circle(warped, new cv.Point(secondHighest.rect.x + secondHighest.rect.width/2, secondHighest.rect.y + secondHighest.rect.height/2), Math.min(secondHighest.rect.width, secondHighest.rect.height)/2, [220,38,38,255], 4);
-                                } else {
-                                    finalAnswer = letters[highest.index];
-                                    if(highest.rect && highest.rect.width > 0) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [16,185,129,255], 4);
-                                }
-                            } else {
-                                isInvalid = true;
-                            }
-
-                            let expectedArr = simAnswers.value[q-1] || [];
-                            let expectedAnswer = "Branco";
-                            if (expectedArr.length === 1) expectedAnswer = letters[expectedArr[0].idx];
-                            if (expectedArr.length > 1) expectedAnswer = "NULA";
-
-                            let hasError = false;
-                            if (finalAnswer === expectedAnswer) {
-                                correctCount++;
-                            } else {
-                                hasError = true;
-                            }
-
-                            resultsArr.push({ 
-                                question: q, 
-                                answer: finalAnswer, 
-                                expected: expectedAnswer,
-                                isInvalid: isInvalid,
-                                hasError: hasError
-                            });
-                        }
-
-                        cv.imshow('simOutputCanvas', warped);
-                        
-                        simResults.value = resultsArr;
-                        simAccuracy.value = ((correctCount / numQuestions) * 100).toFixed(1);
-                        simStatus.value = '';
-
-                    } catch(error) {
-                        console.error("OpenCV Simulator Error:", error);
-                        simStatus.value = '';
-                        showToast("Falha ao simular OMR. Tabela distorcida demais.", "error");
-                    } finally {
-                        if (src) src.delete();
-                        if (gray) gray.delete();
-                        if (blurred) blurred.delete();
-                        if (edged) edged.delete();
-                        if (contours) contours.delete();
-                        if (hierarchy) hierarchy.delete();
-                        if (warped) warped.delete();
-                        if (warpedGray) warpedGray.delete();
-                        if (thresh) thresh.delete();
-                        if (M_kernel) M_kernel.delete();
-                        if (M_edge_dilate) M_edge_dilate.delete();
-                    }
-                };
-
-                // OMR Integration
-                const showOMRModal = ref(false);
-                const omrConfig = ref({examId:'', studentId:'', version:0});
-                const omrStatus = ref('');
-                const omrActiveExam = ref(null);
-                const omrActiveStudent = ref(null);
-
-                const omrStudents = computed(() => {
-                    if (!omrConfig.value.examId) return [];
-                    const ex = exams.value.find(e => e.id === omrConfig.value.examId);
-                    return ex ? students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name)) : [];
-                });
-
-                const omrExamVersions = computed(() => {
-                    if (!omrConfig.value.examId) return [];
-                    const ex = exams.value.find(e => e.id === omrConfig.value.examId);
-                    return ex ? ex.versions : [];
-                });
-
-                const startOMR = () => {
-                    omrConfig.value = {examId:'', studentId:'', version:0};
-                    omrStatus.value = '';
-                    showOMRModal.value = true;
-                };
-
-                const handleOMRFile = (e) => {
-                    try {
-                        if (!isCvReady.value) return showToast("Aguarde, o OpenCV ainda está carregando...", "warning");
-                        const file = e.target.files[0];
-                        
-                        // Reset do input para permitir reenviar o mesmo ficheiro se necessário
-                        e.target.value = '';
-                        
-                        if (!file) return;
-
-                        omrStatus.value = "Extraindo QR Code e processando...";
-
-                        const reader = new FileReader();
-                        reader.onerror = () => { omrStatus.value = ''; showToast("Erro ao ler o ficheiro.", "error"); };
-                        reader.onload = (event) => {
-                            const img = new Image();
-                            img.onerror = () => { omrStatus.value = ''; showToast("Erro ao carregar a imagem.", "error"); };
-                            img.onload = () => {
-                                setTimeout(() => {
-                                    // 1. Extração Automática via QR Code na Foto
-                                    const qrCanvas = document.createElement('canvas');
-                                    const MAX_QR_DIM = 1600; // Resolução suficiente para achar o QR
-                                    let scale = 1;
-                                    if (img.width > MAX_QR_DIM || img.height > MAX_QR_DIM) {
-                                        scale = Math.min(MAX_QR_DIM / img.width, MAX_QR_DIM / img.height);
-                                    }
-                                    qrCanvas.width = img.width * scale;
-                                    qrCanvas.height = img.height * scale;
-                                    const qrCtx = qrCanvas.getContext('2d');
-                                    qrCtx.drawImage(img, 0, 0, qrCanvas.width, qrCanvas.height);
-                                    
-                                    const imageData = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
-                                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                                        inversionAttempts: "attemptBoth",
-                                    });
-
-                                    let detectedExamId = omrConfig.value.examId;
-                                    let detectedStudentId = omrConfig.value.studentId;
-                                    let detectedVersion = omrConfig.value.version || 0;
-
-                                    if (code) {
-                                        try {
-                                            let qd = JSON.parse(code.data);
-                                            if (qd.e && qd.s) {
-                                                detectedExamId = Number(qd.e);
-                                                detectedStudentId = Number(qd.s);
-                                                detectedVersion = Number(qd.v) || 0;
-                                                showToast("QR Code e Aluno detectados com sucesso!", "success");
-                                            }
-                                        } catch(err) { console.warn("JSON inválido no QR", err); }
-                                    }
-
-                                    // Se falhou no QR e não tem seleção manual, aborta a execução pedindo foco.
-                                    if (!detectedExamId || !detectedStudentId) {
-                                        omrStatus.value = '';
-                                        return showToast("QR Code não encontrado. Tire uma foto mais clara ou use a 'Seleção Manual'.", "warning");
-                                    }
-
-                                    omrActiveExam.value = exams.value.find(ex => ex.id === detectedExamId);
-                                    omrActiveStudent.value = students.value.find(s => s.id === detectedStudentId);
-
-                                    if (!omrActiveExam.value || !omrActiveStudent.value) {
-                                        omrStatus.value = '';
-                                        return showToast("A Prova ou o Aluno detetados já não existem no sistema.", "error");
-                                    }
-
-                                    // Preenche a interface visual com os dados corretos que a máquina identificou
-                                    omrConfig.value.examId = detectedExamId;
-                                    omrConfig.value.studentId = detectedStudentId;
-                                    omrConfig.value.version = detectedVersion;
-
-                                    let questionsArr = omrActiveExam.value.versions && omrActiveExam.value.versions[detectedVersion] ? omrActiveExam.value.versions[detectedVersion].questions : omrActiveExam.value.questions;
-                                    
-                                    if (!questionsArr || questionsArr.length === 0) {
-                                        omrStatus.value = '';
-                                        return showToast("Esta prova não tem questões configuradas.", "error");
-                                    }
-
-                                    const numCols = 6; 
-                                    const numRows = questionsArr.length + 1; 
-
-                                    // 2. Acionar a Visão Computacional para as Bolhas
-                                    omrStatus.value = "Analisando gabarito... Por favor aguarde.";
-                                    
-                                    executeOpenCVLogic(img, numCols, numRows, questionsArr, detectedVersion).catch(err => {
-                                        console.error(err);
-                                        omrStatus.value = '';
-                                        showToast("Falha ao analisar o gabarito. Tente alinhar as bordas.", "error");
-                                    });
-                                }, 50);
-                            };
-                            img.src = event.target.result;
-                        };
-                        reader.readAsDataURL(file);
-                    } catch (error) {
-                        console.error(error);
-                        omrStatus.value = '';
-                        showToast("Erro crítico ao preparar leitura.", "error");
-                    }
-                };
-
-                const executeOpenCVLogic = async (imageObj, numCols, numRows, questionsArr, versionIndex) => {
-                    let src, gray, blurred, edged, M_edge_dilate, contours, hierarchy, warped, warpedGray, thresh, M_kernel;
-                    
-                    try {
-                        const tempCanvas = document.createElement('canvas');
-                        const MAX_DIM = 1200;
-                        let scale = 1;
-                        if (imageObj.width > MAX_DIM || imageObj.height > MAX_DIM) {
-                            scale = Math.min(MAX_DIM / imageObj.width, MAX_DIM / imageObj.height);
-                        }
-                        tempCanvas.width = imageObj.width * scale;
-                        tempCanvas.height = imageObj.height * scale;
-                        const ctx = tempCanvas.getContext('2d');
-                        ctx.drawImage(imageObj, 0, 0, tempCanvas.width, tempCanvas.height);
-
-                        src = cv.imread(tempCanvas);
-                        gray = new cv.Mat();
-                        blurred = new cv.Mat();
-                        edged = new cv.Mat();
-
-                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                        cv.medianBlur(gray, gray, 3);
-                        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-                        cv.Canny(blurred, edged, 30, 150);
-
-                        M_edge_dilate = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-                        cv.dilate(edged, edged, M_edge_dilate);
-
-                        contours = new cv.MatVector();
-                        hierarchy = new cv.Mat();
-                        cv.findContours(edged, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                        let tableContour = null;
-                        let maxArea = 0;
-
-                        for (let i = 0; i < contours.size(); ++i) {
-                            let cnt = contours.get(i);
-                            let area = cv.contourArea(cnt);
-                            if(area > (src.cols * src.rows * 0.05)) {
-                                let peri = cv.arcLength(cnt, true);
-                                let approx = new cv.Mat();
-                                let epsilon_multiplier = 0.02;
-                                let isQuad = false;
-
-                                while (epsilon_multiplier <= 0.1) {
-                                    cv.approxPolyDP(cnt, approx, epsilon_multiplier * peri, true);
-                                    if (approx.rows === 4) { isQuad = true; break; }
-                                    epsilon_multiplier += 0.01;
-                                }
-
-                                if (isQuad && area > maxArea) {
-                                    maxArea = area;
-                                    if(tableContour) tableContour.delete();
-                                    tableContour = approx.clone();
-                                }
-                                approx.delete();
-                            }
-                        }
-
-                        warped = new cv.Mat();
-                        if (tableContour !== null) {
-                            let ptsArray = [];
-                            for (let i = 0; i < 4; i++) {
-                                ptsArray.push({x: tableContour.data32S[i*2], y: tableContour.data32S[i*2+1]});
-                            }
-                            ptsArray.sort((a,b) => a.y - b.y);
-                            let topPts = ptsArray.slice(0,2).sort((a,b) => a.x - b.x);
-                            let botPts = ptsArray.slice(2,4).sort((a,b) => a.x - b.x);
-                            let orderedPts = [topPts[0], topPts[1], botPts[1], botPts[0]];
-
-                            let widthA = Math.hypot(orderedPts[2].x - orderedPts[3].x, orderedPts[2].y - orderedPts[3].y);
-                            let widthB = Math.hypot(orderedPts[1].x - orderedPts[0].x, orderedPts[1].y - orderedPts[0].y);
-                            let maxWidth = Math.max(Math.floor(widthA), Math.floor(widthB));
-
-                            let heightA = Math.hypot(orderedPts[1].x - orderedPts[2].x, orderedPts[1].y - orderedPts[2].y);
-                            let heightB = Math.hypot(orderedPts[0].x - orderedPts[3].x, orderedPts[0].y - orderedPts[3].y);
-                            let maxHeight = Math.max(Math.floor(heightA), Math.floor(heightB));
-
-                            let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-                                orderedPts[0].x, orderedPts[0].y, orderedPts[1].x, orderedPts[1].y,
-                                orderedPts[2].x, orderedPts[2].y, orderedPts[3].x, orderedPts[3].y
-                            ]);
-                            let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-                                0, 0, maxWidth-1, 0, maxWidth-1, maxHeight-1, 0, maxHeight-1
-                            ]);
-
-                            let M = cv.getPerspectiveTransform(srcTri, dstTri);
-                            let dsize = new cv.Size(maxWidth, maxHeight);
-                            cv.warpPerspective(src, warped, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-                            M.delete(); srcTri.delete(); dstTri.delete(); tableContour.delete();
-                        } else {
-                            console.warn("Distorção impediu alinhamento perfeito.");
-                            src.copyTo(warped);
-                        }
-
-                        const cellW = warped.cols / numCols;
-                        const cellH = warped.rows / numRows;
-
-                        warpedGray = new cv.Mat();
-                        thresh = new cv.Mat();
-                        cv.cvtColor(warped, warpedGray, cv.COLOR_RGBA2GRAY, 0);
-                        cv.medianBlur(warpedGray, warpedGray, 3);
-                        cv.adaptiveThreshold(warpedGray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 17, 15);
-
-                        M_kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-                        cv.dilate(thresh, thresh, M_kernel);
-
-                        let finalAnswers = {}; 
-
-                        for (let q = 1; q <= numQuestions; q++) {
-                            let rowScores = [];
-                            let qType = questionsArr[q-1].type;
-                            let numOpts = (qType === 'ce') ? 2 : 5;
-
-                            for (let opt = 1; opt <= numOpts; opt++) {
-                                let x = Math.round(opt * cellW); 
-                                let y = Math.round(q * cellH);
-                                
-                                let roiW = Math.round(cellW * 0.65);
-                                let roiH = Math.round(cellH * 0.65);
-                                let roiX = Math.round(x + (cellW - roiW) / 2);
-                                let roiY = Math.round(y + (cellH - roiH) / 2);
-
-                                if(roiX < 0) roiX = 0; if(roiY < 0) roiY = 0;
-                                if(roiX + roiW > thresh.cols) roiW = thresh.cols - roiX;
-                                if(roiY + roiH > thresh.rows) roiH = thresh.rows - roiY;
-
-                                if (roiW <= 0 || roiH <= 0) {
-                                    rowScores.push({ index: opt - 1, score: 0, rect: new cv.Rect(roiX, roiY, 0, 0) });
-                                    continue;
-                                }
-
-                                let rect = new cv.Rect(roiX, roiY, roiW, roiH);
-                                
-                                try {
-                                    let roiThresh = thresh.roi(rect);
-                                    let score = cv.countNonZero(roiThresh);
-                                    rowScores.push({ index: opt - 1, score: score, rect: rect });
-                                    roiThresh.delete();
-                                } catch(e) {
-                                    rowScores.push({ index: opt - 1, score: 0, rect: rect });
-                                }
-                            }
-
-                            rowScores.sort((a, b) => b.score - a.score);
-                            let highest = rowScores[0] || {score:0, index:null, rect: new cv.Rect(0,0,0,0)};
-                            let secondHighest = rowScores[1] || {score: 0, rect: new cv.Rect(0,0,0,0)};
-
-                            let roiArea = highest.rect && highest.rect.width > 0 ? (highest.rect.width * highest.rect.height) : 100;
-                            let threshold = roiArea * 0.10;
-
-                            let selectedOpt = null;
-                            if (highest.score > threshold) {
-                                if (secondHighest.score > threshold && secondHighest.score > (highest.score * 0.55)) {
-                                    selectedOpt = null; 
-                                    if (highest.rect && highest.rect.width > 0) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [220,38,38,255], 4);
-                                    if(secondHighest.rect && secondHighest.rect.width > 0) cv.circle(warped, new cv.Point(secondHighest.rect.x + secondHighest.rect.width/2, secondHighest.rect.y + secondHighest.rect.height/2), Math.min(secondHighest.rect.width, secondHighest.rect.height)/2, [220,38,38,255], 4);
-                                } else {
-                                    selectedOpt = highest.index;
-                                    if (highest.rect && highest.rect.width > 0) cv.circle(warped, new cv.Point(highest.rect.x + highest.rect.width/2, highest.rect.y + highest.rect.height/2), Math.min(highest.rect.width, highest.rect.height)/2, [16,185,129,255], 4);
-                                }
-                            }
-                            
-                            finalAnswers[q-1] = selectedOpt;
-                        }
-
-                        let debugCanvas = document.createElement('canvas');
-                        cv.imshow(debugCanvas, warped);
-                        let debugImgData = debugCanvas.toDataURL('image/jpeg', 0.5);
-
-                        studentAnswers.value = finalAnswers;
-                        
-                        let pa = {};
-                        questionsArr.forEach((q,i) => {
-                            if(studentAnswers.value[i] != null) pa[i] = parseInt(studentAnswers.value[i]);
-                        });
-                        
-                        let sid = await saveExamResult(
-                            omrActiveExam.value.id, 
-                            omrActiveStudent.value.id, 
-                            omrActiveStudent.value.name, 
-                            versionIndex, // Passando a versão lida do QR diretamente 
-                            pa, 
-                            debugImgData, 
-                            true,
-                            false, 
-                            false
-                        );
-                        
-                        showToast('Gabarito OMR Lido com Sucesso!', 'success');
-                        showOMRModal.value = false;
-                        omrStatus.value = '';
-                        
-                        openResultDetails(results.value.find(r => r.id === sid));
-
-                    } catch (error) {
-                        console.error("OpenCV OMR Error: ", error);
-                        omrStatus.value = '';
-                        throw error;
-                    } finally {
-                        if (src) src.delete();
-                        if (gray) gray.delete();
-                        if (blurred) blurred.delete();
-                        if (edged) edged.delete();
-                        if (contours) contours.delete();
-                        if (hierarchy) hierarchy.delete();
-                        if (warped) warped.delete();
-                        if (warpedGray) warpedGray.delete();
-                        if (thresh) thresh.delete();
-                        if (M_kernel) M_kernel.delete();
-                        if (M_edge_dilate) M_edge_dilate.delete();
-                    }
-                };
-
                 // Direct Grade Input (Em Massa)
                 const showDirectGradeModal = ref(false);
                 const directConfig = ref({examId: ''});
@@ -4181,13 +3200,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         
                                         if(!exm || !std) throw new Error("Prova ou Aluno não encontrados no dispositivo.");
                                         
-                                        if (qrScanMode.value === 'omr') {
-                                            omrConfig.value.examId = exm.id;
-                                            omrConfig.value.studentId = std.id;
-                                            omrConfig.value.version = Number(qd.v) || 0;
-                                            showOMRModal.value = true;
-                                            showToast(`Identificado: ${std.name}. Capture o gabarito!`, "success");
-                                        } else if (qrScanMode.value === 'view') {
+                                        if (qrScanMode.value === 'view') {
                                             let res = results.value.find(r => r.examId === exm.id && r.studentId === std.id);
                                             if (res) {
                                                 showToast(`Nota encontrada: ${std.name}`, "success");
@@ -4585,25 +3598,25 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 // --- GERAÇÃO DE PROVAS (PDF) ---
                 
-                // FUNÇÃO UNIVERSAL DA GRELHA (Garante 100% de alinhamento entre Aluno e Espelho e Formato OMR Master)
+                // FUNÇÃO UNIVERSAL DA GRELHA (Garante 100% de alinhamento entre Aluno e Espelho)
                 const buildAnswerGrid = (v, isMirror = false) => {
                     let gridBody = [];
                     gridBody.push([
-                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 4] },
-                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 4] },
-                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 4] },
-                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 4] },
-                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 4] },
-                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f1f5f9', color: '#0f172a', margin: [0, 4] }
+                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
+                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f3f4f6' }
                     ]);
 
                     v.questions.forEach((q, qIdx) => {
-                        let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, color: '#0f172a', margin: [0, 4, 0, 0] }];
+                        let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 5, 0, 0] }];
                         let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
                         
                         for (let i = 0; i < 5; i++) {
                             if (q.type === 'ce' && i > 1) {
-                                row.push({ text: '-', alignment: 'center', margin: [0, 4, 0, 0], color: '#d1d5db' });
+                                row.push({ text: '-', alignment: 'center', margin: [0, 5, 0, 0], color: '#d1d5db' });
                                 continue;
                             }
                             
@@ -4612,21 +3625,21 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 if (isCorrect) {
                                     // Bolinha vazada (Tracejada Vermelha) para recortar/visualizar através
                                     row.push({
-                                        canvas: [{ type: 'ellipse', x: 11, y: 10, r1: 6, r2: 6, lineWidth: 1.5, linePattern: { length: 3, space: 2 }, lineColor: '#ef4444' }],
-                                        alignment: 'center', margin: [0, 1, 0, 1]
+                                        canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1.5, linePattern: { length: 3, space: 2 }, lineColor: '#ef4444' }],
+                                        alignment: 'center', margin: [0, 2, 0, 2]
                                     });
                                 } else {
                                     // Bolinha preenchida cinza (Incorreta)
                                     row.push({
-                                        canvas: [{ type: 'ellipse', x: 11, y: 10, r1: 6, r2: 6, color: '#e5e7eb', lineColor: '#d1d5db' }],
-                                        alignment: 'center', margin: [0, 1, 0, 1]
+                                        canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, color: '#e5e7eb', lineColor: '#d1d5db' }],
+                                        alignment: 'center', margin: [0, 2, 0, 2]
                                     });
                                 }
                             } else {
-                                // Folha do aluno: Bolinhas brancas para preencher exatas ao simulador OMR (#cbd5e1)
+                                // Folha do aluno: Bolinhas brancas para preencher
                                 row.push({
-                                    canvas: [{ type: 'ellipse', x: 11, y: 10, r1: 6, r2: 6, lineWidth: 1, lineColor: '#cbd5e1' }],
-                                    alignment: 'center', margin: [0, 1, 0, 1]
+                                    canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1, lineColor: '#9ca3af' }],
+                                    alignment: 'center', margin: [0, 2, 0, 2]
                                 });
                             }
                         }
@@ -4635,15 +3648,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     return {
                         width: 'auto',
-                        table: { headerRows: 1, dontBreakRows: true, widths: [20, 22, 22, 22, 22, 22], body: gridBody },
+                        table: { headerRows: 1, widths: [25, 30, 30, 30, 30, 30], body: gridBody },
                         layout: {
-                            // Bordas extremas e do topo grossas (3px) para detecção de Canny perfeita, as restantes finas (1px)
-                            hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 3 : 1,
-                            vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 3 : 1,
-                            // Cor preta opaca (#020617) para bordas externas, cinza (#94a3b8) para internas
-                            hLineColor: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? '#020617' : '#94a3b8',
-                            vLineColor: (i, node) => (i === 0 || i === node.table.widths.length) ? '#020617' : '#94a3b8',
-                            paddingLeft: () => 2, paddingRight: () => 2, paddingTop: () => 2, paddingBottom: () => 2
+                            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
+                            vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 2 : 1,
+                            hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
+                            paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 3
                         }
                     };
                 };
@@ -4680,8 +3690,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         alignment: 'center'
                     });
 
-                    // Coluna da Direita: Espaçador vazio para manter o texto centralizado (QR Code movido para junto do gabarito)
-                    headerColumns.push({ width: 70, text: '' });
+                    // Coluna da Direita: QR Code
+                    headerColumns.push({
+                        width: 70, qr: JSON.stringify({e: ex.id, s: std.id, v: vIdx}), fit: isEco ? 60 : 70, alignment: 'right'
+                    });
 
                     content.push({
                         columns: headerColumns,
@@ -4806,35 +3818,19 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         content.push({ text: '', margin: [0, 0, 0, isEco ? 6 : 15] });
                     });
                     
-                    // GABARITO DO ALUNO E QR CODE (Lado a Lado - Imune a quebras de página)
-                    let qrDataString = JSON.stringify({e: ex.id, s: std.id, v: vIdx});
-                    
-                    // Envolver em uma tabela sem bordas com dontBreakRows: true impede 100% a quebra de página a meio!
+                    // GABARITO DO ALUNO (No final da prova, centralizado)
                     content.push({
-                        table: {
-                            widths: ['*', 'auto', 'auto', '*'],
-                            dontBreakRows: true,
-                            body: [
-                                [
-                                    '', // Espaçador esquerdo
-                                    {
-                                        stack: [
-                                            { text: 'IDENTIFICAÇÃO (NÃO RISQUE)', fontSize: isEco ? 7 : 8, bold: true, alignment: 'center', margin: [0, 0, 0, 8], color: '#6b7280' },
-                                            { qr: qrDataString, fit: isEco ? 65 : 85, alignment: 'center' }
-                                        ],
-                                        margin: [0, 15, 20, 0] // Margem direita para afastar 20px da grelha
-                                    },
-                                    {
-                                        stack: [
-                                            { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 10 : 11, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
-                                            buildAnswerGrid(v, false)
-                                        ]
-                                    },
-                                    '' // Espaçador direito
+                        columns: [
+                            { width: '*', text: '' },
+                            {
+                                width: 'auto',
+                                stack: [
+                                    { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 10 : 11, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
+                                    buildAnswerGrid(v, false)
                                 ]
-                            ]
-                        },
-                        layout: 'noBorders',
+                            },
+                            { width: '*', text: '' }
+                        ],
                         margin: [0, 15, 0, 10]
                     });
                     
@@ -5013,29 +4009,17 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     showMakeupExamModal.value = false;
                 };
 
-                // Função para gerar o bloco visual do "Espelho Vazado" imune a quebras
+                // Função para gerar o bloco visual do "Espelho Vazado"
                 const buildEspelhoBlock = (v, vIdx) => {
                     return [
+                        { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
+                        { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
                         {
-                            table: {
-                                widths: ['*', 'auto', '*'],
-                                dontBreakRows: true,
-                                body: [
-                                    [
-                                        '', // spacer
-                                        {
-                                            stack: [
-                                                { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
-                                                { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
-                                                buildAnswerGrid(v, true)
-                                            ],
-                                            alignment: 'center'
-                                        },
-                                        '' // spacer
-                                    ]
-                                ]
-                            },
-                            layout: 'noBorders'
+                            columns: [
+                                { width: '*', text: '' },
+                                buildAnswerGrid(v, true),
+                                { width: '*', text: '' }
+                            ]
                         }
                     ];
                 };
@@ -5100,14 +4084,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 onMounted(() => {
                     initLicenseSystem();
                     load();
-                    
-                    // Verifica ativamente o carregamento assíncrono do OpenCV
-                    const cvInterval = setInterval(() => {
-                        if (typeof cv !== 'undefined' && cv.Mat) {
-                            isCvReady.value = true;
-                            clearInterval(cvInterval);
-                        }
-                    }, 500);
                 });
 
                 return {
@@ -5116,7 +4092,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal,
                     toast, confirmModal, geminiKey, qFilter, filterType, filterSubject, filterTopic,
                     examFilterSubject, examFilterTopic, examFilter, examTab, studentFilter, dashboardStudentFilter,
-                    examHistoryFilter, selectedHistoryExams, recentCorrectionsFilter, isCvReady,
+                    examHistoryFilter, selectedHistoryExams, recentCorrectionsFilter,
                     
                     // Diary
                     periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter,
@@ -5146,13 +4122,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades,
                     openExternalExamForm, goToExternalGrades, saveExternalExam,
                     
-                    // OMR Simulator
-                    showSimulatorModal, simConfig, simAnswers, simCurrentMode, simResults, simAccuracy, simStatus, simExamVersions, simQuestions,
-                    openSimulator, generateCleanSimulatorGrid, generateRealisticSimulatorTest, handleSimulatorClick, downloadSimulatorImage, testSimulatorOMR,
-
-                    // OMR Reader
-                    showOMRModal, omrConfig, omrStatus, omrStudents, omrExamVersions, startOMR, handleOMRFile,
-
                     // Manual Entry
                     correctionMode, showManualInputModal, manualConfig, activeStudent, activeExam, activeVersion,
                     studentAnswers, manualStudents, selectedExamVersions, startManualEntry, confirmManualEntry,
