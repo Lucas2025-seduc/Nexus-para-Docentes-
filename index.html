@@ -15,14 +15,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
-    
-    <!-- Biblioteca PDF.js para ler o PDF importado -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <script>
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-    </script>
-
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -783,10 +775,6 @@
                 <div class="flex items-center gap-3">
                     <label class="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-indigo-100 hover:text-white transition">
                         <input type="checkbox" v-model="seatingPrintQR" class="w-3.5 h-3.5 accent-indigo-400"> Com QR
-                    </label>
-                    <label class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center justify-center cursor-pointer" title="Restaurar Mapa do PDF">
-                        <i class="fa-solid fa-file-import"></i>
-                        <input type="file" accept="application/pdf" class="hidden" @change="importSeatingPlanPDF">
                     </label>
                     <button @click="printSeatingPlan" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center justify-center" title="Imprimir PDF"><i class="fa-solid fa-print"></i></button>
                     <button @click="showSeatingModal=false" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
@@ -1885,10 +1873,6 @@
                         tableBody.push(rowData);
                     }
 
-                    // Insere metadados escondidos (Texto minúsculo branco) no final da página para que o PDF.js possa ler de volta no futuro
-                    let mapMetadata = { c: seatingClassId.value, r: seatingRows.value, co: seatingCols.value, g: seatingGrid.value };
-                    let metaString = `NXMAP|${JSON.stringify(mapMetadata)}|NXMAP`;
-
                     const doc = {
                         pageOrientation: cols > 5 ? 'landscape' : 'portrait',
                         content: [
@@ -1908,52 +1892,12 @@
                                     paddingLeft: () => 4,
                                     paddingRight: () => 4,
                                 }
-                            },
-                            { text: metaString, fontSize: 1, color: '#ffffff', margin: [0, 0, 0, 0] }
+                            }
                         ],
                         defaultStyle: { font: 'Roboto' }
                     };
                     let now = new Date();
                     downloadPDF(pdfMake.createPdf(doc), `Mapa_Sala_${getClassName(seatingClassId.value)}_${now.toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
-                };
-
-                const importSeatingPlanPDF = async (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    showToast("Analisando PDF...", "loading");
-                    
-                    try {
-                        const arrayBuffer = await file.arrayBuffer();
-                        const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-                        let fullText = '';
-                        
-                        for (let i = 1; i <= pdf.numPages; i++) {
-                            const page = await pdf.getPage(i);
-                            const content = await page.getTextContent();
-                            const strings = content.items.map(item => item.str);
-                            fullText += strings.join('');
-                        }
-                        
-                        const match = fullText.match(/NXMAP\|(.*?)\|NXMAP/);
-                        if (match && match[1]) {
-                            const data = JSON.parse(match[1]);
-                            if (data.c === seatingClassId.value) {
-                                seatingRows.value = data.r;
-                                seatingCols.value = data.co;
-                                seatingGrid.value = data.g;
-                                showToast("Mapa restaurado com sucesso!", "success");
-                            } else {
-                                showToast("Aviso: Este mapa pertence a outra turma.", "warning");
-                            }
-                        } else {
-                            showToast("Formato de mapa não reconhecido neste PDF.", "error");
-                        }
-                    } catch (err) {
-                        console.error("PDF Import Error:", err);
-                        showToast("Erro ao ler o ficheiro PDF.", "error");
-                    }
-                    
-                    e.target.value = ''; // Reset input
                 };
 
                 // --- DIÁRIO FUNCIONALIDADES (Por Aula) ---
@@ -4165,7 +4109,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     
                     // Seating Plan
                     showSeatingModal, seatingClassId, seatingRows, seatingCols, seatingGrid, seatingSelectedIdx,
-                    seatingStudents, seatingPrintQR, openSeatingPlan, generateSeatingPlan, handleSeatClick, saveSeatingPlan, printSeatingPlan, importSeatingPlanPDF,
+                    seatingStudents, seatingPrintQR, openSeatingPlan, generateSeatingPlan, handleSeatClick, saveSeatingPlan, printSeatingPlan,
                     
                     // Live QR
                     showLiveQRScanner, qrScanMode, startLiveQRScan, stopLiveQRScan, showFullScreenImage,
