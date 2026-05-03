@@ -2266,16 +2266,31 @@
 
                 const importBackup = async (e) => {
                     const f = e.target.files[0]; if (!f) return;
-                    triggerConfirm("Tem certeza que deseja importar este backup? Os dados atuais serão substituídos.", () => {
+                    triggerConfirm("Tem certeza que deseja importar este backup? TODOS os dados atuais serão apagados e substituídos.", () => {
+                        showToast("A restaurar backup...", "loading");
                         const r = new FileReader();
                         r.onload = async event => {
                             try {
                                 const d = JSON.parse(event.target.result);
-                                if(d.c) await db.classes.bulkPut(d.c); if(d.s) await db.students.bulkPut(d.s);
-                                if(d.q) await db.questions.bulkPut(d.q); if(d.e) await db.exams.bulkPut(d.e);
-                                if(d.r) await db.results.bulkPut(d.r);
-                                if(d.sch) await db.schedules.bulkPut(d.sch);
-                                if(d.att) await db.attendance.bulkPut(d.att);
+                                
+                                // Limpar a base de dados atual para evitar mistura de dados antigos com os do backup (Ghost Data)
+                                await Promise.all([
+                                    db.classes.clear(), db.students.clear(), db.questions.clear(), 
+                                    db.exams.clear(), db.results.clear(), db.schedules.clear(), 
+                                    db.attendance.clear(), db.seatingPlans.clear(), db.extraPoints.clear()
+                                ]);
+
+                                // Restaurar os dados do ficheiro
+                                if(d.c) await db.classes.bulkAdd(d.c); 
+                                if(d.s) await db.students.bulkAdd(d.s);
+                                if(d.q) await db.questions.bulkAdd(d.q); 
+                                if(d.e) await db.exams.bulkAdd(d.e);
+                                if(d.r) await db.results.bulkAdd(d.r);
+                                if(d.sch) await db.schedules.bulkAdd(d.sch);
+                                if(d.att) await db.attendance.bulkAdd(d.att);
+                                if(d.seatP) await db.seatingPlans.bulkAdd(d.seatP);
+                                if(d.ep) await db.extraPoints.bulkAdd(d.ep);
+
                                 if(d.cfg) await db.settings.put({ ...d.cfg, id: 'config' });
                                 if(d.license) {
                                     await db.settings.put(d.license); deviceId.value = d.license.deviceId;
@@ -2288,11 +2303,13 @@
                                         } else if (result.valid) isTemporal.value = false;
                                     }
                                 }
-                                showToast('Backup restaurado!', 'success'); load();
-                            } catch (err) { showToast('Arquivo inválido', 'error'); }
+                                showToast('Backup restaurado com sucesso!', 'success'); 
+                                load();
+                            } catch (err) { showToast('Ficheiro inválido ou corrompido', 'error'); }
                         };
                         r.readAsText(f);
                     });
+                    e.target.value = ''; // Reseta o input para permitir importar o mesmo ficheiro novamente se necessário
                 };
 
                 const triggerImport = () => { document.getElementById('importFile').click(); };
@@ -2302,9 +2319,21 @@
                     const sch = await db.schedules.toArray();
                     const att = await db.attendance.toArray();
                     const seatP = await db.seatingPlans.toArray();
-                    const d={ c:classes.value, s:students.value, q:questions.value, e:exams.value, r:results.value, sch: sch, att: att, seatP: seatP, cfg: { ...settings.value, id: 'config', geminiKey: geminiKey.value }, license: licenseConfig };
-                    const b=new Blob([JSON.stringify(d)],{type:"application/json"});
-                    const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="Nexus_Backup.json"; a.click();
+                    const ep = await db.extraPoints.toArray(); // Inclui pontos extras adicionados recentemente
+                    
+                    const d = { 
+                        c: classes.value, s: students.value, q: questions.value, e: exams.value, r: results.value, 
+                        sch: sch, att: att, seatP: seatP, ep: ep, 
+                        cfg: { ...settings.value, id: 'config', geminiKey: geminiKey.value }, license: licenseConfig 
+                    };
+                    
+                    const b = new Blob([JSON.stringify(d)], {type:"application/json"});
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(b); 
+                    
+                    // Adiciona a data atual ao nome do ficheiro (ex: Nexus_Backup_03-05-2026.json)
+                    const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+                    a.download = `Nexus_Backup_${dataAtual}.json`; 
+                    a.click();
                 };
 
                 const fetchGemini = async (prompt, schema, base64Img=null, mimeType=null) => {
