@@ -4251,10 +4251,265 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     downloadPDF(pdfMake.createPdf(doc), fileName, action);
                 };
 
-                const generateClassReportPDF = () => showToast("Relatório de Turma gerado", "success");
-                const generateGeneralReportPDF = (cid) => showToast("Boletim Final gerado", "success");
-                const generateAttendanceReportPDF = (cid) => showToast("Relatório de Faltas gerado", "success");
-                const generateLastExamPDF = () => showToast("Relatório da Última Prova gerado", "success");
+                // 1. IMPLEMENTAÇÃO DO RANKING DA TURMA
+                const generateClassReportPDF = () => {
+                    if (!selectedClassIdForReport.value) return showToast("Selecione uma turma específica acima.", "warning");
+                    showToast("A gerar Ranking...", "loading");
+                    const cid = selectedClassIdForReport.value;
+                    const cName = getClassName(cid);
+                    let stdScores = [];
+                    let classStds = students.value.filter(s => s.classId === cid);
+
+                    classStds.forEach(s => {
+                        const res = results.value.filter(r => r.studentId === s.id);
+                        let avg = 0;
+                        if (res.length > 0) {
+                            const sum = res.reduce((acc, r) => acc + parseFloat(r.score), 0);
+                            avg = sum / res.length;
+                        }
+                        stdScores.push({ name: s.name, avg: avg.toFixed(1), examsCount: res.length });
+                    });
+
+                    stdScores.sort((a, b) => b.avg - a.avg || a.name.localeCompare(b.name));
+
+                    let tableBody = [
+                        [ {text: 'Pos.', bold: true, fillColor: '#f3f4f6', alignment: 'center'}, {text: 'Nome do Aluno', bold: true, fillColor: '#f3f4f6'}, {text: 'Provas Realizadas', bold: true, alignment: 'center', fillColor: '#f3f4f6'}, {text: 'Média Geral', bold: true, alignment: 'center', fillColor: '#f3f4f6'} ]
+                    ];
+
+                    stdScores.forEach((s, idx) => {
+                        tableBody.push([
+                            {text: `${idx + 1}º`, alignment: 'center', margin: [0, 3]},
+                            {text: s.name, margin: [0, 3]},
+                            {text: s.examsCount.toString(), alignment: 'center', margin: [0, 3]},
+                            {text: s.avg, bold: true, alignment: 'center', color: parseFloat(s.avg) >= 6 ? '#059669' : '#dc2626', margin: [0, 3]}
+                        ]);
+                    });
+
+                    let doc = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: 'RANKING DA TURMA (MÉDIA GERAL)', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
+                            { text: `Turma: ${cName}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' },
+                            {
+                                table: { headerRows: 1, widths: ['auto', '*', 'auto', 'auto'], body: tableBody },
+                                layout: { hLineColor: () => '#e5e7eb', vLineColor: () => '#e5e7eb', paddingTop: () => 4, paddingBottom: () => 4 }
+                            }
+                        ],
+                        defaultStyle: { font: 'Roboto' }
+                    };
+                    downloadPDF(pdfMake.createPdf(doc), `Ranking_${cName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, 'download');
+                };
+                
+                // 2. IMPLEMENTAÇÃO DO BOLETIM CONSOLIDADO (4 BIMESTRES)
+                const generateGeneralReportPDF = (cid) => {
+                    if (!cid) return showToast("Selecione uma turma.", "warning");
+                    showToast("A gerar Boletim Consolidado...", "loading");
+                    const cName = getClassName(cid);
+                    let classStds = students.value.filter(s => s.classId === cid).sort((a,b) => a.name.localeCompare(b.name));
+
+                    let tableBody = [
+                        [
+                            {text: 'Nome do Aluno', bold: true, fillColor: '#f3f4f6'},
+                            {text: '1º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
+                            {text: '2º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
+                            {text: '3º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
+                            {text: '4º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
+                            {text: 'Média Final', bold: true, alignment: 'center', fillColor: '#4f46e5', color: 'white'}
+                        ]
+                    ];
+
+                    const getBimAvg = (s, bim) => {
+                        if (s.manualAverages && s.manualAverages[bim] !== undefined) return parseFloat(s.manualAverages[bim]);
+                        
+                        let eps = extraPoints.value.filter(ep => ep.studentId === s.id && ep.bimester == bim).reduce((acc, ep) => acc + parseFloat(ep.points), 0);
+                        
+                        let sExams = results.value.filter(r => r.studentId === s.id);
+                        let bimExams = sExams.filter(r => {
+                            let ex = exams.value.find(e => e.id === r.examId);
+                            return ex && ex.bimester == bim;
+                        });
+                        
+                        if (bimExams.length === 0) return eps > 0 ? eps : null;
+                        const sum = bimExams.reduce((acc, r) => acc + parseFloat(r.score), 0);
+                        let finalScore = (sum / bimExams.length) + eps;
+                        return finalScore > 10 ? 10 : finalScore;
+                    };
+
+                    classStds.forEach(s => {
+                        let row = [{text: s.name, fontSize: 9, margin: [0, 3]}];
+                        let totalScore = 0;
+                        let validBims = 0;
+
+                        for (let b = 1; b <= 4; b++) {
+                            let avg = getBimAvg(s, b);
+                            if (avg !== null) {
+                                totalScore += avg;
+                                validBims++;
+                                row.push({text: avg.toFixed(1), alignment: 'center', fontSize: 9, bold: true, margin: [0, 3], color: avg >= 6 ? '#059669' : '#dc2626'});
+                            } else {
+                                row.push({text: '-', alignment: 'center', fontSize: 9, margin: [0, 3], color: '#9ca3af'});
+                            }
+                        }
+
+                        let finalAvg = validBims > 0 ? (totalScore / validBims).toFixed(1) : '-';
+                        row.push({
+                            text: finalAvg, bold: true, alignment: 'center', fontSize: 9, margin: [0, 3],
+                            color: finalAvg !== '-' ? (parseFloat(finalAvg) >= 6 ? '#059669' : '#dc2626') : '#9ca3af'
+                        });
+                        tableBody.push(row);
+                    });
+
+                    let doc = {
+                        pageOrientation: 'landscape',
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: 'BOLETIM GERAL CONSOLIDADO (4 BIMESTRES)', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
+                            { text: `Turma: ${cName}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' },
+                            {
+                                table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto'], body: tableBody },
+                                layout: { hLineColor: () => '#e5e7eb', vLineColor: () => '#e5e7eb', paddingTop: () => 3, paddingBottom: () => 3 }
+                            }
+                        ],
+                        defaultStyle: { font: 'Roboto' }
+                    };
+                    downloadPDF(pdfMake.createPdf(doc), `Boletim_${cName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, 'download');
+                };
+                
+                const generateAttendanceReportPDF = async (cid) => {
+                    if (!cid) {
+                        return showToast("Selecione uma turma específica acima para gerar o relatório.", "warning");
+                    }
+                    showToast("A processar relatório...", "loading");
+                    
+                    try {
+                        const classObj = classes.value.find(c => c.id === cid);
+                        const className = classObj ? classObj.name : 'Turma';
+                        
+                        // Busca todas as frequências da turma
+                        const allAttendance = await db.attendance.where('classId').equals(cid).toArray();
+                        
+                        // Filtra apenas as faltas
+                        const absences = allAttendance.filter(r => r.status === 'F');
+                        
+                        // Agrupa e conta por aluno
+                        const absenceCountMap = {};
+                        absences.forEach(record => {
+                            if (!absenceCountMap[record.studentId]) absenceCountMap[record.studentId] = 0;
+                            absenceCountMap[record.studentId]++;
+                        });
+                        
+                        // Junta com os dados dos alunos
+                        const classStudents = students.value.filter(s => s.classId === cid);
+                        let reportData = classStudents.map(student => ({
+                            name: student.name,
+                            absences: absenceCountMap[student.id] || 0
+                        }));
+                        
+                        // Ordena por quem tem mais faltas, depois ordem alfabética
+                        reportData.sort((a, b) => {
+                            if (b.absences !== a.absences) return b.absences - a.absences;
+                            return a.name.localeCompare(b.name);
+                        });
+                        
+                        // Estrutura do PDF
+                        let doc = {
+                            content: [
+                                { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                                { text: 'RELATÓRIO DE FALTAS (RANKING)', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
+                                { text: `Turma: ${className}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' },
+                            ],
+                            defaultStyle: { font: 'Roboto' }
+                        };
+                        
+                        let tableBody = [
+                            [ 
+                                {text: 'Nº', bold: true, alignment: 'center', fillColor: '#f3f4f6'}, 
+                                {text: 'Nome do Aluno', bold: true, fillColor: '#f3f4f6'}, 
+                                {text: 'Total de Faltas', bold: true, alignment: 'center', fillColor: '#f3f4f6'} 
+                            ]
+                        ];
+                        
+                        let totalFaltasTurma = 0;
+                        reportData.forEach((row, index) => {
+                            totalFaltasTurma += row.absences;
+                            tableBody.push([
+                                {text: (index + 1).toString(), alignment: 'center', margin: [0, 3]},
+                                {text: row.name, margin: [0, 3]},
+                                {
+                                    text: row.absences.toString(), 
+                                    bold: row.absences > 0, 
+                                    alignment: 'center', 
+                                    // Cores dinâmicas: Vermelho (>5), Laranja (>0), Verde (0)
+                                    color: row.absences > 5 ? '#ef4444' : (row.absences > 0 ? '#f97316' : '#10b981'), 
+                                    margin: [0, 3]
+                                }
+                            ]);
+                        });
+                        
+                        doc.content.push({
+                            table: {
+                                headerRows: 1,
+                                widths: ['auto', '*', 'auto'],
+                                body: tableBody
+                            },
+                            layout: {
+                                hLineWidth: function (i, node) { return (i === 0 || i === node.table.body.length) ? 2 : 1; },
+                                vLineWidth: function (i, node) { return (i === 0 || i === node.table.widths.length) ? 2 : 1; },
+                                hLineColor: () => '#e5e7eb', vLineColor: () => '#e5e7eb',
+                                paddingTop: () => 4, paddingBottom: () => 4
+                            }
+                        });
+                        
+                        doc.content.push({ text: `Total geral de faltas registadas nesta turma: ${totalFaltasTurma}`, fontSize: 10, bold: true, margin: [0, 15, 0, 0], alignment: 'right' });
+                        
+                        downloadPDF(pdfMake.createPdf(doc), `Relatorio_Faltas_${className.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, 'download');
+                        
+                    } catch(e) {
+                        showToast("Erro ao gerar relatório.", "error");
+                        console.error(e);
+                    }
+                };
+
+                // 3. IMPLEMENTAÇÃO DO RELATÓRIO DA ÚLTIMA PROVA
+                const generateLastExamPDF = () => {
+                    if (recentCorrections.value.length === 0) return showToast("Não há lançamentos recentes para gerar o relatório.", "warning");
+                    showToast("A gerar Relatório da Última Prova...", "loading");
+                    
+                    const lastResult = recentCorrections.value[0];
+                    const exId = lastResult.examId;
+                    const exam = exams.value.find(e => e.id === exId);
+                    
+                    if (!exam) return showToast("Prova original não encontrada.", "error");
+
+                    const examResults = results.value.filter(r => r.examId === exId).sort((a,b) => a.studentName.localeCompare(b.studentName));
+                    
+                    let tableBody = [
+                        [ {text: 'Nº', bold: true, alignment: 'center', fillColor: '#f3f4f6'}, {text: 'Nome do Aluno', bold: true, fillColor: '#f3f4f6'}, {text: 'Nota', bold: true, alignment: 'center', fillColor: '#f3f4f6'} ]
+                    ];
+
+                    examResults.forEach((r, idx) => {
+                        tableBody.push([
+                            {text: (idx + 1).toString(), alignment: 'center', margin: [0, 3]},
+                            {text: r.studentName, margin: [0, 3]},
+                            {text: r.score.toString(), bold: true, alignment: 'center', color: parseFloat(r.score) >= 6 ? '#059669' : '#dc2626', margin: [0, 3]}
+                        ]);
+                    });
+
+                    let doc = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: 'RELATÓRIO DE NOTAS DA AVALIAÇÃO', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
+                            { text: `Prova: ${exam.title}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 5] },
+                            { text: `Turma: ${getClassName(exam.classId)} | Avaliados: ${examResults.length}`, fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' },
+                            {
+                                table: { headerRows: 1, widths: ['auto', '*', 100], body: tableBody },
+                                layout: { hLineColor: () => '#e5e7eb', vLineColor: () => '#e5e7eb', paddingTop: () => 4, paddingBottom: () => 4 }
+                            }
+                        ],
+                        defaultStyle: { font: 'Roboto' }
+                    };
+                    downloadPDF(pdfMake.createPdf(doc), `Notas_Ultima_Prova_${exam.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, 'download');
+                };
 
                 onMounted(() => {
                     initLicenseSystem();
