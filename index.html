@@ -662,10 +662,31 @@
                         </div>
                     </div>
 
-                    <label class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors mt-2">
-                        <input type="checkbox" v-model="attPrintConfig.withPhoto" class="w-5 h-5 accent-blue-600 rounded">
-                        <span class="text-xs font-bold text-gray-700">Incluir fotos dos alunos</span>
-                    </label>
+                    <div v-if="attPrintConfig.type === 'monthly'" class="animate-fade-in mt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block">Dias Letivos (Selecione)</label>
+                            <button @click="autoSelectDaysBySchedule" class="text-[9px] bg-indigo-50 text-indigo-600 px-2 py-1.5 rounded font-bold border border-indigo-100 hover:bg-indigo-100 transition shadow-sm">Auto-Preencher pelo Horário</button>
+                        </div>
+                        <div class="flex flex-wrap gap-1 p-2 bg-gray-50 border border-gray-200 rounded-xl max-h-[120px] overflow-y-auto">
+                            <button v-for="d in daysInSelectedMonth" :key="d" @click="togglePrintDay(d)"
+                                    :class="attPrintConfig.selectedDays.includes(d) ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'"
+                                    class="w-8 h-8 rounded-lg border text-xs font-bold transition-colors flex items-center justify-center">
+                                {{d}}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 mt-2">
+                        <label class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors">
+                            <input type="checkbox" v-model="attPrintConfig.withPhoto" class="w-5 h-5 accent-blue-600 rounded">
+                            <span class="text-xs font-bold text-gray-700">Incluir fotos dos alunos</span>
+                        </label>
+
+                        <label v-if="attPrintConfig.type === 'monthly'" class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors animate-fade-in">
+                            <input type="checkbox" v-model="attPrintConfig.withSignature" class="w-5 h-5 accent-blue-600 rounded">
+                            <span class="text-xs font-bold text-gray-700">Incluir coluna para Assinatura Final</span>
+                        </label>
+                    </div>
 
                     <button @click="printAttendanceSheet" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 mt-4">
                         <i class="fa-solid fa-file-pdf"></i> Gerar PDF
@@ -1477,8 +1498,47 @@
                     date: new Date().toISOString().split('T')[0],
                     month: new Date().getMonth(),
                     year: new Date().getFullYear(),
-                    withPhoto: false
+                    withPhoto: false,
+                    withSignature: false, // Adicionada flag de assinatura
+                    selectedDays: []
                 });
+
+                const daysInSelectedMonth = computed(() => {
+                    return new Date(attPrintConfig.value.year, attPrintConfig.value.month + 1, 0).getDate();
+                });
+
+                watch([() => attPrintConfig.value.month, () => attPrintConfig.value.year], () => {
+                    attPrintConfig.value.selectedDays = [];
+                });
+
+                const togglePrintDay = (d) => {
+                    const idx = attPrintConfig.value.selectedDays.indexOf(d);
+                    if (idx > -1) attPrintConfig.value.selectedDays.splice(idx, 1);
+                    else attPrintConfig.value.selectedDays.push(d);
+                };
+
+                const autoSelectDaysBySchedule = async () => {
+                    if(!diaryClassId.value) return showToast("Selecione uma turma no Diário primeiro.", "warning");
+                    const sch = await db.schedules.where({classId: diaryClassId.value}).toArray();
+                    if(sch.length === 0) return showToast("Nenhum horário cadastrado para esta turma.", "warning");
+                    
+                    const daysOfWeekMap = {"Domingo":0, "Segunda":1, "Terça":2, "Quarta":3, "Quinta":4, "Sexta":5, "Sábado":6};
+                    const classDays = sch.map(s => daysOfWeekMap[s.day]);
+
+                    const y = attPrintConfig.value.year;
+                    const m = attPrintConfig.value.month;
+                    const daysInM = daysInSelectedMonth.value;
+                    let selected = [];
+
+                    for(let d=1; d<=daysInM; d++) {
+                        const date = new Date(y, m, d);
+                        if (classDays.includes(date.getDay())) {
+                            selected.push(d);
+                        }
+                    }
+                    attPrintConfig.value.selectedDays = [...new Set(selected)].sort((a,b)=>a-b);
+                    showToast("Dias letivos preenchidos!", "success");
+                };
 
                 // Assistente Virtual IA
                 const showAssistant = ref(false);
@@ -2112,10 +2172,15 @@
 
                     } else {
                         // Mensal
+                        if (attPrintConfig.value.selectedDays.length === 0) {
+                            return showToast('Selecione pelo menos um dia para gerar a lista mensal.', 'warning');
+                        }
+
                         const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
                         const mName = monthNames[attPrintConfig.value.month];
                         const y = attPrintConfig.value.year;
-                        const daysInMonth = new Date(y, attPrintConfig.value.month + 1, 0).getDate();
+                        
+                        let printDays = [...attPrintConfig.value.selectedDays].sort((a,b)=>a-b);
 
                         doc.content.push({ text: `DIÁRIO DE CLASSE / FREQUÊNCIA MENSAL - ${cName}`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 2] });
                         doc.content.push({ text: `Mês de Referência: ${mName} / ${y}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' });
@@ -2129,10 +2194,19 @@
                         if(attPrintConfig.value.withPhoto) widths.push(25);
                         widths.push('*');
 
-                        for(let d=1; d<=daysInMonth; d++) {
+                        let dayColWidth = printDays.length > 15 ? 11 : 20;
+
+                        for(let d of printDays) {
                             headers.push({text: d.toString(), bold:true, alignment:'center', fillColor:'#f3f4f6', fontSize:7, margin:[0, 4]});
-                            widths.push(11); // Coluna estreita para os dias
+                            widths.push(dayColWidth);
                         }
+
+                        // Coluna de Assinatura Dinâmica
+                        if (attPrintConfig.value.withSignature) {
+                            headers.push({text:'Assinatura do Aluno', bold:true, alignment:'center', fillColor:'#f3f4f6', fontSize:8, margin:[0, 3]});
+                            widths.push(110); // Largura confortável para assinatura
+                        }
+
                         tableBody.push(headers);
 
                         stds.forEach((s, i) => {
@@ -2145,9 +2219,15 @@
                             
                             row.push({text: s.name, fontSize: 8, bold:true, margin:[0, marginY]});
                             
-                            for(let d=1; d<=daysInMonth; d++) {
+                            for(let d of printDays) {
                                 row.push({text: '', margin:[0, marginY]}); // Quadrado para o P ou F
                             }
+
+                            // Espaço vazio em branco para o aluno assinar
+                            if (attPrintConfig.value.withSignature) {
+                                row.push({text: '', margin:[0, marginY]});
+                            }
+
                             tableBody.push(row);
                         });
 
@@ -4213,6 +4293,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     
                     // Frequência Impressão
                     showAttendancePrintModal, attPrintConfig, openAttendancePrintModal, printAttendanceSheet,
+                    daysInSelectedMonth, togglePrintDay, autoSelectDaysBySchedule,
 
                     // External Exam
                     showExternalExamModal, externalExamStep, externalConfig, externalStudents, externalGrades,
