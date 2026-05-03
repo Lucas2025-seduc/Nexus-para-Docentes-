@@ -3818,20 +3818,37 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         content.push({ text: '', margin: [0, 0, 0, isEco ? 6 : 15] });
                     });
                     
-                    // GABARITO DO ALUNO (No final da prova, centralizado)
+                    // GABARITO DO ALUNO (No final da prova, destacável com QR Code)
                     content.push({
-                        columns: [
-                            { width: '*', text: '' },
+                        unbreakable: true, // <-- GARANTE QUE O BLOCO NUNCA SEJA CORTADO AO MEIO
+                        stack: [
+                            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, linePattern: { length: 5, space: 5 }, lineColor: '#9ca3af' }], margin: [0, 15, 0, 5] },
+                            { text: '✂️ ------------------------------------------------------------------------------------------------------------------', fontSize: 8, color: '#9ca3af', alignment: 'center', margin: [0, 0, 0, 15] },
                             {
-                                width: 'auto',
-                                stack: [
-                                    { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 10 : 11, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
-                                    buildAnswerGrid(v, false)
-                                ]
-                            },
-                            { width: '*', text: '' }
-                        ],
-                        margin: [0, 15, 0, 10]
+                                columns: [
+                                    { width: 10, text: '' }, // Margem
+                                    {
+                                        width: 'auto',
+                                        stack: [
+                                            { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 10 : 11, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
+                                            buildAnswerGrid(v, false)
+                                        ]
+                                    },
+                                    { width: '*', text: '' }, // Espaçador para empurrar o QR Code para a direita
+                                    {
+                                        width: 'auto',
+                                        stack: [
+                                            { qr: JSON.stringify({e: ex.id, s: std.id, v: vIdx}), fit: isEco ? 65 : 75, alignment: 'center', margin: [0, 0, 0, 5] },
+                                            { text: std.name, fontSize: isEco ? 9 : 10, bold: true, alignment: 'center' },
+                                            { text: `Turma: ${getClassName(std.classId)}`, fontSize: isEco ? 8 : 9, alignment: 'center', margin: [0, 1, 0, 0] },
+                                            { text: `Prova: Tipo ${vIdx + 1}`, fontSize: isEco ? 8 : 9, alignment: 'center', margin: [0, 1, 0, 0] }
+                                        ],
+                                        margin: [0, 15, 10, 0]
+                                    }
+                                ],
+                                margin: [0, 0, 0, 10]
+                            }
+                        ]
                     });
                     
                     return content;
