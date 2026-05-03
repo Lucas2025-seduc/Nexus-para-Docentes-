@@ -3601,13 +3601,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 // FUNÇÃO UNIVERSAL DA GRELHA (Garante 100% de alinhamento entre Aluno e Espelho)
                 const buildAnswerGrid = (v, isMirror = false) => {
                     let gridBody = [];
+                    // CABEÇALHO COM ALTO CONTRASTE PARA OMR (OpenCV)
                     gridBody.push([
-                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'A', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'B', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'C', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'D', bold: true, alignment: 'center', fillColor: '#f3f4f6' },
-                        { text: 'E', bold: true, alignment: 'center', fillColor: '#f3f4f6' }
+                        { text: 'Q', bold: true, alignment: 'center', fillColor: '#000000', color: '#ffffff' },
+                        { text: 'A', bold: true, alignment: 'center', fillColor: '#000000', color: '#ffffff' },
+                        { text: 'B', bold: true, alignment: 'center', fillColor: '#000000', color: '#ffffff' },
+                        { text: 'C', bold: true, alignment: 'center', fillColor: '#000000', color: '#ffffff' },
+                        { text: 'D', bold: true, alignment: 'center', fillColor: '#000000', color: '#ffffff' },
+                        { text: 'E', bold: true, alignment: 'center', fillColor: '#000000', color: '#ffffff' }
                     ]);
 
                     v.questions.forEach((q, qIdx) => {
@@ -3616,7 +3617,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         for (let i = 0; i < 5; i++) {
                             if (q.type === 'ce' && i > 1) {
-                                row.push({ text: '-', alignment: 'center', margin: [0, 5, 0, 0], color: '#d1d5db' });
+                                row.push({ text: '-', alignment: 'center', margin: [0, 5, 0, 0], color: '#000000' });
                                 continue;
                             }
                             
@@ -3631,14 +3632,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 } else {
                                     // Bolinha preenchida cinza (Incorreta)
                                     row.push({
-                                        canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, color: '#e5e7eb', lineColor: '#d1d5db' }],
+                                        canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, color: '#e5e7eb', lineColor: '#000000', lineWidth: 1 }],
                                         alignment: 'center', margin: [0, 2, 0, 2]
                                     });
                                 }
                             } else {
-                                // Folha do aluno: Bolinhas brancas para preencher
+                                // Folha do aluno: Bolinhas PRETAS FORTES E VAZADAS para OMR
                                 row.push({
-                                    canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1, lineColor: '#9ca3af' }],
+                                    canvas: [{ type: 'ellipse', x: 10, y: 10, r1: 8, r2: 8, lineWidth: 1.5, lineColor: '#000000' }],
                                     alignment: 'center', margin: [0, 2, 0, 2]
                                 });
                             }
@@ -3650,9 +3651,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         width: 'auto',
                         table: { headerRows: 1, widths: [25, 30, 30, 30, 30, 30], body: gridBody },
                         layout: {
-                            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 2 : 1,
-                            vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 2 : 1,
-                            hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
+                            hLineWidth: (i, node) => (i === 0 || i === node.table.body.length) ? 3 : 1, // BORDAS EXTERNAS GROSSAS
+                            vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 3 : 1, // BORDAS EXTERNAS GROSSAS
+                            hLineColor: () => '#000000', vLineColor: () => '#000000',
                             paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 3, paddingBottom: () => 3
                         }
                     };
@@ -3818,21 +3819,33 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         content.push({ text: '', margin: [0, 0, 0, isEco ? 6 : 15] });
                     });
                     
-                    // GABARITO DO ALUNO (No final da prova, destacável com QR Code)
+                    // GABARITO DO ALUNO (No final da prova, destacável com QR Code e MARCAS FIDUCIAIS OMR)
+                    const markerBox = (pos) => ({
+                        canvas: [{ type: 'rect', x: 0, y: 0, w: 20, h: 20, color: '#000000' }],
+                        alignment: (pos === 'TR' || pos === 'BR') ? 'right' : 'left',
+                        margin: pos === 'TL' ? [0,0,0,5] : pos === 'TR' ? [0,0,0,5] : pos === 'BL' ? [0,5,0,0] : [0,5,0,0]
+                    });
+
                     content.push({
                         unbreakable: true, // <-- GARANTE QUE O BLOCO NUNCA SEJA CORTADO AO MEIO
                         stack: [
-                            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, linePattern: { length: 5, space: 5 }, lineColor: '#9ca3af' }], margin: [0, 15, 0, 5] },
-                            { text: '✂️ ------------------------------------------------------------------------------------------------------------------', fontSize: 8, color: '#9ca3af', alignment: 'center', margin: [0, 0, 0, 15] },
+                            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, linePattern: { length: 5, space: 5 }, lineColor: '#000000' }], margin: [0, 15, 0, 5] },
+                            { text: '✂️ ------------------------------------------------------------------------------------------------------------------', fontSize: 8, color: '#000000', alignment: 'center', margin: [0, 0, 0, 10] },
                             {
                                 columns: [
                                     { width: 10, text: '' }, // Margem
                                     {
                                         width: 'auto',
-                                        stack: [
-                                            { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 10 : 11, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
-                                            buildAnswerGrid(v, false)
-                                        ]
+                                        // TABELA OMR COM MARCADORES FIDUCIAIS (Cantos Pretos 20x20)
+                                        table: {
+                                            widths: [20, 'auto', 20],
+                                            body: [
+                                                [ markerBox('TL'), { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 10 : 11, bold: true, alignment: 'center', margin: [0, 2, 0, 0] }, markerBox('TR') ],
+                                                [ '', { ...buildAnswerGrid(v, false), margin: [10, 5, 10, 5] }, '' ],
+                                                [ markerBox('BL'), '', markerBox('BR') ]
+                                            ]
+                                        },
+                                        layout: 'noBorders'
                                     },
                                     { width: '*', text: '' }, // Espaçador para empurrar o QR Code para a direita
                                     {
