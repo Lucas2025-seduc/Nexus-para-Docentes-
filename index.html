@@ -585,6 +585,12 @@
                             <i class="fa-solid fa-pen-to-square text-lg"></i> Lançar Só Nota
                         </button>
                     </div>
+                    
+                    <!-- NOVO BOTÃO: LEITOR OMR VIA GEMINI VISION -->
+                    <button @click="startAICorrectionEntry" class="w-full mt-3 bg-pink-500 hover:bg-pink-600 text-white py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-pink-600 text-sm">
+                        <i class="fa-solid fa-camera-retro text-lg"></i> Corrigir por Foto (Inteligência Artificial)
+                    </button>
+
                     <button @click="openExternalExamForm" class="w-full mt-3 bg-blue-50 hover:bg-blue-100 text-blue-600 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-blue-200 text-sm">
                         <i class="fa-solid fa-file-pen text-lg"></i> Nova Prova Externa (Apenas Notas)
                     </button>
@@ -1512,8 +1518,98 @@
                 <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20">
                     <div class="w-64 h-64 border-2 border-dashed border-emerald-500 rounded-3xl animate-pulse"></div>
                 </div>
-                <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : 'Aponte para o QR Code impresso no topo da prova' }}</p>
+                <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : (qrScanMode === 'ai_correction' ? 'Aponte para o QR Code impresso no topo da folha para identificar o aluno automaticamente' : 'Aponte para o QR Code impresso no topo da prova') }}</p>
+                
+                <button v-if="qrScanMode === 'ai_correction'" @click="stopLiveQRScan(); showAICorrectionSetupModal=true;" class="mt-6 bg-white/20 text-white px-5 py-2.5 rounded-xl text-xs font-bold z-20 hover:bg-white/30 transition shadow-lg backdrop-blur-sm border border-white/30">
+                    <i class="fa-solid fa-keyboard mr-1"></i> Identificar Manualmente (S/ QR)
+                </button>
             </div>
+        </div>
+
+        <!-- MODAL SETUP CORREÇÃO IA -->
+        <div v-if="showAICorrectionSetupModal" class="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm animate-fade-in">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="font-black text-pink-600 text-lg"><i class="fa-solid fa-camera-retro mr-2"></i> Leitura OMR</h3>
+                    <button @click="showAICorrectionSetupModal=false" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-red-500 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <!-- CAMPO DE CHAVE API ADICIONADO AQUI -->
+                    <div class="bg-pink-50 p-3 rounded-xl border border-pink-100">
+                        <label class="text-[10px] font-bold text-pink-500 uppercase mb-1 block">Chave API Gemini</label>
+                        <div class="flex gap-2">
+                            <input type="password" v-model="geminiKey" placeholder="Sua chave..." class="flex-1 bg-white border border-pink-200 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-pink-500" @change="saveSettings(true)">
+                            <button @click="testGeminiKey" class="bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition" title="Testar Chave API"><i class="fa-solid fa-vial"></i></button>
+                        </div>
+                        <p class="text-[9px] text-pink-500 leading-tight mt-1" v-if="settings.activeModel">Modelo: {{settings.activeModel}}</p>
+                        <p class="text-[9px] text-red-500 font-bold leading-tight mt-1" v-else>Teste a chave antes de prosseguir.</p>
+                    </div>
+
+                    <div class="pt-3 border-t border-gray-100">
+                        <button @click="showAICorrectionSetupModal=false; startLiveQRScan('ai_correction')" :disabled="!geminiKey || !settings.activeModel" class="w-full bg-gray-900 hover:bg-black text-white py-3.5 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2 mb-4 disabled:opacity-50">
+                            <i class="fa-solid fa-qrcode"></i> Escanear QR do Aluno
+                        </button>
+                        
+                        <div class="text-center text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-widest">Ou Selecione Manualmente</div>
+                        
+                        <div class="space-y-2">
+                            <select v-model="aiCorrectionConfig.examId" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold outline-none focus:border-pink-500">
+                                <option value="">1. Selecionar prova...</option>
+                                <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
+                            </select>
+                            <select v-if="aiCorrectionConfig.examId" v-model="aiCorrectionConfig.studentId" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold outline-none focus:border-pink-500">
+                                <option value="">2. Selecionar aluno...</option>
+                                <option v-for="s in aiCorrectionStudents" :key="s.id" :value="s.id">{{s.name}}</option>
+                            </select>
+                            <select v-if="aiCorrectionConfig.studentId" v-model="aiCorrectionConfig.version" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold outline-none focus:border-pink-500">
+                                <option v-for="(v,i) in aiCorrectionExamVersions" :key="i" :value="i">3. Prova: Tipo {{i+1}}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button @click="confirmAICorrectionSetup" :disabled="!aiCorrectionConfig.studentId || !geminiKey || !settings.activeModel" class="w-full bg-pink-600 hover:bg-pink-700 text-white py-3.5 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Avançar para Câmera <i class="fa-solid fa-camera"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL CÂMERA IA -->
+        <div v-show="showAICameraModal" class="fixed inset-0 z-[600] flex flex-col bg-black animate-fade-in">
+            <div class="p-4 flex justify-between bg-gray-900 text-white z-10 shadow-md">
+                <div>
+                    <h3 class="font-bold text-pink-400"><i class="fa-solid fa-camera"></i> Escanear Gabarito</h3>
+                    <p class="text-[10px] text-gray-400">Alinhe o cartão de respostas no quadro abaixo</p>
+                </div>
+                <button @click="stopAICamera" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
+                <video id="ai-camera-video" autoplay playsinline class="absolute w-full h-full object-cover"></video>
+                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20 p-8">
+                    <!-- Guia visual para o gabarito -->
+                    <div class="w-full max-w-sm aspect-[3/4] border-4 border-pink-500/50 border-dashed rounded-xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+                        <div class="absolute -top-3 -left-3 w-6 h-6 border-t-4 border-l-4 border-pink-500"></div>
+                        <div class="absolute -top-3 -right-3 w-6 h-6 border-t-4 border-r-4 border-pink-500"></div>
+                        <div class="absolute -bottom-3 -left-3 w-6 h-6 border-b-4 border-l-4 border-pink-500"></div>
+                        <div class="absolute -bottom-3 -right-3 w-6 h-6 border-b-4 border-r-4 border-pink-500"></div>
+                        
+                        <div v-if="isAnalyzingPhoto" class="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg backdrop-blur-sm">
+                            <div class="flex flex-col items-center gap-4">
+                                <i class="fa-solid fa-robot text-5xl text-pink-500 animate-bounce"></i>
+                                <span class="text-white font-bold text-sm">IA Analisando Pixels...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-900 flex justify-center pb-12 z-20 border-t border-gray-800">
+                <button @click="takePhotoAndAnalyze" :disabled="isAnalyzingPhoto" class="w-20 h-20 bg-white rounded-full border-4 border-gray-400 flex items-center justify-center active:scale-95 transition disabled:opacity-50 disabled:active:scale-100 relative group overflow-hidden">
+                    <span class="absolute inset-0 bg-pink-500/20 group-active:bg-pink-500/40 transition-colors"></span>
+                    <i v-if="isAnalyzingPhoto" class="fa-solid fa-circle-notch fa-spin text-gray-900 text-2xl relative z-10"></i>
+                    <i v-else class="fa-solid fa-camera text-gray-800 text-2xl relative z-10"></i>
+                </button>
+            </div>
+            <canvas id="ai-capture-canvas" class="hidden"></canvas>
         </div>
     </div>
 
@@ -2012,6 +2108,158 @@
                     }
                     return list;
                 });
+                
+                // Correção IA (Leitura de Gabarito por Foto)
+                const showAICorrectionSetupModal = ref(false);
+                const showAICameraModal = ref(false);
+                const aiCorrectionConfig = ref({examId:'', studentId:'', version:0});
+                const isAnalyzingPhoto = ref(false);
+                let aiCameraStream = null;
+
+                const aiCorrectionStudents = computed(() => {
+                    if (!aiCorrectionConfig.value.examId) return [];
+                    const ex = exams.value.find(e => e.id === aiCorrectionConfig.value.examId);
+                    if (!ex) return [];
+                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                });
+
+                const aiCorrectionExamVersions = computed(() => {
+                    if (!aiCorrectionConfig.value.examId) return [];
+                    const ex = exams.value.find(e => e.id === aiCorrectionConfig.value.examId);
+                    return ex ? ex.versions : [];
+                });
+
+                const startAICorrectionEntry = () => {
+                    aiCorrectionConfig.value = {examId:'', studentId:'', version:0};
+                    if (!settings.value.activeModel || !geminiKey.value) {
+                        // Se não tem chave, abre a tela de setup manual / configuração de chave
+                        showAICorrectionSetupModal.value = true;
+                    } else {
+                        // Se a chave já está pronta, vai direto para a magia do QR Code!
+                        startLiveQRScan('ai_correction');
+                    }
+                };
+
+                const confirmAICorrectionSetup = async () => {
+                    if(!aiCorrectionConfig.value.examId || !aiCorrectionConfig.value.studentId) return;
+                    showAICorrectionSetupModal.value = false;
+                    showAICameraModal.value = true;
+                    nextTick(async () => {
+                        try {
+                            const video = document.getElementById('ai-camera-video');
+                            // Exige preferencialmente a câmera traseira do telemóvel para melhor foco
+                            aiCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+                            video.srcObject = aiCameraStream;
+                        } catch (e) {
+                            showToast("Erro ao aceder à câmara. Verifique as permissões.", "error");
+                            showAICameraModal.value = false;
+                        }
+                    });
+                };
+
+                const stopAICamera = () => {
+                    if (aiCameraStream) {
+                        aiCameraStream.getTracks().forEach(t => t.stop());
+                        aiCameraStream = null;
+                    }
+                    showAICameraModal.value = false;
+                };
+
+                const takePhotoAndAnalyze = async () => {
+                    if (isAnalyzingPhoto.value) return;
+                    isAnalyzingPhoto.value = true;
+                    showToast("Enviando para o Gemini Vision...", "loading");
+
+                    try {
+                        const video = document.getElementById('ai-camera-video');
+                        const canvas = document.getElementById('ai-capture-canvas');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(video, 0, 0);
+
+                        // Comprime a imagem para JPEG para não sobrecarregar a API
+                        const base64ImgRaw = canvas.toDataURL('image/jpeg', 0.8);
+                        const base64Img = base64ImgRaw.split(',')[1];
+                        const mimeType = 'image/jpeg';
+
+                        const ex = exams.value.find(e => e.id === aiCorrectionConfig.value.examId);
+                        const qArr = getVersionQuestions(ex, aiCorrectionConfig.value.version);
+                        const numQuestions = qArr.length;
+
+                        // NOVO PROMPT REFINADO: Mais direto, descritivo e à prova de falhas
+                        const promptText = `Atue como um scanner OMR (Optical Mark Recognition) de altíssima precisão. 
+Sua tarefa é analisar a foto de um 'CARTÃO DE RESPOSTAS' preenchido à mão por um aluno.
+A imagem contém uma grelha/tabela com exatamente ${numQuestions} questões (linhas) numeradas sequencialmente de 1 a ${numQuestions}.
+Cada linha tem alternativas (colunas) representadas por bolinhas com letras dentro. As alternativas vão da letra A até a E (ou apenas Certo/Errado em algumas disciplinas).
+As respostas do aluno são as bolinhas que estão PINTADAS/ESCURECIDAS fortemente com caneta. Bolinhas em branco possuem apenas o contorno.
+Ignore QR Codes, nomes ou quadrados pretos nos cantos da página. Foco apenas na grelha de respostas.
+
+REGRAS RÍGIDAS DE EXTRAÇÃO:
+1. Leia a grelha rigorosamente de cima para baixo, linha por linha (da questão 1 até a questão ${numQuestions}).
+2. Identifique qual bolinha foi pintada em cada linha.
+3. Converta a letra da bolinha pintada em um número (ÍNDICE): 0 para A, 1 para B, 2 para C, 3 para D, 4 para E.
+4. Se for do tipo Certo/Errado, retorne 0 para Certo e 1 para Errado.
+5. Se uma linha estiver em BRANCO (nenhuma bolinha pintada), o valor DEVE ser null.
+6. Se uma linha tiver MÚLTIPLAS bolinhas pintadas ou rasuras fortemente ambíguas, o valor DEVE ser null.
+
+RETORNO OBRIGATÓRIO (APENAS JSON):
+Retorne um objeto JSON contendo APENAS a chave "respostas_marcadas" com um array numérico de exatamente ${numQuestions} elementos correspondentes às respostas.
+NÃO inclua explicações, NÃO inclua blocos markdown (\`\`\`json) e NÃO adicione nenhum outro texto além do JSON puro.
+Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`;
+
+                        const schema = {
+                            type: "OBJECT",
+                            properties: {
+                                respostas_marcadas: {
+                                    type: "ARRAY",
+                                    items: { type: "INTEGER", nullable: true }
+                                }
+                            },
+                            required: ["respostas_marcadas"]
+                        };
+
+                        const aiResult = await fetchGemini(promptText, schema, base64Img, mimeType);
+
+                        if (!aiResult || !aiResult.respostas_marcadas || !Array.isArray(aiResult.respostas_marcadas)) {
+                            throw new Error("A IA não conseguiu interpretar o gabarito de forma estruturada. Verifique o enquadramento.");
+                        }
+
+                        let studentAnswersMap = {};
+                        aiResult.respostas_marcadas.forEach((val, idx) => {
+                            if (idx < numQuestions) {
+                                studentAnswersMap[idx] = val !== undefined ? val : null;
+                            }
+                        });
+
+                        const std = students.value.find(s => s.id === aiCorrectionConfig.value.studentId);
+                        
+                        // O parâmetro needsReview=true força a cor Laranja no histórico, lembrando o professor de revisar
+                        let resultId = await saveExamResult(
+                            ex.id, 
+                            std.id, 
+                            std.name, 
+                            aiCorrectionConfig.value.version, 
+                            studentAnswersMap, 
+                            canvas.toDataURL('image/jpeg', 0.4), // Guarda a foto em baixa resolução para auditoria futura
+                            true, // needsReview = true (Requer revisão humana obrigatória)
+                            false // isManual = false
+                        );
+
+                        stopAICamera();
+                        showToast("Correção IA concluída! Por favor, revise o espelho.", "success");
+                        
+                        // ABRE AUTOMATICAMENTE O ESPELHO LOGO APÓS A CORREÇÃO
+                        const savedResult = results.value.find(r => r.id === resultId);
+                        if (savedResult) openResultDetails(savedResult);
+
+                    } catch (e) {
+                        console.error(e);
+                        showToast(e.message || "Erro na análise da imagem.", "error");
+                    } finally {
+                        isAnalyzingPhoto.value = false;
+                    }
+                };
 
                 // External Exam Input
                 const showExternalExamModal = ref(false);
@@ -3742,6 +3990,39 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         return; // Retorna sem parar o scanner para permitir leitura em cadeia
                                     }
 
+                                    // --- MODO OMR: LEITURA INTELIGENTE (QR + IA MÁGICA) ---
+                                    if (qrScanMode.value === 'ai_correction') {
+                                        html5QrCode.stop().then(() => {
+                                            showLiveQRScanner.value = false;
+                                            let exm = exams.value.find(e => e.id === Number(qd.e));
+                                            let std = students.value.find(s => s.id === Number(qd.s));
+                                            
+                                            if(!exm || !std) throw new Error("Prova ou Aluno não encontrados no dispositivo.");
+                                            
+                                            // Configura os dados base e avança de imediato para a câmara do Gabarito
+                                            aiCorrectionConfig.value = {
+                                                examId: exm.id,
+                                                studentId: std.id,
+                                                version: Number(qd.v) || 0
+                                            };
+                                            
+                                            showToast(`Identificado: ${std.name}. Fotografe o gabarito!`, "success");
+                                            
+                                            showAICameraModal.value = true;
+                                            nextTick(async () => {
+                                                try {
+                                                    const video = document.getElementById('ai-camera-video');
+                                                    aiCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+                                                    video.srcObject = aiCameraStream;
+                                                } catch (e) {
+                                                    showToast("Erro ao aceder à câmara. Verifique as permissões.", "error");
+                                                    showAICameraModal.value = false;
+                                                }
+                                            });
+                                        }).catch(()=>{});
+                                        return;
+                                    }
+
                                     // --- MODO PADRÃO DE CORREÇÃO (Para o Scanner) ---
                                     html5QrCode.stop().then(() => {
                                         showLiveQRScanner.value = false;
@@ -4977,6 +5258,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     // IA Generator
                     showAIGenModal, isGeneratingAI, aiGenConfig,
                     
+                    // IA Correction (OMR)
+                    showAICorrectionSetupModal, showAICameraModal, aiCorrectionConfig, aiCorrectionStudents, aiCorrectionExamVersions, isAnalyzingPhoto, startAICorrectionEntry, confirmAICorrectionSetup, stopAICamera, takePhotoAndAnalyze,
+
                     // Item Analysis
                     showItemAnalysisModal, itemAnalysisExam, itemAnalysisData, itemAnalysisTotalStudents, openItemAnalysis, printItemAnalysisPDF,
                     
