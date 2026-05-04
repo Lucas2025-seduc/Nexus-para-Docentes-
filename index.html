@@ -273,11 +273,16 @@
                                 <input type="file" multiple accept="image/*,audio/*,application/pdf" class="hidden" @change="handleAgendaAttachment">
                             </label>
                             
-                            <button @click="toggleAudioRecording" :class="isRecordingAudio ? 'bg-red-500 text-white animate-pulse border-red-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-200'" class="w-12 h-12 rounded-xl flex items-center justify-center transition shadow-sm border flex-none" :title="isRecordingAudio ? 'Parar Gravação' : 'Gravar Áudio'">
+                            <button @click="toggleAudioRecording" :class="isRecordingAudio ? 'bg-red-500 text-white animate-pulse border-red-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-200'" class="w-12 h-12 rounded-xl flex items-center justify-center transition shadow-sm border flex-none" :title="isRecordingAudio ? 'Parar Gravação' : 'Gravar Áudio (Ficheiro)'">
                                 <i :class="isRecordingAudio ? 'fa-solid fa-stop' : 'fa-solid fa-microphone'"></i>
                             </button>
 
-                            <button @click="addAgendaNote" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2"><i class="fa-solid fa-save"></i> Salvar Lembrete</button>
+                            <!-- NOVO BOTÃO: TRANSCRIÇÃO DE VOZ PARA TEXTO -->
+                            <button @click="toggleAgendaDictation" :class="isAgendaDictating ? 'bg-indigo-500 text-white animate-pulse border-indigo-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-200'" class="w-12 h-12 rounded-xl flex items-center justify-center transition shadow-sm border flex-none" :title="isAgendaDictating ? 'Parar Ditado' : 'Ditar Texto (Voz para Texto)'">
+                                <i :class="isAgendaDictating ? 'fa-solid fa-ear-listen' : 'fa-solid fa-comment-dots'"></i>
+                            </button>
+
+                            <button @click="addAgendaNote" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2"><i class="fa-solid fa-save"></i> Salvar</button>
                         </div>
                     </div>
                 </div>
@@ -1616,10 +1621,53 @@
                 const agendaDate = ref(new Date().toISOString().split('T')[0]);
                 const allAgendaNotes = ref([]);
                 const newAgendaNoteText = ref('');
-                const newAgendaAttachments = ref([]); // NOVO
-                const isRecordingAudio = ref(false); // NOVO
-                let mediaRecorder = null; // NOVO
-                let audioChunks = []; // NOVO
+                const newAgendaAttachments = ref([]); 
+                const isRecordingAudio = ref(false); 
+                let mediaRecorder = null; 
+                let audioChunks = []; 
+                
+                // NOVO: TRANSCRIÇÃO DE VOZ (DITADO) NA AGENDA
+                const isAgendaDictating = ref(false);
+                let agendaRecognition = null;
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    agendaRecognition = new SpeechRec();
+                    agendaRecognition.lang = 'pt-BR';
+                    agendaRecognition.interimResults = false;
+                    agendaRecognition.continuous = true; // Permite ditar várias frases seguidas
+
+                    agendaRecognition.onresult = (event) => {
+                        let finalTranscript = '';
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            if (event.results[i].isFinal) {
+                                finalTranscript += event.results[i][0].transcript + ' ';
+                            }
+                        }
+                        if (finalTranscript) {
+                            // Adiciona o texto falado ao final do que já estava escrito
+                            newAgendaNoteText.value += (newAgendaNoteText.value ? ' ' : '') + finalTranscript.trim();
+                        }
+                    };
+                    agendaRecognition.onerror = (event) => {
+                        console.error("Erro no ditado:", event.error);
+                        isAgendaDictating.value = false;
+                        showToast("Erro na transcrição. Verifique o microfone.", "error");
+                    };
+                    agendaRecognition.onend = () => {
+                        isAgendaDictating.value = false;
+                    };
+                }
+
+                const toggleAgendaDictation = () => {
+                    if (!agendaRecognition) return showToast("Transcrição não suportada neste navegador.", "warning");
+                    if (isAgendaDictating.value) {
+                        agendaRecognition.stop();
+                    } else {
+                        agendaRecognition.start();
+                        isAgendaDictating.value = true;
+                        showToast("Pode falar! Estou ouvindo...", "info");
+                    }
+                };
 
                 // Filtros de Pesquisa
                 const agendaSearchText = ref('');
@@ -4890,6 +4938,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     agendaDate, newAgendaNoteText, addAgendaNote, deleteAgendaNote,
                     newAgendaAttachments, handleAgendaAttachment, removeAgendaAttachment, isRecordingAudio, toggleAudioRecording,
                     agendaSearchText, agendaStartDate, agendaEndDate, filteredAgendaNotes, printAgendaDayPDF,
+                    isAgendaDictating, toggleAgendaDictation,
                     
                     // Modals & UI
                     showEditExamModal, editingExam, showHistory, selectedClassIdForReport, newClass, bulkStudents,
