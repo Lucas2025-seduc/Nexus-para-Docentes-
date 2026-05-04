@@ -686,16 +686,19 @@
                 <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 rounded-t-3xl flex justify-between items-center shadow-md z-10">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><i class="fa-solid fa-robot text-xl"></i></div>
-                        <div><h3 class="font-bold leading-tight">Assistente IA</h3><p class="text-[10px] text-purple-200">Gerencia Notas e Faltas</p></div>
+                        <div><h3 class="font-bold leading-tight">Assistente IA</h3><p class="text-[10px] text-purple-200">Visão, Voz e Gestão</p></div>
                     </div>
                     <button @click="showAssistant=false" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i class="fa-solid fa-times"></i></button>
                 </div>
                 <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50" id="assistant-chat-box">
                     <div v-for="(msg, i) in assistantHistory" :key="i" class="flex" :class="msg.role==='user'?'justify-end':'justify-start'">
                         <div class="max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm" :class="msg.role==='user'?'bg-indigo-600 text-white rounded-tr-sm':'bg-white border border-gray-100 text-gray-700 rounded-tl-sm'">
+                            <!-- Exibição de Imagem Anexada no Chat -->
+                            <img v-if="msg.image" :src="msg.image" @click="viewFullScreen(msg.image)" class="w-full max-w-[200px] rounded-lg mb-2 object-cover border border-white/20 shadow-sm cursor-pointer hover:opacity-90 transition">
+                            
                             {{msg.text}}
                             
-                            <!-- CARD DE AÇÃO PENDENTE (AGORA SUPORTA MÚLTIPLAS AÇÕES) -->
+                            <!-- CARD DE AÇÃO PENDENTE -->
                             <div v-if="msg.hasAction && !msg.actionResolved && msg.actions && msg.actions.length > 0" class="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
                                 <p class="text-[10px] font-black text-indigo-800 mb-1.5 uppercase tracking-wide"><i class="fa-solid fa-triangle-exclamation text-orange-500"></i> Confirmação Necessária</p>
                                 <ul class="text-xs text-indigo-900 mb-3 font-medium list-disc pl-4 space-y-1">
@@ -720,12 +723,31 @@
                     </div>
                 </div>
                 <div class="p-3 bg-white border-t rounded-b-3xl">
-                    <div class="flex gap-2 bg-gray-100 p-1.5 rounded-2xl border border-gray-200">
-                        <button @click="toggleDictation" :class="isDictating ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-indigo-600'" class="w-10 h-10 flex flex-none items-center justify-center transition" title="Ditar por voz">
+                    <!-- Preview de Imagem a Enviar -->
+                    <div v-if="assistantAttachedImage" class="mb-2 relative inline-block">
+                        <img :src="assistantAttachedImage" class="h-16 rounded-lg border border-gray-200 object-cover shadow-sm">
+                        <button @click="assistantAttachedImage=null; assistantAttachedImageMime=null" class="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] shadow-md hover:bg-red-600"><i class="fa-solid fa-times"></i></button>
+                    </div>
+
+                    <div class="flex gap-1.5 bg-gray-100 p-1.5 rounded-2xl border border-gray-200 items-center overflow-hidden">
+                        <!-- Anexar Imagem (Visão Computacional) -->
+                        <label class="w-9 h-9 flex flex-none items-center justify-center text-gray-400 hover:text-indigo-600 transition cursor-pointer" title="Anexar Imagem (Atestados, Documentos)">
+                            <i class="fa-solid fa-paperclip"></i>
+                            <input type="file" accept="image/*" class="hidden" @change="handleAssistantImageUpload">
+                        </label>
+                        
+                        <!-- Ditar por Voz -->
+                        <button @click="toggleDictation" :class="isDictating ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-indigo-600'" class="w-9 h-9 flex flex-none items-center justify-center transition" title="Ditar por voz">
                             <i class="fa-solid fa-microphone"></i>
                         </button>
-                        <input v-model="assistantQuery" @keyup.enter="askAssistant" placeholder="Ex: Mude a nota da Ana para 8..." class="flex-1 w-full bg-transparent px-2 py-2 text-sm outline-none text-gray-700">
-                        <button @click="askAssistant" :disabled="isAssistantThinking" class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex flex-none items-center justify-center shadow-md hover:bg-indigo-700 disabled:opacity-50 transition"><i class="fa-solid fa-paper-plane"></i></button>
+
+                        <!-- Assistente Falante (TTS) -->
+                        <button @click="assistantTTS = !assistantTTS" :class="assistantTTS ? 'text-indigo-600' : 'text-gray-400 hover:text-indigo-600'" class="w-9 h-9 flex flex-none items-center justify-center transition" title="Ligar/Desligar Voz da IA">
+                            <i :class="assistantTTS ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark'"></i>
+                        </button>
+
+                        <input v-model="assistantQuery" @keyup.enter="askAssistant" placeholder="Fale ou mostre algo..." class="flex-1 w-full bg-transparent px-1 py-2 text-sm outline-none text-gray-700 min-w-0">
+                        <button @click="askAssistant" :disabled="isAssistantThinking || (!assistantQuery.trim() && !assistantAttachedImage)" class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex flex-none items-center justify-center shadow-md hover:bg-indigo-700 disabled:opacity-50 transition"><i class="fa-solid fa-paper-plane"></i></button>
                     </div>
                 </div>
             </div>
@@ -2075,9 +2097,131 @@
                 const assistantQuery = ref('');
                 const isAssistantThinking = ref(false);
                 const isDictating = ref(false);
+                const assistantAttachedImage = ref(null);
+                const assistantAttachedImageMime = ref(null);
+                const assistantTTS = ref(true); // O assistente fala por padrão
                 const assistantHistory = ref([
-                    {role: 'model', text: 'Olá, Professor! Eu sou o assistente virtual da caderneta. Posso ajudá-lo a gerir as suas notas, as faltas em qualquer aula, ou os seus horários.'}
+                    {role: 'model', text: 'Olá, Professor! Eu sou o assistente virtual. Posso analisar imagens (atestados, anotações), gerir faltas, notas e falar consigo.'}
                 ]);
+
+                // Desliga o áudio automaticamente se fechar a janela do assistente e aciona a proatividade
+                watch(showAssistant, async (isOpen) => {
+                    if (!isOpen) {
+                        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                    } else {
+                        const todayStr = new Date().toLocaleDateString('pt-BR');
+                        if (settings.value.lastGreetingDate !== todayStr) {
+                            await generateProactiveGreeting(todayStr);
+                        }
+                    }
+                });
+
+                const generateProactiveGreeting = async (todayStr) => {
+                    isAssistantThinking.value = true;
+                    try {
+                        const today = new Date();
+                        const daysMap = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+                        const todayName = daysMap[today.getDay()];
+                        const hour = today.getHours();
+                        let greeting = hour < 12 ? 'Bom dia' : (hour < 18 ? 'Boa tarde' : 'Boa noite');
+
+                        const schArray = await db.schedules.toArray();
+                        const todayClasses = schArray.filter(s => s.day === todayName);
+                        const classCount = todayClasses.length;
+
+                        const attArray = await db.attendance.toArray();
+                        // Alunos com faltas recorrentes (2 ou mais nos últimos 14 dias)
+                        const recentDate = new Date();
+                        recentDate.setDate(recentDate.getDate() - 14);
+                        const recentDateStr = recentDate.toISOString().split('T')[0];
+
+                        const recentAbsences = attArray.filter(a => a.status === 'F' && a.date >= recentDateStr);
+                        const absMap = {};
+                        recentAbsences.forEach(a => { absMap[a.studentId] = (absMap[a.studentId] || 0) + 1; });
+                        const criticalStudents = Object.keys(absMap).filter(id => absMap[id] >= 2).map(Number);
+
+                        const todayIso = today.toISOString().split('T')[0];
+                        const todayNotes = await db.agendaNotes.where({date: todayIso}).toArray();
+                        const todayExams = exams.value.filter(e => {
+                            if (!e.date) return false;
+                            const d = new Date(e.date);
+                            return d.toISOString().split('T')[0] === todayIso;
+                        });
+
+                        let msg = `Olá, Professor! ${greeting}! Hoje é ${todayName}. `;
+
+                        if (classCount > 0) {
+                            msg += `Tem ${classCount} aula(s) programada(s) para hoje. `;
+                        }
+
+                        if (todayExams.length > 0) {
+                            msg += `Lembre-se que tem a avaliação "${todayExams[0].title}" hoje. `;
+                        }
+
+                        if (todayNotes.length > 0) {
+                            msg += `Há ${todayNotes.length} anotação(ões) na sua agenda para hoje. `;
+                        }
+
+                        if (criticalStudents.length > 0) {
+                            let stds = students.value.filter(s => criticalStudents.includes(s.id));
+                            let names = stds.map(s => s.name.split(' ')[0]).slice(0, 2).join(' e ');
+                            if (criticalStudents.length > 2) names += ` e outros ${criticalStudents.length - 2}`;
+                            msg += `Nota de atenção: ${names} têm faltado recentemente. `;
+                        }
+
+                        if (classCount === 0 && todayExams.length === 0 && todayNotes.length === 0) {
+                            msg += `O seu dia parece estar tranquilo. `;
+                        }
+
+                        msg += `Como o posso ajudar a organizar o dia?`;
+
+                        assistantHistory.value.push({ role: 'model', text: msg });
+                        
+                        // Espera um pouco para renderizar e simular digitação natural
+                        setTimeout(() => { speakText(msg); }, 300);
+
+                        settings.value.lastGreetingDate = todayStr;
+                        await saveSettings(true);
+                    } catch (e) {
+                        console.error("Erro na proatividade", e);
+                    } finally {
+                        isAssistantThinking.value = false;
+                        nextTick(() => {
+                            const box = document.getElementById('assistant-chat-box');
+                            if (box) box.scrollTop = box.scrollHeight;
+                        });
+                    }
+                };
+
+                const handleAssistantImageUpload = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) return showToast("Imagem muito grande (Max: 5MB).", "error");
+                    
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                        assistantAttachedImage.value = ev.target.result;
+                        assistantAttachedImageMime.value = file.type;
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = ''; // Reset input
+                };
+
+                const speakText = (text) => {
+                    if (!assistantTTS.value || !('speechSynthesis' in window)) return;
+                    window.speechSynthesis.cancel(); // Para fala anterior para não encavalar
+                    
+                    // Remove emojis e marcações markdown comuns para uma fala mais limpa
+                    const cleanText = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '')
+                                          .replace(/\*/g, '')
+                                          .replace(/_/g, '')
+                                          .replace(/#/g, '');
+
+                    const utterance = new SpeechSynthesisUtterance(cleanText);
+                    utterance.lang = 'pt-BR';
+                    utterance.rate = 1.05; // Velocidade ligeiramente acelerada para dinamismo
+                    window.speechSynthesis.speak(utterance);
+                };
 
                 // Exam & Question Modals
                 const showEditExamModal = ref(false);
@@ -3138,6 +3282,16 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         const cls = classes.value.find(c => Number(c.id) === cId);
                         return `Adicionar horário na turma '${cls ? cls.name : 'Desconhecida'}': ${act.day}, ${act.period}`;
                     }
+                    if (act.actionType === 'add_agenda') {
+                        const dateFormatted = act.date ? act.date.split('-').reverse().join('/') : 'Hoje';
+                        return `Adicionar na Agenda (${dateFormatted}): "${act.text}"`;
+                    }
+                    if (act.actionType === 'generate_exam') {
+                        let parts = [];
+                        if (act.mc_count) parts.push(`${act.mc_count} Múltipla Escolha`);
+                        if (act.ce_count) parts.push(`${act.ce_count} Certo/Errado`);
+                        return `Configurar Gerador IA para prova de ${act.subject || 'Disciplina'} sobre ${act.topic || 'Tópico'} (${parts.join(', ') || 'Padrão'})`;
+                    }
                     return "Ação desconhecida";
                 };
 
@@ -3145,7 +3299,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     try {
                         if(!msg.actions || msg.actions.length === 0) throw new Error("Nenhuma ação válida encontrada");
                         
-                        let switchToDiary = false;
+                        let targetView = null;
 
                         for (const act of msg.actions) {
                             const stdId = act.studentId != null ? Number(act.studentId) : null;
@@ -3200,7 +3354,13 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 const allClassAtt = await db.attendance.where('classId').equals(classId).toArray();
                                 const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per && Number(r.studentId) === stdId).map(r => r.id);
                                 await db.attendance.bulkDelete(toDelete);
-                                await db.attendance.add({classId, date: dt, period: per, studentId: stdId, status: act.status});
+                                
+                                // Nova lógica para acomodar a razão do Atestado Médico lido pela Visão da IA
+                                let newAtt = {classId, date: dt, period: per, studentId: stdId, status: act.status};
+                                if (act.status === 'J' && act.text) {
+                                    newAtt.reason = act.text; 
+                                }
+                                await db.attendance.add(newAtt);
                                 
                                 diaryClassId.value = classId;
                                 diaryTab.value = 'attendance';
@@ -3264,17 +3424,39 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                     
                                     diaryClassId.value = cId;
                                     diaryTab.value = 'schedule';
-                                    switchToDiary = true;
+                                    targetView = 'diary';
                                 }
+                            } else if (act.actionType === 'add_agenda') {
+                                await db.agendaNotes.add({
+                                    date: act.date || new Date().toISOString().split('T')[0],
+                                    text: act.text || 'Nova anotação via Assistente',
+                                    attachments: [],
+                                    createdAt: Date.now()
+                                });
+                                agendaDate.value = act.date || new Date().toISOString().split('T')[0];
+                                targetView = 'agenda';
+                            } else if (act.actionType === 'generate_exam') {
+                                aiGenConfig.value.subject = act.subject || '';
+                                aiGenConfig.value.topic = act.topic || '';
+                                if (act.difficulty) aiGenConfig.value.difficulty = act.difficulty;
+                                
+                                aiGenConfig.value.counts.mc = act.mc_count !== undefined ? Number(act.mc_count) : 5;
+                                aiGenConfig.value.counts.ce = act.ce_count !== undefined ? Number(act.ce_count) : 0;
+                                aiGenConfig.value.counts.vf = act.vf_count !== undefined ? Number(act.vf_count) : 0;
+                                aiGenConfig.value.counts.assoc = act.assoc_count !== undefined ? Number(act.assoc_count) : 0;
+                                
+                                targetView = 'questions';
+                                showAIGenModal.value = true;
                             }
                         }
                         
                         msg.actionResolved = 'confirmed';
-                        if (switchToDiary) {
-                            currentView.value = 'diary';
+                        if (targetView) {
+                            currentView.value = targetView;
                         }
                         await load();
                         if (currentView.value === 'diary') await loadDiaryData();
+                        if (currentView.value === 'agenda') await loadAgendaNotes();
                         showToast("Ações executadas com sucesso!", "success");
                     } catch(e) {
                         showToast(e.message || "Erro ao executar ações", "error");
@@ -3321,12 +3503,19 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 };
 
                 const askAssistant = async () => {
-                    if(!assistantQuery.value.trim()) return;
+                    if(!assistantQuery.value.trim() && !assistantAttachedImage.value) return;
                     if(!settings.value.activeModel || !geminiKey.value) return showToast("Por favor, configure a chave da IA primeiro na aba Correção", "warning");
 
-                    const userQuery = assistantQuery.value;
-                    assistantHistory.value.push({role: 'user', text: userQuery});
+                    const userQuery = assistantQuery.value || "Veja esta imagem anexada.";
+                    const b64Image = assistantAttachedImage.value;
+                    const b64Mime = assistantAttachedImageMime.value;
+
+                    assistantHistory.value.push({role: 'user', text: userQuery, image: b64Image});
+                    
                     assistantQuery.value = '';
+                    assistantAttachedImage.value = null;
+                    assistantAttachedImageMime.value = null;
+                    
                     isAssistantThinking.value = true;
                     
                     nextTick(() => {
@@ -3335,14 +3524,42 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     });
 
                     try {
+                        const queryLower = userQuery.toLowerCase();
+                        
+                        // --- INÍCIO DA OTIMIZAÇÃO DE TOKENS (RAG LOCAL) ---
+                        // Para evitar sobrecarregar a IA e atingir limites da API (Token Bloat),
+                        // injetamos apenas os dados essenciais e relevantes para a pergunta atual.
+                        
                         const c = classes.value.map(x=>({id:x.id, nome:x.name}));
-                        const s = students.value.map(x=>({id:x.id, idTurma:x.classId, nome:x.name}));
                         const eList = exams.value.map(x=>({id:x.id, titulo:x.title, bimestre:x.bimester, tipo:x.type}));
                         const r = results.value.map(x=>({idAluno:x.studentId, idProva: x.examId, nota:x.score}));
+                        
+                        // Otimização 1: Injetar as Biografias (que gastam imenso texto) APENAS se pedir resumo/detalhes
+                        const isSummaryReq = ["resumo", "sobre", "perfil", "biografia", "comportamento", "detalhes"].some(w => queryLower.includes(w));
+                        const s = students.value.map(x => {
+                            let baseStd = { id: x.id, idTurma: x.classId, nome: x.name };
+                            // Se a intenção é um resumo e o primeiro nome do aluno consta na pergunta, enviamos os detalhes
+                            if (isSummaryReq && queryLower.includes(x.name.toLowerCase().split(' ')[0])) {
+                                baseStd.biografia = x.notes || 'Sem anotações';
+                                baseStd.precisaFrente = !!x.needsFrontSeat;
+                            }
+                            return baseStd;
+                        });
+
+                        // Otimização 2: Filtrar a tabela de Frequência (que cresce exponencialmente ao longo do ano)
+                        // Enviamos apenas os últimos 30 dias de frequência por padrão para poupar milhares de tokens.
                         const attArray = await db.attendance.toArray();
-                        const att = attArray.map(x=>({idAluno:x.studentId, data:x.date, aula:x.period, status:x.status}));
+                        const thirtyDaysAgo = new Date();
+                        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                        const thirtyDaysStr = thirtyDaysAgo.toISOString().split('T')[0];
+                        
+                        const att = attArray
+                            .filter(x => x.date >= thirtyDaysStr || queryLower.includes(x.date.split('-')[0]) || queryLower.includes(x.date.split('-').reverse()[0])) 
+                            .map(x=>({idAluno:x.studentId, data:x.date, aula:x.period, status:x.status}));
+
                         const schArray = await db.schedules.toArray();
                         const sch = schArray.map(x=>({idTurma:x.classId, dia:x.day, aula:x.period}));
+                        // --- FIM DA OTIMIZAÇÃO DE TOKENS ---
 
                         const chatContext = assistantHistory.value
                             .slice(-10) 
@@ -3353,7 +3570,6 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         const daysMap = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
                         const todayName = daysMap[today.getDay()];
                         
-                        // Resolve o bug de fuso horário do toISOString() que causava datas adiantadas à noite
                         const yyyy = today.getFullYear();
                         const mm = String(today.getMonth() + 1).padStart(2, '0');
                         const dd = String(today.getDate()).padStart(2, '0');
@@ -3376,16 +3592,17 @@ ${chatContext}
 NOVA AÇÃO DO USUÁRIO: "${userQuery}"
 
 REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
-1. Em 'reply', NUNCA diga que já executou, fez ou alterou os dados. Você não tem permissão para alterar nada diretamente. Diga SEMPRE algo como: "Preparei a ação solicitada. Por favor, clique no botão 'Confirmar Tudo' abaixo para aplicar as mudanças de forma segura."
-2. NOTAS (Lançar/Apagar): Se o usuário falar em notas, você precisa de studentId, examId e score (se for lançar). Se faltar saber a prova, pergunte. Use actionType "update_grade" ou "delete_grade".
-3. CHAMADA RÁPIDA EM LOTE: Se o professor disser algo como "Faltaram João e Maria" ou "Ninguém faltou na turma X hoje".
-   - Encontre de qual turma os alunos citados são.
-   - Descubra qual aula o professor tem HOJE (${todayName}) nessa turma olhando os "Horários do Professor".
-   - Gere a ação com actionType="bulk_attendance", preencha 'classId', 'date' (${todayDate}), 'period' e a lista 'absentStudentIds'.
-4. FREQUÊNCIA INDIVIDUAL (Para um só aluno): Se quiser colocar falta ou presença em alguém HOJE: encontre a turma do aluno, olhe os "Horários do Professor" para HOJE (${todayName}) e descubra qual é o 'period' (ex: "1ª Aula"). Use actionType="set_attendance" informando studentId, date (${todayDate}), period e status ("P", "F" ou "J"). Se o professor tem 2 ou mais aulas hoje na mesma turma, gere um objeto de ação separado para cada aula!
-5. HORÁRIO: actionType="add_schedule", forneça classId, day (ex: "Segunda") e period (ex: "2ª Aula").
-6. Se não conseguir identificar os parâmetros essenciais, responda pedindo esclarecimentos e envie hasAction=false e a lista de actions vazia.
-7. OBRIGATÓRIO: Se enviar qualquer item no array 'actions', defina 'hasAction' como true.
+1. Em 'reply', NUNCA diga que já executou, fez ou alterou os dados. Você não tem permissão para alterar nada diretamente. Diga SEMPRE algo como: "Preparei a ação solicitada. Por favor, confirme abaixo."
+2. NOTAS (Lançar/Apagar): Se o usuário falar em notas, precisa de studentId, examId e score. Use actionType "update_grade" ou "delete_grade".
+3. CHAMADA RÁPIDA EM LOTE: Para chamadas de turma (actionType="bulk_attendance"). Preencha 'classId', 'date' (${todayDate}), 'period' e a lista 'absentStudentIds'.
+4. FREQUÊNCIA INDIVIDUAL: Para colocar falta ou presença (actionType="set_attendance"). Preencha studentId, date, period e status ("P", "F" ou "J"). Opcionalmente envie "text" para o motivo/justificativa.
+5. HORÁRIO: actionType="add_schedule", forneça classId, day e period.
+6. AGENDA E LEMBRETES: actionType="add_agenda". Forneça 'date' (YYYY-MM-DD) e 'text'.
+7. GERAR PROVA: actionType="generate_exam". Forneça 'subject', 'topic', 'mc_count', 'ce_count', 'vf_count', 'assoc_count'.
+8. ANÁLISES: Para relatórios ou médias, apenas responda em 'reply' e envie 'actions' vazias.
+9. INCERTEZA: Peça esclarecimentos no 'reply' e não envie actions se faltar o nome do aluno ou turma.
+10. OBRIGATÓRIO: Se houver 'actions', 'hasAction' DEVE ser true.
+11. VISÃO COMPUTACIONAL E DOCUMENTOS MÁGICOS: Se o usuário enviar uma imagem (ex: um atestado médico, bilhete da mãe) e pedir para justificar falta, leia o documento. Extraia o nome do aluno (tente cruzar com a base de alunos), o motivo da doença e as datas. Em seguida, gere uma action do tipo 'set_attendance' com status 'J' e coloque o resumo do motivo no campo 'text'. No 'reply', descreva de forma empática o que leu no atestado e que configurou a justificação.
 
 RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
 
@@ -3408,17 +3625,28 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                                             status: { type: "STRING" },
                                             day: { type: "STRING" },
                                             period: { type: "STRING" },
-                                            absentStudentIds: {
-                                                type: "ARRAY",
-                                                items: { type: "INTEGER" }
-                                            }
+                                            absentStudentIds: { type: "ARRAY", items: { type: "INTEGER" } },
+                                            text: { type: "STRING" },
+                                            subject: { type: "STRING" },
+                                            topic: { type: "STRING" },
+                                            difficulty: { type: "STRING" },
+                                            mc_count: { type: "INTEGER" },
+                                            ce_count: { type: "INTEGER" },
+                                            vf_count: { type: "INTEGER" },
+                                            assoc_count: { type: "INTEGER" }
                                         }
                                     }
                                 }
                             }
                         };
 
-                        const aiResult = await fetchGemini(promptText, schema);
+                        let aiResult;
+                        if (b64Image) {
+                            const rawBase64 = b64Image.split(',')[1];
+                            aiResult = await fetchGemini(promptText, schema, rawBase64, b64Mime);
+                        } else {
+                            aiResult = await fetchGemini(promptText, schema);
+                        }
                         
                         // Trava de segurança: Forçar exibição do botão caso a IA crie as ações mas esqueça de ligar a flag
                         if (aiResult && aiResult.actions && aiResult.actions.length > 0) {
@@ -3433,11 +3661,15 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                                 actions: aiResult.actions || [],
                                 actionResolved: null
                             });
+                            
+                            // A IA fala o resultado
+                            speakText(aiResult.reply);
                         } else {
                             throw new Error("Resposta vazia");
                         }
                     } catch(e) {
                         assistantHistory.value.push({ role: 'model', text: "Desculpe, ocorreu um erro. Verifique a base de dados ou tente formular de forma mais clara informando o nome exato da turma/aluno." });
+                        speakText("Desculpe, ocorreu um erro ao processar o seu pedido.");
                     } finally {
                         isAssistantThinking.value = false;
                         nextTick(() => {
@@ -5437,6 +5669,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     // Assistant
                     showAssistant, assistantQuery, isAssistantThinking, isDictating, assistantHistory, askAssistant,
                     toggleDictation, getActionDescription, confirmAssistantAction, cancelAssistantAction,
+                    assistantAttachedImage, assistantAttachedImageMime, assistantTTS, handleAssistantImageUpload, speakText,
                     
                     // Functions
                     addClass, deleteClass, saveStudents, toggleClassExpansion, deleteAllQuestions, deleteAllGrades,
