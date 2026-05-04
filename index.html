@@ -120,7 +120,7 @@
             </div>
 
             <!-- DIÁRIO DE AULAS (FREQUÊNCIA E HORÁRIOS) -->
-            <div v-if="currentView==='diary'" class="space-y-4 animate-fade-in">
+        <div v-if="currentView==='diary'" class="space-y-4 animate-fade-in">
                 <div class="bg-indigo-600 p-5 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden">
                     <div class="z-10">
                         <h2 class="text-2xl font-black">Diário</h2>
@@ -226,6 +226,109 @@
                                 <button @click="deleteSchedule(sch.id)" class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button>
                             </div>
                             <p v-if="schedulesList.length === 0" class="text-center text-xs text-gray-400 py-4 font-medium">Nenhum horário cadastrado.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AGENDA -->
+            <div v-if="currentView==='agenda'" class="space-y-4 animate-fade-in max-w-xl mx-auto pb-20">
+                <div class="bg-indigo-600 p-5 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden">
+                    <div class="z-10">
+                        <h2 class="text-2xl font-black">Agenda</h2>
+                        <p class="text-xs text-indigo-200">Anotações e Lembretes</p>
+                    </div>
+                    <i class="fa-regular fa-calendar-check text-5xl text-white/20"></i>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
+                    <div class="flex gap-2 items-center">
+                        <input type="date" v-model="agendaDate" class="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-indigo-500 transition-colors">
+                        <button @click="agendaDate = new Date().toISOString().split('T')[0]" class="px-4 py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-xs hover:bg-indigo-100 transition shadow-sm border border-indigo-100">Hoje</button>
+                        <button @click="printAgendaDayPDF" class="px-4 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold text-xs transition shadow-sm border border-red-100 flex items-center gap-1.5" title="Baixar relatório em PDF"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                    </div>
+
+                    <div class="flex flex-col gap-2 pt-2 border-t">
+                        <textarea v-model="newAgendaNoteText" placeholder="Escreva a sua anotação ou lembrete aqui..." rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-indigo-500 resize-none font-medium transition-colors"></textarea>
+                        
+                        <!-- ÁREA DE ANEXOS (NOVO) -->
+                        <div v-if="newAgendaAttachments.length > 0" class="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <div v-for="(att, idx) in newAgendaAttachments" :key="idx" class="relative group">
+                                <div v-if="att.type.startsWith('image/')" class="w-16 h-16 rounded-lg border border-gray-200 overflow-hidden bg-white">
+                                    <img :src="att.data" class="w-full h-full object-cover">
+                                </div>
+                                <div v-else-if="att.type.startsWith('audio/')" class="w-16 h-16 rounded-lg border border-gray-200 bg-blue-50 text-blue-500 flex flex-col items-center justify-center text-[10px] font-bold">
+                                    <i class="fa-solid fa-microphone-lines text-lg mb-1"></i> Áudio
+                                </div>
+                                <div v-else class="w-16 h-16 rounded-lg border border-gray-200 bg-red-50 text-red-500 flex flex-col items-center justify-center text-[10px] font-bold text-center p-1 break-words leading-tight">
+                                    <i class="fa-solid fa-file-pdf text-lg mb-1"></i> PDF
+                                </div>
+                                <button @click="removeAgendaAttachment(idx)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-md hover:bg-red-600 transition opacity-0 group-hover:opacity-100"><i class="fa-solid fa-times"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <label class="w-12 h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl flex items-center justify-center cursor-pointer transition shadow-sm border border-gray-200 flex-none" title="Anexar Imagem, Áudio ou PDF">
+                                <i class="fa-solid fa-paperclip"></i>
+                                <input type="file" multiple accept="image/*,audio/*,application/pdf" class="hidden" @change="handleAgendaAttachment">
+                            </label>
+                            
+                            <button @click="toggleAudioRecording" :class="isRecordingAudio ? 'bg-red-500 text-white animate-pulse border-red-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-200'" class="w-12 h-12 rounded-xl flex items-center justify-center transition shadow-sm border flex-none" :title="isRecordingAudio ? 'Parar Gravação' : 'Gravar Áudio'">
+                                <i :class="isRecordingAudio ? 'fa-solid fa-stop' : 'fa-solid fa-microphone'"></i>
+                            </button>
+
+                            <button @click="addAgendaNote" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2"><i class="fa-solid fa-save"></i> Salvar Lembrete</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Busca e Filtros -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest"><i class="fa-solid fa-filter"></i> Buscar / Filtrar Histórico</label>
+                    <div class="flex gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200 focus-within:border-indigo-400 transition-colors items-center">
+                        <i class="fa-solid fa-search text-gray-400 ml-1"></i>
+                        <input v-model="agendaSearchText" placeholder="Pesquisar por texto..." class="w-full bg-transparent outline-none text-sm font-medium text-gray-700">
+                        <button v-if="agendaSearchText" @click="agendaSearchText=''" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times"></i></button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">De (Data Inicial)</label>
+                            <input type="date" v-model="agendaStartDate" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:border-indigo-400 transition-colors">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Até (Data Final)</label>
+                            <input type="date" v-model="agendaEndDate" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:border-indigo-400 transition-colors">
+                        </div>
+                    </div>
+                    <button v-if="agendaSearchText || agendaStartDate || agendaEndDate" @click="agendaSearchText=''; agendaStartDate=''; agendaEndDate=''" class="w-full py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold transition hover:bg-red-100">Limpar Filtros</button>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">
+                        {{ (agendaSearchText || agendaStartDate || agendaEndDate) ? `Resultados da Busca (${filteredAgendaNotes.length})` : `Anotações do Dia ${agendaDate.split('-').reverse().join('/')}` }}
+                    </div>
+                    
+                    <div v-if="filteredAgendaNotes.length === 0" class="text-center py-10 text-gray-400 font-medium text-xs border-2 border-dashed border-gray-200 rounded-2xl bg-white/50">
+                        <i class="fa-solid fa-file-pen text-2xl text-gray-300 mb-2 block"></i>
+                        {{ (agendaSearchText || agendaStartDate || agendaEndDate) ? 'Nenhuma anotação encontrada.' : 'Sem anotações para este dia.' }}
+                    </div>
+                    
+                    <div v-for="note in filteredAgendaNotes" :key="note.id" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-3 group hover:shadow transition relative">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100 shadow-sm"><i class="fa-regular fa-calendar mr-1"></i> {{ note.date.split('-').reverse().join('/') }}</span>
+                            <button @click="deleteAgendaNote(note.id)" class="text-gray-300 hover:text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg transition ml-3 flex-none flex items-center justify-center border border-transparent hover:border-red-100" title="Apagar Anotação"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap flex-1 leading-relaxed">{{note.text}}</p>
+                        
+                        <!-- EXIBIÇÃO DE ANEXOS DA ANOTAÇÃO -->
+                        <div v-if="note.attachments && note.attachments.length > 0" class="flex flex-col gap-2 pt-3 border-t border-gray-100">
+                            <div v-for="(att, idx) in note.attachments" :key="idx" class="bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                <img v-if="att.type.startsWith('image/')" :src="att.data" class="max-h-48 rounded-lg object-contain cursor-pointer hover:opacity-90 transition" @click="viewFullScreen(att.data)">
+                                <audio v-else-if="att.type.startsWith('audio/')" :src="att.data" controls class="w-full h-10"></audio>
+                                <a v-else :href="att.data" :download="att.name || 'documento.pdf'" class="flex items-center gap-2 text-sm font-bold text-red-600 hover:text-red-700 transition p-2 bg-red-50 rounded-lg w-fit">
+                                    <i class="fa-solid fa-file-pdf text-lg"></i> Baixar {{att.name || 'PDF'}}
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1428,6 +1531,22 @@
             seatingPlans: 'classId' 
         });
 
+        // Versão 6: Adição da Agenda
+        db.version(6).stores({ 
+            classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
+            results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
+            schedules: '++id, classId', attendance: '++id, classId, date, studentId',
+            seatingPlans: 'classId', agendaNotes: '++id, date'
+        });
+
+        // Versão 7: Correção de indexação da Agenda
+        db.version(7).stores({ 
+            classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
+            results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
+            schedules: '++id, classId', attendance: '++id, classId, date, studentId',
+            seatingPlans: 'classId', agendaNotes: '++id, date, createdAt'
+        });
+
         createApp({
             setup() {
                 const getAlternativeLabel = (t, i) => i == null ? '-' : (t === 'ce' ? ['A', 'B'][i] || '?' : ['A', 'B', 'C', 'D', 'E'][i] || '?');
@@ -1438,6 +1557,7 @@
                 const tabs = [
                     {id:'dashboard',label:'Painel',icon:'fa-solid fa-chart-pie'},
                     {id:'diary',label:'Diário',icon:'fa-solid fa-book-open'},
+                    {id:'agenda',label:'Agenda',icon:'fa-regular fa-calendar-check'},
                     {id:'classes',label:'Turmas',icon:'fa-solid fa-chalkboard-user'},
                     {id:'questions',label:'Banca',icon:'fa-solid fa-layer-group'},
                     {id:'exams',label:'Provas',icon:'fa-solid fa-file-signature'},
@@ -1492,6 +1612,210 @@
                 const schedulesList = ref([]);
                 const newSchedule = ref({ day: 'Segunda', period: '1ª Aula' });
                 
+                // Agenda
+                const agendaDate = ref(new Date().toISOString().split('T')[0]);
+                const allAgendaNotes = ref([]);
+                const newAgendaNoteText = ref('');
+                const newAgendaAttachments = ref([]); // NOVO
+                const isRecordingAudio = ref(false); // NOVO
+                let mediaRecorder = null; // NOVO
+                let audioChunks = []; // NOVO
+
+                // Filtros de Pesquisa
+                const agendaSearchText = ref('');
+                const agendaStartDate = ref('');
+                const agendaEndDate = ref('');
+
+                const loadAgendaNotes = async () => {
+                    allAgendaNotes.value = await db.agendaNotes.orderBy('createdAt').reverse().toArray();
+                };
+
+                const filteredAgendaNotes = computed(() => {
+                    let list = allAgendaNotes.value;
+                    
+                    // Se não houver filtros, mostra as anotações do dia selecionado no topo
+                    if (!agendaSearchText.value && !agendaStartDate.value && !agendaEndDate.value) {
+                        return list.filter(n => n.date === agendaDate.value);
+                    }
+                    
+                    // Aplica filtros se existirem
+                    if (agendaStartDate.value) list = list.filter(n => n.date >= agendaStartDate.value);
+                    if (agendaEndDate.value) list = list.filter(n => n.date <= agendaEndDate.value);
+                    if (agendaSearchText.value.trim()) {
+                        const q = agendaSearchText.value.toLowerCase();
+                        list = list.filter(n => n.text.toLowerCase().includes(q));
+                    }
+                    return list;
+                });
+                
+                // NOVO: Lê os ficheiros para Base64
+                const handleAgendaAttachment = (event) => {
+                    const files = event.target.files;
+                    if (!files || files.length === 0) return;
+                    
+                    showToast("Processando anexos...", "loading");
+                    
+                    Array.from(files).forEach(file => {
+                        // Limite simples de 5MB por ficheiro para evitar rebentar a base de dados
+                        if(file.size > 5 * 1024 * 1024) {
+                            showToast(`Ficheiro ${file.name} muito grande (Máx: 5MB)`, "error");
+                            return;
+                        }
+                        
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            newAgendaAttachments.value.push({
+                                name: file.name,
+                                type: file.type,
+                                data: e.target.result
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    event.target.value = ''; // Reset input
+                    showToast("Anexos adicionados!", "success");
+                };
+
+                const removeAgendaAttachment = (idx) => {
+                    newAgendaAttachments.value.splice(idx, 1);
+                };
+
+                // NOVO: Gravação de Áudio Integrada
+                const toggleAudioRecording = async () => {
+                    if (isRecordingAudio.value) {
+                        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                            mediaRecorder.stop();
+                        }
+                        isRecordingAudio.value = false;
+                        return;
+                    }
+
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        mediaRecorder = new MediaRecorder(stream);
+                        audioChunks = [];
+
+                        mediaRecorder.ondataavailable = e => {
+                            if (e.data.size > 0) audioChunks.push(e.data);
+                        };
+
+                        mediaRecorder.onstop = () => {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // webm/mp4
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                newAgendaAttachments.value.push({
+                                    name: `Gravacao_${new Date().getTime()}.webm`,
+                                    type: 'audio/webm',
+                                    data: e.target.result
+                                });
+                            };
+                            reader.readAsDataURL(audioBlob);
+                            
+                            // Parar as tracks para desligar o indicador do microfone no browser
+                            stream.getTracks().forEach(track => track.stop());
+                            showToast("Áudio gravado com sucesso!", "success");
+                        };
+
+                        mediaRecorder.start();
+                        isRecordingAudio.value = true;
+                        showToast("Gravando áudio... Clique novamente para parar.", "info");
+                    } catch (err) {
+                        showToast("Erro ao aceder ao microfone. Verifique as permissões.", "error");
+                        console.error(err);
+                    }
+                };
+                
+                const addAgendaNote = async () => {
+                    if(!newAgendaNoteText.value.trim() && newAgendaAttachments.value.length === 0) {
+                        return showToast("Escreva algo ou adicione um anexo.", "warning");
+                    }
+                    await db.agendaNotes.add({
+                        date: agendaDate.value,
+                        text: newAgendaNoteText.value.trim(),
+                        attachments: JSON.parse(JSON.stringify(newAgendaAttachments.value)), // Salva anexos
+                        createdAt: Date.now()
+                    });
+                    newAgendaNoteText.value = '';
+                    newAgendaAttachments.value = []; // Limpa anexos
+                    loadAgendaNotes();
+                    showToast('Anotação salva!', 'success');
+                };
+
+                const deleteAgendaNote = async (id) => {
+                    triggerConfirm("Apagar esta anotação?", async () => {
+                        await db.agendaNotes.delete(id);
+                        loadAgendaNotes();
+                        showToast('Anotação removida.', 'success');
+                    });
+                };
+                
+                const printAgendaDayPDF = () => {
+                    if (filteredAgendaNotes.value.length === 0) return showToast("Não há anotações para imprimir.", "warning");
+                    showToast("A gerar Relatório da Agenda...", "loading");
+
+                    let isFiltered = agendaSearchText.value || agendaStartDate.value || agendaEndDate.value;
+                    let subtitle = isFiltered ? "RELATÓRIO DE PESQUISA DA AGENDA" : `RELATÓRIO DIÁRIO - ${agendaDate.value.split('-').reverse().join('/')}`;
+
+                    let doc = {
+                        content: [
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
+                            { text: subtitle, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 20], color: '#4f46e5' }
+                        ],
+                        defaultStyle: { font: 'Roboto' },
+                        pageMargins: [40, 40, 40, 40]
+                    };
+
+                    filteredAgendaNotes.value.forEach((note, index) => {
+                        // Data e Hora da anotação
+                        const d = new Date(note.createdAt);
+                        const dataFormatada = note.date.split('-').reverse().join('/') + ' às ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+                        
+                        doc.content.push({ text: `Anotação ${index + 1} - ${dataFormatada}`, fontSize: 10, bold: true, color: '#374151', margin: [0, 10, 0, 5] });
+                        
+                        // Texto da anotação
+                        if (note.text) {
+                            doc.content.push({ text: note.text, fontSize: 10, margin: [0, 0, 0, 10], alignment: 'justify' });
+                        }
+
+                        // Processamento dos Anexos
+                        if (note.attachments && note.attachments.length > 0) {
+                            let imgCols = [];
+                            let docsAudioList = [];
+
+                            note.attachments.forEach(att => {
+                                if (att.type.startsWith('image/')) {
+                                    imgCols.push({ image: att.data, width: 150, margin: [0, 5, 10, 5], alignment: 'center' });
+                                } else if (att.type.startsWith('application/pdf')) {
+                                    docsAudioList.push(`📎 Documento PDF Anexado: ${att.name || 'Ficheiro'}`);
+                                } else if (att.type.startsWith('audio/')) {
+                                    docsAudioList.push(`🎤 Gravação de Áudio: ${att.name || 'Áudio'}`);
+                                }
+                            });
+
+                            // Organiza as imagens em linhas de 3 para não quebrar a página
+                            if (imgCols.length > 0) {
+                                for (let i = 0; i < imgCols.length; i += 3) {
+                                    doc.content.push({ columns: imgCols.slice(i, i + 3), margin: [0, 5, 0, 5] });
+                                }
+                            }
+
+                            // Lista de PDFs e Áudios
+                            if (docsAudioList.length > 0) {
+                                doc.content.push({
+                                    text: docsAudioList.join('\n'),
+                                    fontSize: 9, bold: true, color: '#ef4444', margin: [0, 5, 0, 5]
+                                });
+                            }
+                        }
+
+                        // Linha separadora
+                        doc.content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#d1d5db' }], margin: [0, 10, 0, 10] });
+                    });
+
+                    let fileName = isFiltered ? `Agenda_Pesquisa_${Date.now()}.pdf` : `Agenda_${agendaDate.value}.pdf`;
+                    downloadPDF(pdfMake.createPdf(doc), fileName, 'download');
+                };
+
                 const showAttendancePrintModal = ref(false);
                 const attPrintConfig = ref({
                     type: 'monthly',
@@ -1785,6 +2109,7 @@
                     students.value=await db.students.toArray(); questions.value=await db.questions.orderBy('id').reverse().toArray();
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
                     extraPoints.value=await db.extraPoints.toArray(); const s=await db.settings.get('config');
+                    loadAgendaNotes();
                     if(s) { 
                         settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null, hideAppLogo:s.hideAppLogo||false}; 
                         if(s.geminiKey) geminiKey.value=s.geminiKey; 
@@ -2277,7 +2602,8 @@
                                 await Promise.all([
                                     db.classes.clear(), db.students.clear(), db.questions.clear(), 
                                     db.exams.clear(), db.results.clear(), db.schedules.clear(), 
-                                    db.attendance.clear(), db.seatingPlans.clear(), db.extraPoints.clear()
+                                    db.attendance.clear(), db.seatingPlans.clear(), db.extraPoints.clear(),
+                                    db.agendaNotes.clear()
                                 ]);
 
                                 // Restaurar os dados do ficheiro
@@ -2290,6 +2616,7 @@
                                 if(d.att) await db.attendance.bulkAdd(d.att);
                                 if(d.seatP) await db.seatingPlans.bulkAdd(d.seatP);
                                 if(d.ep) await db.extraPoints.bulkAdd(d.ep);
+                                if(d.ag) await db.agendaNotes.bulkAdd(d.ag);
 
                                 if(d.cfg) await db.settings.put({ ...d.cfg, id: 'config' });
                                 if(d.license) {
@@ -2320,10 +2647,11 @@
                     const att = await db.attendance.toArray();
                     const seatP = await db.seatingPlans.toArray();
                     const ep = await db.extraPoints.toArray(); // Inclui pontos extras adicionados recentemente
+                    const ag = await db.agendaNotes.toArray();
                     
                     const d = { 
                         c: classes.value, s: students.value, q: questions.value, e: exams.value, r: results.value, 
-                        sch: sch, att: att, seatP: seatP, ep: ep, 
+                        sch: sch, att: att, seatP: seatP, ep: ep, ag: ag,
                         cfg: { ...settings.value, id: 'config', geminiKey: geminiKey.value }, license: licenseConfig 
                     };
                     
@@ -4557,6 +4885,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter,
                     attendanceMap, schedulesList, newSchedule, isCurrentSelectionValidSchedule, filteredStudentsInDiaryClass,
                     saveAttendance, addSchedule, deleteSchedule,
+                    
+                    // Agenda
+                    agendaDate, newAgendaNoteText, addAgendaNote, deleteAgendaNote,
+                    newAgendaAttachments, handleAgendaAttachment, removeAgendaAttachment, isRecordingAudio, toggleAudioRecording,
+                    agendaSearchText, agendaStartDate, agendaEndDate, filteredAgendaNotes, printAgendaDayPDF,
                     
                     // Modals & UI
                     showEditExamModal, editingExam, showHistory, selectedClassIdForReport, newClass, bulkStudents,
