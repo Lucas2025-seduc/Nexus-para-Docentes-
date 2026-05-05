@@ -298,6 +298,11 @@
                                 <i :class="isAgendaDictating ? 'fa-solid fa-ear-listen' : 'fa-solid fa-comment-dots'"></i>
                             </button>
 
+                            <!-- NOVO BOTÃO: MELHORAR TEXTO COM IA -->
+                            <button @click="improveAgendaText('new')" :disabled="isImprovingText" class="w-12 h-12 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center transition shadow-sm border border-purple-200 flex-none" title="Corrigir e Melhorar Texto com IA">
+                                <i :class="isImprovingText && improvingTarget === 'new' ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-wand-magic-sparkles'"></i>
+                            </button>
+
                             <button @click="addAgendaNote" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2"><i class="fa-solid fa-save"></i> Salvar</button>
                         </div>
                     </div>
@@ -346,6 +351,11 @@
                         <div v-if="editingAgendaNoteId === note.id" class="flex flex-col gap-2 mt-1">
                             <textarea v-model="editingAgendaNoteText" rows="3" class="w-full p-2 bg-indigo-50/50 border border-indigo-200 rounded-lg text-sm outline-none focus:border-indigo-500 resize-y text-gray-700 font-medium"></textarea>
                             <div class="flex gap-2 justify-end">
+                                <!-- NOVO BOTÃO DE IA NA EDIÇÃO -->
+                                <button @click="improveAgendaText('edit')" :disabled="isImprovingText" class="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5 mr-auto border border-purple-200" title="Melhorar com IA">
+                                    <i :class="isImprovingText && improvingTarget === 'edit' ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-wand-magic-sparkles'"></i> IA
+                                </button>
+
                                 <button @click="cancelEditingAgendaNote" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-lg transition shadow-sm"><i class="fa-solid fa-times"></i> Cancelar</button>
                                 <button @click="saveEditedAgendaNote" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Salvar</button>
                             </div>
@@ -2008,6 +2018,55 @@
                     editingAgendaNoteId.value = null;
                     loadAgendaNotes();
                     showToast("Anotação atualizada!", "success");
+                };
+
+                // NOVO: REVISÃO E MELHORIA DE TEXTO COM IA NA AGENDA
+                const isImprovingText = ref(false);
+                const improvingTarget = ref(null);
+
+                const improveAgendaText = async (target) => {
+                    const textToImprove = target === 'new' ? newAgendaNoteText.value : editingAgendaNoteText.value;
+                    
+                    if (!textToImprove.trim()) return showToast("Escreva algum rascunho primeiro para a IA melhorar.", "warning");
+                    if (!settings.value.activeModel || !geminiKey.value) return showToast("Configure a chave da IA primeiro (ícone da varinha na Banca).", "warning");
+
+                    isImprovingText.value = true;
+                    improvingTarget.value = target;
+                    showToast("A IA está a polir o seu texto...", "loading");
+
+                    try {
+                        const promptText = `Atue como um revisor de texto profissional. 
+Corrija erros ortográficos e gramaticais, melhore a clareza e torne o texto mais fluido e elegante. 
+Este é um lembrete/anotação de um professor na sua agenda escolar. Mantenha o tom profissional, mas prático.
+Mantenha o significado original da mensagem.
+Retorne APENAS um JSON com a chave "improved_text" contendo o texto final resultante.
+Texto original do professor: "${textToImprove}"`;
+
+                        const schema = {
+                            type: "OBJECT",
+                            properties: { improved_text: { type: "STRING" } },
+                            required: ["improved_text"]
+                        };
+
+                        const aiResult = await fetchGemini(promptText, schema);
+
+                        if (aiResult && aiResult.improved_text) {
+                            if (target === 'new') {
+                                newAgendaNoteText.value = aiResult.improved_text;
+                            } else {
+                                editingAgendaNoteText.value = aiResult.improved_text;
+                            }
+                            showToast("Texto melhorado! Reveja e clique em Salvar.", "success");
+                        } else {
+                            throw new Error("A IA não conseguiu processar o texto de forma estruturada.");
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        showToast(e.message || "Erro ao melhorar o texto. Verifique a internet ou tente novamente.", "error");
+                    } finally {
+                        isImprovingText.value = false;
+                        improvingTarget.value = null;
+                    }
                 };
 
                 const printAgendaDayPDF = () => {
@@ -5649,6 +5708,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     newAgendaAttachments, handleAgendaAttachment, removeAgendaAttachment, isRecordingAudio, toggleAudioRecording,
                     agendaSearchText, agendaStartDate, agendaEndDate, filteredAgendaNotes, printAgendaDayPDF,
                     isAgendaDictating, toggleAgendaDictation, editingAgendaNoteId, editingAgendaNoteText, startEditingAgendaNote, cancelEditingAgendaNote, saveEditedAgendaNote,
+                    isImprovingText, improvingTarget, improveAgendaText,
                     
                     // Modals & UI
                     showEditExamModal, editingExam, showHistory, selectedClassIdForReport, newClass, bulkStudents,
