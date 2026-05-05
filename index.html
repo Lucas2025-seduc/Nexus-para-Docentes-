@@ -1461,9 +1461,9 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
-                        <div class="text-center bg-black/20 px-3 py-1.5 rounded-xl border border-white/10">
-                            <span class="block text-[9px] uppercase font-bold text-indigo-200 mb-0.5">Nota Final</span>
-                            <span class="text-2xl font-black leading-none">{{selectedResultDetails?.score}}</span>
+                        <div class="text-center px-4 py-2 rounded-2xl shadow-lg border-2 transform scale-105" :class="parseFloat(selectedResultDetails?.score) >= 6 ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/40' : 'bg-red-500 border-red-400 shadow-red-500/40'">
+                            <span class="block text-[9px] uppercase font-black text-white/90 mb-0.5 tracking-widest drop-shadow-sm">Nota Final</span>
+                            <span class="text-3xl font-black leading-none text-white drop-shadow-md">{{selectedResultDetails?.score}}</span>
                         </div>
                         <button @click="deleteStudentResultAndClose(selectedResultDetails.resultId)" class="w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white transition flex-none" title="Excluir Nota"><i class="fa-solid fa-trash-can text-sm"></i></button>
                         <button @click="showResultDetailsModal=false" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition flex-none" title="Fechar"><i class="fa-solid fa-times text-lg"></i></button>
