@@ -337,9 +337,20 @@
                     <div v-for="note in filteredAgendaNotes" :key="note.id" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-3 group hover:shadow transition relative">
                         <div class="flex justify-between items-start">
                             <span class="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100 shadow-sm"><i class="fa-regular fa-calendar mr-1"></i> {{ note.date.split('-').reverse().join('/') }}</span>
-                            <button @click="deleteAgendaNote(note.id)" class="text-gray-300 hover:text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg transition ml-3 flex-none flex items-center justify-center border border-transparent hover:border-red-100" title="Apagar Anotação"><i class="fa-solid fa-trash-can"></i></button>
+                            <div class="flex gap-1 ml-3 flex-none">
+                                <button v-if="editingAgendaNoteId !== note.id" @click="startEditingAgendaNote(note)" class="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 w-8 h-8 rounded-lg transition flex items-center justify-center border border-transparent hover:border-indigo-100" title="Editar Anotação"><i class="fa-solid fa-pencil text-sm"></i></button>
+                                <button @click="deleteAgendaNote(note.id)" class="text-gray-300 hover:text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg transition flex items-center justify-center border border-transparent hover:border-red-100" title="Apagar Anotação"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
                         </div>
-                        <p class="text-sm text-gray-700 whitespace-pre-wrap flex-1 leading-relaxed">{{note.text}}</p>
+                        
+                        <div v-if="editingAgendaNoteId === note.id" class="flex flex-col gap-2 mt-1">
+                            <textarea v-model="editingAgendaNoteText" rows="3" class="w-full p-2 bg-indigo-50/50 border border-indigo-200 rounded-lg text-sm outline-none focus:border-indigo-500 resize-y text-gray-700 font-medium"></textarea>
+                            <div class="flex gap-2 justify-end">
+                                <button @click="cancelEditingAgendaNote" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-lg transition shadow-sm"><i class="fa-solid fa-times"></i> Cancelar</button>
+                                <button @click="saveEditedAgendaNote" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Salvar</button>
+                            </div>
+                        </div>
+                        <p v-else class="text-sm text-gray-700 whitespace-pre-wrap flex-1 leading-relaxed">{{note.text}}</p>
                         
                         <!-- EXIBIÇÃO DE ANEXOS DA ANOTAÇÃO -->
                         <div v-if="note.attachments && note.attachments.length > 0" class="flex flex-col gap-2 pt-3 border-t border-gray-100">
@@ -1977,6 +1988,28 @@
                     });
                 };
                 
+                // NOVO: EDIÇÃO DE ANOTAÇÕES DA AGENDA
+                const editingAgendaNoteId = ref(null);
+                const editingAgendaNoteText = ref('');
+
+                const startEditingAgendaNote = (note) => {
+                    editingAgendaNoteId.value = note.id;
+                    editingAgendaNoteText.value = note.text;
+                };
+
+                const cancelEditingAgendaNote = () => {
+                    editingAgendaNoteId.value = null;
+                    editingAgendaNoteText.value = '';
+                };
+
+                const saveEditedAgendaNote = async () => {
+                    if (!editingAgendaNoteText.value.trim()) return showToast("O lembrete não pode estar vazio.", "warning");
+                    await db.agendaNotes.update(editingAgendaNoteId.value, { text: editingAgendaNoteText.value.trim() });
+                    editingAgendaNoteId.value = null;
+                    loadAgendaNotes();
+                    showToast("Anotação atualizada!", "success");
+                };
+
                 const printAgendaDayPDF = () => {
                     if (filteredAgendaNotes.value.length === 0) return showToast("Não há anotações para imprimir.", "warning");
                     showToast("A gerar Relatório da Agenda...", "loading");
@@ -5615,7 +5648,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     agendaDate, newAgendaNoteText, addAgendaNote, deleteAgendaNote,
                     newAgendaAttachments, handleAgendaAttachment, removeAgendaAttachment, isRecordingAudio, toggleAudioRecording,
                     agendaSearchText, agendaStartDate, agendaEndDate, filteredAgendaNotes, printAgendaDayPDF,
-                    isAgendaDictating, toggleAgendaDictation,
+                    isAgendaDictating, toggleAgendaDictation, editingAgendaNoteId, editingAgendaNoteText, startEditingAgendaNote, cancelEditingAgendaNote, saveEditedAgendaNote,
                     
                     // Modals & UI
                     showEditExamModal, editingExam, showHistory, selectedClassIdForReport, newClass, bulkStudents,
