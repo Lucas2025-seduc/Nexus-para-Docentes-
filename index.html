@@ -1451,22 +1451,24 @@
         <!-- DETALHES RESULTADO (DEMONSTRATIVO IA/MANUAL E REVISÃO) -->
         <div v-if="showResultDetailsModal" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="bg-white rounded-3xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
-                <div class="p-5 bg-indigo-600 text-white flex justify-between items-center">
-                    <div class="flex items-center gap-3 flex-1 pr-4">
-                        <img v-if="getStudent(selectedResultDetails?.studentId)?.photo" :src="getStudent(selectedResultDetails?.studentId).photo" @click="viewFullScreen(getStudent(selectedResultDetails?.studentId).photo)" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 flex-none cursor-pointer hover:opacity-80 transition">
-                        <div v-else class="w-12 h-12 rounded-full bg-white/20 text-white/70 flex items-center justify-center border-2 border-white/50 flex-none"><i class="fa-solid fa-user text-xl"></i></div>
-                        <div class="overflow-hidden">
-                            <h3 class="font-black text-lg leading-tight truncate">{{selectedResultDetails?.studentName}}</h3>
-                            <p class="text-xs text-indigo-200 mt-1 truncate">{{selectedResultDetails?.title}}</p>
+                <div class="p-4 sm:p-5 bg-indigo-600 text-white flex justify-between items-center gap-2">
+                    <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <img v-if="getStudent(selectedResultDetails?.studentId)?.photo" :src="getStudent(selectedResultDetails?.studentId).photo" @click="viewFullScreen(getStudent(selectedResultDetails?.studentId).photo)" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-white/50 flex-none cursor-pointer hover:opacity-80 transition">
+                        <div v-else class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 text-white/70 flex items-center justify-center border-2 border-white/50 flex-none"><i class="fa-solid fa-user text-lg sm:text-xl"></i></div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-black text-sm sm:text-lg leading-tight truncate block w-full">{{selectedResultDetails?.studentName}}</h3>
+                            <p class="text-[10px] sm:text-xs text-indigo-200 mt-0.5 sm:mt-1 truncate block w-full">{{selectedResultDetails?.title}}</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <div class="text-center px-4 py-2 rounded-2xl shadow-lg border-2 transform scale-105" :class="parseFloat(selectedResultDetails?.score) >= 6 ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/40' : 'bg-red-500 border-red-400 shadow-red-500/40'">
-                            <span class="block text-[9px] uppercase font-black text-white/90 mb-0.5 tracking-widest drop-shadow-sm">Nota Final</span>
-                            <span class="text-3xl font-black leading-none text-white drop-shadow-md">{{selectedResultDetails?.score}}</span>
+                    <div class="flex items-center gap-1.5 sm:gap-3 flex-none">
+                        <div class="text-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl shadow-lg border-2" :class="parseFloat(selectedResultDetails?.score) >= 6 ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/40' : 'bg-red-500 border-red-400 shadow-red-500/40'">
+                            <span class="block text-[8px] sm:text-[9px] uppercase font-black text-white/90 mb-0.5 tracking-widest drop-shadow-sm">Nota</span>
+                            <span class="text-xl sm:text-3xl font-black leading-none text-white drop-shadow-md">{{selectedResultDetails?.score}}</span>
                         </div>
-                        <button @click="deleteStudentResultAndClose(selectedResultDetails.resultId)" class="w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white transition flex-none" title="Excluir Nota"><i class="fa-solid fa-trash-can text-sm"></i></button>
-                        <button @click="showResultDetailsModal=false" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition flex-none" title="Fechar"><i class="fa-solid fa-times text-lg"></i></button>
+                        <div class="flex flex-col gap-1 sm:gap-2">
+                            <button @click="showResultDetailsModal=false" class="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition flex-none" title="Fechar"><i class="fa-solid fa-times text-sm sm:text-lg"></i></button>
+                            <button @click="deleteStudentResultAndClose(selectedResultDetails.resultId)" class="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white transition flex-none" title="Excluir Nota"><i class="fa-solid fa-trash-can text-[10px] sm:text-sm"></i></button>
+                        </div>
                     </div>
                 </div>
                 <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center text-xs font-bold text-indigo-800">
