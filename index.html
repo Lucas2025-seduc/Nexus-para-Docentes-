@@ -3296,8 +3296,8 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     if (!geminiKey.value) return null;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${geminiKey.value}`;
                     
-                    // Ajuste do prompt para forçar ilustrações didáticas e limpas
-                    const finalPrompt = `A simple, clear, educational black and white line art diagram of: ${promptText}. Plain white background, no complex shading.`;
+                    // Ajuste do prompt para forçar ilustrações didáticas, limpas e EXIGIR TEXTO EM PORTUGUÊS
+                    const finalPrompt = `A simple, clear, educational black and white line art diagram of: ${promptText}. Plain white background, no complex shading. IMPORTANT: Any text, words, or labels inside the image MUST be written in Portuguese language.`;
                     
                     const payload = {
                         instances: { prompt: finalPrompt },
@@ -3856,9 +3856,9 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     try{
                         let imgInstruction = '';
                         if (aiGenConfig.value.imageMode === 'mixed') {
-                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Adicione a propriedade "image_prompt" APENAS nas questões que necessitam de ilustração. O valor deve ser uma instrução CURTA E EM INGLÊS descrevendo a imagem (ex: 'animal cell with mitochondria highlighted' ou 'pedigree chart showing autosomal recessive trait'). Omitir se a questão for puramente textual.`;
+                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Adicione a propriedade "image_prompt" APENAS nas questões que necessitam de ilustração. O valor deve ser uma instrução CURTA E EM INGLÊS descrevendo a imagem, MAS EXIGINDO LÍNGUA PORTUGUESA NAS LEGENDAS (ex: 'animal cell with mitochondria highlighted, with text labels in Portuguese'). Omitir se a questão for puramente textual.`;
                         } else if (aiGenConfig.value.imageMode === 'all') {
-                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Você DEVE OBRIGATORIAMENTE adicionar a propriedade "image_prompt" em TODAS as questões geradas, sem exceção. O valor deve ser uma instrução CURTA E EM INGLÊS descrevendo o que deve ser desenhado (ex: 'triangle with angles').`;
+                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Você DEVE OBRIGATORIAMENTE adicionar a propriedade "image_prompt" em TODAS as questões geradas, sem exceção. O valor deve ser uma instrução CURTA E EM INGLÊS descrevendo o que deve ser desenhado, MAS EXIGINDO LÍNGUA PORTUGUESA NAS LEGENDAS (ex: 'triangle with angles, with text labels in Portuguese').`;
                         }
 
                         let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
