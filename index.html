@@ -419,15 +419,10 @@
                                 <span class="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold uppercase border border-indigo-100 shadow-sm">{{q.subject}}</span>
                                 <span v-if="q.topic" class="text-[9px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border border-blue-100 uppercase font-bold shadow-sm"><i class="fa-solid fa-tag mr-0.5"></i> {{q.topic}}</span>
                             </div>
-                            <!-- BOTÃO DE IA ADICIONADO AQUI -->
-                            <div class="flex gap-1">
-                                <button @click="generateImageForQuestion(q)" class="w-7 h-7 rounded-full bg-pink-50 text-pink-500 hover:text-white hover:bg-pink-500 flex items-center justify-center transition-colors shadow-sm" title="Desenhar Imagem com IA"><i class="fa-solid fa-wand-magic-sparkles text-xs"></i></button>
-                                <button @click="editQuestion(q)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-indigo-600 flex items-center justify-center transition-colors"><i class="fa-solid fa-pencil text-xs"></i></button>
-                                <button @click="deleteQuestion(q.id)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-red-500 flex items-center justify-center transition-colors"><i class="fa-solid fa-trash text-xs"></i></button>
-                            </div>
+                            <div class="flex gap-1"><button @click="editQuestion(q)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-pencil text-xs"></i></button><button @click="deleteQuestion(q.id)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-red-500 flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button></div>
                         </div>
                         <p class="text-sm font-medium text-gray-800 mb-2 leading-relaxed">{{q.text}}</p>
-                        <img v-if="q.image" :src="q.image" class="h-16 mt-2 rounded border object-cover mb-2 cursor-pointer hover:opacity-80 transition-opacity" @click="viewFullScreen(q.image)">
+                        <img v-if="q.image" :src="q.image" class="h-16 mt-2 rounded border object-cover mb-2">
                         
                         <!-- VISUALIZAÇÃO DETALHADA DAS OPÇÕES E GABARITOS -->
                         <div class="mt-3 border-t border-gray-100 pt-3 space-y-1.5">
@@ -924,21 +919,16 @@
                     </div>
                     <textarea v-model="newQ.text" rows="4" class="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none focus:border-indigo-500 text-sm mb-4 resize-y" placeholder="Enunciado..."></textarea>
                     
-                    <!-- ÁREA DE UPLOAD DE IMAGEM DA QUESTÃO REFORMULADA -->
-                    <div class="mb-4 flex flex-col sm:flex-row items-center gap-3">
-                        <div class="flex-1 flex gap-3 w-full">
-                            <label class="flex-1 border-2 border-dashed border-gray-200 hover:border-indigo-400 p-3 rounded-xl text-center cursor-pointer transition-colors group bg-gray-50/50 hover:bg-indigo-50/30 flex flex-col items-center justify-center gap-1">
-                                <input type="file" accept="image/*" class="hidden" @change="handleImageUpload">
-                                <i class="fa-solid fa-image text-lg text-gray-400 group-hover:text-indigo-500"></i>
-                                <span class="text-[10px] font-bold text-gray-500 group-hover:text-indigo-600">Do Dispositivo</span>
-                            </label>
-                            <!-- NOVO BOTÃO DE IA NO EDITOR -->
-                            <button @click.prevent="generateImageForNewQuestion" class="flex-1 border-2 border-dashed border-pink-200 hover:border-pink-400 p-3 rounded-xl text-center cursor-pointer transition-colors group bg-pink-50/50 hover:bg-pink-100/50 flex flex-col items-center justify-center gap-1">
-                                <i class="fa-solid fa-wand-magic-sparkles text-lg text-pink-400 group-hover:text-pink-600"></i>
-                                <span class="text-[10px] font-bold text-pink-500 group-hover:text-pink-700">Desenhar com IA</span>
-                            </button>
-                        </div>
-                        <div v-if="newQ.image" class="relative w-full sm:w-24 h-32 sm:h-24 rounded-xl border shadow-sm flex-none group mt-2 sm:mt-0">
+                    <!-- ÁREA DE UPLOAD DE IMAGEM DA QUESTÃO -->
+                    <div class="mb-4 flex items-center gap-4">
+                        <label class="flex-1 border-2 border-dashed border-gray-200 hover:border-indigo-400 p-3 rounded-xl text-center cursor-pointer transition-colors group bg-gray-50/50 hover:bg-indigo-50/30">
+                            <input type="file" accept="image/*" class="hidden" @change="handleImageUpload">
+                            <div class="text-gray-400 group-hover:text-indigo-500 flex flex-col items-center gap-1">
+                                <i class="fa-solid fa-image text-lg"></i>
+                                <span class="text-xs font-bold">Anexar Imagem à Questão (Opcional)</span>
+                            </div>
+                        </label>
+                        <div v-if="newQ.image" class="relative w-20 h-20 rounded-xl border shadow-sm flex-none group">
                             <img :src="newQ.image" class="w-full h-full object-contain bg-gray-100 rounded-xl p-1">
                             <button @click.prevent="newQ.image=null" class="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition"><i class="fa-solid fa-times text-[10px]"></i></button>
                         </div>
@@ -4521,60 +4511,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const changeQType=t=>{qType.value=t; newQ.value.options=(t==='vf')?[{text:'',isTrue:true},{text:'',isTrue:false}]:(t==='assoc'?[{text:'',match:''},{text:'',match:''}]:[{text:''},{text:''},{text:''},{text:''},{text:''}])};
                 const openQForm=src=>{formSource.value=src; newQ.value={subject:'',topic:'',text:'',options:[]}; changeQType('mc'); showQFormModal.value=true};
-                
-                // NOVO: Funções de Geração de Imagem Direta com Imagen 4.0
-                const executeImageGeneration = async (questionText) => {
-                    const promptText = `A simple, clear, educational black and white line art diagram for the following question: "${questionText}". Plain white background, no complex shading. IMPORTANT: Any text, words, or labels inside the image MUST be written in Portuguese language.`;
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${geminiKey.value}`;
-                    const payload = { instances: { prompt: promptText }, parameters: { sampleCount: 1 } };
-                    
-                    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    const d = await res.json();
-                    
-                    if (d.error) throw d.error;
-                    if (d.predictions && d.predictions.length > 0) {
-                        return `data:image/png;base64,${d.predictions[0].bytesBase64Encoded}`;
-                    }
-                    throw new Error("A IA não retornou nenhuma imagem.");
-                };
-
-                const generateImageForQuestion = async (q) => {
-                    if (!geminiKey.value) return showToast('Configure a Chave API (na varinha mágica) primeiro.', 'error');
-                    if (!q.text) return showToast('A questão precisa ter um enunciado.', 'warning');
-                    
-                    showToast("A IA está a desenhar a imagem...", "loading");
-                    try {
-                        const imgData = await executeImageGeneration(q.text);
-                        q.image = imgData;
-                        
-                        // Salva no banco de dados principal
-                        await db.questions.put(JSON.parse(JSON.stringify(q)));
-                        
-                        // Atualiza no carrinho de prova se a questão estiver selecionada
-                        const cartIdx = examCart.value.findIndex(x => x.id === q.id);
-                        if (cartIdx > -1) examCart.value[cartIdx].image = imgData;
-                        
-                        showToast("Imagem ilustrativa anexada!", "success");
-                    } catch (e) {
-                        console.error(e);
-                        showToast("Erro ao gerar: " + (e.message || "Tente novamente"), "error");
-                    }
-                };
-
-                const generateImageForNewQuestion = async () => {
-                    if (!geminiKey.value) return showToast('Configure a Chave API primeiro.', 'error');
-                    if (!newQ.value.text) return showToast('Escreva o enunciado da questão primeiro.', 'warning');
-                    
-                    showToast("A IA está a desenhar a imagem...", "loading");
-                    try {
-                        newQ.value.image = await executeImageGeneration(newQ.value.text);
-                        showToast("Imagem ilustrativa anexada!", "success");
-                    } catch (e) {
-                        console.error(e);
-                        showToast("Erro ao gerar: " + (e.message || "Tente novamente"), "error");
-                    }
-                };
-                
                 const saveQuestion=async(add)=>{
                     let q={...newQ.value, type:qType.value}; 
                     if(qType.value==='ce')q.options=[{text:'Certo'},{text:'Errado'}]; 
@@ -5810,8 +5746,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     showDirectGradeModal, directConfig, directStudents, directGrades, directSearchQuery, filteredDirectStudents,
                     startDirectGradeEntry, loadExistingDirectGrades, saveDirectGrades,
                     
-                    // IA Generator & Images
-                    showAIGenModal, isGeneratingAI, aiGenConfig, generateImageForQuestion, generateImageForNewQuestion,
+                    // IA Generator
+                    showAIGenModal, isGeneratingAI, aiGenConfig,
                     
                     // IA Correction (OMR)
                     showAICorrectionSetupModal, showAICameraModal, aiCorrectionConfig, aiCorrectionStudents, aiCorrectionExamVersions, isAnalyzingPhoto, startAICorrectionEntry, confirmAICorrectionSetup, stopAICamera, takePhotoAndAnalyze,
