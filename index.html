@@ -422,7 +422,7 @@
                             <div class="flex gap-1"><button @click="editQuestion(q)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-pencil text-xs"></i></button><button @click="deleteQuestion(q.id)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-red-500 flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button></div>
                         </div>
                         <p class="text-sm font-medium text-gray-800 mb-2 leading-relaxed">{{q.text}}</p>
-                        <img v-if="q.image" :src="q.image" class="h-16 mt-2 rounded border object-cover mb-2">
+                        <img v-if="q.image" :src="q.image" @click="viewFullScreen(q.image)" class="max-h-40 mt-2 rounded border object-contain mb-2 bg-gray-50 cursor-pointer hover:opacity-90 transition-opacity" title="Clique para Ampliar">
                         
                         <!-- VISUALIZAÇÃO DETALHADA DAS OPÇÕES E GABARITOS -->
                         <div class="mt-3 border-t border-gray-100 pt-3 space-y-1.5">
@@ -565,6 +565,7 @@
                                         <button @click.stop="editQuestion(q)" class="text-[9px] text-gray-400 hover:text-indigo-600 flex-none ml-2"><i class="fa-solid fa-pencil"></i> Editar</button>
                                     </div>
                                     <p class="text-xs text-gray-800">{{q.text}}</p>
+                                    <img v-if="q.image" :src="q.image" @click.stop="viewFullScreen(q.image)" class="h-16 mt-2 rounded border object-contain bg-gray-50 cursor-pointer hover:opacity-90">
                                 </div>
                             </div>
                         </div>
@@ -578,6 +579,7 @@
                                         <span v-if="q.topic" class="text-[9px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 font-bold uppercase leading-none shadow-sm"><i class="fa-solid fa-tag mr-0.5"></i> {{q.topic}}</span>
                                     </div>
                                     <p class="text-xs text-gray-800">{{q.text}}</p>
+                                    <img v-if="q.image" :src="q.image" @click.stop="viewFullScreen(q.image)" class="h-16 mt-2 rounded border object-contain bg-gray-50 cursor-pointer hover:opacity-90">
                                 </div>
                                 <div class="flex flex-col gap-1">
                                     <button v-if="!editingExamId" @click="toggleExamQ(q)" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg flex items-center justify-center transition"><i class="fa-solid fa-trash-can"></i></button>
@@ -3820,9 +3822,9 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     try{
                         let imgInstruction = '';
                         if (aiGenConfig.value.imageMode === 'mixed') {
-                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Adicione a propriedade "svg" com um código <svg> nas questões que exigem visualização espacial, mapas, geometria, biologia celular, circuitos, etc. Para as questões puramente teóricas onde a imagem não acrescenta valor, OMITA a chave "svg". Faça de forma que algumas tenham imagem e outras não. REGRAS SVG: String em ÚNICA LINHA, usar aspas simples ('), propriedades width='400' height='300', viewBox e fundo claro.`;
+                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Adicione a propriedade "svg" com um código <svg> nas questões que exigem visualização. REGRAS SVG: ÚNICA LINHA, use aspas simples ('), inclua xmlns='http://www.w3.org/2000/svg' OBRIGATORIAMENTE, propriedades width='400' height='300', viewBox e fundo claro.`;
                         } else if (aiGenConfig.value.imageMode === 'all') {
-                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Você DEVE OBRIGATORIAMENTE adicionar a propriedade "svg" com um código <svg> para TODAS as questões geradas, ilustrando sempre o conceito. REGRAS SVG: String em ÚNICA LINHA, usar aspas simples ('), propriedades width='400' height='300', viewBox e fundo claro.`;
+                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Você DEVE OBRIGATORIAMENTE adicionar a propriedade "svg" com um código <svg> para TODAS as questões. REGRAS SVG: ÚNICA LINHA, use aspas simples ('), inclua xmlns='http://www.w3.org/2000/svg' OBRIGATORIAMENTE, propriedades width='400' height='300', viewBox e fundo claro.`;
                         }
 
                         let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
@@ -3881,6 +3883,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             if (q.svg) {
                                 try {
                                     let cleanSvg = q.svg.replace(/\\n/g, ' ').replace(/\\"/g, "'").replace(/"/g, "'");
+                                    // INJEÇÃO FORÇADA DE XMLNS: Essencial para o Canvas reconhecer a imagem
+                                    if (!cleanSvg.includes('xmlns=')) {
+                                        cleanSvg = cleanSvg.replace('<svg ', "<svg xmlns='http://www.w3.org/2000/svg' ");
+                                    }
                                     if (!cleanSvg.includes("width='") && !cleanSvg.includes('width="')) {
                                         cleanSvg = cleanSvg.replace('<svg ', "<svg width='400' height='300' ");
                                     }
@@ -3990,7 +3996,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 subject: aiGenConfig.value.subject || "Biologia",
                                 topic: aiGenConfig.value.topic || "Citologia",
                                 type: "mc",
-                                text: "Qual organela celular é conhecida como a 'usina de energia' da célula, sendo a principal responsável pela produção de ATP através da respiração celular?",
+                                text: "Observe a imagem ilustrativa abaixo. Qual organela celular é conhecida como a 'usina de energia' da célula, sendo a principal responsável pela produção de ATP através da respiração celular?",
+                                image: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0MDAnIGhlaWdodD0nMjAwJz48cmVjdCB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyBmaWxsPScjZjlmOWY5Jy8+PGVsbGlwc2UgY3g9JzIwMCcgY3k9JzEwMCcgcng9JzE1MCcgcnk9JzYwJyBmaWxsPScjZmZmJyBzdHJva2U9JyMzMzMnIHN0cm9rZS13aWR0aD0nNCc8Lz48cGF0aCBkPSdNNTAsMTAwIFE4MCw0MCAxMTAsMTAwIFQxNzAsMTAwIFQyMzAsMTAwIFQyOTAsMTAwIFQzNTAsMTAwJyBmaWxsPSdub25lJyBzdHJva2U9JyMzMzMnIHN0cm9rZS13aWR0aD0nNCc8Lz48dGV4dCB4PScyMDAnIHk9JzE4MCcgZm9udC1mYW1pbHk9J3NhbnMtc2VyaWYnIGZvbnQtc2l6ZT0nMjAnIHRleHQtYW5jaG9yPSdtaWRkbGUnPklsdXN0cmHDp8OjbyBkZSBNaXRvY8O0bmRyaWE8L3RleHQ+PC9zdmc+",
                                 options: [{text: "Complexo de Golgi"}, {text: "Mitocôndria"}, {text: "Ribossomo"}, {text: "Lisossomo"}, {text: "Retículo Endoplasmático"}],
                                 correct: 1
                             },
