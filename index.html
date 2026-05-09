@@ -422,7 +422,7 @@
                             <div class="flex gap-1"><button @click="editQuestion(q)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-pencil text-xs"></i></button><button @click="deleteQuestion(q.id)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-red-500 flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button></div>
                         </div>
                         <p class="text-sm font-medium text-gray-800 mb-2 leading-relaxed">{{q.text}}</p>
-                        <img v-if="q.image" :src="q.image" @click="viewFullScreen(q.image)" class="max-h-40 mt-2 rounded border object-contain mb-2 bg-gray-50 cursor-pointer hover:opacity-90 transition-opacity" title="Clique para Ampliar">
+                        <img v-if="q.image" :src="q.image" class="h-16 mt-2 rounded border object-cover mb-2">
                         
                         <!-- VISUALIZAÇÃO DETALHADA DAS OPÇÕES E GABARITOS -->
                         <div class="mt-3 border-t border-gray-100 pt-3 space-y-1.5">
@@ -565,7 +565,6 @@
                                         <button @click.stop="editQuestion(q)" class="text-[9px] text-gray-400 hover:text-indigo-600 flex-none ml-2"><i class="fa-solid fa-pencil"></i> Editar</button>
                                     </div>
                                     <p class="text-xs text-gray-800">{{q.text}}</p>
-                                    <img v-if="q.image" :src="q.image" @click.stop="viewFullScreen(q.image)" class="h-16 mt-2 rounded border object-contain bg-gray-50 cursor-pointer hover:opacity-90">
                                 </div>
                             </div>
                         </div>
@@ -579,7 +578,6 @@
                                         <span v-if="q.topic" class="text-[9px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 font-bold uppercase leading-none shadow-sm"><i class="fa-solid fa-tag mr-0.5"></i> {{q.topic}}</span>
                                     </div>
                                     <p class="text-xs text-gray-800">{{q.text}}</p>
-                                    <img v-if="q.image" :src="q.image" @click.stop="viewFullScreen(q.image)" class="h-16 mt-2 rounded border object-contain bg-gray-50 cursor-pointer hover:opacity-90">
                                 </div>
                                 <div class="flex flex-col gap-1">
                                     <button v-if="!editingExamId" @click="toggleExamQ(q)" class="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg flex items-center justify-center transition"><i class="fa-solid fa-trash-can"></i></button>
@@ -898,16 +896,7 @@
                             <div v-for="t in [{id:'mc',lbl:'Multi'},{id:'ce',lbl:'C/E'},{id:'vf',lbl:'V/F'},{id:'assoc',lbl:'Assoc'}]" :key="t.id" class="flex justify-between bg-white border p-2 rounded-lg"><span class="text-[11px] font-medium">{{t.lbl}}</span><input type="number" v-model="aiGenConfig.counts[t.id]" min="0" max="15" class="w-10 bg-gray-50 border text-center text-xs p-1 outline-none"></div>
                         </div>
                     </div>
-                    <!-- CONTROLO DE IMAGENS -->
-                    <div class="pt-3 border-t">
-                        <label class="text-[10px] font-bold text-gray-400 uppercase block mb-2">Imagens Dinâmicas (IA)</label>
-                        <select v-model="aiGenConfig.imageMode" class="w-full p-2.5 bg-purple-50 border border-purple-200 rounded-xl text-sm font-bold text-purple-800 outline-none focus:border-purple-500 shadow-sm transition-colors">
-                            <option value="none">Nenhuma Imagem (Apenas Texto)</option>
-                            <option value="mixed">Misto (Algumas com, outras sem)</option>
-                            <option value="all">Todas as questões com Imagem</option>
-                        </select>
-                    </div>
-                    <button @click="generateQuestionsAI" :disabled="isGeneratingAI" class="w-full py-3.5 bg-purple-600 text-white rounded-xl font-bold mt-3"><i :class="isGeneratingAI?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-wand-magic-sparkles'"></i> Gerar</button>
+                    <button @click="generateQuestionsAI" :disabled="isGeneratingAI" class="w-full py-3.5 bg-purple-600 text-white rounded-xl font-bold"><i :class="isGeneratingAI?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-wand-magic-sparkles'"></i> Gerar</button>
                     <button @click="simulateAIGeneration" class="w-full mt-2 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold text-sm transition-colors"><i class="fa-solid fa-flask"></i> Testar Visualização (Sem Chave API)</button>
                 </div>
             </div>
@@ -1716,7 +1705,7 @@
             seatingPlans: 'classId', agendaNotes: '++id, date'
         });
 
-        // Nova versão para Anotações Avançadas (Com Anexos)
+        // Versão 7: Correção de indexação da Agenda
         db.version(7).stores({ 
             classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
             results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
@@ -2389,7 +2378,7 @@ Texto original do professor: "${textToImprove}"`;
                 // AI Generator
                 const showAIGenModal = ref(false);
                 const isGeneratingAI = ref(false);
-                const aiGenConfig = ref({ subject: '', topic: '', difficulty: 'Ensino Médio', style: 'Padrão', promptType: 'Normal', extraObservations: '', counts: { mc: 2, ce: 0, vf: 0, assoc: 0 }, mcMode: 'correct', imageMode: 'mixed' });
+                const aiGenConfig = ref({ subject: '', topic: '', difficulty: 'Ensino Médio', style: 'Padrão', promptType: 'Normal', extraObservations: '', counts: { mc: 2, ce: 0, vf: 0, assoc: 0 }, mcMode: 'correct' });
 
                 // Manual Input
                 const activeStudent = ref(null);
@@ -3291,40 +3280,6 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     a.click();
                 };
 
-                // --- NOVO: GERADOR DE IMAGENS PROFISSIONAL (IMAGEN 4.0) ---
-                const generateImageWithImagen = async (promptText) => {
-                    if (!geminiKey.value) return null;
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${geminiKey.value}`;
-                    
-                    // Ajuste do prompt para forçar ilustrações didáticas, limpas e EXIGIR TEXTO EM PORTUGUÊS
-                    const finalPrompt = `A simple, clear, educational black and white line art diagram of: ${promptText}. Plain white background, no complex shading. IMPORTANT: Any text, words, or labels inside the image MUST be written in Portuguese language.`;
-                    
-                    const payload = {
-                        instances: { prompt: finalPrompt },
-                        parameters: { sampleCount: 1 }
-                    };
-
-                    let retries = 3, delay = 2000;
-                    while (retries > 0) {
-                        try {
-                            const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                            const d = await res.json();
-                            
-                            if (d.error && d.error.code === 429) throw d.error; // Força o retry se bater no limite
-                            
-                            if (d.predictions && d.predictions.length > 0) {
-                                return `data:image/png;base64,${d.predictions[0].bytesBase64Encoded}`;
-                            }
-                            return null;
-                        } catch (e) {
-                            retries--;
-                            if (retries === 0) return null;
-                            await new Promise(r => setTimeout(r, delay));
-                            delay *= 1.5;
-                        }
-                    }
-                };
-
                 const fetchGemini = async (prompt, schema, base64Img=null, mimeType=null) => {
                     if (!settings.value.activeModel) {
                         try {
@@ -3847,26 +3802,58 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     if(!settings.value.activeModel || !geminiKey.value) return showToast('Por favor, teste a Chave API primeiro.', 'error');
                     if(!aiGenConfig.value.subject || !aiGenConfig.value.topic)return showToast('Preencha a disciplina e o tópico','error');
                     
+                    // Cálculo corrigido usando Number() para evitar que o código some textos (ex: "1"+"0" virar 10)
                     let t = Number(aiGenConfig.value.counts.mc||0) + Number(aiGenConfig.value.counts.ce||0) + Number(aiGenConfig.value.counts.vf||0) + Number(aiGenConfig.value.counts.assoc||0);
                     if(t<1)return showToast('Selecione pelo menos 1 questão','warning');
                     
                     isGeneratingAI.value=true;
-                    showToast(`A estruturar e desenhar as questões...`,'loading');
+                    showToast(`Gerando ${t} questões com conteúdo real...`,'loading');
                     
                     try{
-                        let imgInstruction = '';
-                        if (aiGenConfig.value.imageMode === 'mixed') {
-                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Adicione a propriedade "image_prompt" APENAS nas questões que necessitam de ilustração. O valor deve ser uma instrução CURTA E EM INGLÊS descrevendo a imagem, MAS EXIGINDO LÍNGUA PORTUGUESA NAS LEGENDAS (ex: 'animal cell with mitochondria highlighted, with text labels in Portuguese'). Omitir se a questão for puramente textual.`;
-                        } else if (aiGenConfig.value.imageMode === 'all') {
-                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Você DEVE OBRIGATORIAMENTE adicionar a propriedade "image_prompt" em TODAS as questões geradas, sem exceção. O valor deve ser uma instrução CURTA E EM INGLÊS descrevendo o que deve ser desenhado, MAS EXIGINDO LÍNGUA PORTUGUESA NAS LEGENDAS (ex: 'triangle with angles, with text labels in Portuguese').`;
-                        }
-
                         let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
 
 Gere exatamente ${t} questões: ${aiGenConfig.value.counts.mc} "mc" (5 opções), ${aiGenConfig.value.counts.ce} "ce" (Certo=0/Errado=1), ${aiGenConfig.value.counts.vf} "vf" (4 itens com isTrue), ${aiGenConfig.value.counts.assoc} "assoc" (4 pares text/match).
 
-O retorno deve ser ESTRITAMENTE um JSON. Siga o formato de chaves esperado para opções, enunciados (text) e respostas corretas (correct).
-REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecimento real sobre o tema.${imgInstruction}`;
+O retorno deve ser ESTRITAMENTE um JSON. Siga o formato abaixo, MAS CRIE CONTEÚDO REAL E PROFUNDO SOBRE: ${aiGenConfig.value.topic}.
+
+EXEMPLO DE COMO PREENCHER (Se o tema fosse Biologia Celular):
+{
+  "questions": [
+    {
+      "type": "mc",
+      "text": "Qual das seguintes estruturas é responsável pela síntese de proteínas?",
+      "options": [{"text": "Mitocôndria"}, {"text": "Ribossomo"}, {"text": "Lisossomo"}, {"text": "Centríolo"}, {"text": "Peroxissomo"}],
+      "correct": 1
+    },
+    {
+      "type": "ce",
+      "text": "As células procariontes possuem núcleo delimitado por membrana (carioteca).",
+      "correct": 1
+    },
+    {
+      "type": "vf",
+      "text": "Julgue as afirmativas sobre divisão celular:",
+      "options": [
+        {"text": "A mitose gera duas células filhas idênticas.", "isTrue": true},
+        {"text": "A meiose ocorre em células somáticas.", "isTrue": false},
+        {"text": "O crossing-over aumenta a variabilidade genética.", "isTrue": true},
+        {"text": "A fase S da interfase é marcada pela duplicação do DNA.", "isTrue": true}
+      ]
+    },
+    {
+      "type": "assoc",
+      "text": "Associe as organelas às suas funções:",
+      "options": [
+        {"text": "Cloroplasto", "match": "Realiza a fotossíntese em plantas."},
+        {"text": "Complexo de Golgi", "match": "Modifica, empacota e secreta পক্ষের proteínas."},
+        {"text": "Lisossomo", "match": "Digestão intracelular."},
+        {"text": "Retículo Liso", "match": "Síntese de lipídios e desintoxicação."}
+      ]
+    }
+  ]
+}
+
+REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecimento real sobre ${aiGenConfig.value.subject} - ${aiGenConfig.value.topic}.`;
 
                         const schema = {
                             type: "OBJECT",
@@ -3878,7 +3865,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         properties: {
                                             type: { type: "STRING" },
                                             text: { type: "STRING" },
-                                            image_prompt: { type: "STRING" },
                                             options: {
                                                 type: "ARRAY",
                                                 items: {
@@ -3901,35 +3887,17 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         let aiResult = await fetchGemini(promptText, schema);
                         
-                        let gqRaw = aiResult.questions || aiResult.items || aiResult;
-                        if (typeof gqRaw === 'object' && !Array.isArray(gqRaw)) {
-                            const arrKey = Object.keys(gqRaw).find(k => Array.isArray(gqRaw[k]));
-                            gqRaw = arrKey ? gqRaw[arrKey] : [gqRaw];
+                        let gq = aiResult.questions || aiResult.items || aiResult;
+                        if (typeof gq === 'object' && !Array.isArray(gq)) {
+                            const arrKey = Object.keys(gq).find(k => Array.isArray(gq[k]));
+                            gq = arrKey ? gq[arrKey] : [gq];
                         }
-                        if(!Array.isArray(gqRaw) || gqRaw.length === 0) throw new Error("A IA não gerou conteúdo. Tente novamente.");
+                        if(!Array.isArray(gq) || gq.length === 0) throw new Error("A IA não gerou conteúdo. Tente novamente.");
                         
-                        let gq = [];
-                        
-                        // Processamento sequencial para não estourar a taxa de limite da API de Imagem
-                        for (let i = 0; i < gqRaw.length; i++) {
-                            let q = gqRaw[i];
+                        gq = gq.map(q => {
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
                             q.text = q.text || q.enunciado || q.pergunta || q.question || "Enunciado não gerado";
-                            
-                            // Processamento da Imagem Dinâmica via Imagen 4.0
-                            if (q.image_prompt) {
-                                try {
-                                    showToast(`A desenhar ilustração ${i+1}/${gqRaw.length}...`, 'loading');
-                                    const generatedImg = await generateImageWithImagen(q.image_prompt);
-                                    if (generatedImg) {
-                                        q.image = generatedImg;
-                                    }
-                                } catch(err) {
-                                    console.warn("Erro ao renderizar imagem gráfica", err);
-                                }
-                                delete q.image_prompt; // Limpa o prompt depois de convertido
-                            }
                             
                             let opts = q.options || q.opcoes || q.itens || q.alternativas || [];
                             if (typeof opts === 'object' && !Array.isArray(opts) && opts !== null) {
@@ -3990,8 +3958,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 while (q.options.length < 4) q.options.push({text: `Conceito complementar`, match: `Definição complementar correspondente`});
                             }
                             
-                            gq.push(q);
-                        }
+                            return q;
+                        });
 
                         await db.questions.bulkAdd(gq);
                         await load();
@@ -4012,8 +3980,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 subject: aiGenConfig.value.subject || "Biologia",
                                 topic: aiGenConfig.value.topic || "Citologia",
                                 type: "mc",
-                                text: "Observe a imagem ilustrativa abaixo. Qual organela celular é conhecida como a 'usina de energia' da célula, sendo a principal responsável pela produção de ATP através da respiração celular?",
-                                image: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0MDAnIGhlaWdodD0nMjAwJz48cmVjdCB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyBmaWxsPScjZjlmOWY5Jy8+PGVsbGlwc2UgY3g9JzIwMCcgY3k9JzEwMCcgcng9JzE1MCcgcnk9JzYwJyBmaWxsPScjZmZmJyBzdHJva2U9JyMzMzMnIHN0cm9rZS13aWR0aD0nNCc8Lz48cGF0aCBkPSdNNTAsMTAwIFE4MCw0MCAxMTAsMTAwIFQxNzAsMTAwIFQyMzAsMTAwIFQyOTAsMTAwIFQzNTAsMTAwJyBmaWxsPSdub25lJyBzdHJva2U9JyMzMzMnIHN0cm9rZS13aWR0aD0nNCc8Lz48dGV4dCB4PScyMDAnIHk9JzE4MCcgZm9udC1mYW1pbHk9J3NhbnMtc2VyaWYnIGZvbnQtc2l6ZT0nMjAnIHRleHQtYW5jaG9yPSdtaWRkbGUnPklsdXN0cmHDp8OjbyBkZSBNaXRvY8O0bmRyaWE8L3RleHQ+PC9zdmc+",
+                                text: "Qual organela celular é conhecida como a 'usina de energia' da célula, sendo a principal responsável pela produção de ATP através da respiração celular?",
                                 options: [{text: "Complexo de Golgi"}, {text: "Mitocôndria"}, {text: "Ribossomo"}, {text: "Lisossomo"}, {text: "Retículo Endoplasmático"}],
                                 correct: 1
                             },
