@@ -896,7 +896,16 @@
                             <div v-for="t in [{id:'mc',lbl:'Multi'},{id:'ce',lbl:'C/E'},{id:'vf',lbl:'V/F'},{id:'assoc',lbl:'Assoc'}]" :key="t.id" class="flex justify-between bg-white border p-2 rounded-lg"><span class="text-[11px] font-medium">{{t.lbl}}</span><input type="number" v-model="aiGenConfig.counts[t.id]" min="0" max="15" class="w-10 bg-gray-50 border text-center text-xs p-1 outline-none"></div>
                         </div>
                     </div>
-                    <button @click="generateQuestionsAI" :disabled="isGeneratingAI" class="w-full py-3.5 bg-purple-600 text-white rounded-xl font-bold"><i :class="isGeneratingAI?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-wand-magic-sparkles'"></i> Gerar</button>
+                    <!-- CONTROLO DE IMAGENS -->
+                    <div class="pt-3 border-t">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase block mb-2">Imagens Dinâmicas (IA)</label>
+                        <select v-model="aiGenConfig.imageMode" class="w-full p-2.5 bg-purple-50 border border-purple-200 rounded-xl text-sm font-bold text-purple-800 outline-none focus:border-purple-500 shadow-sm transition-colors">
+                            <option value="none">Nenhuma Imagem (Apenas Texto)</option>
+                            <option value="mixed">Misto (Algumas com, outras sem)</option>
+                            <option value="all">Todas as questões com Imagem</option>
+                        </select>
+                    </div>
+                    <button @click="generateQuestionsAI" :disabled="isGeneratingAI" class="w-full py-3.5 bg-purple-600 text-white rounded-xl font-bold mt-3"><i :class="isGeneratingAI?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-wand-magic-sparkles'"></i> Gerar</button>
                     <button @click="simulateAIGeneration" class="w-full mt-2 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold text-sm transition-colors"><i class="fa-solid fa-flask"></i> Testar Visualização (Sem Chave API)</button>
                 </div>
             </div>
@@ -1705,7 +1714,7 @@
             seatingPlans: 'classId', agendaNotes: '++id, date'
         });
 
-        // Versão 7: Correção de indexação da Agenda
+        // Nova versão para Anotações Avançadas (Com Anexos)
         db.version(7).stores({ 
             classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
             results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
@@ -2378,7 +2387,7 @@ Texto original do professor: "${textToImprove}"`;
                 // AI Generator
                 const showAIGenModal = ref(false);
                 const isGeneratingAI = ref(false);
-                const aiGenConfig = ref({ subject: '', topic: '', difficulty: 'Ensino Médio', style: 'Padrão', promptType: 'Normal', extraObservations: '', counts: { mc: 2, ce: 0, vf: 0, assoc: 0 }, mcMode: 'correct' });
+                const aiGenConfig = ref({ subject: '', topic: '', difficulty: 'Ensino Médio', style: 'Padrão', promptType: 'Normal', extraObservations: '', counts: { mc: 2, ce: 0, vf: 0, assoc: 0 }, mcMode: 'correct', imageMode: 'mixed' });
 
                 // Manual Input
                 const activeStudent = ref(null);
@@ -3802,7 +3811,6 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     if(!settings.value.activeModel || !geminiKey.value) return showToast('Por favor, teste a Chave API primeiro.', 'error');
                     if(!aiGenConfig.value.subject || !aiGenConfig.value.topic)return showToast('Preencha a disciplina e o tópico','error');
                     
-                    // Cálculo corrigido usando Number() para evitar que o código some textos (ex: "1"+"0" virar 10)
                     let t = Number(aiGenConfig.value.counts.mc||0) + Number(aiGenConfig.value.counts.ce||0) + Number(aiGenConfig.value.counts.vf||0) + Number(aiGenConfig.value.counts.assoc||0);
                     if(t<1)return showToast('Selecione pelo menos 1 questão','warning');
                     
@@ -3810,50 +3818,19 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     showToast(`Gerando ${t} questões com conteúdo real...`,'loading');
                     
                     try{
+                        let imgInstruction = '';
+                        if (aiGenConfig.value.imageMode === 'mixed') {
+                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Adicione a propriedade "svg" com um código <svg> nas questões que exigem visualização espacial, mapas, geometria, biologia celular, circuitos, etc. Para as questões puramente teóricas onde a imagem não acrescenta valor, OMITA a chave "svg". Faça de forma que algumas tenham imagem e outras não. REGRAS SVG: String em ÚNICA LINHA, usar aspas simples ('), propriedades width='400' height='300', viewBox e fundo claro.`;
+                        } else if (aiGenConfig.value.imageMode === 'all') {
+                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Você DEVE OBRIGATORIAMENTE adicionar a propriedade "svg" com um código <svg> para TODAS as questões geradas, ilustrando sempre o conceito. REGRAS SVG: String em ÚNICA LINHA, usar aspas simples ('), propriedades width='400' height='300', viewBox e fundo claro.`;
+                        }
+
                         let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
 
 Gere exatamente ${t} questões: ${aiGenConfig.value.counts.mc} "mc" (5 opções), ${aiGenConfig.value.counts.ce} "ce" (Certo=0/Errado=1), ${aiGenConfig.value.counts.vf} "vf" (4 itens com isTrue), ${aiGenConfig.value.counts.assoc} "assoc" (4 pares text/match).
 
-O retorno deve ser ESTRITAMENTE um JSON. Siga o formato abaixo, MAS CRIE CONTEÚDO REAL E PROFUNDO SOBRE: ${aiGenConfig.value.topic}.
-
-EXEMPLO DE COMO PREENCHER (Se o tema fosse Biologia Celular):
-{
-  "questions": [
-    {
-      "type": "mc",
-      "text": "Qual das seguintes estruturas é responsável pela síntese de proteínas?",
-      "options": [{"text": "Mitocôndria"}, {"text": "Ribossomo"}, {"text": "Lisossomo"}, {"text": "Centríolo"}, {"text": "Peroxissomo"}],
-      "correct": 1
-    },
-    {
-      "type": "ce",
-      "text": "As células procariontes possuem núcleo delimitado por membrana (carioteca).",
-      "correct": 1
-    },
-    {
-      "type": "vf",
-      "text": "Julgue as afirmativas sobre divisão celular:",
-      "options": [
-        {"text": "A mitose gera duas células filhas idênticas.", "isTrue": true},
-        {"text": "A meiose ocorre em células somáticas.", "isTrue": false},
-        {"text": "O crossing-over aumenta a variabilidade genética.", "isTrue": true},
-        {"text": "A fase S da interfase é marcada pela duplicação do DNA.", "isTrue": true}
-      ]
-    },
-    {
-      "type": "assoc",
-      "text": "Associe as organelas às suas funções:",
-      "options": [
-        {"text": "Cloroplasto", "match": "Realiza a fotossíntese em plantas."},
-        {"text": "Complexo de Golgi", "match": "Modifica, empacota e secreta পক্ষের proteínas."},
-        {"text": "Lisossomo", "match": "Digestão intracelular."},
-        {"text": "Retículo Liso", "match": "Síntese de lipídios e desintoxicação."}
-      ]
-    }
-  ]
-}
-
-REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecimento real sobre ${aiGenConfig.value.subject} - ${aiGenConfig.value.topic}.`;
+O retorno deve ser ESTRITAMENTE um JSON. Siga o formato de chaves esperado para opções, enunciados (text) e respostas corretas (correct).
+REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecimento real sobre o tema.${imgInstruction}`;
 
                         const schema = {
                             type: "OBJECT",
@@ -3865,6 +3842,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         properties: {
                                             type: { type: "STRING" },
                                             text: { type: "STRING" },
+                                            svg: { type: "STRING" },
                                             options: {
                                                 type: "ARRAY",
                                                 items: {
@@ -3887,17 +3865,49 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         let aiResult = await fetchGemini(promptText, schema);
                         
-                        let gq = aiResult.questions || aiResult.items || aiResult;
-                        if (typeof gq === 'object' && !Array.isArray(gq)) {
-                            const arrKey = Object.keys(gq).find(k => Array.isArray(gq[k]));
-                            gq = arrKey ? gq[arrKey] : [gq];
+                        let gqRaw = aiResult.questions || aiResult.items || aiResult;
+                        if (typeof gqRaw === 'object' && !Array.isArray(gqRaw)) {
+                            const arrKey = Object.keys(gqRaw).find(k => Array.isArray(gqRaw[k]));
+                            gqRaw = arrKey ? gqRaw[arrKey] : [gqRaw];
                         }
-                        if(!Array.isArray(gq) || gq.length === 0) throw new Error("A IA não gerou conteúdo. Tente novamente.");
+                        if(!Array.isArray(gqRaw) || gqRaw.length === 0) throw new Error("A IA não gerou conteúdo. Tente novamente.");
                         
-                        gq = gq.map(q => {
+                        let gq = await Promise.all(gqRaw.map(async (q) => {
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
                             q.text = q.text || q.enunciado || q.pergunta || q.question || "Enunciado não gerado";
+                            
+                            // Processamento da Imagem SVG desenhada pela IA para JPEG
+                            if (q.svg) {
+                                try {
+                                    let cleanSvg = q.svg.replace(/\\n/g, ' ').replace(/\\"/g, "'").replace(/"/g, "'");
+                                    if (!cleanSvg.includes("width='") && !cleanSvg.includes('width="')) {
+                                        cleanSvg = cleanSvg.replace('<svg ', "<svg width='400' height='300' ");
+                                    }
+                                    const svg64 = btoa(unescape(encodeURIComponent(cleanSvg)));
+                                    const image64 = 'data:image/svg+xml;base64,' + svg64;
+                                    
+                                    const jpegData = await new Promise((resolve) => {
+                                        const img = new Image();
+                                        img.onload = () => {
+                                            const canvas = document.createElement('canvas');
+                                            canvas.width = img.width || 400;
+                                            canvas.height = img.height || 300;
+                                            const ctx = canvas.getContext('2d');
+                                            ctx.fillStyle = '#ffffff';
+                                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                            resolve(canvas.toDataURL('image/jpeg', 0.9));
+                                        };
+                                        img.onerror = () => resolve(null);
+                                        img.src = image64;
+                                    });
+                                    if (jpegData) q.image = jpegData;
+                                } catch(err) {
+                                    console.warn("Erro ao renderizar imagem gerada pela IA", err);
+                                }
+                                delete q.svg; // Limpa o SVG sujo depois de convertido
+                            }
                             
                             let opts = q.options || q.opcoes || q.itens || q.alternativas || [];
                             if (typeof opts === 'object' && !Array.isArray(opts) && opts !== null) {
@@ -3959,7 +3969,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             }
                             
                             return q;
-                        });
+                        }));
 
                         await db.questions.bulkAdd(gq);
                         await load();
