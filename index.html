@@ -3291,6 +3291,40 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     a.click();
                 };
 
+                // --- NOVO: GERADOR DE IMAGENS PROFISSIONAL (IMAGEN 4.0) ---
+                const generateImageWithImagen = async (promptText) => {
+                    if (!geminiKey.value) return null;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${geminiKey.value}`;
+                    
+                    // Ajuste do prompt para forçar ilustrações didáticas e limpas
+                    const finalPrompt = `A simple, clear, educational black and white line art diagram of: ${promptText}. Plain white background, no complex shading.`;
+                    
+                    const payload = {
+                        instances: { prompt: finalPrompt },
+                        parameters: { sampleCount: 1 }
+                    };
+
+                    let retries = 3, delay = 2000;
+                    while (retries > 0) {
+                        try {
+                            const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                            const d = await res.json();
+                            
+                            if (d.error && d.error.code === 429) throw d.error; // Força o retry se bater no limite
+                            
+                            if (d.predictions && d.predictions.length > 0) {
+                                return `data:image/png;base64,${d.predictions[0].bytesBase64Encoded}`;
+                            }
+                            return null;
+                        } catch (e) {
+                            retries--;
+                            if (retries === 0) return null;
+                            await new Promise(r => setTimeout(r, delay));
+                            delay *= 1.5;
+                        }
+                    }
+                };
+
                 const fetchGemini = async (prompt, schema, base64Img=null, mimeType=null) => {
                     if (!settings.value.activeModel) {
                         try {
@@ -3817,14 +3851,14 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     if(t<1)return showToast('Selecione pelo menos 1 questão','warning');
                     
                     isGeneratingAI.value=true;
-                    showToast(`Gerando ${t} questões com conteúdo real...`,'loading');
+                    showToast(`A estruturar e desenhar as questões...`,'loading');
                     
                     try{
                         let imgInstruction = '';
                         if (aiGenConfig.value.imageMode === 'mixed') {
-                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Adicione a propriedade "svg" com um código <svg> nas questões que exigem visualização. REGRAS SVG: ÚNICA LINHA, use aspas simples ('), inclua xmlns='http://www.w3.org/2000/svg' OBRIGATORIAMENTE, propriedades width='400' height='300', viewBox e fundo claro.`;
+                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Adicione a propriedade "image_prompt" APENAS nas questões que necessitam de ilustração. O valor deve ser uma instrução CURTA E EM INGLÊS descrevendo a imagem (ex: 'animal cell with mitochondria highlighted' ou 'pedigree chart showing autosomal recessive trait'). Omitir se a questão for puramente textual.`;
                         } else if (aiGenConfig.value.imageMode === 'all') {
-                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Você DEVE OBRIGATORIAMENTE adicionar a propriedade "svg" com um código <svg> para TODAS as questões. REGRAS SVG: ÚNICA LINHA, use aspas simples ('), inclua xmlns='http://www.w3.org/2000/svg' OBRIGATORIAMENTE, propriedades width='400' height='300', viewBox e fundo claro.`;
+                            imgInstruction = `\nIMAGENS E DIAGRAMAS: Você DEVE OBRIGATORIAMENTE adicionar a propriedade "image_prompt" em TODAS as questões geradas, sem exceção. O valor deve ser uma instrução CURTA E EM INGLÊS descrevendo o que deve ser desenhado (ex: 'triangle with angles').`;
                         }
 
                         let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
@@ -3844,7 +3878,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         properties: {
                                             type: { type: "STRING" },
                                             text: { type: "STRING" },
-                                            svg: { type: "STRING" },
+                                            image_prompt: { type: "STRING" },
                                             options: {
                                                 type: "ARRAY",
                                                 items: {
@@ -3874,45 +3908,27 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         }
                         if(!Array.isArray(gqRaw) || gqRaw.length === 0) throw new Error("A IA não gerou conteúdo. Tente novamente.");
                         
-                        let gq = await Promise.all(gqRaw.map(async (q) => {
+                        let gq = [];
+                        
+                        // Processamento sequencial para não estourar a taxa de limite da API de Imagem
+                        for (let i = 0; i < gqRaw.length; i++) {
+                            let q = gqRaw[i];
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
                             q.text = q.text || q.enunciado || q.pergunta || q.question || "Enunciado não gerado";
                             
-                            // Processamento da Imagem SVG desenhada pela IA para JPEG
-                            if (q.svg) {
+                            // Processamento da Imagem Dinâmica via Imagen 4.0
+                            if (q.image_prompt) {
                                 try {
-                                    let cleanSvg = q.svg.replace(/\\n/g, ' ').replace(/\\"/g, "'").replace(/"/g, "'");
-                                    // INJEÇÃO FORÇADA DE XMLNS: Essencial para o Canvas reconhecer a imagem
-                                    if (!cleanSvg.includes('xmlns=')) {
-                                        cleanSvg = cleanSvg.replace('<svg ', "<svg xmlns='http://www.w3.org/2000/svg' ");
+                                    showToast(`A desenhar ilustração ${i+1}/${gqRaw.length}...`, 'loading');
+                                    const generatedImg = await generateImageWithImagen(q.image_prompt);
+                                    if (generatedImg) {
+                                        q.image = generatedImg;
                                     }
-                                    if (!cleanSvg.includes("width='") && !cleanSvg.includes('width="')) {
-                                        cleanSvg = cleanSvg.replace('<svg ', "<svg width='400' height='300' ");
-                                    }
-                                    const svg64 = btoa(unescape(encodeURIComponent(cleanSvg)));
-                                    const image64 = 'data:image/svg+xml;base64,' + svg64;
-                                    
-                                    const jpegData = await new Promise((resolve) => {
-                                        const img = new Image();
-                                        img.onload = () => {
-                                            const canvas = document.createElement('canvas');
-                                            canvas.width = img.width || 400;
-                                            canvas.height = img.height || 300;
-                                            const ctx = canvas.getContext('2d');
-                                            ctx.fillStyle = '#ffffff';
-                                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                            resolve(canvas.toDataURL('image/jpeg', 0.9));
-                                        };
-                                        img.onerror = () => resolve(null);
-                                        img.src = image64;
-                                    });
-                                    if (jpegData) q.image = jpegData;
                                 } catch(err) {
-                                    console.warn("Erro ao renderizar imagem gerada pela IA", err);
+                                    console.warn("Erro ao renderizar imagem gráfica", err);
                                 }
-                                delete q.svg; // Limpa o SVG sujo depois de convertido
+                                delete q.image_prompt; // Limpa o prompt depois de convertido
                             }
                             
                             let opts = q.options || q.opcoes || q.itens || q.alternativas || [];
@@ -3974,8 +3990,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 while (q.options.length < 4) q.options.push({text: `Conceito complementar`, match: `Definição complementar correspondente`});
                             }
                             
-                            return q;
-                        }));
+                            gq.push(q);
+                        }
 
                         await db.questions.bulkAdd(gq);
                         await load();
