@@ -2117,7 +2117,7 @@ REGRAS DE FORMATAÇÃO (MUITO IMPORTANTE):
 1. Escreva em texto plano (plain text). NÃO utilize asteriscos (**), negritos ou marcações Markdown em NENHUMA parte do texto.
 2. NUNCA escreva textos longos, massivos e corridos. Você DEVE estruturar todo o conteúdo em formato de lista/tópicos (um abaixo do outro).
 3. Use sempre o símbolo "-" (hífen) ou números "1., 2." para iniciar cada tópico.
-4. Pule linhas (\\n) entre um tópico e outro para o texto ficar limpo, respirável e organizado visualmente.`;
+4. Pule linhas (\n) entre um tópico e outro para o texto ficar limpo, respirável e organizado visualmente.`;
                         const schema = {
                             type: "OBJECT",
                             properties: {
@@ -2126,9 +2126,10 @@ REGRAS DE FORMATAÇÃO (MUITO IMPORTANTE):
                                 metodologia: { type: "STRING" },
                                 recursos: { type: "STRING" },
                                 avaliacao: { type: "STRING" },
-                                cronograma: { type: "STRING" }
+                                cronograma: { type: "STRING" },
+                                referencias: { type: "STRING" }
                             },
-                            required: ["objetivos", "bncc", "metodologia", "recursos", "avaliacao", "cronograma"]
+                            required: ["objetivos", "bncc", "metodologia", "recursos", "avaliacao", "cronograma", "referencias"]
                         };
 
                         const aiResult = await fetchGemini(promptText, schema);
@@ -2150,7 +2151,8 @@ REGRAS DE FORMATAÇÃO (MUITO IMPORTANTE):
                                 metodologia: clean(aiResult.metodologia),
                                 recursos: clean(aiResult.recursos),
                                 avaliacao: clean(aiResult.avaliacao),
-                                cronograma: clean(aiResult.cronograma)
+                                cronograma: clean(aiResult.cronograma),
+                                referencias: clean(aiResult.referencias)
                             };
                             showPlanGenerator.value = false;
                             showPlanEditor.value = true;
@@ -2193,45 +2195,96 @@ REGRAS DE FORMATAÇÃO (MUITO IMPORTANTE):
 
                 const printPlanPDF = (plan) => {
                     showToast("Gerando PDF do Plano...", "loading");
+                    
+                    let headerStack = [];
+                    if (settings.value.logo) {
+                        headerStack.push({ image: settings.value.logo, width: 60, alignment: 'center', margin: [0, 0, 0, 10] });
+                    }
+                    headerStack.push({ text: settings.value.schoolName || 'INSTITUIÇÃO DE ENSINO', fontSize: 16, bold: true, alignment: 'center', color: '#111827', margin: [0, 0, 0, 2] });
+                    headerStack.push({ text: plan.type.toUpperCase(), fontSize: 12, bold: true, alignment: 'center', color: '#4f46e5', characterSpacing: 1, margin: [0, 0, 0, 15] });
+
                     let doc = {
+                        pageSize: 'A4',
+                        pageMargins: [40, 40, 40, 40],
                         content: [
-                            settings.value.logo ? { image: settings.value.logo, width: 50, alignment: 'center', margin: [0, 0, 0, 5] } : null,
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 15, bold: true, alignment: 'center' },
-                            { text: plan.type.toUpperCase(), fontSize: 13, bold: true, alignment: 'center', margin: [0, 5, 0, 15], color: '#4f46e5' },
-                        ].filter(Boolean),
+                            { stack: headerStack }
+                        ],
+                        footer: function(currentPage, pageCount) {
+                            return {
+                                text: `Página ${currentPage} de ${pageCount}`,
+                                alignment: 'right',
+                                fontSize: 8,
+                                color: '#9ca3af',
+                                margin: [0, 10, 40, 0]
+                            };
+                        },
                         defaultStyle: { font: 'Roboto' }
                     };
 
-                    const addSection = (title, content) => {
-                        if (!content) return;
-                        doc.content.push({ text: title, fontSize: 11, bold: true, color: '#374151', margin: [0, 12, 0, 4], border: [false, false, false, true] });
-                        // A linha abaixo da secção
-                        doc.content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e5e7eb' }], margin: [0, 0, 0, 6] });
-                        doc.content.push({ text: content, fontSize: 9.5, alignment: 'justify', margin: [0, 0, 0, 8], lineHeight: 1.2 });
-                    };
-
-                    // Tabela Inicial de Identificação
+                    // Tabela Inicial de Identificação (Design Limpo e Profissional)
                     doc.content.push({
                         table: {
                             widths: ['*', '*'],
                             body: [
-                                [ {text: `Disciplina: ${plan.subject}`, bold:true, fontSize:9.5}, {text: `Turma/Ano: ${plan.classLevel}`, bold:true, fontSize:9.5} ],
-                                [ {text: `Professor(a): ${plan.teacher || '-'}`, bold:true, fontSize:9.5}, {text: `Duração: ${plan.classCount || '-'}`, bold:true, fontSize:9.5} ],
-                                [ {text: `Tema/Conteúdos: ${plan.contents}`, colSpan: 2, bold:true, fontSize:9.5}, {} ]
+                                [
+                                    { text: [{ text: 'Disciplina: ', bold: true, color: '#4b5563' }, { text: plan.subject, color: '#111827' }], margin: [4, 5] },
+                                    { text: [{ text: 'Ano / Turma: ', bold: true, color: '#4b5563' }, { text: plan.classLevel, color: '#111827' }], margin: [4, 5] }
+                                ],
+                                [
+                                    { text: [{ text: 'Professor(a): ', bold: true, color: '#4b5563' }, { text: plan.teacher || 'Não informado', color: '#111827' }], margin: [4, 5] },
+                                    { text: [{ text: 'Duração: ', bold: true, color: '#4b5563' }, { text: plan.classCount || 'Não informada', color: '#111827' }], margin: [4, 5] }
+                                ],
+                                [
+                                    { text: [{ text: 'Conteúdo / Tema: ', bold: true, color: '#4b5563' }, { text: plan.contents, color: '#111827' }], colSpan: 2, margin: [4, 5] },
+                                    {}
+                                ]
                             ]
                         },
                         layout: {
-                            hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
-                            paddingTop: () => 4, paddingBottom: () => 4
+                            hLineWidth: function (i, node) { return (i === 0 || i === node.table.body.length) ? 1.5 : 1; },
+                            vLineWidth: function (i, node) { return (i === 0 || i === node.table.widths.length) ? 1.5 : 1; },
+                            hLineColor: function (i, node) { return (i === 0 || i === node.table.body.length) ? '#9ca3af' : '#e5e7eb'; },
+                            vLineColor: function (i, node) { return (i === 0 || i === node.table.widths.length) ? '#9ca3af' : '#e5e7eb'; },
                         },
-                        margin: [0, 0, 0, 10]
+                        margin: [0, 0, 0, 15]
                     });
 
-                    addSection('Objetivos', plan.objetivos);
+                    // Função para adicionar secções com estilo de Bloco
+                    const addSection = (title, content) => {
+                        if (!content || content.trim() === '') return;
+                        
+                        // Título da Secção com Fundo
+                        doc.content.push({
+                            table: {
+                                widths: ['*'],
+                                body: [
+                                    [{ text: title.toUpperCase(), fontSize: 10, bold: true, color: '#374151', fillColor: '#f3f4f6', border: [false, true, false, true], margin: [4, 4, 4, 4] }]
+                                ]
+                            },
+                            layout: {
+                                hLineColor: () => '#d1d5db',
+                                vLineColor: () => '#d1d5db',
+                            },
+                            margin: [0, 5, 0, 8],
+                            unbreakable: true // Tenta manter o título junto ao conteúdo
+                        });
+
+                        // Conteúdo da Secção
+                        doc.content.push({ 
+                            text: content, 
+                            fontSize: 10, 
+                            color: '#1f2937', 
+                            alignment: 'justify', 
+                            lineHeight: 1.3, // Maior espaçamento entre linhas para legibilidade
+                            margin: [0, 0, 0, 15] 
+                        });
+                    };
+
+                    addSection('Objetivos (Gerais e Específicos)', plan.objetivos);
                     addSection('Habilidades e Competências (BNCC)', plan.bncc);
-                    addSection('Metodologia e Procedimentos', plan.metodologia);
-                    addSection('Recursos Didáticos', plan.recursos);
-                    addSection('Avaliação', plan.avaliacao);
+                    addSection('Metodologia e Estratégias de Ensino', plan.metodologia);
+                    addSection('Recursos Didáticos / Materiais', plan.recursos);
+                    addSection('Avaliação e Instrumentos', plan.avaliacao);
                     addSection('Cronograma / Carga Horária', plan.cronograma);
                     addSection('Referências Bibliográficas', plan.referencias);
 
