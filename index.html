@@ -893,7 +893,10 @@
                     <div class="pt-2 border-t">
                         <label class="text-[10px] font-bold text-gray-400 uppercase block mb-2">Quantidades</label>
                         <div class="grid grid-cols-2 gap-2">
-                            <div v-for="t in [{id:'mc',lbl:'Multi'},{id:'ce',lbl:'C/E'},{id:'vf',lbl:'V/F'},{id:'assoc',lbl:'Assoc'}]" :key="t.id" class="flex justify-between bg-white border p-2 rounded-lg"><span class="text-[11px] font-medium">{{t.lbl}}</span><input type="number" v-model="aiGenConfig.counts[t.id]" min="0" max="15" class="w-10 bg-gray-50 border text-center text-xs p-1 outline-none"></div>
+                            <div v-for="t in [{id:'mc',lbl:'Multi (Certa)'},{id:'mc_incorrect',lbl:'Multi (Errada)'},{id:'ce',lbl:'C/E'},{id:'vf',lbl:'V/F'},{id:'assoc',lbl:'Assoc'}]" :key="t.id" class="flex justify-between bg-white border p-2 rounded-lg items-center">
+                                <span class="text-[11px] font-medium leading-tight mr-1">{{t.lbl}}</span>
+                                <input type="number" v-model="aiGenConfig.counts[t.id]" min="0" max="15" class="w-10 h-7 bg-gray-50 border text-center text-xs p-1 outline-none flex-none rounded">
+                            </div>
                         </div>
                     </div>
                     <button @click="generateQuestionsAI" :disabled="isGeneratingAI" class="w-full py-3.5 bg-purple-600 text-white rounded-xl font-bold"><i :class="isGeneratingAI?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-wand-magic-sparkles'"></i> Gerar</button>
@@ -2434,7 +2437,7 @@ Texto original do professor: "${textToImprove}"`;
                 // AI Generator
                 const showAIGenModal = ref(false);
                 const isGeneratingAI = ref(false);
-                const aiGenConfig = ref({ subject: '', topic: '', difficulty: 'Ensino Médio', style: 'Padrão', promptType: 'Normal', extraObservations: '', counts: { mc: 2, ce: 0, vf: 0, assoc: 0 }, mcMode: 'correct' });
+                const aiGenConfig = ref({ subject: '', topic: '', difficulty: 'Ensino Médio', style: 'Padrão', promptType: 'Normal', extraObservations: '', counts: { mc: 2, mc_incorrect: 0, ce: 0, vf: 0, assoc: 0 }, mcMode: 'correct' });
 
                 // Manual Input
                 const activeStudent = ref(null);
@@ -5450,6 +5453,7 @@ Preencha TUDO com conhecimento real sobre o tema.`;
 
                     let tableBody = [
                         [
+                            {text: 'Foto', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
                             {text: 'Nome do Aluno', bold: true, fillColor: '#f3f4f6'},
                             {text: '1º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
                             {text: '2º Bim', bold: true, alignment: 'center', fillColor: '#f3f4f6'},
@@ -5477,7 +5481,14 @@ Preencha TUDO com conhecimento real sobre o tema.`;
                     };
 
                     classStds.forEach(s => {
-                        let row = [{text: s.name, fontSize: 9, margin: [0, 3]}];
+                        // Célula da foto em miniatura
+                        let photoCell = s.photo ? { image: s.photo, width: 24, height: 24, alignment: 'center' } : { text: '-', fontSize: 8, alignment: 'center', color: '#ccc', margin: [0, 6] };
+                        
+                        let row = [
+                            photoCell,
+                            {text: s.name, fontSize: 9, margin: [0, 6]}
+                        ];
+                        
                         let totalScore = 0;
                         let validBims = 0;
 
@@ -5486,15 +5497,15 @@ Preencha TUDO com conhecimento real sobre o tema.`;
                             if (avg !== null) {
                                 totalScore += avg;
                                 validBims++;
-                                row.push({text: avg.toFixed(1), alignment: 'center', fontSize: 9, bold: true, margin: [0, 3], color: avg >= 6 ? '#059669' : '#dc2626'});
+                                row.push({text: avg.toFixed(1), alignment: 'center', fontSize: 9, bold: true, margin: [0, 6], color: avg >= 6 ? '#059669' : '#dc2626'});
                             } else {
-                                row.push({text: '-', alignment: 'center', fontSize: 9, margin: [0, 3], color: '#9ca3af'});
+                                row.push({text: '-', alignment: 'center', fontSize: 9, margin: [0, 6], color: '#9ca3af'});
                             }
                         }
 
                         let finalAvg = validBims > 0 ? (totalScore / validBims).toFixed(1) : '-';
                         row.push({
-                            text: finalAvg, bold: true, alignment: 'center', fontSize: 9, margin: [0, 3],
+                            text: finalAvg, bold: true, alignment: 'center', fontSize: 9, margin: [0, 6],
                             color: finalAvg !== '-' ? (parseFloat(finalAvg) >= 6 ? '#059669' : '#dc2626') : '#9ca3af'
                         });
                         tableBody.push(row);
@@ -5507,7 +5518,7 @@ Preencha TUDO com conhecimento real sobre o tema.`;
                             { text: 'BOLETIM GERAL CONSOLIDADO (4 BIMESTRES)', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
                             { text: `Turma: ${cName}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' },
                             {
-                                table: { headerRows: 1, widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto'], body: tableBody },
+                                table: { headerRows: 1, widths: [35, '*', 'auto', 'auto', 'auto', 'auto', 'auto'], body: tableBody },
                                 layout: { hLineColor: () => '#e5e7eb', vLineColor: () => '#e5e7eb', paddingTop: () => 3, paddingBottom: () => 3 }
                             }
                         ],
