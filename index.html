@@ -2251,9 +2251,22 @@ REGRAS DE FORMATAÇÃO (MUITO IMPORTANTE):
                             margin: [0, 0, 0, 15]
                         });
 
-                        // Função segura para adicionar secções
+                        // Função segura e inteligente para adicionar secções
                         const addSection = (title, content) => {
-                            if (!content || typeof content !== 'string' || content.trim() === '') return;
+                            if (!content) return;
+                            
+                            let textContent = '';
+                            // Se a IA enviou uma Lista/Array, juntamos tudo num texto só com quebras de linha
+                            if (Array.isArray(content)) {
+                                textContent = content.join('\n');
+                            } else if (typeof content === 'object') {
+                                textContent = JSON.stringify(content);
+                            } else {
+                                textContent = String(content);
+                            }
+                            
+                            // Se após a conversão continuar vazio, não imprime a secção
+                            if (textContent.trim() === '') return;
                             
                             doc.content.push({
                                 table: {
@@ -2268,7 +2281,7 @@ REGRAS DE FORMATAÇÃO (MUITO IMPORTANTE):
                             });
 
                             doc.content.push({ 
-                                text: content, 
+                                text: textContent, 
                                 fontSize: 10, 
                                 color: '#1f2937', 
                                 alignment: 'justify', 
