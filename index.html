@@ -2473,6 +2473,7 @@ REGRAS DE FORMATAÇÃO (MUITO IMPORTANTE):
 Corrija erros ortográficos e gramaticais, melhore a clareza e torne o texto mais fluido e elegante. 
 Este é um lembrete/anotação de um professor na sua agenda escolar. Mantenha o tom profissional, mas prático.
 Mantenha o significado original da mensagem.
+REGRA: Escreva ESTRITAMENTE em texto plano. NÃO utilize asteriscos (**), negritos ou marcações Markdown.
 Retorne APENAS um JSON com a chave "improved_text" contendo o texto final resultante.
 Texto original do professor: "${textToImprove}"`;
 
@@ -2485,10 +2486,13 @@ Texto original do professor: "${textToImprove}"`;
                         const aiResult = await fetchGemini(promptText, schema);
 
                         if (aiResult && aiResult.improved_text) {
+                            // Limpador de segurança para remover qualquer asterisco
+                            const cleanText = aiResult.improved_text.replace(/\*/g, '');
+                            
                             if (target === 'new') {
-                                newAgendaNoteText.value = aiResult.improved_text;
+                                newAgendaNoteText.value = cleanText;
                             } else {
-                                editingAgendaNoteText.value = aiResult.improved_text;
+                                editingAgendaNoteText.value = cleanText;
                             }
                             showToast("Texto melhorado! Reveja e clique em Salvar.", "success");
                         } else {
