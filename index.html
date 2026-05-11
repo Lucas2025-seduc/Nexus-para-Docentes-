@@ -1238,9 +1238,14 @@
                                 <button @click="duplicateExam(e)" class="w-8 h-8 rounded-lg bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-600 transition flex items-center justify-center" title="Duplicar Prova (Cria Nova)"><i class="fa-solid fa-copy"></i></button>
                                 <button @click="openItemAnalysis(e)" class="w-8 h-8 rounded-lg bg-pink-50 hover:bg-pink-500 hover:text-white text-pink-600 transition flex items-center justify-center" title="Relatório de Erros da Turma"><i class="fa-solid fa-chart-pie"></i></button>
                                 <button @click="openFixKey(e)" class="w-8 h-8 rounded-lg bg-orange-50 hover:bg-orange-500 hover:text-white text-orange-600 transition flex items-center justify-center" title="Corrigir Gabarito"><i class="fa-solid fa-list-check"></i></button>
-                                <button @click="generateKeyPDF(e, 'view')" class="w-8 h-8 rounded-lg bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-600 transition flex items-center justify-center" title="Visualizar Gabarito"><i class="fa-solid fa-file-contract"></i></button>
-                                <button @click="generateKeyPDF(e, 'download')" class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Baixar Gabarito PDF"><i class="fa-solid fa-download"></i></button>
-                                <button @click="generateKeyPDF(e, 'share')" class="w-8 h-8 rounded-lg bg-lime-50 hover:bg-lime-500 hover:text-white text-lime-600 transition flex items-center justify-center" title="Partilhar Gabarito PDF"><i class="fa-solid fa-share-nodes"></i></button>
+                                
+                                <!-- GABARITO COMENTADO -->
+                                <button @click="generateKeyPDF(e, 'download', 'gabarito')" class="w-8 h-8 rounded-lg bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-600 transition flex items-center justify-center" title="Baixar Gabarito Comentado (PDF)"><i class="fa-solid fa-list-check"></i></button>
+                                <button @click="generateKeyPDF(e, 'share', 'gabarito')" class="w-8 h-8 rounded-lg bg-teal-100 hover:bg-teal-600 hover:text-white text-teal-700 transition flex items-center justify-center" title="Partilhar Gabarito Comentado"><i class="fa-solid fa-share-nodes"></i></button>
+
+                                <!-- ESPELHO DE CORREÇÃO -->
+                                <button @click="generateKeyPDF(e, 'download', 'espelho')" class="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 transition flex items-center justify-center" title="Baixar Espelho Vazado (PDF)"><i class="fa-solid fa-scissors"></i></button>
+                                <button @click="generateKeyPDF(e, 'share', 'espelho')" class="w-8 h-8 rounded-lg bg-emerald-100 hover:bg-emerald-600 hover:text-white text-emerald-700 transition flex items-center justify-center" title="Partilhar Espelho Vazado"><i class="fa-solid fa-share-nodes"></i></button>
                             </template>
                             <template v-else>
                                 <span class="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded font-bold border border-blue-100 flex items-center"><i class="fa-solid fa-file-pen mr-1"></i> Prova Externa (Apenas Notas)</span>
@@ -1436,7 +1441,7 @@
                 <div class="p-3 bg-orange-50 flex items-center gap-2"><span class="text-xs font-bold text-orange-800">Versão:</span><select v-model="fixKeySelectedVersion" @change="loadFixKeyQuestions" class="flex-1 p-2 border rounded-lg text-sm"><option v-for="(v,i) in fixKeyExam?.versions" :key="i" :value="i">Tipo {{i+1}}</option></select></div>
                 <div class="p-4 overflow-y-auto flex-1 bg-gray-50 space-y-3">
                     <div v-for="(q, idx) in fixKeyQuestions" :key="q.id" class="bg-white p-3 rounded-xl border">
-                        <p class="text-xs font-bold text-gray-700 mb-2">#{{idx+1}} {{q.text.substring(0,80)}}</p>
+                        <p class="text-xs font-bold text-gray-700 mb-2 whitespace-pre-wrap">#{{idx+1}} {{q.text}}</p>
                         <select v-model="q.newCorrectIndex" :disabled="q.type==='vf'||q.type==='assoc'" class="w-full p-2 bg-gray-50 border rounded-lg text-xs font-bold text-orange-700 outline-none">
                             <option v-if="q.type==='ce'" :value="0">Certo</option><option v-if="q.type==='ce'" :value="1">Errado</option>
                             <option v-else-if="q.type!=='vf'&&q.type!=='assoc'" v-for="(o,oi) in q.options" :key="oi" :value="oi">{{['A','B','C','D','E'][oi]}} - {{o.text}}</option>
@@ -5281,20 +5286,25 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 // Função para gerar o bloco visual do "Espelho Vazado"
                 const buildEspelhoBlock = (v, vIdx) => {
                     return [
-                        { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
-                        { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
                         {
-                            columns: [
-                                { width: '*', text: '' },
-                                buildAnswerGrid(v, true),
-                                { width: '*', text: '' }
+                            unbreakable: true, // <-- GARANTE QUE O ESPELHO NUNCA SEJA CORTADO
+                            stack: [
+                                { text: '✂️ ESPELHO PARA CORREÇÃO RÁPIDA ✂️', fontSize: 14, bold: true, alignment: 'center', margin: [0, 20, 0, 5], color: '#4f46e5' },
+                                { text: `Tipo ${vIdx + 1} - Recorte a área vazada (círculos tracejados vermelhos) e sobreponha na folha de respostas do aluno.`, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 15], color: '#6b7280' },
+                                {
+                                    columns: [
+                                        { width: '*', text: '' },
+                                        buildAnswerGrid(v, true),
+                                        { width: '*', text: '' }
+                                    ]
+                                }
                             ]
                         }
                     ];
                 };
 
-                const generateKeyPDF = async (e, action) => { 
-                    showToast("Gerando Gabarito e Espelho...", "loading"); 
+                const generateKeyPDF = async (e, action, printType = 'both') => { 
+                    showToast(printType === 'gabarito' ? "A gerar Gabarito Comentado..." : (printType === 'espelho' ? "A gerar Espelho Vazado..." : "Gerando Gabarito e Espelho..."), "loading"); 
                     const versions = e.versions || [{ questions: e.questions }];
                     const content = [];
 
@@ -5306,42 +5316,58 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         }
                         
                         content.push({ text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' });
-                        content.push({ text: `GABARITO OFICIAL E ESPELHO DE CORREÇÃO`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] });
-                        content.push({ text: `Prova: ${e.title} | Tipo ${vIdx + 1}`, fontSize: 11, bold: true, alignment: 'center', margin: [0, 0, 0, 20] });
+                        
+                        // BLOCO 1: GABARITO COMENTADO
+                        if (printType === 'gabarito' || printType === 'both') {
+                            content.push({ text: `GABARITO OFICIAL COMENTADO`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5], color: '#4f46e5' });
+                            content.push({ text: `Prova: ${e.title} | Tipo ${vIdx + 1}`, fontSize: 11, bold: true, alignment: 'center', margin: [0, 0, 0, 20] });
 
-                        let keyText = [];
-                        v.questions.forEach((q, qIdx) => {
-                            let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
-                            let altLetra = ['A)','B)','C)','D)','E)'][cIdx] || '?'; 
+                            let keyText = [];
+                            v.questions.forEach((q, qIdx) => {
+                                let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
+                                let altLetra = ['A)','B)','C)','D)','E)'][cIdx] || '?'; 
 
-                            let ans = '';
-                            if (q.type === 'vf') {
-                                ans = `${altLetra} ` + q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
-                            } else if (q.type === 'assoc') {
-                                ans = `${altLetra} ` + q.options.map((o, i) => `${i+1} -> ${o.match}`).join(' | ');
-                            } else if (q.type === 'ce') {
-                                ans = q.correctIndex === 0 ? 'Certo' : 'Errado';
-                            } else {
-                                ans = `${altLetra} ` + getAlternativeLabel(q.type, q.correctIndex);
+                                let ans = '';
+                                if (q.type === 'vf') {
+                                    ans = `${altLetra} ` + q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
+                                } else if (q.type === 'assoc') {
+                                    ans = `${altLetra} ` + q.options.map((o, i) => `${i+1} -> ${o.match}`).join(' | ');
+                                } else if (q.type === 'ce') {
+                                    ans = q.correctIndex === 0 ? 'Certo' : 'Errado';
+                                } else {
+                                    let textOption = q.options && q.options[cIdx] ? q.options[cIdx].text : '';
+                                    ans = `${altLetra} ${textOption}`;
+                                }
+
+                                keyText.push({ text: `Questão ${qIdx + 1}: ${ans}`, fontSize: 11, bold: true, margin: [0, 4, 0, 2] });
+                                
+                                if (q.justification) {
+                                    keyText.push({ text: `Justificativa / Passo a Passo:`, fontSize: 9, bold: true, color: '#10b981', margin: [0, 0, 0, 2] });
+                                    keyText.push({ text: q.justification, fontSize: 10, italics: true, color: '#4b5563', margin: [0, 0, 0, 10], alignment: 'justify' });
+                                } else {
+                                    keyText.push({ text: '', margin: [0, 0, 0, 6] });
+                                }
+                            });
+
+                            content.push({
+                                stack: keyText,
+                                margin: [10, 0, 10, 20]
+                            });
+                        }
+
+                        // BLOCO 2: ESPELHO VAZADO PARA CORREÇÃO RÁPIDA
+                        if (printType === 'espelho' || printType === 'both') {
+                            if (printType === 'espelho') {
+                                content.push({ text: `Prova: ${e.title} | Tipo ${vIdx + 1}`, fontSize: 11, bold: true, alignment: 'center', margin: [0, 0, 0, 10] });
                             }
-
-                            keyText.push({ text: `Questão ${qIdx + 1}: ${ans}`, fontSize: 10, margin: [0, 2] });
-                        });
-
-                        content.push({
-                            columns: [
-                                { width: '*', text: '' },
-                                { width: 'auto', stack: keyText },
-                                { width: '*', text: '' }
-                            ]
-                        });
-
-                        // Anexa o espelho vazado logo abaixo do gabarito textual
-                        content.push(...buildEspelhoBlock(v, vIdx));
+                            // Anexa o espelho vazado
+                            content.push(...buildEspelhoBlock(v, vIdx));
+                        }
                     });
 
                     const doc = { content: content, defaultStyle: { font: 'Roboto' } };
-                    const fileName = `Gabarito_Espelho_${e.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+                    let fileNameType = printType === 'gabarito' ? 'Gabarito' : (printType === 'espelho' ? 'Espelho' : 'Gabarito_Espelho');
+                    const fileName = `${fileNameType}_${e.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
                     downloadPDF(pdfMake.createPdf(doc), fileName, action);
                 };
 
