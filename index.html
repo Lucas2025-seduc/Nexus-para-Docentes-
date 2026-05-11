@@ -758,13 +758,21 @@
                         </select>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
-                        <div>
+                        <div class="col-span-2 sm:col-span-1">
                             <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Disciplina</label>
                             <input list="dl-subjects" v-model="planConfig.subject" placeholder="Ex: História" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-500">
                         </div>
-                        <div>
+                        <div class="col-span-2 sm:col-span-1">
                             <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Ano / Turma</label>
                             <input v-model="planConfig.classLevel" placeholder="Ex: 8º Ano Fundamental" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-500">
+                        </div>
+                        <div class="col-span-2 sm:col-span-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Professor(a)</label>
+                            <input v-model="planConfig.teacher" placeholder="O seu nome..." class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-500">
+                        </div>
+                        <div class="col-span-2 sm:col-span-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Duração / Qtd. Aulas</label>
+                            <input v-model="planConfig.classCount" placeholder="Ex: 2 aulas, 1 semana..." class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-500">
                         </div>
                     </div>
                     <div>
@@ -2068,7 +2076,7 @@
                 const lessonPlansList = ref([]);
                 const showPlanGenerator = ref(false);
                 const isGeneratingPlan = ref(false);
-                const planConfig = ref({ type: 'Plano de Aula', subject: '', classLevel: '', contents: '' });
+                const planConfig = ref({ type: 'Plano de Aula', subject: '', classLevel: '', contents: '', classCount: '' });
                 const showPlanEditor = ref(false);
                 const editingPlan = ref(null);
 
@@ -2077,7 +2085,7 @@
                 };
 
                 const openPlanGenerator = () => {
-                    planConfig.value = { type: 'Plano de Aula', subject: '', classLevel: '', contents: '' };
+                    planConfig.value = { type: 'Plano de Aula', subject: '', classLevel: '', contents: '', classCount: '' };
                     showPlanGenerator.value = true;
                 };
 
@@ -2091,6 +2099,7 @@
                     try {
                         const promptText = `Atue como um Especialista em Planejamento Pedagógico.
 Crie um "${planConfig.value.type}" estruturado para a disciplina de "${planConfig.value.subject}", voltado para a turma/ano/nível escolar "${planConfig.value.classLevel}".
+A duração ou quantidade de aulas prevista é: "${planConfig.value.classCount || 'Não especificada'}".
 O conteúdo/tema que o professor deseja abordar neste período é: "${planConfig.value.contents}".
 
 Retorne ESTRITAMENTE um JSON com as seguintes chaves textuais (preencha com alto nível acadêmico e detalhamento, e cumpra obrigatoriamente as normativas e diretrizes da BNCC (Base Nacional Comum Curricular)):
@@ -2101,7 +2110,9 @@ Retorne ESTRITAMENTE um JSON com as seguintes chaves textuais (preencha com alto
   "recursos": "Recursos didáticos, livros, links, materiais concretos e tecnológicos necessários.",
   "avaliacao": "Critérios, formas e instrumentos de avaliação da aprendizagem (formativa/somativa).",
   "cronograma": "Duração estimada, divisão do tempo ou cronograma das aulas propostas."
-}`;
+}
+
+IMPORTANTE: Escreva em texto plano (plain text). NÃO utilize asteriscos (**), negritos ou marcações Markdown em nenhuma parte do texto.`;
                         const schema = {
                             type: "OBJECT",
                             properties: {
@@ -2118,18 +2129,23 @@ Retorne ESTRITAMENTE um JSON com as seguintes chaves textuais (preencha com alto
                         const aiResult = await fetchGemini(promptText, schema);
 
                         if (aiResult && aiResult.objetivos) {
+                            // Limpador de formatações Markdown
+                            const clean = (str) => typeof str === 'string' ? str.replace(/\*/g, '') : str;
+                            
                             editingPlan.value = {
                                 date: Date.now(),
                                 type: planConfig.value.type,
                                 subject: planConfig.value.subject,
                                 classLevel: planConfig.value.classLevel,
                                 contents: planConfig.value.contents,
-                                objetivos: aiResult.objetivos,
-                                bncc: aiResult.bncc,
-                                metodologia: aiResult.metodologia,
-                                recursos: aiResult.recursos,
-                                avaliacao: aiResult.avaliacao,
-                                cronograma: aiResult.cronograma
+                                classCount: planConfig.value.classCount,
+                                teacher: planConfig.value.teacher,
+                                objetivos: clean(aiResult.objetivos),
+                                bncc: clean(aiResult.bncc),
+                                metodologia: clean(aiResult.metodologia),
+                                recursos: clean(aiResult.recursos),
+                                avaliacao: clean(aiResult.avaliacao),
+                                cronograma: clean(aiResult.cronograma)
                             };
                             showPlanGenerator.value = false;
                             showPlanEditor.value = true;
@@ -2195,6 +2211,7 @@ Retorne ESTRITAMENTE um JSON com as seguintes chaves textuais (preencha com alto
                             widths: ['*', '*'],
                             body: [
                                 [ {text: `Disciplina: ${plan.subject}`, bold:true, fontSize:9.5}, {text: `Turma/Ano: ${plan.classLevel}`, bold:true, fontSize:9.5} ],
+                                [ {text: `Professor(a): ${plan.teacher || '-'}`, bold:true, fontSize:9.5}, {text: `Duração: ${plan.classCount || '-'}`, bold:true, fontSize:9.5} ],
                                 [ {text: `Tema/Conteúdos: ${plan.contents}`, colSpan: 2, bold:true, fontSize:9.5}, {} ]
                             ]
                         },
@@ -2211,6 +2228,7 @@ Retorne ESTRITAMENTE um JSON com as seguintes chaves textuais (preencha com alto
                     addSection('Recursos Didáticos', plan.recursos);
                     addSection('Avaliação', plan.avaliacao);
                     addSection('Cronograma / Carga Horária', plan.cronograma);
+                    addSection('Referências Bibliográficas', plan.referencias);
 
                     downloadPDF(pdfMake.createPdf(doc), `${plan.type.replace(/ /g,'_')}_${plan.subject.replace(/ /g,'_')}.pdf`, 'download');
                 };
@@ -4032,10 +4050,11 @@ REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
 5. HORÁRIO: actionType="add_schedule", forneça classId, day e period.
 6. AGENDA E LEMBRETES: actionType="add_agenda". Forneça 'date' (YYYY-MM-DD) e 'text'.
 7. GERAR PROVA: actionType="generate_exam". Forneça 'subject', 'topic', 'mc_count', 'ce_count', 'vf_count', 'assoc_count'.
-8. ANÁLISES: Para relatórios ou médias, apenas responda em 'reply' e envie 'actions' vazias.
-9. INCERTEZA: Peça esclarecimentos no 'reply' e não envie actions se faltar o nome do aluno ou turma.
-10. OBRIGATÓRIO: Se houver 'actions', 'hasAction' DEVE ser true.
-11. VISÃO COMPUTACIONAL E DOCUMENTOS MÁGICOS: Se o usuário enviar uma imagem (ex: um atestado médico, bilhete da mãe) e pedir para justificar falta, leia o documento. Extraia o nome do aluno (tente cruzar com a base de alunos), o motivo da doença e as datas. Em seguida, gere uma action do tipo 'set_attendance' com status 'J' e coloque o resumo do motivo no campo 'text'. No 'reply', descreva de forma empática o que leu no atestado e que configurou a justificação.
+8. GERAR PLANO DE ENSINO: actionType="generate_plan". Forneça 'plan_type' (ex: Plano de Aula, Plano Semanal, Plano Bimestral), 'subject', 'classLevel' (ex: 8º Ano), 'contents' (assunto a abordar) e 'classCount' (duração).
+9. ANÁLISES: Para relatórios ou médias, apenas responda em 'reply' e envie 'actions' vazias.
+10. INCERTEZA: Peça esclarecimentos no 'reply' e não envie actions se faltar o nome do aluno ou turma.
+11. OBRIGATÓRIO: Se houver 'actions', 'hasAction' DEVE ser true.
+12. VISÃO COMPUTACIONAL E DOCUMENTOS MÁGICOS: Se o usuário enviar uma imagem (ex: um atestado médico, bilhete da mãe) e pedir para justificar falta, leia o documento. Extraia o nome do aluno (tente cruzar com a base de alunos), o motivo da doença e as datas. Em seguida, gere uma action do tipo 'set_attendance' com status 'J' e coloque o resumo do motivo no campo 'text'. No 'reply', descreva de forma empática o que leu no atestado e que configurou a justificação.
 
 RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
 
@@ -4066,7 +4085,11 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                                             mc_count: { type: "INTEGER" },
                                             ce_count: { type: "INTEGER" },
                                             vf_count: { type: "INTEGER" },
-                                            assoc_count: { type: "INTEGER" }
+                                            assoc_count: { type: "INTEGER" },
+                                            plan_type: { type: "STRING" },
+                                            classLevel: { type: "STRING" },
+                                            contents: { type: "STRING" },
+                                            classCount: { type: "STRING" }
                                         }
                                     }
                                 }
