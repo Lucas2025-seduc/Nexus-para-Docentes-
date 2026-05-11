@@ -376,6 +376,47 @@
                 </div>
             </div>
 
+            <!-- PLANOS DE ENSINO -->
+            <div v-if="currentView==='plans'" class="space-y-4 animate-fade-in max-w-xl mx-auto pb-20">
+                <div class="bg-indigo-600 p-5 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden">
+                    <div class="z-10">
+                        <h2 class="text-2xl font-black">Planos de Ensino</h2>
+                        <p class="text-xs text-indigo-200">Gerador IA e Diretrizes BNCC</p>
+                    </div>
+                    <i class="fa-solid fa-file-contract text-5xl text-white/20"></i>
+                </div>
+
+                <button @click="openPlanGenerator" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white py-4 rounded-2xl font-black shadow-lg transition-transform hover:scale-[1.02] flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-wand-magic-sparkles text-xl"></i> NOVO PLANO COM IA
+                </button>
+
+                <div class="space-y-3 mt-4">
+                    <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Meus Planos Salvos</div>
+
+                    <div v-if="lessonPlansList.length === 0" class="text-center py-10 text-gray-400 font-medium text-xs border-2 border-dashed border-gray-200 rounded-2xl bg-white/50">
+                        <i class="fa-solid fa-layer-group text-2xl text-gray-300 mb-2 block"></i>
+                        Nenhum plano gerado ainda. Use a IA para criar!
+                    </div>
+
+                    <div v-for="p in lessonPlansList" :key="p.id" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-3 group hover:shadow transition">
+                        <div class="flex justify-between items-start">
+                            <div class="flex flex-col flex-1 pr-2">
+                                <span class="text-[10px] font-bold text-indigo-600 uppercase">{{p.type}}</span>
+                                <span class="font-black text-gray-800 leading-tight">{{p.subject}} <span class="text-xs font-medium text-gray-500 font-normal ml-1">({{p.classLevel}})</span></span>
+                            </div>
+                            <div class="flex gap-1 flex-none">
+                                <button @click="printPlanPDF(p)" class="text-emerald-500 hover:bg-emerald-50 w-8 h-8 rounded-lg transition flex items-center justify-center border border-transparent hover:border-emerald-100" title="Baixar PDF"><i class="fa-solid fa-file-pdf"></i></button>
+                                <button @click="editPlan(p)" class="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 w-8 h-8 rounded-lg transition flex items-center justify-center border border-transparent hover:border-indigo-100" title="Editar Plano"><i class="fa-solid fa-pencil"></i></button>
+                                <button @click="deletePlan(p.id)" class="text-gray-300 hover:text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg transition flex items-center justify-center border border-transparent hover:border-red-100" title="Apagar Plano"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-600 line-clamp-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                            <span class="font-bold text-gray-500">Conteúdo:</span> {{p.contents}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- TURMAS -->
             <div v-if="currentView==='classes'" class="space-y-4 animate-fade-in">
                  <div class="bg-white p-3 rounded-2xl shadow-sm border sticky top-0 z-20 space-y-3">
@@ -695,6 +736,83 @@
                 </div>
             </div>
         </main>
+
+        <!-- MODAL GERADOR DE PLANO DE AULA -->
+        <div v-if="showPlanGenerator" class="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl w-full max-w-sm flex flex-col shadow-2xl overflow-hidden animate-fade-in">
+                <div class="p-4 bg-purple-600 text-white flex justify-between items-center shadow-md">
+                    <h3 class="font-bold"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Assistente de Planos</h3>
+                    <button @click="showPlanGenerator=false" class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="p-5 flex-1 bg-gray-50 space-y-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Tipo de Plano</label>
+                        <select v-model="planConfig.type" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-purple-500">
+                            <option value="Plano de Aula">Plano de Aula (Diário)</option>
+                            <option value="Plano Semanal">Plano Semanal</option>
+                            <option value="Plano Quinzenal">Plano Quinzenal</option>
+                            <option value="Plano Mensal">Plano Mensal</option>
+                            <option value="Plano Bimestral">Plano Bimestral</option>
+                            <option value="Plano Semestral">Plano Semestral</option>
+                            <option value="Plano Anual">Plano Anual</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Disciplina</label>
+                            <input list="dl-subjects" v-model="planConfig.subject" placeholder="Ex: História" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Ano / Turma</label>
+                            <input v-model="planConfig.classLevel" placeholder="Ex: 8º Ano Fundamental" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Conteúdos Abordados no Período</label>
+                        <textarea v-model="planConfig.contents" rows="3" placeholder="Quais os temas ou conteúdos a lecionar?" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-500 resize-none"></textarea>
+                    </div>
+                    <div v-if="!geminiKey" class="text-[10px] text-red-500 font-bold bg-red-50 p-2.5 rounded-lg border border-red-200 flex gap-2">
+                        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i> Aviso: Configure a sua chave da Inteligência Artificial primeiro (Banca -> Varinha Mágica).
+                    </div>
+                    <button @click="generatePlanAI" :disabled="isGeneratingPlan" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-3.5 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2">
+                        <i :class="isGeneratingPlan ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-bolt'"></i> {{ isGeneratingPlan ? 'A Estruturar Plano...' : 'Gerar com Inteligência Artificial' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL EDITOR DE PLANO (MANUAL) -->
+        <div v-if="showPlanEditor" class="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl w-full max-w-2xl h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
+                <div class="p-4 bg-indigo-600 text-white flex justify-between items-center shadow-md">
+                    <div>
+                        <h3 class="font-bold"><i class="fa-solid fa-file-signature mr-2"></i> Editor de Plano Didático</h3>
+                        <p class="text-[10px] text-indigo-200">{{editingPlan?.type}} - {{editingPlan?.subject}}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button @click="printPlanPDF(editingPlan)" class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition" title="Baixar PDF do Plano"><i class="fa-solid fa-print"></i></button>
+                        <button @click="showPlanEditor=false" class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition" title="Fechar"><i class="fa-solid fa-times"></i></button>
+                    </div>
+                </div>
+                <div class="p-5 flex-1 bg-gray-50 space-y-4 overflow-y-auto">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div><label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Disciplina</label><input v-model="editingPlan.subject" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-sm font-bold outline-none focus:border-indigo-500 text-gray-700"></div>
+                        <div><label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Ano / Nível</label><input v-model="editingPlan.classLevel" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-sm font-bold outline-none focus:border-indigo-500 text-gray-700"></div>
+                        <div class="col-span-2 sm:col-span-1"><label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Conteúdos Base</label><input v-model="editingPlan.contents" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-sm font-bold outline-none focus:border-indigo-500 text-gray-700"></div>
+                    </div>
+
+                    <div><label class="text-[10px] font-bold text-indigo-600 uppercase block mb-1.5"><i class="fa-solid fa-bullseye mr-1"></i> Objetivos (Gerais e Específicos)</label><textarea v-model="editingPlan.objetivos" rows="4" class="w-full p-3 bg-white border border-indigo-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-indigo-500 resize-y leading-relaxed"></textarea></div>
+                    <div><label class="text-[10px] font-bold text-indigo-600 uppercase block mb-1.5"><i class="fa-solid fa-book-bookmark mr-1"></i> Habilidades e Competências (BNCC)</label><textarea v-model="editingPlan.bncc" rows="4" class="w-full p-3 bg-white border border-indigo-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-indigo-500 resize-y leading-relaxed"></textarea></div>
+                    <div><label class="text-[10px] font-bold text-indigo-600 uppercase block mb-1.5"><i class="fa-solid fa-chalkboard-user mr-1"></i> Metodologia / Estratégias de Ensino</label><textarea v-model="editingPlan.metodologia" rows="4" class="w-full p-3 bg-white border border-indigo-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-indigo-500 resize-y leading-relaxed"></textarea></div>
+                    <div><label class="text-[10px] font-bold text-indigo-600 uppercase block mb-1.5"><i class="fa-solid fa-box-archive mr-1"></i> Recursos Didáticos / Materiais</label><textarea v-model="editingPlan.recursos" rows="2" class="w-full p-3 bg-white border border-indigo-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-indigo-500 resize-y leading-relaxed"></textarea></div>
+                    <div><label class="text-[10px] font-bold text-indigo-600 uppercase block mb-1.5"><i class="fa-solid fa-clipboard-check mr-1"></i> Avaliação / Instrumentos</label><textarea v-model="editingPlan.avaliacao" rows="3" class="w-full p-3 bg-white border border-indigo-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-indigo-500 resize-y leading-relaxed"></textarea></div>
+                    <div><label class="text-[10px] font-bold text-indigo-600 uppercase block mb-1.5"><i class="fa-solid fa-clock mr-1"></i> Cronograma / Duração</label><textarea v-model="editingPlan.cronograma" rows="2" class="w-full p-3 bg-white border border-indigo-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-indigo-500 resize-y leading-relaxed"></textarea></div>
+                </div>
+                <div class="p-4 bg-white border-t rounded-b-3xl">
+                    <button @click="savePlan" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2"><i class="fa-solid fa-save"></i> Salvar e Manter Plano</button>
+                </div>
+            </div>
+        </div>
 
         <!-- ASSISTENTE IA FLOATING BUTTON -->
         <button @click="showAssistant=true" class="fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center text-2xl z-40 hover:scale-110 transition-transform">
@@ -1772,6 +1890,15 @@
             seatingPlans: 'classId', agendaNotes: '++id, date, createdAt'
         });
 
+        // Versão 8: Adição de Planos de Aula Assistidos
+        db.version(8).stores({ 
+            classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
+            results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
+            schedules: '++id, classId', attendance: '++id, classId, date, studentId',
+            seatingPlans: 'classId', agendaNotes: '++id, date, createdAt',
+            lessonPlans: '++id, date, type'
+        });
+
         createApp({
             setup() {
                 const getAlternativeLabel = (t, i) => i == null ? '-' : (t === 'ce' ? ['A', 'B'][i] || '?' : ['A', 'B', 'C', 'D', 'E'][i] || '?');
@@ -1783,6 +1910,7 @@
                     {id:'dashboard',label:'Painel',icon:'fa-solid fa-chart-pie'},
                     {id:'diary',label:'Diário',icon:'fa-solid fa-book-open'},
                     {id:'agenda',label:'Agenda',icon:'fa-regular fa-calendar-check'},
+                    {id:'plans',label:'Planos',icon:'fa-solid fa-file-contract'}, // Nova Aba
                     {id:'classes',label:'Turmas',icon:'fa-solid fa-chalkboard-user'},
                     {id:'questions',label:'Banca',icon:'fa-solid fa-layer-group'},
                     {id:'exams',label:'Provas',icon:'fa-solid fa-file-signature'},
@@ -1935,6 +2063,157 @@
                 const agendaSearchText = ref('');
                 const agendaStartDate = ref('');
                 const agendaEndDate = ref('');
+
+                // NOVO: VARIAVEIS E LOGICA DE PLANOS DE ENSINO
+                const lessonPlansList = ref([]);
+                const showPlanGenerator = ref(false);
+                const isGeneratingPlan = ref(false);
+                const planConfig = ref({ type: 'Plano de Aula', subject: '', classLevel: '', contents: '' });
+                const showPlanEditor = ref(false);
+                const editingPlan = ref(null);
+
+                const loadLessonPlans = async () => {
+                    lessonPlansList.value = await db.lessonPlans.orderBy('date').reverse().toArray();
+                };
+
+                const openPlanGenerator = () => {
+                    planConfig.value = { type: 'Plano de Aula', subject: '', classLevel: '', contents: '' };
+                    showPlanGenerator.value = true;
+                };
+
+                const generatePlanAI = async () => {
+                    if (!settings.value.activeModel || !geminiKey.value) return showToast('Configure a chave da IA (na aba Banca)', 'error');
+                    if (!planConfig.value.subject || !planConfig.value.contents || !planConfig.value.classLevel) return showToast('Preencha a Disciplina, Ano/Turma e os Conteúdos.', 'warning');
+
+                    isGeneratingPlan.value = true;
+                    showToast('A IA está a estruturar o seu plano... (Isto pode levar alguns segundos)', 'loading');
+
+                    try {
+                        const promptText = `Atue como um Especialista em Planejamento Pedagógico.
+Crie um "${planConfig.value.type}" estruturado para a disciplina de "${planConfig.value.subject}", voltado para a turma/ano/nível escolar "${planConfig.value.classLevel}".
+O conteúdo/tema que o professor deseja abordar neste período é: "${planConfig.value.contents}".
+
+Retorne ESTRITAMENTE um JSON com as seguintes chaves textuais (preencha com alto nível acadêmico e detalhamento, e cumpra obrigatoriamente as normativas e diretrizes da BNCC (Base Nacional Comum Curricular)):
+{
+  "objetivos": "Objetivos gerais e específicos da aula ou período avaliativo detalhados.",
+  "bncc": "Lista de Habilidades e Competências da BNCC trabalhadas (inclua os códigos alfanuméricos exatos da BNCC correspondentes à disciplina e ao ano do aluno).",
+  "metodologia": "Metodologia, estratégias de ensino, práticas pedagógicas e passo a passo detalhado das atividades.",
+  "recursos": "Recursos didáticos, livros, links, materiais concretos e tecnológicos necessários.",
+  "avaliacao": "Critérios, formas e instrumentos de avaliação da aprendizagem (formativa/somativa).",
+  "cronograma": "Duração estimada, divisão do tempo ou cronograma das aulas propostas."
+}`;
+                        const schema = {
+                            type: "OBJECT",
+                            properties: {
+                                objetivos: { type: "STRING" },
+                                bncc: { type: "STRING" },
+                                metodologia: { type: "STRING" },
+                                recursos: { type: "STRING" },
+                                avaliacao: { type: "STRING" },
+                                cronograma: { type: "STRING" }
+                            },
+                            required: ["objetivos", "bncc", "metodologia", "recursos", "avaliacao", "cronograma"]
+                        };
+
+                        const aiResult = await fetchGemini(promptText, schema);
+
+                        if (aiResult && aiResult.objetivos) {
+                            editingPlan.value = {
+                                date: Date.now(),
+                                type: planConfig.value.type,
+                                subject: planConfig.value.subject,
+                                classLevel: planConfig.value.classLevel,
+                                contents: planConfig.value.contents,
+                                objetivos: aiResult.objetivos,
+                                bncc: aiResult.bncc,
+                                metodologia: aiResult.metodologia,
+                                recursos: aiResult.recursos,
+                                avaliacao: aiResult.avaliacao,
+                                cronograma: aiResult.cronograma
+                            };
+                            showPlanGenerator.value = false;
+                            showPlanEditor.value = true;
+                            showToast('Plano gerado com sucesso! Revise e ajuste.', 'success');
+                        } else {
+                            throw new Error("A IA não retornou o formato esperado.");
+                        }
+                    } catch(e) {
+                        console.error(e);
+                        showToast(e.message || "Erro ao gerar plano. Tente novamente.", "error");
+                    } finally {
+                        isGeneratingPlan.value = false;
+                    }
+                };
+
+                const savePlan = async () => {
+                    if (!editingPlan.value) return;
+                    if (editingPlan.value.id) {
+                        await db.lessonPlans.put(JSON.parse(JSON.stringify(editingPlan.value)));
+                    } else {
+                        await db.lessonPlans.add(JSON.parse(JSON.stringify(editingPlan.value)));
+                    }
+                    await loadLessonPlans();
+                    showPlanEditor.value = false;
+                    showToast('Plano guardado e anexado à sua lista!', 'success');
+                };
+
+                const deletePlan = (id) => {
+                    triggerConfirm("Tem certeza que deseja apagar este plano?", async () => {
+                        await db.lessonPlans.delete(id);
+                        await loadLessonPlans();
+                        showToast("Plano apagado.", "success");
+                    });
+                };
+
+                const editPlan = (p) => {
+                    editingPlan.value = JSON.parse(JSON.stringify(p));
+                    showPlanEditor.value = true;
+                };
+
+                const printPlanPDF = (plan) => {
+                    showToast("Gerando PDF do Plano...", "loading");
+                    let doc = {
+                        content: [
+                            settings.value.logo ? { image: settings.value.logo, width: 50, alignment: 'center', margin: [0, 0, 0, 5] } : null,
+                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 15, bold: true, alignment: 'center' },
+                            { text: plan.type.toUpperCase(), fontSize: 13, bold: true, alignment: 'center', margin: [0, 5, 0, 15], color: '#4f46e5' },
+                        ].filter(Boolean),
+                        defaultStyle: { font: 'Roboto' }
+                    };
+
+                    const addSection = (title, content) => {
+                        if (!content) return;
+                        doc.content.push({ text: title, fontSize: 11, bold: true, color: '#374151', margin: [0, 12, 0, 4], border: [false, false, false, true] });
+                        // A linha abaixo da secção
+                        doc.content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e5e7eb' }], margin: [0, 0, 0, 6] });
+                        doc.content.push({ text: content, fontSize: 9.5, alignment: 'justify', margin: [0, 0, 0, 8], lineHeight: 1.2 });
+                    };
+
+                    // Tabela Inicial de Identificação
+                    doc.content.push({
+                        table: {
+                            widths: ['*', '*'],
+                            body: [
+                                [ {text: `Disciplina: ${plan.subject}`, bold:true, fontSize:9.5}, {text: `Turma/Ano: ${plan.classLevel}`, bold:true, fontSize:9.5} ],
+                                [ {text: `Tema/Conteúdos: ${plan.contents}`, colSpan: 2, bold:true, fontSize:9.5}, {} ]
+                            ]
+                        },
+                        layout: {
+                            hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db',
+                            paddingTop: () => 4, paddingBottom: () => 4
+                        },
+                        margin: [0, 0, 0, 10]
+                    });
+
+                    addSection('Objetivos', plan.objetivos);
+                    addSection('Habilidades e Competências (BNCC)', plan.bncc);
+                    addSection('Metodologia e Procedimentos', plan.metodologia);
+                    addSection('Recursos Didáticos', plan.recursos);
+                    addSection('Avaliação', plan.avaliacao);
+                    addSection('Cronograma / Carga Horária', plan.cronograma);
+
+                    downloadPDF(pdfMake.createPdf(doc), `${plan.type.replace(/ /g,'_')}_${plan.subject.replace(/ /g,'_')}.pdf`, 'download');
+                };
 
                 const loadAgendaNotes = async () => {
                     allAgendaNotes.value = await db.agendaNotes.orderBy('createdAt').reverse().toArray();
@@ -2765,6 +3044,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
                     extraPoints.value=await db.extraPoints.toArray(); const s=await db.settings.get('config');
                     loadAgendaNotes();
+                    loadLessonPlans(); // Carregar os planos na inicialização
                     if(s) { 
                         settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null, hideAppLogo:s.hideAppLogo||false}; 
                         if(s.geminiKey) geminiKey.value=s.geminiKey; 
@@ -5813,6 +6093,10 @@ Preencha TUDO com conhecimento real sobre o tema.`;
                     // Item Analysis
                     showItemAnalysisModal, itemAnalysisExam, itemAnalysisData, itemAnalysisTotalStudents, openItemAnalysis, printItemAnalysisPDF,
                     
+                    // Lesson Plans (Novo)
+                    lessonPlansList, showPlanGenerator, showPlanEditor, planConfig, editingPlan, isGeneratingPlan,
+                    openPlanGenerator, generatePlanAI, savePlan, deletePlan, editPlan, printPlanPDF,
+
                     // Exam Grades List
                     showExamGradesModal, selectedExamForGrades, examGradesList, openExamGrades, generateExamGradesPDF,
 
