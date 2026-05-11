@@ -1280,7 +1280,7 @@
                                     <span class="max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-1.5 group-active:max-w-[150px] group-active:opacity-100 group-active:ml-1.5 text-[9px] font-bold whitespace-nowrap transition-all duration-300">Baixar Gabarito</span>
                                 </button>
                                 <button @click="generateKeyPDF(e, 'share', 'gabarito')" class="group flex items-center justify-center h-8 w-8 hover:w-auto active:w-auto hover:px-2.5 active:px-2.5 rounded-lg bg-teal-100 hover:bg-teal-600 hover:text-white active:bg-teal-600 active:text-white text-teal-700 transition-all duration-300 overflow-hidden flex-none">
-                                    <i class="fa-solid fa-share-nodes flex-none text-xs"></i>
+                                    <i class="fa-solid fa-file-export flex-none text-xs"></i>
                                     <span class="max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-1.5 group-active:max-w-[150px] group-active:opacity-100 group-active:ml-1.5 text-[9px] font-bold whitespace-nowrap transition-all duration-300">Enviar Gabarito</span>
                                 </button>
 
@@ -1289,7 +1289,7 @@
                                     <span class="max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-1.5 group-active:max-w-[150px] group-active:opacity-100 group-active:ml-1.5 text-[9px] font-bold whitespace-nowrap transition-all duration-300">Baixar Espelho</span>
                                 </button>
                                 <button @click="generateKeyPDF(e, 'share', 'espelho')" class="group flex items-center justify-center h-8 w-8 hover:w-auto active:w-auto hover:px-2.5 active:px-2.5 rounded-lg bg-emerald-100 hover:bg-emerald-600 hover:text-white active:bg-emerald-600 active:text-white text-emerald-700 transition-all duration-300 overflow-hidden flex-none">
-                                    <i class="fa-solid fa-share-nodes flex-none text-xs"></i>
+                                    <i class="fa-solid fa-paper-plane flex-none text-xs"></i>
                                     <span class="max-w-0 opacity-0 group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-1.5 group-active:max-w-[150px] group-active:opacity-100 group-active:ml-1.5 text-[9px] font-bold whitespace-nowrap transition-all duration-300">Enviar Espelho</span>
                                 </button>
                             </template>
@@ -3858,8 +3858,8 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     if(!settings.value.activeModel || !geminiKey.value) return showToast('Por favor, teste a Chave API primeiro.', 'error');
                     if(!aiGenConfig.value.subject || !aiGenConfig.value.topic)return showToast('Preencha a disciplina e o tópico','error');
                     
-                    // Cálculo corrigido usando Number() para evitar que o código some textos (ex: "1"+"0" virar 10)
-                    let t = Number(aiGenConfig.value.counts.mc||0) + Number(aiGenConfig.value.counts.ce||0) + Number(aiGenConfig.value.counts.vf||0) + Number(aiGenConfig.value.counts.assoc||0);
+                    // Atualizado para contabilizar as questões que pedem a alternativa incorreta
+                    let t = Number(aiGenConfig.value.counts.mc||0) + Number(aiGenConfig.value.counts.mc_incorrect||0) + Number(aiGenConfig.value.counts.ce||0) + Number(aiGenConfig.value.counts.vf||0) + Number(aiGenConfig.value.counts.assoc||0);
                     if(t<1)return showToast('Selecione pelo menos 1 questão','warning');
                     
                     isGeneratingAI.value=true;
@@ -3868,7 +3868,12 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     try{
                         let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
 
-Gere exatamente ${t} questões: ${aiGenConfig.value.counts.mc} "mc" (5 opções), ${aiGenConfig.value.counts.ce} "ce" (Certo=0/Errado=1), ${aiGenConfig.value.counts.vf} "vf" (4 itens com isTrue), ${aiGenConfig.value.counts.assoc} "assoc" (4 pares text/match).
+Gere exatamente ${t} questões com as seguintes quantidades e tipos:
+- ${aiGenConfig.value.counts.mc||0} "mc" (múltipla escolha com 5 opções) pedindo a alternativa CORRETA.
+- ${aiGenConfig.value.counts.mc_incorrect||0} "mc" (múltipla escolha com 5 opções) pedindo a alternativa INCORRETA (Atenção: O enunciado deve deixar claro usando palavras como "EXCETO", "INCORRETA" ou "NÃO". Apenas 1 opção deve ser a falsa/incorreta, e essa será o índice apontado na chave 'correct').
+- ${aiGenConfig.value.counts.ce||0} "ce" (Certo=0/Errado=1).
+- ${aiGenConfig.value.counts.vf||0} "vf" (4 itens com isTrue).
+- ${aiGenConfig.value.counts.assoc||0} "assoc" (4 pares text/match).
 
 O retorno deve ser ESTRITAMENTE um JSON. Siga o formato de chaves esperado para opções, enunciados (text) e respostas corretas (correct).
 REGRA DE OURO 1: NUNCA gere arrays de "options" vazios.
