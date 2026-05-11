@@ -2085,7 +2085,7 @@
                 };
 
                 const openPlanGenerator = () => {
-                    planConfig.value = { type: 'Plano de Aula', subject: '', classLevel: '', contents: '', classCount: '' };
+                    planConfig.value = { type: 'Plano de Aula', subject: '', classLevel: '', contents: '', classCount: '', teacher: '' };
                     showPlanGenerator.value = true;
                 };
 
@@ -2099,7 +2099,7 @@
                     try {
                         const promptText = `Atue como um Especialista em Planejamento Pedagógico.
 Crie um "${planConfig.value.type}" estruturado para a disciplina de "${planConfig.value.subject}", voltado para a turma/ano/nível escolar "${planConfig.value.classLevel}".
-A duração ou quantidade de aulas prevista é: "${planConfig.value.classCount || 'Não especificada'}".
+A duração ou quantidade de aulas prevista é: "${planConfig.value.classCount || 'Não especificada'}" (ATENÇÃO: Considere obrigatoriamente que CADA AULA possui a duração exata de 50 minutos).
 O conteúdo/tema que o professor deseja abordar neste período é: "${planConfig.value.contents}".
 
 Retorne ESTRITAMENTE um JSON com as seguintes chaves textuais (preencha com alto nível acadêmico e detalhamento, e cumpra obrigatoriamente as normativas e diretrizes da BNCC (Base Nacional Comum Curricular)):
@@ -2109,10 +2109,15 @@ Retorne ESTRITAMENTE um JSON com as seguintes chaves textuais (preencha com alto
   "metodologia": "Metodologia, estratégias de ensino, práticas pedagógicas e passo a passo detalhado das atividades.",
   "recursos": "Recursos didáticos, livros, links, materiais concretos e tecnológicos necessários.",
   "avaliacao": "Critérios, formas e instrumentos de avaliação da aprendizagem (formativa/somativa).",
-  "cronograma": "Duração estimada, divisão do tempo ou cronograma das aulas propostas."
+  "cronograma": "Duração estimada, divisão do tempo ou cronograma das aulas propostas (Baseie-se na regra de 50 minutos por aula).",
+  "referencias": "Referências bibliográficas utilizadas ou sugeridas (livros, autores, sites), formatadas no padrão ABNT se possível."
 }
 
-IMPORTANTE: Escreva em texto plano (plain text). NÃO utilize asteriscos (**), negritos ou marcações Markdown em nenhuma parte do texto.`;
+REGRAS DE FORMATAÇÃO (MUITO IMPORTANTE):
+1. Escreva em texto plano (plain text). NÃO utilize asteriscos (**), negritos ou marcações Markdown em NENHUMA parte do texto.
+2. NUNCA escreva textos longos, massivos e corridos. Você DEVE estruturar todo o conteúdo em formato de lista/tópicos (um abaixo do outro).
+3. Use sempre o símbolo "-" (hífen) ou números "1., 2." para iniciar cada tópico.
+4. Pule linhas (\\n) entre um tópico e outro para o texto ficar limpo, respirável e organizado visualmente.`;
                         const schema = {
                             type: "OBJECT",
                             properties: {
