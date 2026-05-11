@@ -2197,99 +2197,103 @@ REGRAS DE FORMATAÇÃO (MUITO IMPORTANTE):
                 const printPlanPDF = (plan) => {
                     showToast("Gerando PDF do Plano...", "loading");
                     
-                    let headerStack = [];
-                    if (settings.value.logo) {
-                        headerStack.push({ image: settings.value.logo, width: 60, alignment: 'center', margin: [0, 0, 0, 10] });
-                    }
-                    headerStack.push({ text: settings.value.schoolName || 'INSTITUIÇÃO DE ENSINO', fontSize: 16, bold: true, alignment: 'center', color: '#111827', margin: [0, 0, 0, 2] });
-                    headerStack.push({ text: plan.type.toUpperCase(), fontSize: 12, bold: true, alignment: 'center', color: '#4f46e5', characterSpacing: 1, margin: [0, 0, 0, 15] });
+                    try {
+                        let headerStack = [];
+                        if (settings.value.logo) {
+                            headerStack.push({ image: settings.value.logo, width: 60, alignment: 'center', margin: [0, 0, 0, 10] });
+                        }
+                        headerStack.push({ text: settings.value.schoolName || 'INSTITUIÇÃO DE ENSINO', fontSize: 16, bold: true, alignment: 'center', color: '#111827', margin: [0, 0, 0, 2] });
+                        headerStack.push({ text: (plan.type || 'PLANO DE ENSINO').toUpperCase(), fontSize: 12, bold: true, alignment: 'center', color: '#4f46e5', characterSpacing: 1, margin: [0, 0, 0, 15] });
 
-                    let doc = {
-                        pageSize: 'A4',
-                        pageMargins: [40, 40, 40, 40],
-                        content: [
-                            { stack: headerStack }
-                        ],
-                        footer: function(currentPage, pageCount) {
-                            return {
-                                text: `Página ${currentPage} de ${pageCount}`,
-                                alignment: 'right',
-                                fontSize: 8,
-                                color: '#9ca3af',
-                                margin: [0, 10, 40, 0]
-                            };
-                        },
-                        defaultStyle: { font: 'Roboto' }
-                    };
+                        let doc = {
+                            pageSize: 'A4',
+                            pageMargins: [40, 40, 40, 40],
+                            content: [
+                                { stack: headerStack }
+                            ],
+                            footer: function(currentPage, pageCount) {
+                                return {
+                                    text: `Página ${currentPage} de ${pageCount}`,
+                                    alignment: 'right',
+                                    fontSize: 8,
+                                    color: '#9ca3af',
+                                    margin: [0, 10, 40, 0]
+                                };
+                            },
+                            defaultStyle: { font: 'Roboto' }
+                        };
 
-                    // Tabela Inicial de Identificação (Design Limpo e Profissional)
-                    doc.content.push({
-                        table: {
-                            widths: ['*', '*'],
-                            body: [
-                                [
-                                    { text: [{ text: 'Disciplina: ', bold: true, color: '#4b5563' }, { text: plan.subject, color: '#111827' }], margin: [4, 5] },
-                                    { text: [{ text: 'Ano / Turma: ', bold: true, color: '#4b5563' }, { text: plan.classLevel, color: '#111827' }], margin: [4, 5] }
-                                ],
-                                [
-                                    { text: [{ text: 'Professor(a): ', bold: true, color: '#4b5563' }, { text: plan.teacher || 'Não informado', color: '#111827' }], margin: [4, 5] },
-                                    { text: [{ text: 'Duração: ', bold: true, color: '#4b5563' }, { text: plan.classCount || 'Não informada', color: '#111827' }], margin: [4, 5] }
-                                ],
-                                [
-                                    { text: [{ text: 'Conteúdo / Tema: ', bold: true, color: '#4b5563' }, { text: plan.contents, color: '#111827' }], colSpan: 2, margin: [4, 5] },
-                                    {}
-                                ]
-                            ]
-                        },
-                        layout: {
-                            hLineWidth: function (i, node) { return (i === 0 || i === node.table.body.length) ? 1.5 : 1; },
-                            vLineWidth: function (i, node) { return (i === 0 || i === node.table.widths.length) ? 1.5 : 1; },
-                            hLineColor: function (i, node) { return (i === 0 || i === node.table.body.length) ? '#9ca3af' : '#e5e7eb'; },
-                            vLineColor: function (i, node) { return (i === 0 || i === node.table.widths.length) ? '#9ca3af' : '#e5e7eb'; },
-                        },
-                        margin: [0, 0, 0, 15]
-                    });
-
-                    // Função para adicionar secções com estilo de Bloco
-                    const addSection = (title, content) => {
-                        if (!content || content.trim() === '') return;
-                        
-                        // Título da Secção com Fundo
+                        // Tabela Inicial de Identificação com proteção contra dados vazios
                         doc.content.push({
                             table: {
-                                widths: ['*'],
+                                widths: ['*', '*'],
                                 body: [
-                                    [{ text: title.toUpperCase(), fontSize: 10, bold: true, color: '#374151', fillColor: '#f3f4f6', border: [false, true, false, true], margin: [4, 4, 4, 4] }]
+                                    [
+                                        { text: [{ text: 'Disciplina: ', bold: true, color: '#4b5563' }, { text: plan.subject || '-', color: '#111827' }], margin: [4, 5] },
+                                        { text: [{ text: 'Ano / Turma: ', bold: true, color: '#4b5563' }, { text: plan.classLevel || '-', color: '#111827' }], margin: [4, 5] }
+                                    ],
+                                    [
+                                        { text: [{ text: 'Professor(a): ', bold: true, color: '#4b5563' }, { text: plan.teacher || 'Não informado', color: '#111827' }], margin: [4, 5] },
+                                        { text: [{ text: 'Duração: ', bold: true, color: '#4b5563' }, { text: plan.classCount || 'Não informada', color: '#111827' }], margin: [4, 5] }
+                                    ],
+                                    [
+                                        { text: [{ text: 'Conteúdo / Tema: ', bold: true, color: '#4b5563' }, { text: plan.contents || '-', color: '#111827' }], colSpan: 2, margin: [4, 5] },
+                                        {}
+                                    ]
                                 ]
                             },
                             layout: {
-                                hLineColor: () => '#d1d5db',
-                                vLineColor: () => '#d1d5db',
+                                hLineWidth: function (i, node) { return (i === 0 || i === node.table.body.length) ? 1.5 : 1; },
+                                vLineWidth: function (i, node) { return (i === 0 || i === node.table.widths.length) ? 1.5 : 1; },
+                                hLineColor: function (i, node) { return (i === 0 || i === node.table.body.length) ? '#9ca3af' : '#e5e7eb'; },
+                                vLineColor: function (i, node) { return (i === 0 || i === node.table.widths.length) ? '#9ca3af' : '#e5e7eb'; },
                             },
-                            margin: [0, 5, 0, 8],
-                            unbreakable: true // Tenta manter o título junto ao conteúdo
+                            margin: [0, 0, 0, 15]
                         });
 
-                        // Conteúdo da Secção
-                        doc.content.push({ 
-                            text: content, 
-                            fontSize: 10, 
-                            color: '#1f2937', 
-                            alignment: 'justify', 
-                            lineHeight: 1.3, // Maior espaçamento entre linhas para legibilidade
-                            margin: [0, 0, 0, 15] 
-                        });
-                    };
+                        // Função segura para adicionar secções
+                        const addSection = (title, content) => {
+                            if (!content || typeof content !== 'string' || content.trim() === '') return;
+                            
+                            doc.content.push({
+                                table: {
+                                    widths: ['*'],
+                                    body: [
+                                        [{ text: title.toUpperCase(), fontSize: 10, bold: true, color: '#374151', fillColor: '#f3f4f6', border: [false, true, false, true], margin: [4, 4, 4, 4] }]
+                                    ]
+                                },
+                                layout: { hLineColor: () => '#d1d5db', vLineColor: () => '#d1d5db' },
+                                margin: [0, 5, 0, 8],
+                                unbreakable: true
+                            });
 
-                    addSection('Objetivos (Gerais e Específicos)', plan.objetivos);
-                    addSection('Habilidades e Competências (BNCC)', plan.bncc);
-                    addSection('Metodologia e Estratégias de Ensino', plan.metodologia);
-                    addSection('Recursos Didáticos / Materiais', plan.recursos);
-                    addSection('Avaliação e Instrumentos', plan.avaliacao);
-                    addSection('Cronograma / Carga Horária', plan.cronograma);
-                    addSection('Referências Bibliográficas', plan.referencias);
+                            doc.content.push({ 
+                                text: content, 
+                                fontSize: 10, 
+                                color: '#1f2937', 
+                                alignment: 'justify', 
+                                lineHeight: 1.3,
+                                margin: [0, 0, 0, 15] 
+                            });
+                        };
 
-                    downloadPDF(pdfMake.createPdf(doc), `${plan.type.replace(/ /g,'_')}_${plan.subject.replace(/ /g,'_')}.pdf`, 'download');
+                        addSection('Objetivos (Gerais e Específicos)', plan.objetivos);
+                        addSection('Habilidades e Competências (BNCC)', plan.bncc);
+                        addSection('Metodologia e Estratégias de Ensino', plan.metodologia);
+                        addSection('Recursos Didáticos / Materiais', plan.recursos);
+                        addSection('Avaliação e Instrumentos', plan.avaliacao);
+                        addSection('Cronograma / Carga Horária', plan.cronograma);
+                        addSection('Referências Bibliográficas', plan.referencias);
+
+                        // Proteção do nome do ficheiro (evita crash se a disciplina não tiver sido preenchida)
+                        const safeType = (plan.type || 'Plano').replace(/ /g,'_');
+                        const safeSubject = (plan.subject || 'Disciplina').replace(/ /g,'_');
+
+                        downloadPDF(pdfMake.createPdf(doc), `${safeType}_${safeSubject}.pdf`, 'download');
+                    } catch (error) {
+                        console.error("Erro ao gerar PDF do plano:", error);
+                        showToast("Erro de geração. Verifique se os campos estão preenchidos.", "error");
+                    }
                 };
 
                 const loadAgendaNotes = async () => {
