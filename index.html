@@ -4258,13 +4258,14 @@ Gere exatamente ${t} questões com as seguintes quantidades e tipos:
 - ${aiGenConfig.value.counts.mc||0} tipo "mc" (Múltipla Escolha): Mande 5 alternativas no array "options" (usando a chave "text"). Aponte o índice certo no campo "correct" (0 a 4).
 - ${aiGenConfig.value.counts.mc_incorrect||0} tipo "mc" (Incorreta): Mande 5 alternativas no array "options". Aponte a opção falsa no campo "correct". O enunciado deve usar "EXCETO" ou "INCORRETA".
 - ${aiGenConfig.value.counts.ce||0} tipo "ce" (Certo/Errado): Mande 0 (Certo) ou 1 (Errado) no campo "correct". O array "options" pode vir vazio [].
-- ${aiGenConfig.value.counts.vf||0} tipo "vf" (Verdadeiro/Falso): O array "options" DEVE OBRIGATORIAMENTE ter 4 itens. Cada item DEVE ter a chave "text" (a afirmativa) e a chave "isTrue" (boolean true ou false). NUNCA mande as opções dentro do texto do enunciado.
-- ${aiGenConfig.value.counts.assoc||0} tipo "assoc" (Associação): O array "options" DEVE OBRIGATORIAMENTE ter 4 itens. Cada item DEVE ter a chave "text" (conceito esquerdo) e a chave "match" (a definição correspondente direita). NUNCA mande as definições dentro do texto do enunciado.
+- ${aiGenConfig.value.counts.vf||0} tipo "vf" (Verdadeiro/Falso): A chave "text" DEVE conter o comando (ex: "Julgue as afirmativas abaixo:"). O array "options" DEVE OBRIGATORIAMENTE ter 4 itens. Cada item DEVE ter a chave "text" (a afirmativa) e a chave "isTrue" (boolean true ou false).
+- ${aiGenConfig.value.counts.assoc||0} tipo "assoc" (Associação): A chave "text" DEVE conter o comando (ex: "Associe as colunas:"). O array "options" DEVE OBRIGATORIAMENTE ter 4 itens. Cada item DEVE ter a chave "text" (conceito) e a chave "match" (definição).
 
 O retorno deve ser ESTRITAMENTE um JSON. 
-REGRA DE OURO 1: O array "options" é OBRIGATÓRIO na estrutura do JSON. NUNCA gere arrays vazios para mc, vf ou assoc.
-REGRA DE OURO 2: NUNCA adicione a resposta correta ou explicações dentro do array de opções.
-REGRA DE OURO 3: O campo "justification" DEVE conter a resolução passo a passo extremamente detalhada e didática, explicando o motivo de a alternativa correta estar certa e o porquê de as outras estarem erradas.
+REGRA DE OURO 1: A chave "text" é OBRIGATÓRIA para TODAS as questões e DEVE conter o enunciado ou comando da questão. NUNCA deixe o texto (enunciado) vazio.
+REGRA DE OURO 2: O array "options" é OBRIGATÓRIO na estrutura do JSON. NUNCA gere arrays vazios para mc, vf ou assoc.
+REGRA DE OURO 3: NUNCA adicione a resposta correta ou explicações dentro do array de opções.
+REGRA DE OURO 4: O campo "justification" DEVE conter a resolução passo a passo detalhada e didática.
 Preencha TUDO com conhecimento real sobre o tema.`;
 
                         const schema = {
@@ -4310,7 +4311,14 @@ Preencha TUDO com conhecimento real sobre o tema.`;
                         gq = gq.map(q => {
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
-                            q.text = q.text || q.enunciado || q.pergunta || q.question || "Enunciado não gerado";
+                            
+                            let extractedText = (q.text || q.enunciado || q.pergunta || q.question || "").trim();
+                            if (!extractedText) {
+                                if (q.type === 'vf') extractedText = "Julgue as afirmativas abaixo como verdadeiras (V) ou falsas (F):";
+                                else if (q.type === 'assoc') extractedText = "Associe corretamente os conceitos às suas respectivas definições:";
+                                else extractedText = "Enunciado não gerado";
+                            }
+                            q.text = extractedText;
                             
                             let opts = q.options || q.opcoes || q.itens || q.alternativas || [];
                             if (typeof opts === 'object' && !Array.isArray(opts) && opts !== null) {
