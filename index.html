@@ -4255,16 +4255,16 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                         let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
 
 Gere exatamente ${t} questões com as seguintes quantidades e tipos:
-- ${aiGenConfig.value.counts.mc||0} "mc" (múltipla escolha com 5 opções) pedindo a alternativa CORRETA.
-- ${aiGenConfig.value.counts.mc_incorrect||0} "mc" (múltipla escolha com 5 opções) pedindo a alternativa INCORRETA (Atenção: O enunciado deve deixar claro usando palavras como "EXCETO", "INCORRETA" ou "NÃO". Apenas 1 opção deve ser a falsa/incorreta, e essa será o índice apontado na chave 'correct').
-- ${aiGenConfig.value.counts.ce||0} "ce" (Certo=0/Errado=1).
-- ${aiGenConfig.value.counts.vf||0} "vf" (4 itens com isTrue).
-- ${aiGenConfig.value.counts.assoc||0} "assoc" (4 pares text/match).
+- ${aiGenConfig.value.counts.mc||0} tipo "mc" (Múltipla Escolha): Mande 5 alternativas no array "options" (usando a chave "text"). Aponte o índice certo no campo "correct" (0 a 4).
+- ${aiGenConfig.value.counts.mc_incorrect||0} tipo "mc" (Incorreta): Mande 5 alternativas no array "options". Aponte a opção falsa no campo "correct". O enunciado deve usar "EXCETO" ou "INCORRETA".
+- ${aiGenConfig.value.counts.ce||0} tipo "ce" (Certo/Errado): Mande 0 (Certo) ou 1 (Errado) no campo "correct". O array "options" pode vir vazio [].
+- ${aiGenConfig.value.counts.vf||0} tipo "vf" (Verdadeiro/Falso): O array "options" DEVE OBRIGATORIAMENTE ter 4 itens. Cada item DEVE ter a chave "text" (a afirmativa) e a chave "isTrue" (boolean true ou false). NUNCA mande as opções dentro do texto do enunciado.
+- ${aiGenConfig.value.counts.assoc||0} tipo "assoc" (Associação): O array "options" DEVE OBRIGATORIAMENTE ter 4 itens. Cada item DEVE ter a chave "text" (conceito esquerdo) e a chave "match" (a definição correspondente direita). NUNCA mande as definições dentro do texto do enunciado.
 
-O retorno deve ser ESTRITAMENTE um JSON. Siga o formato de chaves esperado para opções, enunciados (text) e respostas corretas (correct).
-REGRA DE OURO 1: NUNCA gere arrays de "options" vazios.
-REGRA DE OURO 2: NUNCA adicione a resposta correta ou explicações como um item extra dentro do array de opções. As "options" devem conter OBRIGATORIAMENTE APENAS 5 itens (as alternativas).
-REGRA DE OURO 3: O campo "justification" DEVE conter uma RESOLUÇÃO PASSO A PASSO, EXTREMAMENTE DETALHADA E DIDÁTICA. Não dê apenas a resposta final. Explique o "porquê" de cada etapa do raciocínio, demonstre cálculos passo a passo (se aplicável), e justifique o motivo de a alternativa correta estar certa e o porquê de as outras estarem erradas.
+O retorno deve ser ESTRITAMENTE um JSON. 
+REGRA DE OURO 1: O array "options" é OBRIGATÓRIO na estrutura do JSON. NUNCA gere arrays vazios para mc, vf ou assoc.
+REGRA DE OURO 2: NUNCA adicione a resposta correta ou explicações dentro do array de opções.
+REGRA DE OURO 3: O campo "justification" DEVE conter a resolução passo a passo extremamente detalhada e didática, explicando o motivo de a alternativa correta estar certa e o porquê de as outras estarem erradas.
 Preencha TUDO com conhecimento real sobre o tema.`;
 
                         const schema = {
@@ -4277,6 +4277,7 @@ Preencha TUDO com conhecimento real sobre o tema.`;
                                         properties: {
                                             type: { type: "STRING" },
                                             text: { type: "STRING" },
+                                            justification: { type: "STRING" },
                                             options: {
                                                 type: "ARRAY",
                                                 items: {
@@ -4290,7 +4291,7 @@ Preencha TUDO com conhecimento real sobre o tema.`;
                                             },
                                             correct: { type: "INTEGER" }
                                         },
-                                        required: ["type", "text"]
+                                        required: ["type", "text", "options"]
                                     }
                                 }
                             },
@@ -4505,6 +4506,53 @@ Preencha TUDO com conhecimento real sobre o tema.`;
                     let u=results.value.find(x=>x.id===rd.resultId); 
                     rd.score=u.score; 
                     showToast("Atualizado!","success");
+                };
+
+                const updateOfficialKeyFromDetails = (qIndex, event) => {
+                    let rd = selectedResultDetails.value;
+                    if (!rd) return;
+                    
+                    let r = results.value.find(x => x.id === rd.resultId);
+                    let ex = exams.value.find(e => e.id === r.examId);
+                    let originalCorrectIndex = ex.versions[r.version || 0].questions[qIndex].correctIndex;
+                    let newVal = parseInt(event.target.value);
+
+                    triggerConfirm(
+                        "Atenção: Alterar o Gabarito Oficial desta questão fará com que as notas de TODOS os alunos desta avaliação sejam recalculadas. Deseja prosseguir?", 
+                        async () => {
+                            showToast("A recalcular notas da turma...", "loading");
+                            try {
+                                let exam = await db.exams.get(r.examId);
+                                let vIdx = r.version || 0;
+                                let q = exam.versions[vIdx].questions[qIndex];
+
+                                q.correctIndex = newVal;
+                                q.correct = newVal; 
+
+                                await db.exams.put(exam);
+                                exams.value = await db.exams.orderBy('id').reverse().toArray();
+
+                                let rs = results.value.filter(res => res.examId === exam.id && res.version === vIdx);
+                                for(let res of rs) {
+                                    await saveExamResult(exam.id, res.studentId, res.studentName, res.version, res.answers, res.debugImage, res.needsReview, res.isManual, res.isIncomplete);
+                                }
+
+                                let updatedResult = results.value.find(x => x.id === rd.resultId);
+                                if(updatedResult) rd.score = updatedResult.score;
+                                rd.questions[qIndex].correctIndex = newVal;
+                                
+                                showToast("Gabarito atualizado e notas recalculadas com sucesso!", "success");
+                            } catch(e) {
+                                console.error(e);
+                                rd.questions[qIndex].correctIndex = originalCorrectIndex; 
+                                showToast("Erro ao salvar o gabarito.", "error");
+                            }
+                        },
+                        () => {
+                            // Reverte a alteração visual se o utilizador cancelar
+                            rd.questions[qIndex].correctIndex = originalCorrectIndex;
+                        }
+                    );
                 };
 
                 const openExternalExamForm = () => {
