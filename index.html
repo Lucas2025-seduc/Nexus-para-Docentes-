@@ -5802,7 +5802,11 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                                 let ans = '';
                                 if (q.type === 'vf') {
-                                    ans = `${altLetra} ` + q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
+                                    ans = `${altLetra} ` + q.options.map(o => {
+                                        let isT = o.isTrue;
+                                        if (typeof isT === 'string') isT = (isT.toLowerCase() === 'true' || isT.toLowerCase() === 'v' || isT.toLowerCase() === 'verdadeiro' || isT === '1' || isT.toLowerCase() === 'certo');
+                                        return isT ? 'V' : 'F';
+                                    }).join(', ');
                                 } else if (q.type === 'assoc') {
                                     ans = `${altLetra} ` + q.options.map((o, i) => `${i+1} -> ${o.match}`).join(' | ');
                                 } else if (q.type === 'ce') {
@@ -5812,11 +5816,23 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                                     ans = `${altLetra} ${textOption}`;
                                 }
 
+                                // Limpeza de formatação Markdown na resposta (caso exista)
+                                ans = ans.replace(/\*/g, '').replace(/_/g, '');
+
                                 keyText.push({ text: `Questão ${qIdx + 1}: ${ans}`, fontSize: 11, bold: true, margin: [0, 4, 0, 2] });
                                 
                                 if (q.justification) {
+                                    // Filtro de Segurança: Limpa Markdown e traduz "vazamentos" de código da IA
+                                    let cleanJust = q.justification
+                                        .replace(/\*/g, '')
+                                        .replace(/_/g, '')
+                                        .replace(/\bTrue\b/g, 'Verdadeiro')
+                                        .replace(/\bFalse\b/g, 'Falso')
+                                        .replace(/\btrue\b/g, 'verdadeiro')
+                                        .replace(/\bfalse\b/g, 'falso');
+
                                     keyText.push({ text: `Justificativa / Passo a Passo:`, fontSize: 9, bold: true, color: '#10b981', margin: [0, 0, 0, 2] });
-                                    keyText.push({ text: q.justification, fontSize: 10, italics: true, color: '#4b5563', margin: [0, 0, 0, 10], alignment: 'justify' });
+                                    keyText.push({ text: cleanJust, fontSize: 10, italics: true, color: '#4b5563', margin: [0, 0, 0, 10], alignment: 'justify' });
                                 } else {
                                     keyText.push({ text: '', margin: [0, 0, 0, 6] });
                                 }
