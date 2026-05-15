@@ -2904,18 +2904,28 @@ Texto original do professor: "${textToImprove}"`;
                 const takePhotoAndAnalyze = async () => {
                     if (isAnalyzingPhoto.value) return;
                     isAnalyzingPhoto.value = true;
-                    showToast("Enviando para o Gemini Vision...", "loading");
+                    showToast("A analisar gabarito (IA Ultra-rápida)...", "loading");
 
                     try {
                         const video = document.getElementById('ai-camera-video');
                         const canvas = document.getElementById('ai-capture-canvas');
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
+                        
+                        // OTIMIZAÇÃO DE VELOCIDADE EXTREMA: Redimensionar a imagem para reduzir o tempo de upload e processamento
+                        const MAX_WIDTH = 1024;
+                        let scale = 1;
+                        if (video.videoWidth > MAX_WIDTH) {
+                            scale = MAX_WIDTH / video.videoWidth;
+                        }
+                        
+                        canvas.width = video.videoWidth * scale;
+                        canvas.height = video.videoHeight * scale;
                         const ctx = canvas.getContext('2d');
-                        ctx.drawImage(video, 0, 0);
+                        
+                        // Desenha a imagem já com o tamanho reduzido
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                        // Comprime a imagem para JPEG para não sobrecarregar a API
-                        const base64ImgRaw = canvas.toDataURL('image/jpeg', 0.8);
+                        // OTIMIZAÇÃO: Compressão JPEG agressiva (0.5). Como só precisamos de ver o contraste das bolhas pretas no papel branco, isto retira todo o "peso" das cores sem perder precisão matemática.
+                        const base64ImgRaw = canvas.toDataURL('image/jpeg', 0.5);
                         const base64Img = base64ImgRaw.split(',')[1];
                         const mimeType = 'image/jpeg';
 
@@ -4261,12 +4271,12 @@ Gere exatamente ${t} questões com as seguintes quantidades e tipos:
 - ${aiGenConfig.value.counts.vf||0} tipo "vf" (Verdadeiro/Falso): A chave "text" DEVE conter o comando (ex: "Julgue as afirmativas abaixo:"). O array "options" DEVE OBRIGATORIAMENTE ter 4 itens. Cada item DEVE ter a chave "text" (a afirmativa) e a chave "isTrue" (boolean true ou false).
 - ${aiGenConfig.value.counts.assoc||0} tipo "assoc" (Associação): A chave "text" DEVE conter o comando (ex: "Associe as colunas:"). O array "options" DEVE OBRIGATORIAMENTE ter 4 itens. Cada item DEVE ter a chave "text" (conceito) e a chave "match" (definição).
 
-O retorno deve ser ESTRITAMENTE um JSON. 
+O retorno deve ser ESTRITAMENTE um JSON em PORTUGUÊS. 
 REGRA DE OURO 1: A chave "text" é OBRIGATÓRIA para TODAS as questões e DEVE conter o enunciado ou comando da questão. NUNCA deixe o texto (enunciado) vazio.
 REGRA DE OURO 2: O array "options" é OBRIGATÓRIO na estrutura do JSON. NUNCA gere arrays vazios para mc, vf ou assoc.
 REGRA DE OURO 3: NUNCA adicione a resposta correta ou explicações dentro do array de opções.
-REGRA DE OURO 4: O campo "justification" DEVE conter a resolução passo a passo detalhada e didática.
-Preencha TUDO com conhecimento real sobre o tema.`;
+REGRA DE OURO 4: O campo "justification" DEVE conter a resolução passo a passo detalhada e didática. Escreva ESTRITAMENTE em texto plano, NUNCA use asteriscos (**) ou formatação markdown.
+Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                         const schema = {
                             type: "OBJECT",
