@@ -508,7 +508,22 @@
             <!-- PROVAS -->
             <div v-if="currentView==='exams'" class="space-y-4 h-full flex flex-col animate-fade-in">
                  <div class="bg-white p-5 rounded-2xl shadow-sm border">
-                    <div class="flex items-center gap-4 border-b pb-4 mb-4"><label class="w-14 h-14 rounded-xl border-2 border-dashed bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer"><img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-cover"><i v-else class="fa-solid fa-school text-gray-300 text-xl"></i><input type="file" @change="e => {const r=new FileReader(); r.onload=ev=>{settings.logo=ev.target.result; saveSettings(true)}; r.readAsDataURL(e.target.files[0])}" class="hidden"></label><div class="flex-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Instituição</label><input v-model="settings.schoolName" placeholder="Escola" class="font-bold text-indigo-700 text-lg w-full outline-none bg-transparent" @change="saveSettings(true)"></div></div>
+                    <div class="flex items-center gap-4 border-b pb-4 mb-4">
+                        <div class="relative w-14 h-14 flex-none group">
+                            <label class="w-full h-full rounded-xl border-2 border-dashed bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer">
+                                <img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-cover">
+                                <i v-else class="fa-solid fa-school text-gray-300 text-xl"></i>
+                                <input type="file" accept="image/*" @change="uploadLogo" class="hidden">
+                            </label>
+                            <button v-if="settings.logo" @click="settings.logo = null; saveSettings(true)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition z-10" title="Remover Logótipo">
+                                <i class="fa-solid fa-times text-[10px]"></i>
+                            </button>
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-[9px] font-bold text-gray-400 uppercase">Instituição</label>
+                            <input v-model="settings.schoolName" placeholder="Escola" class="font-bold text-indigo-700 text-lg w-full outline-none bg-transparent" @change="saveSettings(true)">
+                        </div>
+                    </div>
                     <div class="space-y-3">
                         <div v-if="editingExamId" class="bg-indigo-50 border border-indigo-200 text-indigo-800 p-3 rounded-xl mb-3 text-xs shadow-inner">
                             <div class="flex justify-between font-black mb-1 text-sm items-center">
