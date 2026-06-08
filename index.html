@@ -1376,7 +1376,7 @@
                                 <div class="font-bold text-sm text-gray-800 leading-tight">{{e?.title}}</div>
                                 <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-1.5 mb-2"><i class="fa-regular fa-calendar-check text-indigo-400"></i> Editada em: <span class="font-bold text-gray-600">{{formatDateTime(e?.date)}}</span></div>
                                 <div class="text-[9px] font-black uppercase tracking-widest flex gap-1.5">
-                                    <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">{{getClassName(e?.classId)}}</span>
+                                    <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">{{ e.classIds && e.classIds.length > 1 ? e.classIds.length + ' Turmas' : getClassName(e?.classId) }}</span>
                                     <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md border border-gray-200">{{e?.bimester}}º Bim</span>
                                 </div>
                             </div>
@@ -5356,7 +5356,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                         bimester: e.bimester,
                         date: new Date(e.date).toISOString().split('T')[0],
                         variationMode: e.versions.length.toString(),
-                        classIds: [e.classId],
+                        classIds: e.classIds ? [...e.classIds] : [e.classId],
                         type: e.type || 'Mensal',
                         teacher: e.teacher || '',
                         instructions: e.instructions || ''
@@ -5678,6 +5678,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                             bimester: examConfig.value.bimester,
                             date: new Date(examConfig.value.date + "T12:00:00.000Z").getTime(),
                             classId: examConfig.value.classIds[0], // Usa a primeira turma como âncora no histórico
+                            classIds: [...examConfig.value.classIds],
                             type: examConfig.value.type,
                             teacher: examConfig.value.teacher,
                             instructions: examConfig.value.instructions || '',
@@ -5689,6 +5690,16 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                         load();
                     } else {
                         exm = exams.value.find(e => e.id === exId);
+                        exm.title = examConfig.value.title || 'Avaliação';
+                        exm.bimester = examConfig.value.bimester;
+                        exm.date = new Date(examConfig.value.date + "T12:00:00.000Z").getTime();
+                        exm.classId = examConfig.value.classIds[0];
+                        exm.classIds = [...examConfig.value.classIds];
+                        exm.type = examConfig.value.type;
+                        exm.teacher = examConfig.value.teacher;
+                        exm.instructions = examConfig.value.instructions || '';
+                        await db.exams.put(JSON.parse(JSON.stringify(exm)));
+                        load();
                     }
 
                     const content = [];
@@ -5718,7 +5729,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                 const reprintExamPDF = async (e, action) => { 
                     showToast("Reimprimindo Provas...", "loading"); 
                     const content = [];
-                    let stds = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
+                    let stds = students.value.filter(s => (e.classIds || [e.classId]).includes(s.classId)).sort((a,b) => a.name.localeCompare(b.name));
                     
                     stds.forEach((s, i) => {
                         if (i > 0) content.push({ text: '', pageBreak: 'before' });
@@ -5744,7 +5755,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                         let e = exams.value.find(x => x.id === exId);
                         if(!e) continue;
 
-                        let stds = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
+                        let stds = students.value.filter(s => (e.classIds || [e.classId]).includes(s.classId)).sort((a,b) => a.name.localeCompare(b.name));
                         stds.forEach((s, i) => {
                             if (!firstPage) content.push({ text: '', pageBreak: 'before' });
                             firstPage = false;
