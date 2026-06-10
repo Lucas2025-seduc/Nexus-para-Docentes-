@@ -23,21 +23,15 @@
         .fade-enter-from, .fade-leave-to { opacity: 0; }
         .animate-fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* [STYLE:QUESTION-TYPE-BUTTONS] CSS puro para substituir @apply do Tailwind CDN. */
-        .q-type-btn { flex: 1 1 0%; padding: 0.75rem 0.5rem; border-radius: 0.75rem; font-size: 0.75rem; line-height: 1rem; font-weight: 700; transition: all 150ms ease; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; border: 1px solid transparent; }
-        .q-type-btn.active { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 0 0 1px #c7d2fe; }
-        .q-type-btn.inactive { background: #ffffff; color: #9ca3af; border-color: #f3f4f6; }
-        .q-type-btn.inactive:hover { background: #f9fafb; color: #4b5563; }
+        .q-type-btn { @apply flex-1 py-3 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border border-transparent; }
+        .q-type-btn.active { @apply bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm ring-1 ring-indigo-200; }
+        .q-type-btn.inactive { @apply bg-white text-gray-400 border-gray-100 hover:bg-gray-50 hover:text-gray-600; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden select-none">
     <div id="app" class="flex flex-col h-full relative">
-        <!-- [NEXUS-MAPA-DE-EDICAO]
-             Use Ctrl+F pelos marcadores: MODAIS GLOBAIS, HEADER E NAVEGAÇÃO, DASHBOARD, DIÁRIO, AGENDA, PLANOS, TURMAS, QUESTÕES, PROVAS, CORREÇÃO.
-             A organização abaixo preserva o app em arquivo único para facilitar edição pontual por IA sem empacotamento/PWA local.
-        -->
         <!-- MODAIS GLOBAIS -->
         <div v-if="appLocked || showLicenseModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900 text-white p-6 backdrop-blur-sm">
             <div class="max-w-md w-full text-center space-y-6 animate-fade-in relative">
@@ -514,22 +508,7 @@
             <!-- PROVAS -->
             <div v-if="currentView==='exams'" class="space-y-4 h-full flex flex-col animate-fade-in">
                  <div class="bg-white p-5 rounded-2xl shadow-sm border">
-                    <div class="flex items-center gap-4 border-b pb-4 mb-4">
-                        <div class="relative w-14 h-14 flex-none group">
-                            <label class="w-full h-full rounded-xl border-2 border-dashed bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer">
-                                <img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-cover">
-                                <i v-else class="fa-solid fa-school text-gray-300 text-xl"></i>
-                                <input type="file" accept="image/*" @change="uploadLogo" class="hidden">
-                            </label>
-                            <button v-if="settings.logo" @click="settings.logo = null; saveSettings(true)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition z-10" title="Remover Logótipo">
-                                <i class="fa-solid fa-times text-[10px]"></i>
-                            </button>
-                        </div>
-                        <div class="flex-1">
-                            <label class="text-[9px] font-bold text-gray-400 uppercase">Instituição</label>
-                            <input v-model="settings.schoolName" placeholder="Escola" class="font-bold text-indigo-700 text-lg w-full outline-none bg-transparent" @change="saveSettings(true)">
-                        </div>
-                    </div>
+                    <div class="flex items-center gap-4 border-b pb-4 mb-4"><label class="w-14 h-14 rounded-xl border-2 border-dashed bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer"><img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-cover"><i v-else class="fa-solid fa-school text-gray-300 text-xl"></i><input type="file" @change="e => {const r=new FileReader(); r.onload=ev=>{settings.logo=ev.target.result; saveSettings(true)}; r.readAsDataURL(e.target.files[0])}" class="hidden"></label><div class="flex-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Instituição</label><input v-model="settings.schoolName" placeholder="Escola" class="font-bold text-indigo-700 text-lg w-full outline-none bg-transparent" @change="saveSettings(true)"></div></div>
                     <div class="space-y-3">
                         <div v-if="editingExamId" class="bg-indigo-50 border border-indigo-200 text-indigo-800 p-3 rounded-xl mb-3 text-xs shadow-inner">
                             <div class="flex justify-between font-black mb-1 text-sm items-center">
@@ -1382,7 +1361,7 @@
                                 <div class="font-bold text-sm text-gray-800 leading-tight">{{e?.title}}</div>
                                 <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-1.5 mb-2"><i class="fa-regular fa-calendar-check text-indigo-400"></i> Editada em: <span class="font-bold text-gray-600">{{formatDateTime(e?.date)}}</span></div>
                                 <div class="text-[9px] font-black uppercase tracking-widest flex gap-1.5">
-                                    <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">{{ e.classIds && e.classIds.length > 1 ? e.classIds.length + ' Turmas' : getClassName(e?.classId) }}</span>
+                                    <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">{{getClassName(e?.classId)}}</span>
                                     <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md border border-gray-200">{{e?.bimester}}º Bim</span>
                                 </div>
                             </div>
@@ -1740,7 +1719,7 @@
         </div>
 
         <!-- MODAL SCANNER MANUAL -->
-        <div v-if="showManualInputModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-fade-in"><div class="flex justify-between mb-4"><h3 class="font-bold">Lançamento Manual</h3><button @click="showManualInputModal=false"><i class="fa-solid fa-times"></i></button></div><div class="space-y-4"><select v-model="manualConfig.examId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar prova...</option><option v-for="e in printableExams" :key="e.id" :value="e?.id">{{e?.title}}</option></select><select v-if="manualConfig.examId" v-model="manualConfig.studentId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar aluno...</option><option v-for="s in manualStudents" :key="s.id" :value="s.id">{{s.name}}</option></select><select v-if="manualConfig.studentId" v-model="manualConfig.version" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option v-for="(v,i) in selectedExamVersions" :key="i" :value="i">Tipo {{i+1}}</option></select><button @click="confirmManualEntry" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Avançar para Preenchimento</button></div></div></div>
+        <div v-if="showManualInputModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-fade-in"><div class="flex justify-between mb-4"><h3 class="font-bold">Lançamento Manual</h3><button @click="showManualInputModal=false"><i class="fa-solid fa-times"></i></button></div><div class="space-y-4"><select v-model="manualConfig.examId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar prova...</option><option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option></select><select v-if="manualConfig.examId" v-model="manualConfig.studentId" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option value="">Selecionar aluno...</option><option v-for="s in manualStudents" :key="s.id" :value="s.id">{{s.name}}</option></select><select v-if="manualConfig.studentId" v-model="manualConfig.version" class="w-full p-2.5 bg-gray-50 rounded-lg text-sm border font-bold"><option v-for="(v,i) in selectedExamVersions" :key="i" :value="i">Tipo {{i+1}}</option></select><button @click="confirmManualEntry" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Avançar para Preenchimento</button></div></div></div>
 
         <!-- MODAL LANÇAMENTO DIRETO DE NOTA (EM MASSA / TURMA) -->
         <div v-if="showDirectGradeModal" class="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-4">
@@ -1827,7 +1806,7 @@
                         <div class="space-y-2">
                             <select v-model="aiCorrectionConfig.examId" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold outline-none focus:border-pink-500">
                                 <option value="">1. Selecionar prova...</option>
-                                <option v-for="e in printableExams" :key="e.id" :value="e?.id">{{e?.title}}</option>
+                                <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
                             </select>
                             <select v-if="aiCorrectionConfig.examId" v-model="aiCorrectionConfig.studentId" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold outline-none focus:border-pink-500">
                                 <option value="">2. Selecionar aluno...</option>
@@ -1887,17 +1866,6 @@
 
     <!-- SCRIPT -->
     <script>
-        /*
-         * [NEXUS APP - MAPA DE EDIÇÃO PARA IAs]
-         * [JS:00-BOOT-DB] banco local Dexie e migrações.
-         * [JS:10-STATE] estados reativos, modais, filtros e configurações.
-         * [JS:20-HELPERS] funções utilitárias reutilizáveis.
-         * [JS:30-DIARIO-AGENDA-PLANOS] frequência, horários, agenda e planos.
-         * [JS:40-TURMAS-QUESTOES] CRUD de turmas, alunos e banco de questões.
-         * [JS:50-PROVAS-PDF] geração, reimpressão, gabarito, espelho e 2ª chamada.
-         * [JS:60-CORRECAO] leitura manual/QR/IA. Dependências externas preservadas.
-         * Não foram alterados empacotamento offline/PWA/CDN nem o fluxo de IA/câmera/chave Gemini.
-         */
         const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
         const db = new Dexie('NexusAppDB');
         
@@ -1935,15 +1903,6 @@
         db.version(8).stores({ 
             classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
             results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
-            schedules: '++id, classId', attendance: '++id, classId, date, studentId',
-            seatingPlans: 'classId', agendaNotes: '++id, date, createdAt',
-            lessonPlans: '++id, date, type'
-        });
-
-        // Versão 9: indexação de resultados por aluno/prova para exclusão em cascata segura
-        db.version(9).stores({ 
-            classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
-            results:'++id, examId, studentId', settings:'id', extraPoints: '++id, studentId, bimester',
             schedules: '++id, classId', attendance: '++id, classId, date, studentId',
             seatingPlans: 'classId', agendaNotes: '++id, date, createdAt',
             lessonPlans: '++id, date, type'
@@ -2865,222 +2824,6 @@ Texto original do professor: "${textToImprove}"`;
                 const correctionMode = ref(false);
                 const showManualInputModal = ref(false);
                 const manualConfig = ref({examId:'',studentId:'',version:0});
-
-                // [JS:20-HELPERS-EXAMS] Utilitários centrais para provas, turmas e versões.
-                const toNumericId = (value) => Number(value);
-                const uniqueNumbers = (arr) => [...new Set((arr || []).map(toNumericId).filter(n => !Number.isNaN(n)) )];
-                const normalizeExamClassIds = (exam) => {
-                    if (!exam) return [];
-                    const ids = Array.isArray(exam.classIds) && exam.classIds.length ? exam.classIds : [exam.classId];
-                    return uniqueNumbers(ids);
-                };
-                const getClassNamesForExam = (exam) => {
-                    const names = normalizeExamClassIds(exam).map(id => getClassName(id)).filter(Boolean);
-                    return names.length ? names.join(', ') : 'Sem turma';
-                };
-                const getStudentsForClassIds = (classIds) => {
-                    const idSet = new Set(uniqueNumbers(classIds));
-                    return students.value
-                        .filter(s => idSet.has(Number(s.classId)))
-                        .sort((a,b) => a.name.localeCompare(b.name));
-                };
-                const getStudentsForExam = (exam) => getStudentsForClassIds(normalizeExamClassIds(exam));
-                const getStudentsForExamConfig = () => getStudentsForClassIds(examConfig.value.classIds || []);
-                const getOrderedStudentsForClassIds = (classIds) => {
-                    const ordered = [];
-                    uniqueNumbers(classIds).forEach(cId => {
-                        students.value
-                            .filter(s => Number(s.classId) === Number(cId))
-                            .sort((a,b) => a.name.localeCompare(b.name))
-                            .forEach(s => ordered.push(s));
-                    });
-                    return ordered;
-                };
-                const getCorrectIndex = (q) => {
-                    const raw = q ? (q.correctIndex ?? q.correct ?? 0) : 0;
-                    const value = Number(raw);
-                    if (!Number.isFinite(value)) return 0;
-                    const max = q?.type === 'ce' ? 1 : 4;
-                    return Math.max(0, Math.min(max, value));
-                };
-                const hasMarkedAnswers = (answers) => Object.values(answers || {}).some(v => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)));
-                const isPrintableExam = (exam) => !!(exam && !exam.isExternal && Array.isArray(exam.versions) && exam.versions.length > 0);
-                const ensureExamVersions = (exam) => {
-                    if (!exam) return [];
-                    if (!Array.isArray(exam.versions) || exam.versions.length === 0) {
-                        exam.versions = [{ questions: exam.questions || [] }];
-                    }
-                    return exam.versions;
-                };
-                const getStudentVersionIndex = (exam, studentId, fallbackIndex = 0) => {
-                    const versions = ensureExamVersions(exam);
-                    if (!versions.length) return 0;
-                    const map = exam.studentVersionMap || {};
-                    const mapped = map[String(studentId)] ?? map[Number(studentId)];
-                    const idx = Number(mapped);
-                    if (Number.isFinite(idx) && idx >= 0 && idx < versions.length) return idx;
-                    return Math.max(0, fallbackIndex) % versions.length;
-                };
-                const buildStudentVersionMap = (exam, orderedStudents) => {
-                    const versions = ensureExamVersions(exam);
-                    const map = {};
-                    if (!versions.length) return map;
-                    orderedStudents.forEach((student, index) => {
-                        map[String(student.id)] = index % versions.length;
-                    });
-                    return map;
-                };
-                const recalculateResultPreservingDirectGrade = async (exam, result) => {
-                    if (!exam || !result) return;
-                    if (!hasMarkedAnswers(result.answers)) return; // nota direta/manual sem marcações deve ser preservada
-                    await saveExamResult(exam.id, result.studentId, result.studentName, result.version || 0, result.answers, result.debugImage, result.needsReview, result.isManual, result.isIncomplete);
-                };
-                const deepClone = (value) => JSON.parse(JSON.stringify(value));
-                const stableSeed = (...parts) => parts.join('|').split('').reduce((acc, ch) => ((acc * 31) + ch.charCodeAt(0)) >>> 0, 2166136261);
-                const stableShuffleArray = (arr, seed) => {
-                    const out = [...arr];
-                    let state = seed || 1;
-                    const nextRand = () => {
-                        state = (state * 1664525 + 1013904223) >>> 0;
-                        return state / 4294967296;
-                    };
-                    for (let i = out.length - 1; i > 0; i--) {
-                        const j = Math.floor(nextRand() * (i + 1));
-                        [out[i], out[j]] = [out[j], out[i]];
-                    }
-                    return out;
-                };
-                const normalizeBooleanAnswer = (value) => {
-                    if (typeof value === 'boolean') return value;
-                    if (typeof value === 'number') return value === 1;
-                    if (typeof value === 'string') {
-                        const v = value.trim().toLowerCase();
-                        return ['true', 'v', 'verdadeiro', '1', 'certo', 'sim'].includes(v);
-                    }
-                    return false;
-                };
-                const buildChoiceAlternatives = (correctSeq, correctIndex, seed) => {
-                    const correctText = correctSeq.join(', ');
-                    const choices = new Array(5).fill(null);
-                    choices[correctIndex] = correctText;
-                    const seen = new Set([correctText]);
-                    for (let i = 0; i < 5; i++) {
-                        if (choices[i]) continue;
-                        let attempt = 0;
-                        let candidate = '';
-                        do {
-                            const variantSeed = seed + i * 17 + attempt * 31;
-                            const fake = correctSeq.map((val, idx) => {
-                                const flip = ((variantSeed + idx + attempt) % 2) === 0;
-                                if (val === 'V' || val === 'F') return flip ? (val === 'V' ? 'F' : 'V') : val;
-                                return val;
-                            });
-                            if (fake.join(', ') === correctText && fake.length > 1) fake.reverse();
-                            if (fake.join(', ') === correctText && fake.length === 1) fake[0] = fake[0] === 'V' ? 'F' : 'V';
-                            candidate = fake.join(', ');
-                            attempt++;
-                        } while (seen.has(candidate) && attempt < 12);
-                        if (seen.has(candidate)) candidate = correctSeq.slice().reverse().join(', ');
-                        if (seen.has(candidate)) candidate = `${candidate} `;
-                        seen.add(candidate);
-                        choices[i] = candidate;
-                    }
-                    return choices;
-                };
-                const buildAssocAlternatives = (correctSeq, correctIndex, seed) => {
-                    const correctText = correctSeq.join(', ');
-                    const choices = new Array(5).fill(null);
-                    choices[correctIndex] = correctText;
-                    const seen = new Set([correctText]);
-                    for (let i = 0; i < 5; i++) {
-                        if (choices[i]) continue;
-                        let fake = [...correctSeq];
-                        const shift = ((seed + i) % Math.max(fake.length, 1));
-                        fake = fake.slice(shift).concat(fake.slice(0, shift));
-                        if ((seed + i) % 2 === 0) fake.reverse();
-                        if (fake.join(', ') === correctText && fake.length > 1) [fake[0], fake[1]] = [fake[1], fake[0]];
-                        let candidate = fake.join(', ');
-                        if (seen.has(candidate)) candidate = stableShuffleArray(correctSeq, seed + i * 101).join(', ');
-                        if (seen.has(candidate)) candidate = `${candidate} `;
-                        seen.add(candidate);
-                        choices[i] = candidate;
-                    }
-                    return choices;
-                };
-                const refreshGeneratedChoicesForQuestion = (q, versionIndex = 0) => {
-                    if (!q) return q;
-                    q.correctIndex = getCorrectIndex(q);
-                    q.correct = q.correctIndex;
-                    const seed = stableSeed(q.id || q.text || 'q', versionIndex, q.type || '');
-                    if (q.type === 'vf') {
-                        const correctSeq = (q.options || []).map(o => normalizeBooleanAnswer(o.isTrue) ? 'V' : 'F');
-                        q.generatedChoices = buildChoiceAlternatives(correctSeq, q.correctIndex, seed);
-                    } else if (q.type === 'assoc') {
-                        const matchItems = (Array.isArray(q.assocMatchItems) && q.assocMatchItems.length)
-                            ? q.assocMatchItems
-                            : (q.options || []).map((o, i) => ({ id: i + 1, match: o.match }));
-                        q.assocMatchItems = matchItems;
-                        const correctSeq = matchItems.map(m => m.id);
-                        q.generatedChoices = buildAssocAlternatives(correctSeq, q.correctIndex, seed);
-                    }
-                    return q;
-                };
-                const preparePrintableQuestion = (question, versionIndex, shouldShuffle) => {
-                    const q = deepClone(question);
-                    const seed = stableSeed(q.id || q.text || 'q', versionIndex, q.type || '');
-                    if (q.type === 'mc') {
-                        const originalCorrect = Number(q.correctIndex ?? q.correct ?? 0);
-                        const correctText = q.options?.[originalCorrect]?.text;
-                        if (shouldShuffle && Array.isArray(q.options)) {
-                            q.options = stableShuffleArray(q.options, seed);
-                            q.correctIndex = Math.max(0, q.options.findIndex(o => o.text === correctText));
-                        } else {
-                            q.correctIndex = originalCorrect;
-                        }
-                    } else if (q.type === 'ce') {
-                        q.correctIndex = Number(q.correctIndex ?? q.correct ?? 0);
-                    } else if (q.type === 'vf') {
-                        q.correctIndex = Number(q.correctIndex ?? ((Number(q.id || 0) + versionIndex) % 5));
-                        const correctSeq = (q.options || []).map(o => normalizeBooleanAnswer(o.isTrue) ? 'V' : 'F');
-                        q.generatedChoices = buildChoiceAlternatives(correctSeq, q.correctIndex, seed);
-                    } else if (q.type === 'assoc') {
-                        q.correctIndex = Number(q.correctIndex ?? ((Number(q.id || 0) + versionIndex) % 5));
-                        let matchItems = (q.options || []).map((o, i) => ({ id: i + 1, match: o.match }));
-                        if (shouldShuffle) matchItems = stableShuffleArray(matchItems, seed);
-                        q.assocMatchItems = matchItems;
-                        const correctSeq = matchItems.map(m => m.id);
-                        q.generatedChoices = buildAssocAlternatives(correctSeq, q.correctIndex, seed);
-                    } else {
-                        q.correctIndex = Number(q.correctIndex ?? q.correct ?? 0);
-                    }
-                    q.correctIndex = getCorrectIndex(q);
-                    q.correct = q.correctIndex;
-                    return q;
-                };
-                const buildPrintableVersionQuestions = (versionIndex) => examCart.value.map(q => preparePrintableQuestion(q, versionIndex, versionIndex > 0));
-                const applySafeQuestionTextUpdates = (exam, editedQuestions) => {
-                    if (!exam || !Array.isArray(exam.versions) || !Array.isArray(editedQuestions)) return exam;
-                    const editedById = new Map(editedQuestions.filter(q => q && q.id !== undefined).map(q => [q.id, q]));
-                    exam.versions.forEach(version => {
-                        (version.questions || []).forEach(q => {
-                            const edited = editedById.get(q.id);
-                            if (!edited) return;
-                            q.text = edited.text;
-                            q.image = edited.image || null;
-                            q.subject = edited.subject;
-                            q.topic = edited.topic;
-                            q.justification = edited.justification || '';
-                            if (Array.isArray(q.options) && Array.isArray(edited.options)) {
-                                q.options.forEach((opt, idx) => {
-                                    if (!edited.options[idx]) return;
-                                    opt.text = edited.options[idx].text;
-                                    if (q.type === 'assoc') opt.match = edited.options[idx].match;
-                                });
-                            }
-                        });
-                    });
-                    return exam;
-                };
                 
                 // Direct Grade Input (Em Massa)
                 const showDirectGradeModal = ref(false);
@@ -3091,7 +2834,7 @@ Texto original do professor: "${textToImprove}"`;
                     if (!directConfig.value.examId) return [];
                     const ex = exams.value.find(e => e.id === directConfig.value.examId);
                     if (!ex) return [];
-                    return getStudentsForExam(ex);
+                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
                 });
                 const filteredDirectStudents = computed(() => {
                     let list = directStudents.value;
@@ -3113,13 +2856,13 @@ Texto original do professor: "${textToImprove}"`;
                     if (!aiCorrectionConfig.value.examId) return [];
                     const ex = exams.value.find(e => e.id === aiCorrectionConfig.value.examId);
                     if (!ex) return [];
-                    return getStudentsForExam(ex);
+                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
                 });
 
                 const aiCorrectionExamVersions = computed(() => {
                     if (!aiCorrectionConfig.value.examId) return [];
                     const ex = exams.value.find(e => e.id === aiCorrectionConfig.value.examId);
-                    return isPrintableExam(ex) ? ex.versions : [];
+                    return ex ? ex.versions : [];
                 });
 
                 const startAICorrectionEntry = () => {
@@ -3464,55 +3207,10 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     reader.readAsDataURL(file);
                 };
 
-                // --- UPLOAD E COMPRESSÃO DO LOGÓTIPO DA ESCOLA ---
-                const uploadLogo = async (event) => {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    showToast("Processando logótipo...", "loading");
-
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const img = new Image();
-                        img.onload = async () => {
-                            const canvas = document.createElement('canvas');
-                            const MAX_SIZE = 300; // Tamanho ideal para o cabeçalho dos PDFs
-                            let width = img.width;
-                            let height = img.height;
-
-                            // Mantém a proporção da imagem
-                            if (width > height) {
-                                if (width > MAX_SIZE) {
-                                    height *= MAX_SIZE / width;
-                                    width = MAX_SIZE;
-                                }
-                            } else {
-                                if (height > MAX_SIZE) {
-                                    width *= MAX_SIZE / height;
-                                    height = MAX_SIZE;
-                                }
-                            }
-
-                            canvas.width = width;
-                            canvas.height = height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, width, height);
-
-                            // Comprime para formato leve
-                            const base64Logo = canvas.toDataURL('image/jpeg', 0.8);
-                            
-                            settings.value.logo = base64Logo;
-                            await saveSettings(true); // O 'true' silencia o toast padrão de settings
-                            showToast('Logótipo atualizado com sucesso!', 'success');
-                        };
-                        img.src = e.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                };
-
                 // --- MAPA DE SALA (SEATING PLAN) ---
                 const openSeatingPlan = async (classId) => {
                     seatingClassId.value = classId;
-                    seatingStudents.value = students.value.filter(s => Number(s.classId) === Number(classId));
+                    seatingStudents.value = students.value.filter(s => s.classId === classId);
                     
                     let plan = await db.seatingPlans.get(classId);
                     if (plan) {
@@ -3714,7 +3412,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         }
                     });
                     
-                    students.value.filter(s=>s && Number(s.classId)===Number(diaryClassId.value)).forEach(s => {
+                    students.value.filter(s=>s && s.classId===diaryClassId.value).forEach(s => {
                         if(s && s.id && !map[s.id]) map[s.id] = 'P'; // Presença por omissão
                     });
                     
@@ -3805,7 +3503,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 const printAttendanceSheet = () => {
                     if(!diaryClassId.value) return;
                     const cName = getClassName(diaryClassId.value);
-                    let stds = students.value.filter(s => Number(s.classId) === Number(diaryClassId.value)).sort((a,b) => a.name.localeCompare(b.name));
+                    let stds = students.value.filter(s => s.classId === diaryClassId.value).sort((a,b) => a.name.localeCompare(b.name));
                     
                     if(stds.length === 0) return showToast('Esta turma não tem alunos registrados.', 'warning');
 
@@ -4049,8 +3747,6 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${geminiKey.value}`;
 
                     const payload = { contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.2, responseMimeType:"application/json"} };
-                    // [IA:SCHEMA-RESPOSTA] Envia o schema quando disponível para reduzir respostas fora do formato esperado.
-                    if (schema) payload.generationConfig.responseSchema = schema;
                     if(base64Img) payload.contents[0].parts.push({inlineData:{mimeType, data:base64Img}});
 
                     let retries=3, delay=2000;
@@ -4070,23 +3766,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 throw new Error("Erro API: A Geração foi bloqueada por Segurança ou retornou vazia.");
                             }
 
-                            const rawText = d.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
-                            if (!rawText) throw new Error("Erro API: resposta vazia da IA.");
-                            const cleanedText = rawText.replace(/```json/gi,'').replace(/```/g,'').trim();
-                            try {
-                                return JSON.parse(cleanedText);
-                            } catch(parseErr) {
-                                // [IA:JSON-RECUPERACAO] Recupera JSON quando o modelo devolve texto ao redor do objeto/array.
-                                const firstObj = cleanedText.indexOf('{');
-                                const lastObj = cleanedText.lastIndexOf('}');
-                                const firstArr = cleanedText.indexOf('[');
-                                const lastArr = cleanedText.lastIndexOf(']');
-                                let candidate = '';
-                                if (firstObj !== -1 && lastObj > firstObj) candidate = cleanedText.slice(firstObj, lastObj + 1);
-                                else if (firstArr !== -1 && lastArr > firstArr) candidate = cleanedText.slice(firstArr, lastArr + 1);
-                                if (candidate) return JSON.parse(candidate);
-                                throw new Error("A IA respondeu fora do formato JSON esperado. Tente gerar novamente.");
-                            }
+                            return JSON.parse(d.candidates[0].content.parts[0].text.replace(/```json/gi,'').replace(/```/g,'').trim());
                         } catch(e) {
                             if(e.message && (e.message.includes('Erro API Google') || e.message.includes('Segurança'))) {
                                 throw e;
@@ -4631,42 +4311,18 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                         let aiResult = await fetchGemini(promptText, schema);
                         
-                        // [IA:QUESTOES-NORMALIZACAO] Evita o erro "Cannot read properties of undefined (reading 'questions')".
-                        // Alguns modelos devolvem {questions:[...]}, outros {items:[...]}, {data:{questions:[...]}} ou diretamente um array.
-                        const extractAIQuestions = (result) => {
-                            if (!result) return [];
-                            if (Array.isArray(result)) return result;
-                            if (Array.isArray(result.questions)) return result.questions;
-                            if (Array.isArray(result.items)) return result.items;
-                            if (Array.isArray(result.questoes)) return result.questoes;
-                            if (Array.isArray(result.data)) return result.data;
-                            if (result.data && Array.isArray(result.data.questions)) return result.data.questions;
-                            if (result.prova && Array.isArray(result.prova.questions)) return result.prova.questions;
-                            if (result.prova && Array.isArray(result.prova.questoes)) return result.prova.questoes;
-                            const arrKey = Object.keys(result).find(k => Array.isArray(result[k]));
-                            if (arrKey) return result[arrKey];
-                            return [];
-                        };
-
-                        let gq = extractAIQuestions(aiResult);
-                        if(!Array.isArray(gq) || gq.length === 0) {
-                            console.warn('[IA] Resposta recebida sem array de questões:', aiResult);
-                            throw new Error("A IA não devolveu uma lista de questões no formato esperado. Tente novamente ou reduza a quantidade solicitada.");
+                        let gq = aiResult.questions || aiResult.items || aiResult;
+                        if (typeof gq === 'object' && !Array.isArray(gq)) {
+                            const arrKey = Object.keys(gq).find(k => Array.isArray(gq[k]));
+                            gq = arrKey ? gq[arrKey] : [gq];
                         }
+                        if(!Array.isArray(gq) || gq.length === 0) throw new Error("A IA não gerou conteúdo. Tente novamente.");
                         
                         gq = gq.map(q => {
-                            q = q || {};
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
-
-                            const rawType = String(q.type || q.tipo || 'mc').toLowerCase().trim();
-                            if (['multipla', 'multipla_escolha', 'múltipla escolha', 'multiple_choice', 'mc_incorrect', 'incorreta'].includes(rawType)) q.type = 'mc';
-                            else if (['certo_errado', 'certo/errado', 'ce', 'c/e'].includes(rawType)) q.type = 'ce';
-                            else if (['verdadeiro_falso', 'verdadeiro/falso', 'vf', 'v/f'].includes(rawType)) q.type = 'vf';
-                            else if (['associacao', 'associação', 'assoc', 'matching'].includes(rawType)) q.type = 'assoc';
-                            else q.type = ['mc','ce','vf','assoc'].includes(rawType) ? rawType : 'mc';
                             
-                            let extractedText = String(q.text || q.enunciado || q.pergunta || q.question || "").trim();
+                            let extractedText = (q.text || q.enunciado || q.pergunta || q.question || "").trim();
                             if (!extractedText) {
                                 if (q.type === 'vf') extractedText = "Julgue as afirmativas abaixo como verdadeiras (V) ou falsas (F):";
                                 else if (q.type === 'assoc') extractedText = "Associe corretamente os conceitos às suas respectivas definições:";
@@ -4800,17 +4456,8 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                 };
 
                 // --- SCORES & RESULTS ---
-                const getVersionQuestions = (exam, vIdx) => { const versions = ensureExamVersions(exam); return versions[vIdx] ? (versions[vIdx].questions || []) : (versions[0]?.questions || []); };
-                const calculateExamScore = (ansObj, qArr) => {
-                    if (!Array.isArray(qArr) || qArr.length === 0) return '0.0';
-                    let hits = 0;
-                    qArr.forEach((q, i) => {
-                        const c = getCorrectIndex(q);
-                        const a = ansObj ? Number(ansObj[i]) : NaN;
-                        if (Number.isFinite(a) && a === c) hits++;
-                    });
-                    return ((hits / qArr.length) * 10).toFixed(1);
-                };
+                const getVersionQuestions = (exam, vIdx) => { if(!exam.versions) return exam.questions||[]; return exam.versions[vIdx]?exam.versions[vIdx].questions:exam.versions[0].questions; };
+                const calculateExamScore = (ansObj, qArr) => { let hits=0; qArr.forEach((q,i)=>{let c=q.type==='vf'||q.type==='assoc'?(q.id||0)%5:q.correctIndex; if(ansObj[i]===c)hits++;}); return ((hits/qArr.length)*10).toFixed(1); };
 
                 const saveExamResult = async (examId, sId, sName, vIdx, ans, debugImg = null, needsReview = false, isManual = false, isIncomplete = false) => {
                     const ex=exams.value.find(e=>e.id===examId), qArr=getVersionQuestions(ex,vIdx);
@@ -4856,7 +4503,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                         studentName: resObj.studentName,
                         answers: JSON.parse(JSON.stringify(resObj.answers || {})),
                         debugImage: resObj.debugImage,
-                        questions: v.map(q => ({ ...q, correctIndex: getCorrectIndex(q) }))
+                        questions: v.map(q => ({ ...q, correctIndex: (q.type === 'vf' || q.type === 'assoc') ? (q.id || 0) % 5 : q.correctIndex }))
                     };
                     showResultDetailsModal.value = true;
                 };
@@ -4898,15 +4545,14 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                                 let q = exam.versions[vIdx].questions[qIndex];
 
                                 q.correctIndex = newVal;
-                                q.correct = newVal;
-                                refreshGeneratedChoicesForQuestion(q, vIdx);
+                                q.correct = newVal; 
 
                                 await db.exams.put(exam);
                                 exams.value = await db.exams.orderBy('id').reverse().toArray();
 
                                 let rs = results.value.filter(res => res.examId === exam.id && res.version === vIdx);
                                 for(let res of rs) {
-                                    await recalculateResultPreservingDirectGrade(exam, res);
+                                    await saveExamResult(exam.id, res.studentId, res.studentName, res.version, res.answers, res.debugImage, res.needsReview, res.isManual, res.isIncomplete);
                                 }
 
                                 let updatedResult = results.value.find(x => x.id === rd.resultId);
@@ -4936,24 +4582,15 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                 const goToExternalGrades = () => {
                     if (!externalConfig.value.title || !externalConfig.value.classId) return showToast("Preencha título e turma.", "warning");
-                    externalStudents.value = students.value.filter(s => Number(s.classId) === Number(externalConfig.value.classId)).sort((a,b) => a.name.localeCompare(b.name));
+                    externalStudents.value = students.value.filter(s => s.classId === externalConfig.value.classId).sort((a,b) => a.name.localeCompare(b.name));
                     if (externalStudents.value.length === 0) return showToast("Esta turma não tem alunos.", "warning");
                     externalExamStep.value = 2;
                 };
 
                 const saveExternalExam = async () => {
-                    const hasAtLeastOneValidGrade = externalStudents.value.some(s => {
-                        const raw = externalGrades.value[s.id];
-                        if (raw === undefined || raw === null || raw === '') return false;
-                        const n = parseFloat(String(raw).replace(',', '.'));
-                        return Number.isFinite(n) && n >= 0 && n <= 10;
-                    });
-                    if (!hasAtLeastOneValidGrade) return showToast("Informe pelo menos uma nota válida entre 0 e 10.", "warning");
-
                     const eId = await db.exams.add({
                         title: externalConfig.value.title,
-                        classId: Number(externalConfig.value.classId),
-                        classIds: [Number(externalConfig.value.classId)],
+                        classId: externalConfig.value.classId,
                         bimester: externalConfig.value.bimester,
                         date: new Date(externalConfig.value.date + "T12:00:00.000Z").getTime(),
                         isExternal: true,
@@ -4962,42 +4599,31 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     });
                     
                     let count = 0;
-                    let invalidCount = 0;
                     for (const s of externalStudents.value) {
                         let scoreStr = externalGrades.value[s.id];
                         if (scoreStr !== undefined && scoreStr !== null && scoreStr !== '') {
-                            const scoreNum = parseFloat(String(scoreStr).replace(',', '.'));
-                            if (!Number.isFinite(scoreNum) || scoreNum < 0 || scoreNum > 10) {
-                                invalidCount++;
-                                continue;
-                            }
                             await db.results.add({
                                 examId: eId,
                                 studentId: s.id,
                                 studentName: s.name,
-                                score: scoreNum.toFixed(1),
+                                score: parseFloat(scoreStr).toFixed(1),
                                 bonus: 0,
                                 date: Date.now(),
                                 answers: {},
                                 maxScore: 10,
-                                version: 0,
-                                isManual: true,
-                                isIncomplete: false,
-                                needsReview: false
+                                version: 0
                             });
                             count++;
                         }
                     }
                     
-                    if (invalidCount > 0) showToast(`${invalidCount} nota(s) inválida(s) foram ignoradas. Use valores de 0 a 10.`, "warning");
-                    if (count === 0) return showToast("Nenhuma nota válida foi lançada.", "warning");
                     showToast(`${count} notas lançadas com sucesso!`, "success");
                     showExternalExamModal.value = false;
                     load();
                 };
 
                 const startManualEntry=()=>{manualConfig.value={examId:'',studentId:'',version:0};showManualInputModal.value=true;};
-                const confirmManualEntry=()=>{if(!manualConfig.value.examId||!manualConfig.value.studentId)return; activeExam.value=exams.value.find(e=>e.id===manualConfig.value.examId); if(!isPrintableExam(activeExam.value)) return showToast('Selecione uma prova gerada pelo app. Prova externa deve ser lançada pelo fluxo próprio.', 'warning'); activeStudent.value=students.value.find(s=>s.id===manualConfig.value.studentId); activeVersion.value=manualConfig.value.version; studentAnswers.value={}; showManualInputModal.value=false; correctionMode.value=true;};
+                const confirmManualEntry=()=>{if(!manualConfig.value.examId||!manualConfig.value.studentId)return; activeExam.value=exams.value.find(e=>e.id===manualConfig.value.examId); activeStudent.value=students.value.find(s=>s.id===manualConfig.value.studentId); activeVersion.value=manualConfig.value.version; studentAnswers.value={}; showManualInputModal.value=false; correctionMode.value=true;};
                 
                 // Lançamento Direto (Pauta da Turma)
                 const startDirectGradeEntry = () => { directConfig.value = {examId: ''}; directGrades.value = {}; directSearchQuery.value = ''; showDirectGradeModal.value = true; };
@@ -5006,7 +4632,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     if (!directConfig.value.examId) return;
                     const ex = exams.value.find(e => e.id === directConfig.value.examId);
                     if (!ex) return;
-                    const stds = getStudentsForExam(ex);
+                    const stds = students.value.filter(s => s.classId === ex.classId);
                     stds.forEach(s => {
                         const r = results.value.find(res => res.examId === ex.id && res.studentId === s.id);
                         if (r) directGrades.value[s.id] = parseFloat(r.score);
@@ -5017,17 +4643,15 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     
                     const ex = exams.value.find(e => e.id === directConfig.value.examId);
                     if(!ex) return;
-                    const versions = ensureExamVersions(ex);
+                    const maxQ = ex.versions && ex.versions[0] ? ex.versions[0].questions.length : 10;
                     
                     let count = 0;
-                    for (const [fallbackIndex, s] of directStudents.value.entries()) {
+                    for (const s of directStudents.value) {
                         let scoreStr = directGrades.value[s.id];
                         if (scoreStr !== undefined && scoreStr !== null && scoreStr !== '') {
-                            const scoreNum = parseFloat(String(scoreStr).replace(',', '.'));
+                            const scoreNum = parseFloat(scoreStr);
                             if(!isNaN(scoreNum) && scoreNum >= 0 && scoreNum <= 10) {
                                 const exst = results.value.find(r => r.examId === ex.id && r.studentId === s.id);
-                                const vIdx = exst ? (exst.version || 0) : getStudentVersionIndex(ex, s.id, fallbackIndex);
-                                const maxQ = (versions[vIdx] && Array.isArray(versions[vIdx].questions) && versions[vIdx].questions.length > 0) ? versions[vIdx].questions.length : 10;
                                 const dt = {
                                     examId: ex.id, 
                                     studentId: s.id, 
@@ -5037,7 +4661,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                                     date: Date.now(), 
                                     answers: exst ? exst.answers : {}, 
                                     maxScore: maxQ, 
-                                    version: vIdx, 
+                                    version: exst ? (exst.version || 0) : 0, 
                                     debugImage: exst ? exst.debugImage : null, 
                                     needsReview: false, 
                                     isManual: true, 
@@ -5101,14 +4725,10 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     let textMap = {};
                     let originalOrder = [];
 
-                    exam.versions.forEach(version => {
-                        (version.questions || []).forEach(q => {
-                            if (errorMap[q.id] === undefined) {
-                                errorMap[q.id] = 0;
-                                textMap[q.id] = q.text;
-                                originalOrder.push(q.id);
-                            }
-                        });
+                    exam.versions[0].questions.forEach((q, idx) => {
+                        errorMap[q.id] = 0;
+                        textMap[q.id] = q.text;
+                        originalOrder.push(q.id);
                     });
 
                     examResults.forEach(r => {
@@ -5117,7 +4737,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                         
                         vQuestions.forEach((q, idx) => {
                             let sAns = r.answers[idx];
-                            let correctAns = getCorrectIndex(q);
+                            let correctAns = (q.type === 'vf' || q.type === 'assoc') ? (q.id || 0) % 5 : q.correctIndex;
                             
                             if (sAns === null || sAns === undefined || sAns !== correctAns) {
                                 if (errorMap[q.id] !== undefined) {
@@ -5192,7 +4812,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: `RELATÓRIO DE NOTAS DA AVALIAÇÃO`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
                             { text: `Prova: ${selectedExamForGrades.value.title}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15] },
-                            { text: `Turma(s): ${getClassNamesForExam(selectedExamForGrades.value)} | Lançamentos: ${examGradesList.value.length}`, fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, 20], color: '#4f46e5' }
+                            { text: `Turma: ${getClassName(selectedExamForGrades.value.classId)} | Lançamentos: ${examGradesList.value.length}`, fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, 20], color: '#4f46e5' }
                         ],
                         defaultStyle: { font: 'Roboto' }
                     };
@@ -5231,20 +4851,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                 const loadFixKeyQuestions=()=>{if(!fixKeyExam.value||!fixKeyExam.value.versions)return; fixKeyQuestions.value=JSON.parse(JSON.stringify(fixKeyExam.value.versions[fixKeySelectedVersion.value].questions)).map(q=>({...q,newCorrectIndex:q.correctIndex}));};
                 const openFixKey=(ex)=>{fixKeyExam.value=ex;if(!ex.versions)ex.versions=[{id:0,questions:ex.questions}]; fixKeySelectedVersion.value=0; loadFixKeyQuestions(); showFixKeyModal.value=true;};
-                const saveFixedKey=async()=>{
-                    let uEx=JSON.parse(JSON.stringify(fixKeyExam.value)), vi=Number(fixKeySelectedVersion.value || 0);
-                    uEx.versions[vi].questions.forEach((q,i)=>{
-                        q.correctIndex=Number(fixKeyQuestions.value[i].newCorrectIndex);
-                        q.correct=q.correctIndex;
-                        refreshGeneratedChoicesForQuestion(q, vi);
-                    });
-                    await db.exams.put(uEx);
-                    exams.value=await db.exams.orderBy('id').reverse().toArray();
-                    let rs=results.value.filter(r=>r.examId===uEx.id&&Number(r.version||0)===vi);
-                    for(let r of rs) await recalculateResultPreservingDirectGrade(uEx, r);
-                    showFixKeyModal.value=false;
-                    showToast(`Gabarito V${vi+1} salvo! ${rs.filter(r=>hasMarkedAnswers(r.answers)).length} nota(s) recalculada(s); notas diretas preservadas.`, "success");
-                };
+                const saveFixedKey=async()=>{let uEx=JSON.parse(JSON.stringify(fixKeyExam.value)), vi=fixKeySelectedVersion.value; uEx.versions[vi].questions.forEach((q,i)=>q.correctIndex=fixKeyQuestions.value[i].newCorrectIndex); await db.exams.put(uEx); exams.value=await db.exams.orderBy('id').reverse().toArray(); let rs=results.value.filter(r=>r.examId===uEx.id&&r.version===vi); for(let r of rs) await saveExamResult(uEx.id,r.studentId,r.studentName,r.version,r.answers); showFixKeyModal.value=false; showToast(`Gabarito V${vi+1} salvo! ${rs.length} notas recalculadas.`,"success");};
 
                 // --- QR SCANNER ---
                 const startLiveQRScan = (mode = 'correction') => {
@@ -5360,38 +4967,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                 };
 
                 const addClass=async()=>{if(newClass.value){await db.classes.add({name:newClass.value}); newClass.value=''; load(); showToast("Criada","success")}};
-                const deleteClass=(id)=>{triggerConfirm("Tem certeza que deseja apagar esta turma e todos os seus alunos?",async()=>{
-                    const classId = Number(id);
-                    const studentIds = students.value.filter(s=>Number(s.classId)===classId).map(s=>s.id);
-                    await db.transaction('rw', db.classes, db.students, db.results, db.extraPoints, db.attendance, db.schedules, db.seatingPlans, db.exams, async () => {
-                        if (studentIds.length) {
-                            await db.students.bulkDelete(studentIds);
-                            await db.results.where('studentId').anyOf(studentIds).delete();
-                            await db.extraPoints.where('studentId').anyOf(studentIds).delete();
-                            await db.attendance.where('studentId').anyOf(studentIds).delete();
-                        }
-                        await db.attendance.where('classId').equals(classId).delete();
-                        await db.schedules.where('classId').equals(classId).delete();
-                        await db.seatingPlans.delete(classId);
-                        const linkedExams = await db.exams.toArray();
-                        for (const ex of linkedExams) {
-                            const ids = normalizeExamClassIds(ex);
-                            if (!ids.includes(classId)) continue;
-                            const remaining = ids.filter(cid => cid !== classId);
-                            if (remaining.length) {
-                                ex.classIds = remaining;
-                                ex.classId = remaining[0];
-                                if (ex.studentVersionMap && studentIds.length) studentIds.forEach(sid => delete ex.studentVersionMap[String(sid)]);
-                                await db.exams.put(ex);
-                            } else {
-                                await db.exams.delete(ex.id);
-                            }
-                        }
-                        await db.classes.delete(classId);
-                    });
-                    load();
-                    showToast("Turma e dados vinculados removidos.", "success");
-                })};
+                const deleteClass=(id)=>{triggerConfirm("Tem certeza que deseja apagar esta turma e todos os seus alunos?",async()=>{await db.students.bulkDelete(students.value.filter(s=>Number(s.classId)===Number(id)).map(s=>s.id)); await db.classes.delete(id); load();})};
                 const saveStudents=(cid)=>{if(!bulkStudents.value[cid])return; triggerConfirm("Tem certeza que deseja salvar estes alunos?",async()=>{await db.students.bulkAdd(bulkStudents.value[cid].split('\n').map(n=>n.trim()).filter(n=>n).map(n=>({classId:Number(cid),name:n}))); bulkStudents.value[cid]=''; load();})};
 
                 const toggleClassExpansion = (id) => {
@@ -5438,32 +5014,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                 const deleteQuestion = id => triggerConfirm("Apagar questão?", async() => { await db.questions.delete(id); load(); });
                 const editQuestion = q => { newQ.value = JSON.parse(JSON.stringify(q)); qType.value = q.type; showQFormModal.value = true; };
-                const deleteStudent = id => triggerConfirm("Apagar aluno?", async() => {
-                    const studentId = Number(id);
-                    const std = students.value.find(s => Number(s.id) === studentId);
-                    await db.transaction('rw', db.students, db.results, db.extraPoints, db.attendance, db.seatingPlans, db.exams, async () => {
-                        await db.students.delete(studentId);
-                        await db.results.where('studentId').equals(studentId).delete();
-                        await db.extraPoints.where('studentId').equals(studentId).delete();
-                        await db.attendance.where('studentId').equals(studentId).delete();
-                        if (std?.classId) {
-                            const plan = await db.seatingPlans.get(Number(std.classId));
-                            if (plan?.grid) {
-                                plan.grid = plan.grid.map(cell => Number(cell) === studentId ? null : cell);
-                                await db.seatingPlans.put(plan);
-                            }
-                        }
-                        const linkedExams = await db.exams.toArray();
-                        for (const ex of linkedExams) {
-                            if (ex.studentVersionMap && Object.prototype.hasOwnProperty.call(ex.studentVersionMap, String(studentId))) {
-                                delete ex.studentVersionMap[String(studentId)];
-                                await db.exams.put(ex);
-                            }
-                        }
-                    });
-                    load();
-                    showToast("Aluno e dados vinculados removidos.", "success");
-                });
+                const deleteStudent = id => triggerConfirm("Apagar aluno?", async() => { await db.students.delete(id); load(); });
 
                 // Filtros e Computeds
                 const filteredClasses = computed(() => {
@@ -5472,8 +5023,8 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     const cIds = new Set(students.value.filter(s => s.name.toLowerCase().includes(f)).map(s => s.classId));
                     return classes.value.filter(c => cIds.has(c.id));
                 });
-                const getFilteredStudents = cid => students.value.filter(s => Number(s.classId) === Number(cid) && s.name.toLowerCase().includes(studentFilter.value.toLowerCase())).sort((a,b)=>a.name.localeCompare(b.name));
-                const getStudentCount = cid => students.value.filter(s => Number(s.classId) === Number(cid)).length;
+                const getFilteredStudents = cid => students.value.filter(s => s.classId === cid && s.name.toLowerCase().includes(studentFilter.value.toLowerCase())).sort((a,b)=>a.name.localeCompare(b.name));
+                const getStudentCount = cid => students.value.filter(s => s.classId === cid).length;
                 
                 const uniqueSubjects = computed(() => [...new Set(questions.value.map(q => q.subject))].filter(Boolean));
                 const uniqueTopics = computed(() => [...new Set(questions.value.filter(q => q.subject === (filterSubject.value || newQ.value.subject || aiGenConfig.value.subject || examFilterSubject.value)).map(q => q.topic))].filter(Boolean));
@@ -5489,14 +5040,14 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     let list = exams.value;
                     if(examHistoryFilter.value) {
                         const f = examHistoryFilter.value.toLowerCase();
-                        list = list.filter(e => e.title.toLowerCase().includes(f) || getClassNamesForExam(e).toLowerCase().includes(f));
+                        list = list.filter(e => e.title.toLowerCase().includes(f) || getClassName(e.classId)?.toLowerCase().includes(f));
                     }
                     return list;
                 });
 
                 const filteredStudentsInDiaryClass = computed(() => {
                     if (!diaryClassId.value) return [];
-                    let list = students.value.filter(s => Number(s.classId) === Number(diaryClassId.value)).sort((a,b)=>a.name.localeCompare(b.name));
+                    let list = students.value.filter(s => s.classId === diaryClassId.value).sort((a,b)=>a.name.localeCompare(b.name));
                     if (attendanceStudentFilter.value) {
                         const f = attendanceStudentFilter.value.toLowerCase();
                         list = list.filter(s => s.name.toLowerCase().includes(f));
@@ -5504,39 +5055,17 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     return list;
                 });
 
-                const printableExams = computed(() => exams.value.filter(isPrintableExam));
-
                 const manualStudents = computed(() => {
                     if (!manualConfig.value.examId) return [];
                     const ex = exams.value.find(e => e.id === manualConfig.value.examId);
                     if (!ex) return [];
-                    return getStudentsForExam(ex);
+                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
                 });
 
                 const selectedExamVersions = computed(() => {
                     if (!manualConfig.value.examId) return [];
                     const ex = exams.value.find(e => e.id === manualConfig.value.examId);
-                    return isPrintableExam(ex) ? ex.versions : [];
-                });
-
-                // Mantém o tipo/versão correto automaticamente para o aluno selecionado.
-                // Isso evita correção manual/IA na versão errada quando a prova tem tipos A/B ou 1 por aluno.
-                watch(() => [manualConfig.value.examId, manualConfig.value.studentId], ([examId, studentId]) => {
-                    if (!examId || !studentId) return;
-                    const ex = exams.value.find(e => e.id === examId);
-                    if (!isPrintableExam(ex)) return;
-                    const ordered = getOrderedStudentsForClassIds(normalizeExamClassIds(ex));
-                    const fallbackIndex = Math.max(0, ordered.findIndex(s => Number(s.id) === Number(studentId)));
-                    manualConfig.value.version = getStudentVersionIndex(ex, studentId, fallbackIndex);
-                });
-
-                watch(() => [aiCorrectionConfig.value.examId, aiCorrectionConfig.value.studentId], ([examId, studentId]) => {
-                    if (!examId || !studentId) return;
-                    const ex = exams.value.find(e => e.id === examId);
-                    if (!isPrintableExam(ex)) return;
-                    const ordered = getOrderedStudentsForClassIds(normalizeExamClassIds(ex));
-                    const fallbackIndex = Math.max(0, ordered.findIndex(s => Number(s.id) === Number(studentId)));
-                    aiCorrectionConfig.value.version = getStudentVersionIndex(ex, studentId, fallbackIndex);
+                    return ex ? ex.versions : [];
                 });
 
                 // Lançamentos Recentes (Correção Ligeira)
@@ -5565,7 +5094,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                 const getClassAverage = (cid) => {
                     const res = results.value.filter(r => {
                         const ex = exams.value.find(e => e.id === r.examId);
-                        return ex && normalizeExamClassIds(ex).includes(Number(cid));
+                        return ex && ex.classId === cid;
                     });
                     if (!res.length) return "0.0";
                     const sum = res.reduce((acc, r) => acc + parseFloat(r.score), 0);
@@ -5575,14 +5104,14 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                 const getEvaluatedStudentCount = (cid) => {
                     const res = results.value.filter(r => {
                         const ex = exams.value.find(e => e.id === r.examId);
-                        return ex && normalizeExamClassIds(ex).includes(Number(cid));
+                        return ex && ex.classId === cid;
                     });
                     return new Set(res.map(r => r.studentId)).size;
                 };
 
                 const getClassGradeDistribution = (cid) => {
                     let stdScores = {};
-                    let listToUse = students.value.filter(s => Number(s.classId) === Number(cid));
+                    let listToUse = students.value.filter(s => s.classId === cid);
                     
                     if (dashboardStudentFilter.value) {
                         const f = dashboardStudentFilter.value.toLowerCase();
@@ -5767,7 +5296,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                         bimester: e.bimester,
                         date: new Date(e.date).toISOString().split('T')[0],
                         variationMode: e.versions.length.toString(),
-                        classIds: e.classIds ? [...e.classIds] : [e.classId],
+                        classIds: [e.classId],
                         type: e.type || 'Mensal',
                         teacher: e.teacher || '',
                         instructions: e.instructions || ''
@@ -5801,7 +5330,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                     v.questions.forEach((q, qIdx) => {
                         let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 5, 0, 0] }];
-                        let cIdx = getCorrectIndex(q);
+                        let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
                         
                         for (let i = 0; i < 5; i++) {
                             if (q.type === 'ce' && i > 1) {
@@ -5847,11 +5376,9 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     };
                 };
 
-                // [JS:50-PROVAS-PDF] Montagem do PDF da prova e do cartão de respostas do aluno.
                 const buildExamContent = (ex, std, vIdx, printCfg) => {
                     let content = [];
-                    const versions = ensureExamVersions(ex);
-                    let v = versions[vIdx] || versions[0] || { questions: [] };
+                    let v = ex.versions[vIdx];
                     let isEco = printCfg.paperSaving;
                     
                     // Cabeçalho dinâmico equilibrado para centralização total
@@ -5935,10 +5462,20 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                                 content.push({ text: `(   ) ${o.text}`, fontSize: qFontSize, margin: [15, 0, 0, isEco ? 2 : 4] });
                             });
                             
-                            // [PDF:VF-STABLE-CHOICES] Alternativas salvas na versão da prova para reimpressão fiel.
-                            const correctSeq = q.options.map(o => normalizeBooleanAnswer(o.isTrue) ? 'V' : 'F');
-                            const cIdx = getCorrectIndex(q);
-                            const optsText = q.generatedChoices || buildChoiceAlternatives(correctSeq, cIdx, stableSeed(q.id || q.text || 'vf', vIdx, 'fallback'));
+                            // GERAÇÃO AUTOMÁTICA DAS ALTERNATIVAS A, B, C, D, E PARA V/F
+                            let cIdx = (q.id || 0) % 5;
+                            let correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F');
+                            let optsText = [];
+                            
+                            for (let i = 0; i < 5; i++) {
+                                if (i === cIdx) {
+                                    optsText.push(correctSeq.join(', '));
+                                } else {
+                                    let fake = correctSeq.map(val => Math.random() > 0.5 ? 'V' : 'F');
+                                    if (fake.join(', ') === correctSeq.join(', ')) fake = fake.map(v => v === 'V' ? 'F' : 'V');
+                                    optsText.push(fake.join(', '));
+                                }
+                            }
                             
                             content.push({ text: 'A sequência correta é:', fontSize: qFontSize, bold: true, margin: [15, 6, 0, 2] });
                             
@@ -5955,19 +5492,30 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                                 });
                             }
                         } else if (q.type === 'assoc') {
-                            // [PDF:ASSOC-STABLE-ORDER] Ordem da coluna direita salva na versão da prova.
-                            let matchItems = q.assocMatchItems || q.options.map((o, i) => ({ id: i + 1, match: o.match }));
+                            let matchItems = q.options.map((o, i) => ({ id: i + 1, match: o.match }));
+                            matchItems.sort(() => Math.random() - 0.5); // Baralha as definições do lado direito
                             
                             let cols = [[], []];
                             q.options.forEach((o, i) => {
                                 cols[0].push({ text: `${i + 1}. ${o.text}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
-                                cols[1].push({ text: `(   ) ${matchItems[i]?.match || ''}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
+                                cols[1].push({ text: `(   ) ${matchItems[i].match}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
                             });
                             content.push({ columns: [{width: '*', stack: cols[0]}, {width: '*', stack: cols[1]}], margin: [15, 0, 0, isEco ? 2 : 4] });
                             
-                            const correctSeq = matchItems.map(m => m.id);
-                            const cIdx = getCorrectIndex(q);
-                            const optsText = q.generatedChoices || buildAssocAlternatives(correctSeq, cIdx, stableSeed(q.id || q.text || 'assoc', vIdx, 'fallback'));
+                            // GERAÇÃO AUTOMÁTICA DAS ALTERNATIVAS A, B, C, D, E PARA ASSOCIAÇÃO
+                            let correctSeq = matchItems.map(m => m.id);
+                            let cIdx = (q.id || 0) % 5;
+                            let optsText = [];
+                            
+                            for (let i = 0; i < 5; i++) {
+                                if (i === cIdx) {
+                                    optsText.push(correctSeq.join(', '));
+                                } else {
+                                    let fake = [...correctSeq].sort(() => Math.random() - 0.5);
+                                    if (fake.join(', ') === correctSeq.join(', ')) fake.reverse();
+                                    optsText.push(fake.join(', '));
+                                }
+                            }
                             
                             content.push({ text: 'A sequência correta é:', fontSize: qFontSize, bold: true, margin: [15, 6, 0, 2] });
                             
@@ -5996,43 +5544,38 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     });
 
                     content.push({
-                        // Cartão de respostas reposicionado e simplificado para garantir que sempre saia no PDF.
-                        // Em provas longas, o cartão começa em nova página para não ser cortado/omitido.
-                        pageBreak: v.questions.length > 10 ? 'before' : undefined,
+                        unbreakable: true, // <-- GARANTE QUE O BLOCO NUNCA SEJA CORTADO AO MEIO
                         stack: [
                             { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, linePattern: { length: 5, space: 5 }, lineColor: '#000000' }], margin: [0, 15, 0, 5] },
-                            { text: '✂️ CARTÃO DE RESPOSTAS — MARQUE AQUI', fontSize: isEco ? 10 : 12, bold: true, alignment: 'center', margin: [0, 0, 0, 3] },
-                            { text: 'Preencha completamente a bolinha correspondente à alternativa escolhida em cada questão.', fontSize: isEco ? 7 : 8, alignment: 'center', margin: [0, 0, 0, 8] },
+                            { text: '✂️ ------------------------------------------------------------------------------------------------------------------', fontSize: 8, color: '#000000', alignment: 'center', margin: [0, 0, 0, 10] },
                             {
                                 columns: [
+                                    { width: 10, text: '' }, // Margem
                                     {
-                                        width: '*',
-                                        stack: [
-                                            {
-                                                table: {
-                                                    widths: [20, '*', 20],
-                                                    body: [
-                                                        [ markerBox('TL'), { text: 'ÁREA DE MARCAÇÃO DO ALUNO', fontSize: isEco ? 8 : 9, bold: true, alignment: 'center', margin: [0, 3, 0, 0] }, markerBox('TR') ],
-                                                        [ '', { ...buildAnswerGrid(v, false), alignment: 'center', margin: [0, 5, 0, 5] }, '' ],
-                                                        [ markerBox('BL'), '', markerBox('BR') ]
-                                                    ]
-                                                },
-                                                layout: 'noBorders'
-                                            }
-                                        ]
+                                        width: 'auto',
+                                        // TABELA OMR COM MARCADORES FIDUCIAIS (Cantos Pretos 20x20)
+                                        table: {
+                                            widths: [20, 'auto', 20],
+                                            body: [
+                                                [ markerBox('TL'), { text: 'CARTÃO DE RESPOSTAS', fontSize: isEco ? 10 : 11, bold: true, alignment: 'center', margin: [0, 2, 0, 0] }, markerBox('TR') ],
+                                                [ '', { ...buildAnswerGrid(v, false), margin: [10, 5, 10, 5] }, '' ],
+                                                [ markerBox('BL'), '', markerBox('BR') ]
+                                            ]
+                                        },
+                                        layout: 'noBorders'
                                     },
+                                    { width: '*', text: '' }, // Espaçador para empurrar o QR Code para a direita
                                     {
-                                        width: isEco ? 95 : 110,
+                                        width: 'auto',
                                         stack: [
                                             { qr: JSON.stringify({e: ex.id, s: std.id, v: vIdx}), fit: isEco ? 65 : 75, alignment: 'center', margin: [0, 0, 0, 5] },
-                                            { text: std.name, fontSize: isEco ? 8 : 9, bold: true, alignment: 'center' },
-                                            { text: `Turma: ${getClassName(std.classId)}`, fontSize: isEco ? 7 : 8, alignment: 'center', margin: [0, 1, 0, 0] },
-                                            { text: `Prova: Tipo ${vIdx + 1}`, fontSize: isEco ? 7 : 8, alignment: 'center', margin: [0, 1, 0, 0] }
+                                            { text: std.name, fontSize: isEco ? 9 : 10, bold: true, alignment: 'center' },
+                                            { text: `Turma: ${getClassName(std.classId)}`, fontSize: isEco ? 8 : 9, alignment: 'center', margin: [0, 1, 0, 0] },
+                                            { text: `Prova: Tipo ${vIdx + 1}`, fontSize: isEco ? 8 : 9, alignment: 'center', margin: [0, 1, 0, 0] }
                                         ],
-                                        margin: [10, 18, 0, 0]
+                                        margin: [0, 15, 10, 0]
                                     }
                                 ],
-                                columnGap: 8,
                                 margin: [0, 0, 0, 10]
                             }
                         ]
@@ -6041,7 +5584,6 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     return content;
                 };
 
-                // [JS:50-PROVAS-GERACAO] Cria versões persistentes, inclusive modo “1 por aluno”.
                 const generatePDF = async (action) => { 
                     showToast("Gerando Provas...", "loading"); 
                     
@@ -6051,16 +5593,24 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     // Salvar prova nova no banco se não estiver em edição
                     if (!exId) {
                         let versions = [];
-                        const selectedStudentsForExam = getOrderedStudentsForClassIds(examConfig.value.classIds || []);
-                        let numVers = examConfig.value.variationMode === 'unique'
-                            ? Math.max(1, selectedStudentsForExam.length)
-                            : (parseInt(examConfig.value.variationMode) || 1);
-                        if (isNaN(numVers) || numVers < 1) numVers = 1;
+                        let numVers = parseInt(examConfig.value.variationMode) || 1;
+                        if (isNaN(numVers)) numVers = 1;
                         
                         for(let i=0; i<numVers; i++) {
-                            let vQ = buildPrintableVersionQuestions(i);
-                            if (i > 0) vQ = stableShuffleArray(vQ, stableSeed('question-order', i, examConfig.value.title || 'exam'));
-                            versions.push({ questions: vQ, generatedAt: Date.now(), mode: examConfig.value.variationMode });
+                            let vQ = JSON.parse(JSON.stringify(examCart.value));
+                            if (i > 0) {
+                                vQ.sort(() => Math.random() - 0.5); // Baralha as questões
+                                vQ.forEach(q => {
+                                    if(q.type === 'mc') {
+                                        let origTxt = q.options[q.correct].text;
+                                        q.options.sort(() => Math.random() - 0.5); // Baralha as alternativas
+                                        q.correctIndex = q.options.findIndex(o => o.text === origTxt);
+                                    }
+                                });
+                            } else {
+                                vQ.forEach(q => q.correctIndex = q.correct);
+                            }
+                            versions.push({ questions: vQ });
                         }
                         
                         exm = {
@@ -6068,45 +5618,34 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                             bimester: examConfig.value.bimester,
                             date: new Date(examConfig.value.date + "T12:00:00.000Z").getTime(),
                             classId: examConfig.value.classIds[0], // Usa a primeira turma como âncora no histórico
-                            classIds: [...examConfig.value.classIds],
                             type: examConfig.value.type,
                             teacher: examConfig.value.teacher,
                             instructions: examConfig.value.instructions || '',
                             versions: versions,
-                            studentVersionMap: {},
                             isExternal: false
                         };
-                        exm.studentVersionMap = buildStudentVersionMap(exm, selectedStudentsForExam);
-                        exId = await db.exams.add(JSON.parse(JSON.stringify(exm)));
+                        exId = await db.exams.add(exm);
                         exm.id = exId;
                         load();
                     } else {
                         exm = exams.value.find(e => e.id === exId);
-                        exm.title = examConfig.value.title || 'Avaliação';
-                        exm.bimester = examConfig.value.bimester;
-                        exm.date = new Date(examConfig.value.date + "T12:00:00.000Z").getTime();
-                        exm.classId = examConfig.value.classIds[0];
-                        exm.classIds = [...examConfig.value.classIds];
-                        exm.type = examConfig.value.type;
-                        exm.teacher = examConfig.value.teacher;
-                        exm.instructions = examConfig.value.instructions || '';
-                        applySafeQuestionTextUpdates(exm, examCart.value);
-                        exm.studentVersionMap = buildStudentVersionMap(exm, getOrderedStudentsForClassIds(examConfig.value.classIds || []));
-                        await db.exams.put(JSON.parse(JSON.stringify(exm)));
-                        load();
                     }
 
                     const content = [];
                     let firstStd = true;
                     
-                    // Percorre os alunos em ordem fixa por turma e usa o mapa salvo da versão recebida por aluno.
-                    const orderedStudents = getOrderedStudentsForClassIds(examConfig.value.classIds || []);
-                    orderedStudents.forEach((s, index) => {
-                        if (!firstStd) content.push({ text: '', pageBreak: 'before' });
-                        firstStd = false;
-                        const vIdx = getStudentVersionIndex(exm, s.id, index);
-                        content.push(...buildExamContent(exm, s, vIdx, printConfig.value));
-                    });
+                    // Percorre as turmas selecionadas para gerar folha para cada aluno
+                    for (let cId of examConfig.value.classIds) {
+                        let stds = students.value.filter(s => s.classId === cId).sort((a,b) => a.name.localeCompare(b.name));
+                        for (let i = 0; i < stds.length; i++) {
+                            let s = stds[i];
+                            if (!firstStd) content.push({ text: '', pageBreak: 'before' });
+                            firstStd = false;
+                            
+                            let vIdx = i % exm.versions.length;
+                            content.push(...buildExamContent(exm, s, vIdx, printConfig.value));
+                        }
+                    }
 
                     const doc = { content: content, defaultStyle: { font: 'Roboto' } };
                     if (printConfig.value.paperSaving) {
@@ -6117,18 +5656,17 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                 };
 
                 const reprintExamPDF = async (e, action) => { 
-                    if (!isPrintableExam(e)) return showToast('Prova externa ou sem versões não pode ser reimpressa neste fluxo.', 'warning');
                     showToast("Reimprimindo Provas...", "loading"); 
                     const content = [];
-                    const stds = getOrderedStudentsForClassIds(normalizeExamClassIds(e));
+                    let stds = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
                     
                     stds.forEach((s, i) => {
                         if (i > 0) content.push({ text: '', pageBreak: 'before' });
-                        const vIdx = getStudentVersionIndex(e, s.id, i);
+                        let vIdx = i % (e.versions ? e.versions.length : 1);
+                        if (!e.versions) e.versions = [{questions: e.questions}];
                         content.push(...buildExamContent(e, s, vIdx, printConfig.value));
                     });
 
-                    if (content.length === 0) return showToast('Nenhum aluno encontrado para reimpressão.', 'warning');
                     const doc = { content: content, defaultStyle: { font: 'Roboto' } };
                     if (printConfig.value.paperSaving) doc.pageMargins = [25, 25, 25, 25];
                     
@@ -6141,23 +5679,22 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     
                     const content = [];
                     let firstPage = true;
-                    let skipped = 0;
 
                     for(let exId of selectedHistoryExams.value) {
                         let e = exams.value.find(x => x.id === exId);
-                        if(!isPrintableExam(e)) { skipped++; continue; }
+                        if(!e) continue;
 
-                        const stds = getOrderedStudentsForClassIds(normalizeExamClassIds(e));
+                        let stds = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
                         stds.forEach((s, i) => {
                             if (!firstPage) content.push({ text: '', pageBreak: 'before' });
                             firstPage = false;
-                            const vIdx = getStudentVersionIndex(e, s.id, i);
+                            
+                            let vIdx = i % (e.versions ? e.versions.length : 1);
+                            if (!e.versions) e.versions = [{questions: e.questions}];
                             content.push(...buildExamContent(e, s, vIdx, printConfig.value));
                         });
                     }
 
-                    if (content.length === 0) return showToast('Nenhuma prova imprimível selecionada. Provas externas foram ignoradas.', 'warning');
-                    if (skipped > 0) showToast(`${skipped} prova(s) externa(s) ou sem versões foram ignoradas no lote.`, 'info');
                     const doc = { content: content, defaultStyle: { font: 'Roboto' } };
                     if (printConfig.value.paperSaving) doc.pageMargins = [25, 25, 25, 25];
                     
@@ -6165,10 +5702,9 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                 };
 
                 const openMakeupExam = (e) => {
-                    if (!isPrintableExam(e)) return showToast('2ª chamada só está disponível para provas geradas pelo app.', 'warning');
                     makeupExam.value = JSON.parse(JSON.stringify(e)); // Clone seguro
                     makeupExamCart.value = e.versions && e.versions[0] ? JSON.parse(JSON.stringify(e.versions[0].questions)) : [];
-                    makeupStudents.value = getStudentsForExam(e);
+                    makeupStudents.value = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
                     makeupSelectedStudentIds.value = [];
                     makeupTab.value = 'students';
                     showMakeupBank.value = false;
@@ -6182,7 +5718,6 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     
                     let realExam = await db.exams.get(makeupExam.value.id);
                     if(!realExam) return showToast("Erro: Prova original não encontrada.", "error");
-                    if(!isPrintableExam(realExam)) return showToast("2ª chamada indisponível para prova externa ou sem versões.", "warning");
 
                     // Verifica se a lista de questões escolhida já existe em alguma versão
                     let targetVIdx = -1;
@@ -6198,16 +5733,12 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     // Se as questões foram modificadas, salva como uma nova versão interna da mesma prova
                     if(targetVIdx === -1) {
                         targetVIdx = realExam.versions.length;
-                        realExam.versions.push({ questions: makeupExamCart.value.map(q => preparePrintableQuestion(q, realExam.versions.length, false)), generatedAt: Date.now(), mode: 'makeup' });
+                        realExam.versions.push({ questions: JSON.parse(JSON.stringify(makeupExamCart.value)) });
+                        await db.exams.put(realExam);
+                        
+                        const examIdx = exams.value.findIndex(e => e.id === realExam.id);
+                        if(examIdx > -1) exams.value[examIdx] = realExam;
                     }
-
-                    realExam.studentVersionMap = realExam.studentVersionMap || {};
-                    makeupSelectedStudentIds.value.forEach(studentId => {
-                        realExam.studentVersionMap[String(studentId)] = targetVIdx;
-                    });
-                    await db.exams.put(realExam);
-                    exams.value = await db.exams.orderBy('id').reverse().toArray();
-                    makeupExam.value = JSON.parse(JSON.stringify(realExam));
 
                     const content = [];
                     let stds = students.value.filter(s => makeupSelectedStudentIds.value.includes(s.id)).sort((a,b) => a.name.localeCompare(b.name));
@@ -6247,7 +5778,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                 const generateKeyPDF = async (e, action, printType = 'both') => { 
                     showToast(printType === 'gabarito' ? "A gerar Gabarito Comentado..." : (printType === 'espelho' ? "A gerar Espelho Vazado..." : "Gerando Gabarito e Espelho..."), "loading"); 
-                    const versions = ensureExamVersions(e);
+                    const versions = e.versions || [{ questions: e.questions }];
                     const content = [];
 
                     versions.forEach((v, vIdx) => {
@@ -6266,7 +5797,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                             let keyText = [];
                             v.questions.forEach((q, qIdx) => {
-                                let cIdx = getCorrectIndex(q);
+                                let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
                                 let altLetra = ['A)','B)','C)','D)','E)'][cIdx] || '?'; 
 
                                 let ans = '';
@@ -6277,10 +5808,9 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                                         return isT ? 'V' : 'F';
                                     }).join(', ');
                                 } else if (q.type === 'assoc') {
-                                    const matchItems = q.assocMatchItems || q.options.map((o, i) => ({ id: i + 1, match: o.match }));
-                                    ans = `${altLetra} Sequência: ${matchItems.map(m => m.id).join(', ')} | ` + q.options.map((o, i) => `${i+1} -> ${o.match}`).join(' | ');
+                                    ans = `${altLetra} ` + q.options.map((o, i) => `${i+1} -> ${o.match}`).join(' | ');
                                 } else if (q.type === 'ce') {
-                                    ans = cIdx === 0 ? 'Certo' : 'Errado';
+                                    ans = q.correctIndex === 0 ? 'Certo' : 'Errado';
                                 } else {
                                     let textOption = q.options && q.options[cIdx] ? q.options[cIdx].text : '';
                                     ans = `${altLetra} ${textOption}`;
@@ -6337,7 +5867,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     const cid = selectedClassIdForReport.value;
                     const cName = getClassName(cid);
                     let stdScores = [];
-                    let classStds = students.value.filter(s => Number(s.classId) === Number(cid));
+                    let classStds = students.value.filter(s => s.classId === cid);
 
                     classStds.forEach(s => {
                         const res = results.value.filter(r => r.studentId === s.id);
@@ -6384,7 +5914,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     if (!cid) return showToast("Selecione uma turma.", "warning");
                     showToast("A gerar Boletim Consolidado...", "loading");
                     const cName = getClassName(cid);
-                    let classStds = students.value.filter(s => Number(s.classId) === Number(cid)).sort((a,b) => a.name.localeCompare(b.name));
+                    let classStds = students.value.filter(s => s.classId === cid).sort((a,b) => a.name.localeCompare(b.name));
 
                     let tableBody = [
                         [
@@ -6503,7 +6033,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
 
                 const printClassBioPDF = (classId) => {
                     const cName = getClassName(classId);
-                    const classStds = students.value.filter(s => Number(s.classId) === Number(classId)).sort((a,b) => a.name.localeCompare(b.name));
+                    const classStds = students.value.filter(s => s.classId === classId).sort((a,b) => a.name.localeCompare(b.name));
                     
                     if(classStds.length === 0) return showToast("A turma não tem alunos.", "warning");
                     showToast("Gerando Biografias da Turma...", "loading");
@@ -6568,7 +6098,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                         });
                         
                         // Junta com os dados dos alunos
-                        const classStudents = students.value.filter(s => Number(s.classId) === Number(cid));
+                        const classStudents = students.value.filter(s => s.classId === cid);
                         let reportData = classStudents.map(student => ({
                             name: student.name,
                             absences: absenceCountMap[student.id] || 0
@@ -6669,7 +6199,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: 'RELATÓRIO DE NOTAS DA AVALIAÇÃO', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
                             { text: `Prova: ${exam.title}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 5] },
-                            { text: `Turma(s): ${getClassNamesForExam(exam)} | Avaliados: ${examResults.length}`, fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' },
+                            { text: `Turma: ${getClassName(exam.classId)} | Avaliados: ${examResults.length}`, fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' },
                             {
                                 table: { headerRows: 1, widths: ['auto', '*', 100], body: tableBody },
                                 layout: { hLineColor: () => '#e5e7eb', vLineColor: () => '#e5e7eb', paddingTop: () => 4, paddingBottom: () => 4 }
@@ -6732,7 +6262,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     
                     // Manual Entry
                     correctionMode, showManualInputModal, manualConfig, activeStudent, activeExam, activeVersion,
-                    studentAnswers, printableExams, manualStudents, selectedExamVersions, startManualEntry, confirmManualEntry,
+                    studentAnswers, manualStudents, selectedExamVersions, startManualEntry, confirmManualEntry,
                     saveManualCorrection, openManualCorrectionForResult,
                     
                     // Direct Entry
@@ -6770,7 +6300,7 @@ Preencha TUDO com conhecimento real sobre o tema em idioma PORTUGUÊS.`;
                     toggleExamQ, isQInExam, filteredHistoryExams, recentCorrections, filteredRecentCorrections,
                     getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution, openStudentProfile,
                     studentExamsList, studentExtraPointsList, studentBimesterAverage,
-                    duplicateExam, openEditExam, deleteExam, uploadStudentPhoto, uploadLogo, getStudent, getClassName, getAlternativeLabel,
+                    duplicateExam, openEditExam, deleteExam, uploadStudentPhoto, getStudent, getClassName, getAlternativeLabel,
                     generatePDF, generateKeyPDF, generateMergedPDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF,
                     generateAttendanceReportPDF, generateLastExamPDF, saveUpdatedAnswers, openResultDetails, printStudentBioPDF, printClassBioPDF,
                     
