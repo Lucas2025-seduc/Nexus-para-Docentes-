@@ -120,7 +120,7 @@
             </div>
 
             <!-- DIÁRIO DE AULAS (FREQUÊNCIA E HORÁRIOS) -->
-        <div v-if="currentView==='diary'" class="space-y-4 animate-fade-in">
+            <div v-if="currentView==='diary'" class="space-y-4 animate-fade-in">
                 <div class="bg-indigo-600 p-5 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden">
                     <div class="z-10">
                         <h2 class="text-2xl font-black">Diário</h2>
@@ -180,32 +180,16 @@
                         </div>
 
                         <div class="space-y-2">
-                            <div v-for="s in filteredStudentsInDiaryClass" :key="s.id" class="bg-white border rounded-xl overflow-hidden shadow-sm transition-all hover:border-gray-300">
-                                <div class="flex items-center justify-between p-3 bg-white hover:bg-gray-50 transition cursor-pointer">
-                                    <div class="flex items-center gap-2 overflow-hidden pr-2">
-                                        <img v-if="s.photo" :src="s.photo" @click.stop="viewFullScreen(s.photo)" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-none shadow-sm cursor-pointer hover:opacity-80 transition" title="Ver Foto">
-                                        <div v-else class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center border border-gray-200 flex-none shadow-sm"><i class="fa-solid fa-user text-xs"></i></div>
-                                        <span class="text-xs font-bold text-gray-700 truncate max-w-[120px]">{{s.name}}</span>
-                                    </div>
-                                    <div class="flex bg-gray-100 rounded-lg p-1 flex-none">
-                                        <button @click="attendanceMap[s.id]='P'" :class="attendanceMap[s.id]==='P'?'bg-emerald-500 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">P</button>
-                                        <button @click="attendanceMap[s.id]='F'" :class="attendanceMap[s.id]==='F'?'bg-red-500 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">F</button>
-                                        <button @click="attendanceMap[s.id]='J'" :class="attendanceMap[s.id]==='J'?'bg-orange-400 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">J</button>
-                                    </div>
+                            <div v-for="s in filteredStudentsInDiaryClass" :key="s.id" class="flex items-center justify-between p-3 bg-white border rounded-xl hover:bg-gray-50 transition">
+                                <div class="flex items-center gap-2 overflow-hidden pr-2">
+                                    <img v-if="s.photo" :src="s.photo" @click.stop="viewFullScreen(s.photo)" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-none shadow-sm cursor-pointer hover:opacity-80 transition" title="Ver Foto">
+                                    <div v-else class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center border border-gray-200 flex-none shadow-sm"><i class="fa-solid fa-user text-xs"></i></div>
+                                    <span class="text-xs font-bold text-gray-700 truncate max-w-[120px]">{{s.name}}</span>
                                 </div>
-                                
-                                <!-- EXPANSÃO: JUSTIFICATIVA DE FALTA -->
-                                <div v-if="attendanceMap[s.id] === 'J'" class="p-3 bg-orange-50 border-t border-orange-100 flex flex-col gap-2 animate-fade-in">
-                                    <input v-model="getJustification(s.id).reason" placeholder="Motivo da falta (Atestado, Viagem, Doença)..." class="w-full p-2 bg-white text-xs font-medium border border-orange-200 rounded-lg outline-none focus:border-orange-400 transition-colors">
-                                    <div class="flex items-center gap-2">
-                                        <label class="flex-1 bg-white border border-orange-200 hover:bg-orange-100 text-orange-600 text-[10px] sm:text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition shadow-sm" :title="getJustification(s.id).attachment ? 'Alterar ficheiro anexado' : 'Anexar atestado/comprovativo'">
-                                            <i class="fa-solid" :class="getJustification(s.id).attachment ? 'fa-file-circle-check text-emerald-500' : 'fa-paperclip'"></i> 
-                                            <span class="truncate">{{ getJustification(s.id).attachment ? 'Documento Anexado' : 'Anexar Comprovativo' }}</span>
-                                            <input type="file" class="hidden" accept="image/*,application/pdf" @change="e => handleJustificationAttachment(e, s.id)">
-                                        </label>
-                                        <button v-if="getJustification(s.id).attachment" @click="viewJustification(s.id)" class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition flex items-center justify-center flex-none shadow-sm border border-blue-200" title="Ver Anexo"><i class="fa-solid fa-eye"></i></button>
-                                        <button v-if="getJustification(s.id).attachment" @click="getJustification(s.id).attachment = null" class="w-8 h-8 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition flex items-center justify-center flex-none shadow-sm border border-red-200" title="Remover Anexo"><i class="fa-solid fa-trash-can"></i></button>
-                                    </div>
+                                <div class="flex bg-gray-100 rounded-lg p-1 flex-none">
+                                    <button @click="attendanceMap[s.id]='P'" :class="attendanceMap[s.id]==='P'?'bg-emerald-500 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">P</button>
+                                    <button @click="attendanceMap[s.id]='F'" :class="attendanceMap[s.id]==='F'?'bg-red-500 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">F</button>
+                                    <button @click="attendanceMap[s.id]='J'" :class="attendanceMap[s.id]==='J'?'bg-orange-400 text-white shadow':'text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 rounded-md text-xs font-bold transition">J</button>
                                 </div>
                             </div>
                         </div>
@@ -247,135 +231,6 @@
                 </div>
             </div>
 
-            <!-- AGENDA -->
-            <div v-if="currentView==='agenda'" class="space-y-4 animate-fade-in max-w-xl mx-auto pb-20">
-                <div class="bg-indigo-600 p-5 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden">
-                    <div class="z-10">
-                        <h2 class="text-2xl font-black">Agenda</h2>
-                        <p class="text-xs text-indigo-200">Anotações e Lembretes</p>
-                    </div>
-                    <i class="fa-regular fa-calendar-check text-5xl text-white/20"></i>
-                </div>
-
-                <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
-                    <div class="flex gap-2 items-center">
-                        <input type="date" v-model="agendaDate" class="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-indigo-500 transition-colors">
-                        <button @click="agendaDate = new Date().toISOString().split('T')[0]" class="px-4 py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-xs hover:bg-indigo-100 transition shadow-sm border border-indigo-100">Hoje</button>
-                        <button @click="printAgendaDayPDF" class="px-4 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold text-xs transition shadow-sm border border-red-100 flex items-center gap-1.5" title="Baixar relatório em PDF"><i class="fa-solid fa-file-pdf"></i> PDF</button>
-                    </div>
-
-                    <div class="flex flex-col gap-2 pt-2 border-t">
-                        <textarea v-model="newAgendaNoteText" placeholder="Escreva a sua anotação ou lembrete aqui..." rows="3" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-indigo-500 resize-none font-medium transition-colors"></textarea>
-                        
-                        <!-- ÁREA DE ANEXOS (NOVO) -->
-                        <div v-if="newAgendaAttachments.length > 0" class="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                            <div v-for="(att, idx) in newAgendaAttachments" :key="idx" class="relative group">
-                                <div v-if="att.type.startsWith('image/')" class="w-16 h-16 rounded-lg border border-gray-200 overflow-hidden bg-white">
-                                    <img :src="att.data" class="w-full h-full object-cover">
-                                </div>
-                                <div v-else-if="att.type.startsWith('audio/')" class="w-16 h-16 rounded-lg border border-gray-200 bg-blue-50 text-blue-500 flex flex-col items-center justify-center text-[10px] font-bold">
-                                    <i class="fa-solid fa-microphone-lines text-lg mb-1"></i> Áudio
-                                </div>
-                                <div v-else class="w-16 h-16 rounded-lg border border-gray-200 bg-red-50 text-red-500 flex flex-col items-center justify-center text-[10px] font-bold text-center p-1 break-words leading-tight">
-                                    <i class="fa-solid fa-file-pdf text-lg mb-1"></i> PDF
-                                </div>
-                                <button @click="removeAgendaAttachment(idx)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-md hover:bg-red-600 transition opacity-0 group-hover:opacity-100"><i class="fa-solid fa-times"></i></button>
-                            </div>
-                        </div>
-
-                        <div class="flex gap-2">
-                            <label class="w-12 h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl flex items-center justify-center cursor-pointer transition shadow-sm border border-gray-200 flex-none" title="Anexar Imagem, Áudio ou PDF">
-                                <i class="fa-solid fa-paperclip"></i>
-                                <input type="file" multiple accept="image/*,audio/*,application/pdf" class="hidden" @change="handleAgendaAttachment">
-                            </label>
-                            
-                            <button @click="toggleAudioRecording" :class="isRecordingAudio ? 'bg-red-500 text-white animate-pulse border-red-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-200'" class="w-12 h-12 rounded-xl flex items-center justify-center transition shadow-sm border flex-none" :title="isRecordingAudio ? 'Parar Gravação' : 'Gravar Áudio (Ficheiro)'">
-                                <i :class="isRecordingAudio ? 'fa-solid fa-stop' : 'fa-solid fa-microphone'"></i>
-                            </button>
-
-                            <!-- NOVO BOTÃO: TRANSCRIÇÃO DE VOZ PARA TEXTO -->
-                            <button @click="toggleAgendaDictation" :class="isAgendaDictating ? 'bg-indigo-500 text-white animate-pulse border-indigo-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-200'" class="w-12 h-12 rounded-xl flex items-center justify-center transition shadow-sm border flex-none" :title="isAgendaDictating ? 'Parar Ditado' : 'Ditar Texto (Voz para Texto)'">
-                                <i :class="isAgendaDictating ? 'fa-solid fa-ear-listen' : 'fa-solid fa-comment-dots'"></i>
-                            </button>
-
-                            <!-- NOVO BOTÃO: MELHORAR TEXTO COM IA -->
-                            <button @click="improveAgendaText('new')" :disabled="isImprovingText" class="w-12 h-12 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center transition shadow-sm border border-purple-200 flex-none" title="Corrigir e Melhorar Texto com IA">
-                                <i :class="isImprovingText && improvingTarget === 'new' ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-wand-magic-sparkles'"></i>
-                            </button>
-
-                            <button @click="addAgendaNote" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2"><i class="fa-solid fa-save"></i> Salvar</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Busca e Filtros -->
-                <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest"><i class="fa-solid fa-filter"></i> Buscar / Filtrar Histórico</label>
-                    <div class="flex gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-200 focus-within:border-indigo-400 transition-colors items-center">
-                        <i class="fa-solid fa-search text-gray-400 ml-1"></i>
-                        <input v-model="agendaSearchText" placeholder="Pesquisar por texto..." class="w-full bg-transparent outline-none text-sm font-medium text-gray-700">
-                        <button v-if="agendaSearchText" @click="agendaSearchText=''" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times"></i></button>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">De (Data Inicial)</label>
-                            <input type="date" v-model="agendaStartDate" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:border-indigo-400 transition-colors">
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Até (Data Final)</label>
-                            <input type="date" v-model="agendaEndDate" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:border-indigo-400 transition-colors">
-                        </div>
-                    </div>
-                    <button v-if="agendaSearchText || agendaStartDate || agendaEndDate" @click="agendaSearchText=''; agendaStartDate=''; agendaEndDate=''" class="w-full py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold transition hover:bg-red-100">Limpar Filtros</button>
-                </div>
-
-                <div class="space-y-3">
-                    <div class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">
-                        {{ (agendaSearchText || agendaStartDate || agendaEndDate) ? `Resultados da Busca (${filteredAgendaNotes.length})` : `Anotações do Dia ${agendaDate.split('-').reverse().join('/')}` }}
-                    </div>
-                    
-                    <div v-if="filteredAgendaNotes.length === 0" class="text-center py-10 text-gray-400 font-medium text-xs border-2 border-dashed border-gray-200 rounded-2xl bg-white/50">
-                        <i class="fa-solid fa-file-pen text-2xl text-gray-300 mb-2 block"></i>
-                        {{ (agendaSearchText || agendaStartDate || agendaEndDate) ? 'Nenhuma anotação encontrada.' : 'Sem anotações para este dia.' }}
-                    </div>
-                    
-                    <div v-for="note in filteredAgendaNotes" :key="note.id" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-3 group hover:shadow transition relative">
-                        <div class="flex justify-between items-start">
-                            <span class="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100 shadow-sm"><i class="fa-regular fa-calendar mr-1"></i> {{ note.date.split('-').reverse().join('/') }}</span>
-                            <div class="flex gap-1 ml-3 flex-none">
-                                <button v-if="editingAgendaNoteId !== note.id" @click="startEditingAgendaNote(note)" class="text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 w-8 h-8 rounded-lg transition flex items-center justify-center border border-transparent hover:border-indigo-100" title="Editar Anotação"><i class="fa-solid fa-pencil text-sm"></i></button>
-                                <button @click="deleteAgendaNote(note.id)" class="text-gray-300 hover:text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg transition flex items-center justify-center border border-transparent hover:border-red-100" title="Apagar Anotação"><i class="fa-solid fa-trash-can"></i></button>
-                            </div>
-                        </div>
-                        
-                        <div v-if="editingAgendaNoteId === note.id" class="flex flex-col gap-2 mt-1">
-                            <textarea v-model="editingAgendaNoteText" rows="3" class="w-full p-2 bg-indigo-50/50 border border-indigo-200 rounded-lg text-sm outline-none focus:border-indigo-500 resize-y text-gray-700 font-medium"></textarea>
-                            <div class="flex gap-2 justify-end">
-                                <!-- NOVO BOTÃO DE IA NA EDIÇÃO -->
-                                <button @click="improveAgendaText('edit')" :disabled="isImprovingText" class="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5 mr-auto border border-purple-200" title="Melhorar com IA">
-                                    <i :class="isImprovingText && improvingTarget === 'edit' ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-wand-magic-sparkles'"></i> IA
-                                </button>
-
-                                <button @click="cancelEditingAgendaNote" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-lg transition shadow-sm"><i class="fa-solid fa-times"></i> Cancelar</button>
-                                <button @click="saveEditedAgendaNote" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Salvar</button>
-                            </div>
-                        </div>
-                        <p v-else class="text-sm text-gray-700 whitespace-pre-wrap flex-1 leading-relaxed">{{note.text}}</p>
-                        
-                        <!-- EXIBIÇÃO DE ANEXOS DA ANOTAÇÃO -->
-                        <div v-if="note.attachments && note.attachments.length > 0" class="flex flex-col gap-2 pt-3 border-t border-gray-100">
-                            <div v-for="(att, idx) in note.attachments" :key="idx" class="bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                <img v-if="att.type.startsWith('image/')" :src="att.data" class="max-h-48 rounded-lg object-contain cursor-pointer hover:opacity-90 transition" @click="viewFullScreen(att.data)">
-                                <audio v-else-if="att.type.startsWith('audio/')" :src="att.data" controls class="w-full h-10"></audio>
-                                <a v-else :href="att.data" :download="att.name || 'documento.pdf'" class="flex items-center gap-2 text-sm font-bold text-red-600 hover:text-red-700 transition p-2 bg-red-50 rounded-lg w-fit">
-                                    <i class="fa-solid fa-file-pdf text-lg"></i> Baixar {{att.name || 'PDF'}}
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- TURMAS -->
             <div v-if="currentView==='classes'" class="space-y-4 animate-fade-in">
                  <div class="bg-white p-3 rounded-2xl shadow-sm border sticky top-0 z-20 space-y-3">
@@ -386,10 +241,9 @@
                     <div class="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50" @click="toggleClassExpansion(c.id)"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border"><i class="fa-solid fa-user-group"></i></div><div><h3 class="font-bold">{{c.name}}</h3><p class="text-[10px] font-bold text-gray-400 uppercase">{{getStudentCount(c.id)}} Alunos</p></div></div></div>
                     <div v-if="c.expanded||studentFilter" class="px-4 pb-4 bg-gray-50/50 border-t pt-2 space-y-3">
                         <div class="flex gap-2">
-                            <button @click="openSeatingPlan(c.id)" class="flex-1 py-2 bg-white border text-emerald-600 rounded-xl text-[10px] sm:text-xs font-bold hover:bg-emerald-50 transition"><i class="fa-solid fa-table-cells"></i> Mapa Sala</button>
-                            <button @click="generateGeneralReportPDF(c.id)" class="flex-1 py-2 bg-white border text-indigo-700 rounded-xl text-[10px] sm:text-xs font-bold hover:bg-indigo-50 transition"><i class="fa-solid fa-file-invoice"></i> Boletim</button>
-                            <button @click="printClassBioPDF(c.id)" class="flex-1 py-2 bg-white border text-amber-600 rounded-xl text-[10px] sm:text-xs font-bold hover:bg-amber-50 transition"><i class="fa-solid fa-address-card"></i> Biografias</button>
-                            <button @click="deleteClass(c.id)" class="px-3 py-2 bg-white border text-red-500 hover:bg-red-50 rounded-xl transition"><i class="fa-solid fa-trash"></i></button>
+                            <button @click="openSeatingPlan(c.id)" class="flex-1 py-2 bg-white border text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-50 transition"><i class="fa-solid fa-table-cells"></i> Mapa Sala</button>
+                            <button @click="generateGeneralReportPDF(c.id)" class="flex-1 py-2 bg-white border text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-50 transition"><i class="fa-solid fa-file-invoice"></i> Boletim PDF</button>
+                            <button @click="deleteClass(c.id)" class="px-4 py-2 bg-white border text-red-500 hover:bg-red-50 rounded-xl transition"><i class="fa-solid fa-trash"></i></button>
                         </div>
                         <div class="bg-white p-3 rounded-xl border shadow-sm"><textarea v-model="bulkStudents[c.id]" placeholder="Nomes dos alunos (1 por linha)" class="w-full text-sm outline-none min-h-[80px] font-medium resize-none"></textarea><button @click="saveStudents(c.id)" class="w-full mt-2 bg-emerald-500 text-white py-2 rounded-lg text-xs font-bold"><i class="fa-solid fa-check"></i> Salvar</button></div>
                         <div class="flex flex-wrap gap-2">
@@ -623,12 +477,6 @@
                             <i class="fa-solid fa-pen-to-square text-lg"></i> Lançar Só Nota
                         </button>
                     </div>
-                    
-                    <!-- NOVO BOTÃO: LEITOR OMR VIA GEMINI VISION -->
-                    <button @click="startAICorrectionEntry" class="w-full mt-3 bg-pink-500 hover:bg-pink-600 text-white py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-pink-600 text-sm">
-                        <i class="fa-solid fa-camera-retro text-lg"></i> Corrigir por Foto (Inteligência Artificial)
-                    </button>
-
                     <button @click="openExternalExamForm" class="w-full mt-3 bg-blue-50 hover:bg-blue-100 text-blue-600 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2 border border-blue-200 text-sm">
                         <i class="fa-solid fa-file-pen text-lg"></i> Nova Prova Externa (Apenas Notas)
                     </button>
@@ -707,19 +555,16 @@
                 <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 rounded-t-3xl flex justify-between items-center shadow-md z-10">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><i class="fa-solid fa-robot text-xl"></i></div>
-                        <div><h3 class="font-bold leading-tight">Assistente IA</h3><p class="text-[10px] text-purple-200">Visão, Voz e Gestão</p></div>
+                        <div><h3 class="font-bold leading-tight">Assistente IA</h3><p class="text-[10px] text-purple-200">Gerencia Notas e Faltas</p></div>
                     </div>
                     <button @click="showAssistant=false" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition"><i class="fa-solid fa-times"></i></button>
                 </div>
                 <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50" id="assistant-chat-box">
                     <div v-for="(msg, i) in assistantHistory" :key="i" class="flex" :class="msg.role==='user'?'justify-end':'justify-start'">
                         <div class="max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm" :class="msg.role==='user'?'bg-indigo-600 text-white rounded-tr-sm':'bg-white border border-gray-100 text-gray-700 rounded-tl-sm'">
-                            <!-- Exibição de Imagem Anexada no Chat -->
-                            <img v-if="msg.image" :src="msg.image" @click="viewFullScreen(msg.image)" class="w-full max-w-[200px] rounded-lg mb-2 object-cover border border-white/20 shadow-sm cursor-pointer hover:opacity-90 transition">
-                            
                             {{msg.text}}
                             
-                            <!-- CARD DE AÇÃO PENDENTE -->
+                            <!-- CARD DE AÇÃO PENDENTE (AGORA SUPORTA MÚLTIPLAS AÇÕES) -->
                             <div v-if="msg.hasAction && !msg.actionResolved && msg.actions && msg.actions.length > 0" class="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
                                 <p class="text-[10px] font-black text-indigo-800 mb-1.5 uppercase tracking-wide"><i class="fa-solid fa-triangle-exclamation text-orange-500"></i> Confirmação Necessária</p>
                                 <ul class="text-xs text-indigo-900 mb-3 font-medium list-disc pl-4 space-y-1">
@@ -744,31 +589,12 @@
                     </div>
                 </div>
                 <div class="p-3 bg-white border-t rounded-b-3xl">
-                    <!-- Preview de Imagem a Enviar -->
-                    <div v-if="assistantAttachedImage" class="mb-2 relative inline-block">
-                        <img :src="assistantAttachedImage" class="h-16 rounded-lg border border-gray-200 object-cover shadow-sm">
-                        <button @click="assistantAttachedImage=null; assistantAttachedImageMime=null" class="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] shadow-md hover:bg-red-600"><i class="fa-solid fa-times"></i></button>
-                    </div>
-
-                    <div class="flex gap-1.5 bg-gray-100 p-1.5 rounded-2xl border border-gray-200 items-center overflow-hidden">
-                        <!-- Anexar Imagem (Visão Computacional) -->
-                        <label class="w-9 h-9 flex flex-none items-center justify-center text-gray-400 hover:text-indigo-600 transition cursor-pointer" title="Anexar Imagem (Atestados, Documentos)">
-                            <i class="fa-solid fa-paperclip"></i>
-                            <input type="file" accept="image/*" class="hidden" @change="handleAssistantImageUpload">
-                        </label>
-                        
-                        <!-- Ditar por Voz -->
-                        <button @click="toggleDictation" :class="isDictating ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-indigo-600'" class="w-9 h-9 flex flex-none items-center justify-center transition" title="Ditar por voz">
+                    <div class="flex gap-2 bg-gray-100 p-1.5 rounded-2xl border border-gray-200">
+                        <button @click="toggleDictation" :class="isDictating ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-indigo-600'" class="w-10 h-10 flex flex-none items-center justify-center transition" title="Ditar por voz">
                             <i class="fa-solid fa-microphone"></i>
                         </button>
-
-                        <!-- Assistente Falante (TTS) -->
-                        <button @click="assistantTTS = !assistantTTS" :class="assistantTTS ? 'text-indigo-600' : 'text-gray-400 hover:text-indigo-600'" class="w-9 h-9 flex flex-none items-center justify-center transition" title="Ligar/Desligar Voz da IA">
-                            <i :class="assistantTTS ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark'"></i>
-                        </button>
-
-                        <input v-model="assistantQuery" @keyup.enter="askAssistant" placeholder="Fale ou mostre algo..." class="flex-1 w-full bg-transparent px-1 py-2 text-sm outline-none text-gray-700 min-w-0">
-                        <button @click="askAssistant" :disabled="isAssistantThinking || (!assistantQuery.trim() && !assistantAttachedImage)" class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex flex-none items-center justify-center shadow-md hover:bg-indigo-700 disabled:opacity-50 transition"><i class="fa-solid fa-paper-plane"></i></button>
+                        <input v-model="assistantQuery" @keyup.enter="askAssistant" placeholder="Ex: Mude a nota da Ana para 8..." class="flex-1 w-full bg-transparent px-2 py-2 text-sm outline-none text-gray-700">
+                        <button @click="askAssistant" :disabled="isAssistantThinking" class="w-10 h-10 bg-indigo-600 text-white rounded-xl flex flex-none items-center justify-center shadow-md hover:bg-indigo-700 disabled:opacity-50 transition"><i class="fa-solid fa-paper-plane"></i></button>
                     </div>
                 </div>
             </div>
@@ -1118,10 +944,7 @@
                                 </div>
                             </label>
 
-                            <div class="flex gap-2 mt-3">
-                                <button @click="printStudentBioPDF(studentDetails)" class="w-14 bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 py-3 rounded-xl font-bold shadow-sm transition-colors flex items-center justify-center" title="Imprimir Biografia em PDF"><i class="fa-solid fa-print"></i></button>
-                                <button @click="saveStudentNotes" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-sm transition-colors"><i class="fa-solid fa-save"></i> Salvar Biografia</button>
-                            </div>
+                            <button @click="saveStudentNotes" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-sm transition-colors"><i class="fa-solid fa-save"></i> Salvar Biografia</button>
                         </div>
                     </div>
                     <div v-else class="animate-fade-in">
@@ -1451,24 +1274,22 @@
         <!-- DETALHES RESULTADO (DEMONSTRATIVO IA/MANUAL E REVISÃO) -->
         <div v-if="showResultDetailsModal" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="bg-white rounded-3xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
-                <div class="p-4 sm:p-5 bg-indigo-600 text-white flex justify-between items-center gap-2">
-                    <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                        <img v-if="getStudent(selectedResultDetails?.studentId)?.photo" :src="getStudent(selectedResultDetails?.studentId).photo" @click="viewFullScreen(getStudent(selectedResultDetails?.studentId).photo)" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-white/50 flex-none cursor-pointer hover:opacity-80 transition">
-                        <div v-else class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 text-white/70 flex items-center justify-center border-2 border-white/50 flex-none"><i class="fa-solid fa-user text-lg sm:text-xl"></i></div>
-                        <div class="flex-1 min-w-0">
-                            <h3 class="font-black text-sm sm:text-lg leading-tight truncate block w-full">{{selectedResultDetails?.studentName}}</h3>
-                            <p class="text-[10px] sm:text-xs text-indigo-200 mt-0.5 sm:mt-1 truncate block w-full">{{selectedResultDetails?.title}}</p>
+                <div class="p-5 bg-indigo-600 text-white flex justify-between items-center">
+                    <div class="flex items-center gap-3 flex-1 pr-4">
+                        <img v-if="getStudent(selectedResultDetails?.studentId)?.photo" :src="getStudent(selectedResultDetails?.studentId).photo" @click="viewFullScreen(getStudent(selectedResultDetails?.studentId).photo)" class="w-12 h-12 rounded-full object-cover border-2 border-white/50 flex-none cursor-pointer hover:opacity-80 transition">
+                        <div v-else class="w-12 h-12 rounded-full bg-white/20 text-white/70 flex items-center justify-center border-2 border-white/50 flex-none"><i class="fa-solid fa-user text-xl"></i></div>
+                        <div class="overflow-hidden">
+                            <h3 class="font-black text-lg leading-tight truncate">{{selectedResultDetails?.studentName}}</h3>
+                            <p class="text-xs text-indigo-200 mt-1 truncate">{{selectedResultDetails?.title}}</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-1.5 sm:gap-3 flex-none">
-                        <div class="text-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl shadow-lg border-2" :class="parseFloat(selectedResultDetails?.score) >= 6 ? 'bg-emerald-500 border-emerald-400 shadow-emerald-500/40' : 'bg-red-500 border-red-400 shadow-red-500/40'">
-                            <span class="block text-[8px] sm:text-[9px] uppercase font-black text-white/90 mb-0.5 tracking-widest drop-shadow-sm">Nota</span>
-                            <span class="text-xl sm:text-3xl font-black leading-none text-white drop-shadow-md">{{selectedResultDetails?.score}}</span>
+                    <div class="flex items-center gap-3">
+                        <div class="text-center bg-black/20 px-3 py-1.5 rounded-xl border border-white/10">
+                            <span class="block text-[9px] uppercase font-bold text-indigo-200 mb-0.5">Nota Final</span>
+                            <span class="text-2xl font-black leading-none">{{selectedResultDetails?.score}}</span>
                         </div>
-                        <div class="flex flex-col gap-1 sm:gap-2">
-                            <button @click="showResultDetailsModal=false" class="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition flex-none" title="Fechar"><i class="fa-solid fa-times text-sm sm:text-lg"></i></button>
-                            <button @click="deleteStudentResultAndClose(selectedResultDetails.resultId)" class="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white transition flex-none" title="Excluir Nota"><i class="fa-solid fa-trash-can text-[10px] sm:text-sm"></i></button>
-                        </div>
+                        <button @click="deleteStudentResultAndClose(selectedResultDetails.resultId)" class="w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white transition flex-none" title="Excluir Nota"><i class="fa-solid fa-trash-can text-sm"></i></button>
+                        <button @click="showResultDetailsModal=false" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition flex-none" title="Fechar"><i class="fa-solid fa-times text-lg"></i></button>
                     </div>
                 </div>
                 <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center text-xs font-bold text-indigo-800">
@@ -1583,98 +1404,8 @@
                 <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20">
                     <div class="w-64 h-64 border-2 border-dashed border-emerald-500 rounded-3xl animate-pulse"></div>
                 </div>
-                <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : (qrScanMode === 'ai_correction' ? 'Aponte para o QR Code impresso no topo da folha para identificar o aluno automaticamente' : 'Aponte para o QR Code impresso no topo da prova') }}</p>
-                
-                <button v-if="qrScanMode === 'ai_correction'" @click="stopLiveQRScan(); showAICorrectionSetupModal=true;" class="mt-6 bg-white/20 text-white px-5 py-2.5 rounded-xl text-xs font-bold z-20 hover:bg-white/30 transition shadow-lg backdrop-blur-sm border border-white/30">
-                    <i class="fa-solid fa-keyboard mr-1"></i> Identificar Manualmente (S/ QR)
-                </button>
+                <p class="text-white font-bold text-center mt-6 px-4 z-20">{{ qrScanMode === 'attendance' ? 'Aponte continuamente para os QR Codes dos alunos ausentes (Mapa de Sala)' : 'Aponte para o QR Code impresso no topo da prova' }}</p>
             </div>
-        </div>
-
-        <!-- MODAL SETUP CORREÇÃO IA -->
-        <div v-if="showAICorrectionSetupModal" class="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm animate-fade-in">
-                <div class="flex justify-between items-center mb-5">
-                    <h3 class="font-black text-pink-600 text-lg"><i class="fa-solid fa-camera-retro mr-2"></i> Leitura OMR</h3>
-                    <button @click="showAICorrectionSetupModal=false" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-red-500 flex items-center justify-center transition"><i class="fa-solid fa-times"></i></button>
-                </div>
-                <div class="space-y-4">
-                    <!-- CAMPO DE CHAVE API ADICIONADO AQUI -->
-                    <div class="bg-pink-50 p-3 rounded-xl border border-pink-100">
-                        <label class="text-[10px] font-bold text-pink-500 uppercase mb-1 block">Chave API Gemini</label>
-                        <div class="flex gap-2">
-                            <input type="password" v-model="geminiKey" placeholder="Sua chave..." class="flex-1 bg-white border border-pink-200 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-pink-500" @change="saveSettings(true)">
-                            <button @click="testGeminiKey" class="bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition" title="Testar Chave API"><i class="fa-solid fa-vial"></i></button>
-                        </div>
-                        <p class="text-[9px] text-pink-500 leading-tight mt-1" v-if="settings.activeModel">Modelo: {{settings.activeModel}}</p>
-                        <p class="text-[9px] text-red-500 font-bold leading-tight mt-1" v-else>Teste a chave antes de prosseguir.</p>
-                    </div>
-
-                    <div class="pt-3 border-t border-gray-100">
-                        <button @click="showAICorrectionSetupModal=false; startLiveQRScan('ai_correction')" :disabled="!geminiKey || !settings.activeModel" class="w-full bg-gray-900 hover:bg-black text-white py-3.5 rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2 mb-4 disabled:opacity-50">
-                            <i class="fa-solid fa-qrcode"></i> Escanear QR do Aluno
-                        </button>
-                        
-                        <div class="text-center text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-widest">Ou Selecione Manualmente</div>
-                        
-                        <div class="space-y-2">
-                            <select v-model="aiCorrectionConfig.examId" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold outline-none focus:border-pink-500">
-                                <option value="">1. Selecionar prova...</option>
-                                <option v-for="e in exams" :key="e.id" :value="e?.id">{{e?.title}}</option>
-                            </select>
-                            <select v-if="aiCorrectionConfig.examId" v-model="aiCorrectionConfig.studentId" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold outline-none focus:border-pink-500">
-                                <option value="">2. Selecionar aluno...</option>
-                                <option v-for="s in aiCorrectionStudents" :key="s.id" :value="s.id">{{s.name}}</option>
-                            </select>
-                            <select v-if="aiCorrectionConfig.studentId" v-model="aiCorrectionConfig.version" class="w-full p-3 bg-gray-50 rounded-xl text-sm border font-bold outline-none focus:border-pink-500">
-                                <option v-for="(v,i) in aiCorrectionExamVersions" :key="i" :value="i">3. Prova: Tipo {{i+1}}</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <button @click="confirmAICorrectionSetup" :disabled="!aiCorrectionConfig.studentId || !geminiKey || !settings.activeModel" class="w-full bg-pink-600 hover:bg-pink-700 text-white py-3.5 rounded-xl font-bold shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Avançar para Câmera <i class="fa-solid fa-camera"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- MODAL CÂMERA IA -->
-        <div v-show="showAICameraModal" class="fixed inset-0 z-[600] flex flex-col bg-black animate-fade-in">
-            <div class="p-4 flex justify-between bg-gray-900 text-white z-10 shadow-md">
-                <div>
-                    <h3 class="font-bold text-pink-400"><i class="fa-solid fa-camera"></i> Escanear Gabarito</h3>
-                    <p class="text-[10px] text-gray-400">Alinhe o cartão de respostas no quadro abaixo</p>
-                </div>
-                <button @click="stopAICamera" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"><i class="fa-solid fa-times text-xl"></i></button>
-            </div>
-            <div class="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
-                <video id="ai-camera-video" autoplay playsinline class="absolute w-full h-full object-cover"></video>
-                <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20 p-8">
-                    <!-- Guia visual para o gabarito -->
-                    <div class="w-full max-w-sm aspect-[3/4] border-4 border-pink-500/50 border-dashed rounded-xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
-                        <div class="absolute -top-3 -left-3 w-6 h-6 border-t-4 border-l-4 border-pink-500"></div>
-                        <div class="absolute -top-3 -right-3 w-6 h-6 border-t-4 border-r-4 border-pink-500"></div>
-                        <div class="absolute -bottom-3 -left-3 w-6 h-6 border-b-4 border-l-4 border-pink-500"></div>
-                        <div class="absolute -bottom-3 -right-3 w-6 h-6 border-b-4 border-r-4 border-pink-500"></div>
-                        
-                        <div v-if="isAnalyzingPhoto" class="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg backdrop-blur-sm">
-                            <div class="flex flex-col items-center gap-4">
-                                <i class="fa-solid fa-robot text-5xl text-pink-500 animate-bounce"></i>
-                                <span class="text-white font-bold text-sm">IA Analisando Pixels...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="p-6 bg-gray-900 flex justify-center pb-12 z-20 border-t border-gray-800">
-                <button @click="takePhotoAndAnalyze" :disabled="isAnalyzingPhoto" class="w-20 h-20 bg-white rounded-full border-4 border-gray-400 flex items-center justify-center active:scale-95 transition disabled:opacity-50 disabled:active:scale-100 relative group overflow-hidden">
-                    <span class="absolute inset-0 bg-pink-500/20 group-active:bg-pink-500/40 transition-colors"></span>
-                    <i v-if="isAnalyzingPhoto" class="fa-solid fa-circle-notch fa-spin text-gray-900 text-2xl relative z-10"></i>
-                    <i v-else class="fa-solid fa-camera text-gray-800 text-2xl relative z-10"></i>
-                </button>
-            </div>
-            <canvas id="ai-capture-canvas" class="hidden"></canvas>
         </div>
     </div>
 
@@ -1697,22 +1428,6 @@
             seatingPlans: 'classId' 
         });
 
-        // Versão 6: Adição da Agenda
-        db.version(6).stores({ 
-            classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
-            results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
-            schedules: '++id, classId', attendance: '++id, classId, date, studentId',
-            seatingPlans: 'classId', agendaNotes: '++id, date'
-        });
-
-        // Versão 7: Correção de indexação da Agenda
-        db.version(7).stores({ 
-            classes:'++id', students:'++id, classId', questions:'++id', exams:'++id', 
-            results:'++id', settings:'id', extraPoints: '++id, studentId, bimester',
-            schedules: '++id, classId', attendance: '++id, classId, date, studentId',
-            seatingPlans: 'classId', agendaNotes: '++id, date, createdAt'
-        });
-
         createApp({
             setup() {
                 const getAlternativeLabel = (t, i) => i == null ? '-' : (t === 'ce' ? ['A', 'B'][i] || '?' : ['A', 'B', 'C', 'D', 'E'][i] || '?');
@@ -1723,7 +1438,6 @@
                 const tabs = [
                     {id:'dashboard',label:'Painel',icon:'fa-solid fa-chart-pie'},
                     {id:'diary',label:'Diário',icon:'fa-solid fa-book-open'},
-                    {id:'agenda',label:'Agenda',icon:'fa-regular fa-calendar-check'},
                     {id:'classes',label:'Turmas',icon:'fa-solid fa-chalkboard-user'},
                     {id:'questions',label:'Banca',icon:'fa-solid fa-layer-group'},
                     {id:'exams',label:'Provas',icon:'fa-solid fa-file-signature'},
@@ -1778,366 +1492,6 @@
                 const schedulesList = ref([]);
                 const newSchedule = ref({ day: 'Segunda', period: '1ª Aula' });
                 
-                // NOVO: Gestão das Justificativas de Falta
-                const justificationMap = ref({});
-                
-                const getJustification = (id) => {
-                    if (!justificationMap.value[id]) justificationMap.value[id] = { reason: '', attachment: null };
-                    return justificationMap.value[id];
-                };
-
-                const handleJustificationAttachment = (e, id) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    if (file.size > 5 * 1024 * 1024) return showToast("O anexo excede 5MB.", "error");
-                    
-                    showToast("Processando documento...", "loading");
-                    const reader = new FileReader();
-                    reader.onload = ev => {
-                        getJustification(id).attachment = {
-                            data: ev.target.result,
-                            type: file.type,
-                            name: file.name
-                        };
-                        showToast("Comprovativo anexado!", "success");
-                    };
-                    reader.readAsDataURL(file);
-                    e.target.value = ''; // Reset
-                };
-
-                const viewJustification = (id) => {
-                    const att = getJustification(id).attachment;
-                    if (!att) return;
-                    if (att.type.startsWith('image/')) {
-                        viewFullScreen(att.data);
-                    } else {
-                        // Faz download se for PDF ou outro ficheiro
-                        const a = document.createElement('a');
-                        a.href = att.data;
-                        a.download = att.name || 'comprovativo.pdf';
-                        a.click();
-                        showToast("Documento aberto nas transferências.", "info");
-                    }
-                };
-                
-                // Agenda
-                const agendaDate = ref(new Date().toISOString().split('T')[0]);
-                const allAgendaNotes = ref([]);
-                const newAgendaNoteText = ref('');
-                const newAgendaAttachments = ref([]); 
-                const isRecordingAudio = ref(false); 
-                let mediaRecorder = null; 
-                let audioChunks = []; 
-                
-                // NOVO: TRANSCRIÇÃO DE VOZ (DITADO) NA AGENDA
-                const isAgendaDictating = ref(false);
-                let agendaRecognition = null;
-                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-                    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    agendaRecognition = new SpeechRec();
-                    agendaRecognition.lang = 'pt-BR';
-                    agendaRecognition.interimResults = false;
-                    agendaRecognition.continuous = true; // Permite ditar várias frases seguidas
-
-                    agendaRecognition.onresult = (event) => {
-                        let finalTranscript = '';
-                        for (let i = event.resultIndex; i < event.results.length; ++i) {
-                            if (event.results[i].isFinal) {
-                                finalTranscript += event.results[i][0].transcript + ' ';
-                            }
-                        }
-                        if (finalTranscript) {
-                            // Adiciona o texto falado ao final do que já estava escrito
-                            newAgendaNoteText.value += (newAgendaNoteText.value ? ' ' : '') + finalTranscript.trim();
-                        }
-                    };
-                    agendaRecognition.onerror = (event) => {
-                        console.error("Erro no ditado:", event.error);
-                        isAgendaDictating.value = false;
-                        showToast("Erro na transcrição. Verifique o microfone.", "error");
-                    };
-                    agendaRecognition.onend = () => {
-                        isAgendaDictating.value = false;
-                    };
-                }
-
-                const toggleAgendaDictation = () => {
-                    if (!agendaRecognition) return showToast("Transcrição não suportada neste navegador.", "warning");
-                    if (isAgendaDictating.value) {
-                        agendaRecognition.stop();
-                    } else {
-                        agendaRecognition.start();
-                        isAgendaDictating.value = true;
-                        showToast("Pode falar! Estou ouvindo...", "info");
-                    }
-                };
-
-                // Filtros de Pesquisa
-                const agendaSearchText = ref('');
-                const agendaStartDate = ref('');
-                const agendaEndDate = ref('');
-
-                const loadAgendaNotes = async () => {
-                    allAgendaNotes.value = await db.agendaNotes.orderBy('createdAt').reverse().toArray();
-                };
-
-                const filteredAgendaNotes = computed(() => {
-                    let list = allAgendaNotes.value;
-                    
-                    // Se não houver filtros, mostra as anotações do dia selecionado no topo
-                    if (!agendaSearchText.value && !agendaStartDate.value && !agendaEndDate.value) {
-                        return list.filter(n => n.date === agendaDate.value);
-                    }
-                    
-                    // Aplica filtros se existirem
-                    if (agendaStartDate.value) list = list.filter(n => n.date >= agendaStartDate.value);
-                    if (agendaEndDate.value) list = list.filter(n => n.date <= agendaEndDate.value);
-                    if (agendaSearchText.value.trim()) {
-                        const q = agendaSearchText.value.toLowerCase();
-                        list = list.filter(n => n.text.toLowerCase().includes(q));
-                    }
-                    return list;
-                });
-                
-                // NOVO: Lê os ficheiros para Base64
-                const handleAgendaAttachment = (event) => {
-                    const files = event.target.files;
-                    if (!files || files.length === 0) return;
-                    
-                    showToast("Processando anexos...", "loading");
-                    
-                    Array.from(files).forEach(file => {
-                        // Limite simples de 5MB por ficheiro para evitar rebentar a base de dados
-                        if(file.size > 5 * 1024 * 1024) {
-                            showToast(`Ficheiro ${file.name} muito grande (Máx: 5MB)`, "error");
-                            return;
-                        }
-                        
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            newAgendaAttachments.value.push({
-                                name: file.name,
-                                type: file.type,
-                                data: e.target.result
-                            });
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                    event.target.value = ''; // Reset input
-                    showToast("Anexos adicionados!", "success");
-                };
-
-                const removeAgendaAttachment = (idx) => {
-                    newAgendaAttachments.value.splice(idx, 1);
-                };
-
-                // NOVO: Gravação de Áudio Integrada
-                const toggleAudioRecording = async () => {
-                    if (isRecordingAudio.value) {
-                        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                            mediaRecorder.stop();
-                        }
-                        isRecordingAudio.value = false;
-                        return;
-                    }
-
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        mediaRecorder = new MediaRecorder(stream);
-                        audioChunks = [];
-
-                        mediaRecorder.ondataavailable = e => {
-                            if (e.data.size > 0) audioChunks.push(e.data);
-                        };
-
-                        mediaRecorder.onstop = () => {
-                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // webm/mp4
-                            const reader = new FileReader();
-                            reader.onload = (e) => {
-                                newAgendaAttachments.value.push({
-                                    name: `Gravacao_${new Date().getTime()}.webm`,
-                                    type: 'audio/webm',
-                                    data: e.target.result
-                                });
-                            };
-                            reader.readAsDataURL(audioBlob);
-                            
-                            // Parar as tracks para desligar o indicador do microfone no browser
-                            stream.getTracks().forEach(track => track.stop());
-                            showToast("Áudio gravado com sucesso!", "success");
-                        };
-
-                        mediaRecorder.start();
-                        isRecordingAudio.value = true;
-                        showToast("Gravando áudio... Clique novamente para parar.", "info");
-                    } catch (err) {
-                        showToast("Erro ao aceder ao microfone. Verifique as permissões.", "error");
-                        console.error(err);
-                    }
-                };
-                
-                const addAgendaNote = async () => {
-                    if(!newAgendaNoteText.value.trim() && newAgendaAttachments.value.length === 0) {
-                        return showToast("Escreva algo ou adicione um anexo.", "warning");
-                    }
-                    await db.agendaNotes.add({
-                        date: agendaDate.value,
-                        text: newAgendaNoteText.value.trim(),
-                        attachments: JSON.parse(JSON.stringify(newAgendaAttachments.value)), // Salva anexos
-                        createdAt: Date.now()
-                    });
-                    newAgendaNoteText.value = '';
-                    newAgendaAttachments.value = []; // Limpa anexos
-                    loadAgendaNotes();
-                    showToast('Anotação salva!', 'success');
-                };
-
-                const deleteAgendaNote = async (id) => {
-                    triggerConfirm("Apagar esta anotação?", async () => {
-                        await db.agendaNotes.delete(id);
-                        loadAgendaNotes();
-                        showToast('Anotação removida.', 'success');
-                    });
-                };
-                
-                // NOVO: EDIÇÃO DE ANOTAÇÕES DA AGENDA
-                const editingAgendaNoteId = ref(null);
-                const editingAgendaNoteText = ref('');
-
-                const startEditingAgendaNote = (note) => {
-                    editingAgendaNoteId.value = note.id;
-                    editingAgendaNoteText.value = note.text;
-                };
-
-                const cancelEditingAgendaNote = () => {
-                    editingAgendaNoteId.value = null;
-                    editingAgendaNoteText.value = '';
-                };
-
-                const saveEditedAgendaNote = async () => {
-                    if (!editingAgendaNoteText.value.trim()) return showToast("O lembrete não pode estar vazio.", "warning");
-                    await db.agendaNotes.update(editingAgendaNoteId.value, { text: editingAgendaNoteText.value.trim() });
-                    editingAgendaNoteId.value = null;
-                    loadAgendaNotes();
-                    showToast("Anotação atualizada!", "success");
-                };
-
-                // NOVO: REVISÃO E MELHORIA DE TEXTO COM IA NA AGENDA
-                const isImprovingText = ref(false);
-                const improvingTarget = ref(null);
-
-                const improveAgendaText = async (target) => {
-                    const textToImprove = target === 'new' ? newAgendaNoteText.value : editingAgendaNoteText.value;
-                    
-                    if (!textToImprove.trim()) return showToast("Escreva algum rascunho primeiro para a IA melhorar.", "warning");
-                    if (!settings.value.activeModel || !geminiKey.value) return showToast("Configure a chave da IA primeiro (ícone da varinha na Banca).", "warning");
-
-                    isImprovingText.value = true;
-                    improvingTarget.value = target;
-                    showToast("A IA está a polir o seu texto...", "loading");
-
-                    try {
-                        const promptText = `Atue como um revisor de texto profissional. 
-Corrija erros ortográficos e gramaticais, melhore a clareza e torne o texto mais fluido e elegante. 
-Este é um lembrete/anotação de um professor na sua agenda escolar. Mantenha o tom profissional, mas prático.
-Mantenha o significado original da mensagem.
-Retorne APENAS um JSON com a chave "improved_text" contendo o texto final resultante.
-Texto original do professor: "${textToImprove}"`;
-
-                        const schema = {
-                            type: "OBJECT",
-                            properties: { improved_text: { type: "STRING" } },
-                            required: ["improved_text"]
-                        };
-
-                        const aiResult = await fetchGemini(promptText, schema);
-
-                        if (aiResult && aiResult.improved_text) {
-                            if (target === 'new') {
-                                newAgendaNoteText.value = aiResult.improved_text;
-                            } else {
-                                editingAgendaNoteText.value = aiResult.improved_text;
-                            }
-                            showToast("Texto melhorado! Reveja e clique em Salvar.", "success");
-                        } else {
-                            throw new Error("A IA não conseguiu processar o texto de forma estruturada.");
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        showToast(e.message || "Erro ao melhorar o texto. Verifique a internet ou tente novamente.", "error");
-                    } finally {
-                        isImprovingText.value = false;
-                        improvingTarget.value = null;
-                    }
-                };
-
-                const printAgendaDayPDF = () => {
-                    if (filteredAgendaNotes.value.length === 0) return showToast("Não há anotações para imprimir.", "warning");
-                    showToast("A gerar Relatório da Agenda...", "loading");
-
-                    let isFiltered = agendaSearchText.value || agendaStartDate.value || agendaEndDate.value;
-                    let subtitle = isFiltered ? "RELATÓRIO DE PESQUISA DA AGENDA" : `RELATÓRIO DIÁRIO - ${agendaDate.value.split('-').reverse().join('/')}`;
-
-                    let doc = {
-                        content: [
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
-                            { text: subtitle, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 20], color: '#4f46e5' }
-                        ],
-                        defaultStyle: { font: 'Roboto' },
-                        pageMargins: [40, 40, 40, 40]
-                    };
-
-                    filteredAgendaNotes.value.forEach((note, index) => {
-                        // Data e Hora da anotação
-                        const d = new Date(note.createdAt);
-                        const dataFormatada = note.date.split('-').reverse().join('/') + ' às ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-                        
-                        doc.content.push({ text: `Anotação ${index + 1} - ${dataFormatada}`, fontSize: 10, bold: true, color: '#374151', margin: [0, 10, 0, 5] });
-                        
-                        // Texto da anotação
-                        if (note.text) {
-                            doc.content.push({ text: note.text, fontSize: 10, margin: [0, 0, 0, 10], alignment: 'justify' });
-                        }
-
-                        // Processamento dos Anexos
-                        if (note.attachments && note.attachments.length > 0) {
-                            let imgCols = [];
-                            let docsAudioList = [];
-
-                            note.attachments.forEach(att => {
-                                if (att.type.startsWith('image/')) {
-                                    imgCols.push({ image: att.data, width: 150, margin: [0, 5, 10, 5], alignment: 'center' });
-                                } else if (att.type.startsWith('application/pdf')) {
-                                    docsAudioList.push(`📎 Documento PDF Anexado: ${att.name || 'Ficheiro'}`);
-                                } else if (att.type.startsWith('audio/')) {
-                                    docsAudioList.push(`🎤 Gravação de Áudio: ${att.name || 'Áudio'}`);
-                                }
-                            });
-
-                            // Organiza as imagens em linhas de 3 para não quebrar a página
-                            if (imgCols.length > 0) {
-                                for (let i = 0; i < imgCols.length; i += 3) {
-                                    doc.content.push({ columns: imgCols.slice(i, i + 3), margin: [0, 5, 0, 5] });
-                                }
-                            }
-
-                            // Lista de PDFs e Áudios
-                            if (docsAudioList.length > 0) {
-                                doc.content.push({
-                                    text: docsAudioList.join('\n'),
-                                    fontSize: 9, bold: true, color: '#ef4444', margin: [0, 5, 0, 5]
-                                });
-                            }
-                        }
-
-                        // Linha separadora
-                        doc.content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#d1d5db' }], margin: [0, 10, 0, 10] });
-                    });
-
-                    let fileName = isFiltered ? `Agenda_Pesquisa_${Date.now()}.pdf` : `Agenda_${agendaDate.value}.pdf`;
-                    downloadPDF(pdfMake.createPdf(doc), fileName, 'download');
-                };
-
                 const showAttendancePrintModal = ref(false);
                 const attPrintConfig = ref({
                     type: 'monthly',
@@ -2191,131 +1545,9 @@ Texto original do professor: "${textToImprove}"`;
                 const assistantQuery = ref('');
                 const isAssistantThinking = ref(false);
                 const isDictating = ref(false);
-                const assistantAttachedImage = ref(null);
-                const assistantAttachedImageMime = ref(null);
-                const assistantTTS = ref(true); // O assistente fala por padrão
                 const assistantHistory = ref([
-                    {role: 'model', text: 'Olá, Professor! Eu sou o assistente virtual. Posso analisar imagens (atestados, anotações), gerir faltas, notas e falar consigo.'}
+                    {role: 'model', text: 'Olá, Professor! Eu sou o assistente virtual da caderneta. Posso ajudá-lo a gerir as suas notas, as faltas em qualquer aula, ou os seus horários.'}
                 ]);
-
-                // Desliga o áudio automaticamente se fechar a janela do assistente e aciona a proatividade
-                watch(showAssistant, async (isOpen) => {
-                    if (!isOpen) {
-                        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-                    } else {
-                        const todayStr = new Date().toLocaleDateString('pt-BR');
-                        if (settings.value.lastGreetingDate !== todayStr) {
-                            await generateProactiveGreeting(todayStr);
-                        }
-                    }
-                });
-
-                const generateProactiveGreeting = async (todayStr) => {
-                    isAssistantThinking.value = true;
-                    try {
-                        const today = new Date();
-                        const daysMap = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-                        const todayName = daysMap[today.getDay()];
-                        const hour = today.getHours();
-                        let greeting = hour < 12 ? 'Bom dia' : (hour < 18 ? 'Boa tarde' : 'Boa noite');
-
-                        const schArray = await db.schedules.toArray();
-                        const todayClasses = schArray.filter(s => s.day === todayName);
-                        const classCount = todayClasses.length;
-
-                        const attArray = await db.attendance.toArray();
-                        // Alunos com faltas recorrentes (2 ou mais nos últimos 14 dias)
-                        const recentDate = new Date();
-                        recentDate.setDate(recentDate.getDate() - 14);
-                        const recentDateStr = recentDate.toISOString().split('T')[0];
-
-                        const recentAbsences = attArray.filter(a => a.status === 'F' && a.date >= recentDateStr);
-                        const absMap = {};
-                        recentAbsences.forEach(a => { absMap[a.studentId] = (absMap[a.studentId] || 0) + 1; });
-                        const criticalStudents = Object.keys(absMap).filter(id => absMap[id] >= 2).map(Number);
-
-                        const todayIso = today.toISOString().split('T')[0];
-                        const todayNotes = await db.agendaNotes.where({date: todayIso}).toArray();
-                        const todayExams = exams.value.filter(e => {
-                            if (!e.date) return false;
-                            const d = new Date(e.date);
-                            return d.toISOString().split('T')[0] === todayIso;
-                        });
-
-                        let msg = `Olá, Professor! ${greeting}! Hoje é ${todayName}. `;
-
-                        if (classCount > 0) {
-                            msg += `Tem ${classCount} aula(s) programada(s) para hoje. `;
-                        }
-
-                        if (todayExams.length > 0) {
-                            msg += `Lembre-se que tem a avaliação "${todayExams[0].title}" hoje. `;
-                        }
-
-                        if (todayNotes.length > 0) {
-                            msg += `Há ${todayNotes.length} anotação(ões) na sua agenda para hoje. `;
-                        }
-
-                        if (criticalStudents.length > 0) {
-                            let stds = students.value.filter(s => criticalStudents.includes(s.id));
-                            let names = stds.map(s => s.name.split(' ')[0]).slice(0, 2).join(' e ');
-                            if (criticalStudents.length > 2) names += ` e outros ${criticalStudents.length - 2}`;
-                            msg += `Nota de atenção: ${names} têm faltado recentemente. `;
-                        }
-
-                        if (classCount === 0 && todayExams.length === 0 && todayNotes.length === 0) {
-                            msg += `O seu dia parece estar tranquilo. `;
-                        }
-
-                        msg += `Como o posso ajudar a organizar o dia?`;
-
-                        assistantHistory.value.push({ role: 'model', text: msg });
-                        
-                        // Espera um pouco para renderizar e simular digitação natural
-                        setTimeout(() => { speakText(msg); }, 300);
-
-                        settings.value.lastGreetingDate = todayStr;
-                        await saveSettings(true);
-                    } catch (e) {
-                        console.error("Erro na proatividade", e);
-                    } finally {
-                        isAssistantThinking.value = false;
-                        nextTick(() => {
-                            const box = document.getElementById('assistant-chat-box');
-                            if (box) box.scrollTop = box.scrollHeight;
-                        });
-                    }
-                };
-
-                const handleAssistantImageUpload = (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    if (file.size > 5 * 1024 * 1024) return showToast("Imagem muito grande (Max: 5MB).", "error");
-                    
-                    const reader = new FileReader();
-                    reader.onload = ev => {
-                        assistantAttachedImage.value = ev.target.result;
-                        assistantAttachedImageMime.value = file.type;
-                    };
-                    reader.readAsDataURL(file);
-                    e.target.value = ''; // Reset input
-                };
-
-                const speakText = (text) => {
-                    if (!assistantTTS.value || !('speechSynthesis' in window)) return;
-                    window.speechSynthesis.cancel(); // Para fala anterior para não encavalar
-                    
-                    // Remove emojis e marcações markdown comuns para uma fala mais limpa
-                    const cleanText = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '')
-                                          .replace(/\*/g, '')
-                                          .replace(/_/g, '')
-                                          .replace(/#/g, '');
-
-                    const utterance = new SpeechSynthesisUtterance(cleanText);
-                    utterance.lang = 'pt-BR';
-                    utterance.rate = 1.05; // Velocidade ligeiramente acelerada para dinamismo
-                    window.speechSynthesis.speak(utterance);
-                };
 
                 // Exam & Question Modals
                 const showEditExamModal = ref(false);
@@ -2408,158 +1640,6 @@ Texto original do professor: "${textToImprove}"`;
                     }
                     return list;
                 });
-                
-                // Correção IA (Leitura de Gabarito por Foto)
-                const showAICorrectionSetupModal = ref(false);
-                const showAICameraModal = ref(false);
-                const aiCorrectionConfig = ref({examId:'', studentId:'', version:0});
-                const isAnalyzingPhoto = ref(false);
-                let aiCameraStream = null;
-
-                const aiCorrectionStudents = computed(() => {
-                    if (!aiCorrectionConfig.value.examId) return [];
-                    const ex = exams.value.find(e => e.id === aiCorrectionConfig.value.examId);
-                    if (!ex) return [];
-                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
-                });
-
-                const aiCorrectionExamVersions = computed(() => {
-                    if (!aiCorrectionConfig.value.examId) return [];
-                    const ex = exams.value.find(e => e.id === aiCorrectionConfig.value.examId);
-                    return ex ? ex.versions : [];
-                });
-
-                const startAICorrectionEntry = () => {
-                    aiCorrectionConfig.value = {examId:'', studentId:'', version:0};
-                    if (!settings.value.activeModel || !geminiKey.value) {
-                        // Se não tem chave, abre a tela de setup manual / configuração de chave
-                        showAICorrectionSetupModal.value = true;
-                    } else {
-                        // Se a chave já está pronta, vai direto para a magia do QR Code!
-                        startLiveQRScan('ai_correction');
-                    }
-                };
-
-                const confirmAICorrectionSetup = async () => {
-                    if(!aiCorrectionConfig.value.examId || !aiCorrectionConfig.value.studentId) return;
-                    showAICorrectionSetupModal.value = false;
-                    showAICameraModal.value = true;
-                    nextTick(async () => {
-                        try {
-                            const video = document.getElementById('ai-camera-video');
-                            // Exige preferencialmente a câmera traseira do telemóvel para melhor foco
-                            aiCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
-                            video.srcObject = aiCameraStream;
-                        } catch (e) {
-                            showToast("Erro ao aceder à câmara. Verifique as permissões.", "error");
-                            showAICameraModal.value = false;
-                        }
-                    });
-                };
-
-                const stopAICamera = () => {
-                    if (aiCameraStream) {
-                        aiCameraStream.getTracks().forEach(t => t.stop());
-                        aiCameraStream = null;
-                    }
-                    showAICameraModal.value = false;
-                };
-
-                const takePhotoAndAnalyze = async () => {
-                    if (isAnalyzingPhoto.value) return;
-                    isAnalyzingPhoto.value = true;
-                    showToast("Enviando para o Gemini Vision...", "loading");
-
-                    try {
-                        const video = document.getElementById('ai-camera-video');
-                        const canvas = document.getElementById('ai-capture-canvas');
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(video, 0, 0);
-
-                        // Comprime a imagem para JPEG para não sobrecarregar a API
-                        const base64ImgRaw = canvas.toDataURL('image/jpeg', 0.8);
-                        const base64Img = base64ImgRaw.split(',')[1];
-                        const mimeType = 'image/jpeg';
-
-                        const ex = exams.value.find(e => e.id === aiCorrectionConfig.value.examId);
-                        const qArr = getVersionQuestions(ex, aiCorrectionConfig.value.version);
-                        const numQuestions = qArr.length;
-
-                        // NOVO PROMPT REFINADO: Mais direto, descritivo e à prova de falhas
-                        const promptText = `Atue como um scanner OMR (Optical Mark Recognition) de altíssima precisão. 
-Sua tarefa é analisar a foto de um 'CARTÃO DE RESPOSTAS' preenchido à mão por um aluno.
-A imagem contém uma grelha/tabela com exatamente ${numQuestions} questões (linhas) numeradas sequencialmente de 1 a ${numQuestions}.
-Cada linha tem alternativas (colunas) representadas por bolinhas com letras dentro. As alternativas vão da letra A até a E (ou apenas Certo/Errado em algumas disciplinas).
-As respostas do aluno são as bolinhas que estão PINTADAS/ESCURECIDAS fortemente com caneta. Bolinhas em branco possuem apenas o contorno.
-Ignore QR Codes, nomes ou quadrados pretos nos cantos da página. Foco apenas na grelha de respostas.
-
-REGRAS RÍGIDAS DE EXTRAÇÃO:
-1. Leia a grelha rigorosamente de cima para baixo, linha por linha (da questão 1 até a questão ${numQuestions}).
-2. Identifique qual bolinha foi pintada em cada linha.
-3. Converta a letra da bolinha pintada em um número (ÍNDICE): 0 para A, 1 para B, 2 para C, 3 para D, 4 para E.
-4. Se for do tipo Certo/Errado, retorne 0 para Certo e 1 para Errado.
-5. Se uma linha estiver em BRANCO (nenhuma bolinha pintada), o valor DEVE ser null.
-6. Se uma linha tiver MÚLTIPLAS bolinhas pintadas ou rasuras fortemente ambíguas, o valor DEVE ser null.
-
-RETORNO OBRIGATÓRIO (APENAS JSON):
-Retorne um objeto JSON contendo APENAS a chave "respostas_marcadas" com um array numérico de exatamente ${numQuestions} elementos correspondentes às respostas.
-NÃO inclua explicações, NÃO inclua blocos markdown (\`\`\`json) e NÃO adicione nenhum outro texto além do JSON puro.
-Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`;
-
-                        const schema = {
-                            type: "OBJECT",
-                            properties: {
-                                respostas_marcadas: {
-                                    type: "ARRAY",
-                                    items: { type: "INTEGER", nullable: true }
-                                }
-                            },
-                            required: ["respostas_marcadas"]
-                        };
-
-                        const aiResult = await fetchGemini(promptText, schema, base64Img, mimeType);
-
-                        if (!aiResult || !aiResult.respostas_marcadas || !Array.isArray(aiResult.respostas_marcadas)) {
-                            throw new Error("A IA não conseguiu interpretar o gabarito de forma estruturada. Verifique o enquadramento.");
-                        }
-
-                        let studentAnswersMap = {};
-                        aiResult.respostas_marcadas.forEach((val, idx) => {
-                            if (idx < numQuestions) {
-                                studentAnswersMap[idx] = val !== undefined ? val : null;
-                            }
-                        });
-
-                        const std = students.value.find(s => s.id === aiCorrectionConfig.value.studentId);
-                        
-                        // O parâmetro needsReview=true força a cor Laranja no histórico, lembrando o professor de revisar
-                        let resultId = await saveExamResult(
-                            ex.id, 
-                            std.id, 
-                            std.name, 
-                            aiCorrectionConfig.value.version, 
-                            studentAnswersMap, 
-                            canvas.toDataURL('image/jpeg', 0.4), // Guarda a foto em baixa resolução para auditoria futura
-                            true, // needsReview = true (Requer revisão humana obrigatória)
-                            false // isManual = false
-                        );
-
-                        stopAICamera();
-                        showToast("Correção IA concluída! Por favor, revise o espelho.", "success");
-                        
-                        // ABRE AUTOMATICAMENTE O ESPELHO LOGO APÓS A CORREÇÃO
-                        const savedResult = results.value.find(r => r.id === resultId);
-                        if (savedResult) openResultDetails(savedResult);
-
-                    } catch (e) {
-                        console.error(e);
-                        showToast(e.message || "Erro na análise da imagem.", "error");
-                    } finally {
-                        isAnalyzingPhoto.value = false;
-                    }
-                };
 
                 // External Exam Input
                 const showExternalExamModal = ref(false);
@@ -2705,7 +1785,6 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     students.value=await db.students.toArray(); questions.value=await db.questions.orderBy('id').reverse().toArray();
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
                     extraPoints.value=await db.extraPoints.toArray(); const s=await db.settings.get('config');
-                    loadAgendaNotes();
                     if(s) { 
                         settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null, hideAppLogo:s.hideAppLogo||false}; 
                         if(s.geminiKey) geminiKey.value=s.geminiKey; 
@@ -2956,21 +2035,12 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     const currentAtt = allClassAtt.filter(r => r.date === attendanceDate.value && r.period === attendancePeriod.value);
                     
                     const map = {};
-                    const justMap = {}; // Reseta o mapa de justificativas
-                    
-                    currentAtt.forEach(r => { 
-                        map[r.studentId] = r.status; 
-                        if (r.status === 'J') {
-                            justMap[r.studentId] = { reason: r.reason || '', attachment: r.attachment || null };
-                        }
-                    });
+                    currentAtt.forEach(r => { map[r.studentId] = r.status; });
                     
                     students.value.filter(s=>s && s.classId===diaryClassId.value).forEach(s => {
                         if(s && s.id && !map[s.id]) map[s.id] = 'P'; // Presença por omissão
                     });
-                    
                     attendanceMap.value = map;
-                    justificationMap.value = justMap;
                 };
 
                 watch([diaryClassId, attendanceDate, attendancePeriod], loadDiaryData);
@@ -2985,24 +2055,13 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 });
 
                 const executeSaveAttendance = async () => {
-                    const records = Object.keys(attendanceMap.value).map(sId => {
-                        let status = attendanceMap.value[sId];
-                        let rec = {
-                            classId: diaryClassId.value,
-                            date: attendanceDate.value,
-                            period: attendancePeriod.value,
-                            studentId: Number(sId),
-                            status: status
-                        };
-                        
-                        // Guarda o anexo e motivo apenas se for falta justificada
-                        if (status === 'J' && justificationMap.value[sId]) {
-                            rec.reason = justificationMap.value[sId].reason;
-                            rec.attachment = justificationMap.value[sId].attachment;
-                        }
-                        
-                        return rec;
-                    });
+                    const records = Object.keys(attendanceMap.value).map(sId => ({
+                        classId: diaryClassId.value,
+                        date: attendanceDate.value,
+                        period: attendancePeriod.value,
+                        studentId: Number(sId),
+                        status: attendanceMap.value[sId]
+                    }));
                     
                     // Limpar registros existentes desta Aula específica no mesmo dia e turma
                     const allClassAtt = await db.attendance.where('classId').equals(diaryClassId.value).toArray();
@@ -3010,7 +2069,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     
                     await db.attendance.bulkDelete(toDeleteIds);
                     await db.attendance.bulkAdd(records);
-                    showToast("Frequência e Anexos salvos!", "success");
+                    showToast("Frequência salva!", "success");
                 };
 
                 const saveAttendance = async () => {
@@ -3218,8 +2277,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 await Promise.all([
                                     db.classes.clear(), db.students.clear(), db.questions.clear(), 
                                     db.exams.clear(), db.results.clear(), db.schedules.clear(), 
-                                    db.attendance.clear(), db.seatingPlans.clear(), db.extraPoints.clear(),
-                                    db.agendaNotes.clear()
+                                    db.attendance.clear(), db.seatingPlans.clear(), db.extraPoints.clear()
                                 ]);
 
                                 // Restaurar os dados do ficheiro
@@ -3232,7 +2290,6 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 if(d.att) await db.attendance.bulkAdd(d.att);
                                 if(d.seatP) await db.seatingPlans.bulkAdd(d.seatP);
                                 if(d.ep) await db.extraPoints.bulkAdd(d.ep);
-                                if(d.ag) await db.agendaNotes.bulkAdd(d.ag);
 
                                 if(d.cfg) await db.settings.put({ ...d.cfg, id: 'config' });
                                 if(d.license) {
@@ -3263,11 +2320,10 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     const att = await db.attendance.toArray();
                     const seatP = await db.seatingPlans.toArray();
                     const ep = await db.extraPoints.toArray(); // Inclui pontos extras adicionados recentemente
-                    const ag = await db.agendaNotes.toArray();
                     
                     const d = { 
                         c: classes.value, s: students.value, q: questions.value, e: exams.value, r: results.value, 
-                        sch: sch, att: att, seatP: seatP, ep: ep, ag: ag,
+                        sch: sch, att: att, seatP: seatP, ep: ep, 
                         cfg: { ...settings.value, id: 'config', geminiKey: geminiKey.value }, license: licenseConfig 
                     };
                     
@@ -3376,16 +2432,6 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         const cls = classes.value.find(c => Number(c.id) === cId);
                         return `Adicionar horário na turma '${cls ? cls.name : 'Desconhecida'}': ${act.day}, ${act.period}`;
                     }
-                    if (act.actionType === 'add_agenda') {
-                        const dateFormatted = act.date ? act.date.split('-').reverse().join('/') : 'Hoje';
-                        return `Adicionar na Agenda (${dateFormatted}): "${act.text}"`;
-                    }
-                    if (act.actionType === 'generate_exam') {
-                        let parts = [];
-                        if (act.mc_count) parts.push(`${act.mc_count} Múltipla Escolha`);
-                        if (act.ce_count) parts.push(`${act.ce_count} Certo/Errado`);
-                        return `Configurar Gerador IA para prova de ${act.subject || 'Disciplina'} sobre ${act.topic || 'Tópico'} (${parts.join(', ') || 'Padrão'})`;
-                    }
                     return "Ação desconhecida";
                 };
 
@@ -3393,7 +2439,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     try {
                         if(!msg.actions || msg.actions.length === 0) throw new Error("Nenhuma ação válida encontrada");
                         
-                        let targetView = null;
+                        let switchToDiary = false;
 
                         for (const act of msg.actions) {
                             const stdId = act.studentId != null ? Number(act.studentId) : null;
@@ -3448,13 +2494,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 const allClassAtt = await db.attendance.where('classId').equals(classId).toArray();
                                 const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per && Number(r.studentId) === stdId).map(r => r.id);
                                 await db.attendance.bulkDelete(toDelete);
-                                
-                                // Nova lógica para acomodar a razão do Atestado Médico lido pela Visão da IA
-                                let newAtt = {classId, date: dt, period: per, studentId: stdId, status: act.status};
-                                if (act.status === 'J' && act.text) {
-                                    newAtt.reason = act.text; 
-                                }
-                                await db.attendance.add(newAtt);
+                                await db.attendance.add({classId, date: dt, period: per, studentId: stdId, status: act.status});
                                 
                                 diaryClassId.value = classId;
                                 diaryTab.value = 'attendance';
@@ -3518,39 +2558,17 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                     
                                     diaryClassId.value = cId;
                                     diaryTab.value = 'schedule';
-                                    targetView = 'diary';
+                                    switchToDiary = true;
                                 }
-                            } else if (act.actionType === 'add_agenda') {
-                                await db.agendaNotes.add({
-                                    date: act.date || new Date().toISOString().split('T')[0],
-                                    text: act.text || 'Nova anotação via Assistente',
-                                    attachments: [],
-                                    createdAt: Date.now()
-                                });
-                                agendaDate.value = act.date || new Date().toISOString().split('T')[0];
-                                targetView = 'agenda';
-                            } else if (act.actionType === 'generate_exam') {
-                                aiGenConfig.value.subject = act.subject || '';
-                                aiGenConfig.value.topic = act.topic || '';
-                                if (act.difficulty) aiGenConfig.value.difficulty = act.difficulty;
-                                
-                                aiGenConfig.value.counts.mc = act.mc_count !== undefined ? Number(act.mc_count) : 5;
-                                aiGenConfig.value.counts.ce = act.ce_count !== undefined ? Number(act.ce_count) : 0;
-                                aiGenConfig.value.counts.vf = act.vf_count !== undefined ? Number(act.vf_count) : 0;
-                                aiGenConfig.value.counts.assoc = act.assoc_count !== undefined ? Number(act.assoc_count) : 0;
-                                
-                                targetView = 'questions';
-                                showAIGenModal.value = true;
                             }
                         }
                         
                         msg.actionResolved = 'confirmed';
-                        if (targetView) {
-                            currentView.value = targetView;
+                        if (switchToDiary) {
+                            currentView.value = 'diary';
                         }
                         await load();
                         if (currentView.value === 'diary') await loadDiaryData();
-                        if (currentView.value === 'agenda') await loadAgendaNotes();
                         showToast("Ações executadas com sucesso!", "success");
                     } catch(e) {
                         showToast(e.message || "Erro ao executar ações", "error");
@@ -3597,19 +2615,12 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 };
 
                 const askAssistant = async () => {
-                    if(!assistantQuery.value.trim() && !assistantAttachedImage.value) return;
+                    if(!assistantQuery.value.trim()) return;
                     if(!settings.value.activeModel || !geminiKey.value) return showToast("Por favor, configure a chave da IA primeiro na aba Correção", "warning");
 
-                    const userQuery = assistantQuery.value || "Veja esta imagem anexada.";
-                    const b64Image = assistantAttachedImage.value;
-                    const b64Mime = assistantAttachedImageMime.value;
-
-                    assistantHistory.value.push({role: 'user', text: userQuery, image: b64Image});
-                    
+                    const userQuery = assistantQuery.value;
+                    assistantHistory.value.push({role: 'user', text: userQuery});
                     assistantQuery.value = '';
-                    assistantAttachedImage.value = null;
-                    assistantAttachedImageMime.value = null;
-                    
                     isAssistantThinking.value = true;
                     
                     nextTick(() => {
@@ -3618,42 +2629,14 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     });
 
                     try {
-                        const queryLower = userQuery.toLowerCase();
-                        
-                        // --- INÍCIO DA OTIMIZAÇÃO DE TOKENS (RAG LOCAL) ---
-                        // Para evitar sobrecarregar a IA e atingir limites da API (Token Bloat),
-                        // injetamos apenas os dados essenciais e relevantes para a pergunta atual.
-                        
                         const c = classes.value.map(x=>({id:x.id, nome:x.name}));
+                        const s = students.value.map(x=>({id:x.id, idTurma:x.classId, nome:x.name}));
                         const eList = exams.value.map(x=>({id:x.id, titulo:x.title, bimestre:x.bimester, tipo:x.type}));
                         const r = results.value.map(x=>({idAluno:x.studentId, idProva: x.examId, nota:x.score}));
-                        
-                        // Otimização 1: Injetar as Biografias (que gastam imenso texto) APENAS se pedir resumo/detalhes
-                        const isSummaryReq = ["resumo", "sobre", "perfil", "biografia", "comportamento", "detalhes"].some(w => queryLower.includes(w));
-                        const s = students.value.map(x => {
-                            let baseStd = { id: x.id, idTurma: x.classId, nome: x.name };
-                            // Se a intenção é um resumo e o primeiro nome do aluno consta na pergunta, enviamos os detalhes
-                            if (isSummaryReq && queryLower.includes(x.name.toLowerCase().split(' ')[0])) {
-                                baseStd.biografia = x.notes || 'Sem anotações';
-                                baseStd.precisaFrente = !!x.needsFrontSeat;
-                            }
-                            return baseStd;
-                        });
-
-                        // Otimização 2: Filtrar a tabela de Frequência (que cresce exponencialmente ao longo do ano)
-                        // Enviamos apenas os últimos 30 dias de frequência por padrão para poupar milhares de tokens.
                         const attArray = await db.attendance.toArray();
-                        const thirtyDaysAgo = new Date();
-                        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                        const thirtyDaysStr = thirtyDaysAgo.toISOString().split('T')[0];
-                        
-                        const att = attArray
-                            .filter(x => x.date >= thirtyDaysStr || queryLower.includes(x.date.split('-')[0]) || queryLower.includes(x.date.split('-').reverse()[0])) 
-                            .map(x=>({idAluno:x.studentId, data:x.date, aula:x.period, status:x.status}));
-
+                        const att = attArray.map(x=>({idAluno:x.studentId, data:x.date, aula:x.period, status:x.status}));
                         const schArray = await db.schedules.toArray();
                         const sch = schArray.map(x=>({idTurma:x.classId, dia:x.day, aula:x.period}));
-                        // --- FIM DA OTIMIZAÇÃO DE TOKENS ---
 
                         const chatContext = assistantHistory.value
                             .slice(-10) 
@@ -3664,6 +2647,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         const daysMap = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
                         const todayName = daysMap[today.getDay()];
                         
+                        // Resolve o bug de fuso horário do toISOString() que causava datas adiantadas à noite
                         const yyyy = today.getFullYear();
                         const mm = String(today.getMonth() + 1).padStart(2, '0');
                         const dd = String(today.getDate()).padStart(2, '0');
@@ -3686,17 +2670,16 @@ ${chatContext}
 NOVA AÇÃO DO USUÁRIO: "${userQuery}"
 
 REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
-1. Em 'reply', NUNCA diga que já executou, fez ou alterou os dados. Você não tem permissão para alterar nada diretamente. Diga SEMPRE algo como: "Preparei a ação solicitada. Por favor, confirme abaixo."
-2. NOTAS (Lançar/Apagar): Se o usuário falar em notas, precisa de studentId, examId e score. Use actionType "update_grade" ou "delete_grade".
-3. CHAMADA RÁPIDA EM LOTE: Para chamadas de turma (actionType="bulk_attendance"). Preencha 'classId', 'date' (${todayDate}), 'period' e a lista 'absentStudentIds'.
-4. FREQUÊNCIA INDIVIDUAL: Para colocar falta ou presença (actionType="set_attendance"). Preencha studentId, date, period e status ("P", "F" ou "J"). Opcionalmente envie "text" para o motivo/justificativa.
-5. HORÁRIO: actionType="add_schedule", forneça classId, day e period.
-6. AGENDA E LEMBRETES: actionType="add_agenda". Forneça 'date' (YYYY-MM-DD) e 'text'.
-7. GERAR PROVA: actionType="generate_exam". Forneça 'subject', 'topic', 'mc_count', 'ce_count', 'vf_count', 'assoc_count'.
-8. ANÁLISES: Para relatórios ou médias, apenas responda em 'reply' e envie 'actions' vazias.
-9. INCERTEZA: Peça esclarecimentos no 'reply' e não envie actions se faltar o nome do aluno ou turma.
-10. OBRIGATÓRIO: Se houver 'actions', 'hasAction' DEVE ser true.
-11. VISÃO COMPUTACIONAL E DOCUMENTOS MÁGICOS: Se o usuário enviar uma imagem (ex: um atestado médico, bilhete da mãe) e pedir para justificar falta, leia o documento. Extraia o nome do aluno (tente cruzar com a base de alunos), o motivo da doença e as datas. Em seguida, gere uma action do tipo 'set_attendance' com status 'J' e coloque o resumo do motivo no campo 'text'. No 'reply', descreva de forma empática o que leu no atestado e que configurou a justificação.
+1. Em 'reply', NUNCA diga que já executou, fez ou alterou os dados. Você não tem permissão para alterar nada diretamente. Diga SEMPRE algo como: "Preparei a ação solicitada. Por favor, clique no botão 'Confirmar Tudo' abaixo para aplicar as mudanças de forma segura."
+2. NOTAS (Lançar/Apagar): Se o usuário falar em notas, você precisa de studentId, examId e score (se for lançar). Se faltar saber a prova, pergunte. Use actionType "update_grade" ou "delete_grade".
+3. CHAMADA RÁPIDA EM LOTE: Se o professor disser algo como "Faltaram João e Maria" ou "Ninguém faltou na turma X hoje".
+   - Encontre de qual turma os alunos citados são.
+   - Descubra qual aula o professor tem HOJE (${todayName}) nessa turma olhando os "Horários do Professor".
+   - Gere a ação com actionType="bulk_attendance", preencha 'classId', 'date' (${todayDate}), 'period' e a lista 'absentStudentIds'.
+4. FREQUÊNCIA INDIVIDUAL (Para um só aluno): Se quiser colocar falta ou presença em alguém HOJE: encontre a turma do aluno, olhe os "Horários do Professor" para HOJE (${todayName}) e descubra qual é o 'period' (ex: "1ª Aula"). Use actionType="set_attendance" informando studentId, date (${todayDate}), period e status ("P", "F" ou "J"). Se o professor tem 2 ou mais aulas hoje na mesma turma, gere um objeto de ação separado para cada aula!
+5. HORÁRIO: actionType="add_schedule", forneça classId, day (ex: "Segunda") e period (ex: "2ª Aula").
+6. Se não conseguir identificar os parâmetros essenciais, responda pedindo esclarecimentos e envie hasAction=false e a lista de actions vazia.
+7. OBRIGATÓRIO: Se enviar qualquer item no array 'actions', defina 'hasAction' como true.
 
 RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
 
@@ -3719,28 +2702,17 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                                             status: { type: "STRING" },
                                             day: { type: "STRING" },
                                             period: { type: "STRING" },
-                                            absentStudentIds: { type: "ARRAY", items: { type: "INTEGER" } },
-                                            text: { type: "STRING" },
-                                            subject: { type: "STRING" },
-                                            topic: { type: "STRING" },
-                                            difficulty: { type: "STRING" },
-                                            mc_count: { type: "INTEGER" },
-                                            ce_count: { type: "INTEGER" },
-                                            vf_count: { type: "INTEGER" },
-                                            assoc_count: { type: "INTEGER" }
+                                            absentStudentIds: {
+                                                type: "ARRAY",
+                                                items: { type: "INTEGER" }
+                                            }
                                         }
                                     }
                                 }
                             }
                         };
 
-                        let aiResult;
-                        if (b64Image) {
-                            const rawBase64 = b64Image.split(',')[1];
-                            aiResult = await fetchGemini(promptText, schema, rawBase64, b64Mime);
-                        } else {
-                            aiResult = await fetchGemini(promptText, schema);
-                        }
+                        const aiResult = await fetchGemini(promptText, schema);
                         
                         // Trava de segurança: Forçar exibição do botão caso a IA crie as ações mas esqueça de ligar a flag
                         if (aiResult && aiResult.actions && aiResult.actions.length > 0) {
@@ -3755,15 +2727,11 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                                 actions: aiResult.actions || [],
                                 actionResolved: null
                             });
-                            
-                            // A IA fala o resultado
-                            speakText(aiResult.reply);
                         } else {
                             throw new Error("Resposta vazia");
                         }
                     } catch(e) {
                         assistantHistory.value.push({ role: 'model', text: "Desculpe, ocorreu um erro. Verifique a base de dados ou tente formular de forma mais clara informando o nome exato da turma/aluno." });
-                        speakText("Desculpe, ocorreu um erro ao processar o seu pedido.");
                     } finally {
                         isAssistantThinking.value = false;
                         nextTick(() => {
@@ -4396,39 +3364,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                             }
                                         }
                                         return; // Retorna sem parar o scanner para permitir leitura em cadeia
-                                    }
-
-                                    // --- MODO OMR: LEITURA INTELIGENTE (QR + IA MÁGICA) ---
-                                    if (qrScanMode.value === 'ai_correction') {
-                                        html5QrCode.stop().then(() => {
-                                            showLiveQRScanner.value = false;
-                                            let exm = exams.value.find(e => e.id === Number(qd.e));
-                                            let std = students.value.find(s => s.id === Number(qd.s));
-                                            
-                                            if(!exm || !std) throw new Error("Prova ou Aluno não encontrados no dispositivo.");
-                                            
-                                            // Configura os dados base e avança de imediato para a câmara do Gabarito
-                                            aiCorrectionConfig.value = {
-                                                examId: exm.id,
-                                                studentId: std.id,
-                                                version: Number(qd.v) || 0
-                                            };
-                                            
-                                            showToast(`Identificado: ${std.name}. Fotografe o gabarito!`, "success");
-                                            
-                                            showAICameraModal.value = true;
-                                            nextTick(async () => {
-                                                try {
-                                                    const video = document.getElementById('ai-camera-video');
-                                                    aiCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
-                                                    video.srcObject = aiCameraStream;
-                                                } catch (e) {
-                                                    showToast("Erro ao aceder à câmara. Verifique as permissões.", "error");
-                                                    showAICameraModal.value = false;
-                                                }
-                                            });
-                                        }).catch(()=>{});
-                                        return;
                                     }
 
                                     // --- MODO PADRÃO DE CORREÇÃO (Para o Scanner) ---
@@ -5469,88 +4404,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     downloadPDF(pdfMake.createPdf(doc), `Boletim_${cName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, 'download');
                 };
                 
-                // --- IMPRESSÃO DE BIOGRAFIAS (INDIVIDUAL E TURMA) ---
-                const printStudentBioPDF = (student) => {
-                    if (!student) return;
-                    showToast("Gerando PDF da Biografia...", "loading");
-                    const cName = getClassName(student.classId);
-                    
-                    let doc = {
-                        content: [
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
-                            { text: 'BIOGRAFIA ESCOLAR DO ALUNO', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 20] },
-                        ],
-                        defaultStyle: { font: 'Roboto' }
-                    };
-
-                    let bioBlock = {
-                        stack: [
-                            {
-                                columns: [
-                                    student.photo ? { image: student.photo, width: 60, height: 60, alignment: 'left', margin: [0, 0, 15, 0] } : { text: '', width: 0 },
-                                    {
-                                        stack: [
-                                            { text: student.name, fontSize: 14, bold: true },
-                                            { text: `Turma: ${cName}`, fontSize: 10, color: 'gray', margin: [0, 2, 0, 0] },
-                                            { text: student.needsFrontSeat ? '⚠️ Aluno com Prioridade na 1ª Fila' : '', fontSize: 9, bold: true, color: '#d97706', margin: [0, 2, 0, 0] }
-                                        ]
-                                    }
-                                ],
-                                margin: [0, 0, 0, 20]
-                            },
-                            { text: 'Anotações e Histórico Escolar:', fontSize: 11, bold: true, margin: [0, 0, 0, 8], color: '#4f46e5' },
-                            { text: student.notes || 'Nenhuma anotação registrada até o momento.', fontSize: 10, alignment: 'justify', lineHeight: 1.3 }
-                        ],
-                        margin: [0, 0, 0, 20]
-                    };
-
-                    doc.content.push(bioBlock);
-                    downloadPDF(pdfMake.createPdf(doc), `Biografia_${student.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, 'download');
-                };
-
-                const printClassBioPDF = (classId) => {
-                    const cName = getClassName(classId);
-                    const classStds = students.value.filter(s => s.classId === classId).sort((a,b) => a.name.localeCompare(b.name));
-                    
-                    if(classStds.length === 0) return showToast("A turma não tem alunos.", "warning");
-                    showToast("Gerando Biografias da Turma...", "loading");
-                    
-                    let doc = {
-                        content: [
-                            { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
-                            { text: 'BIOGRAFIAS E ANOTAÇÕES DA TURMA', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
-                            { text: `Turma: ${cName}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 25], color: '#4f46e5' },
-                        ],
-                        defaultStyle: { font: 'Roboto' }
-                    };
-
-                    classStds.forEach((student) => {
-                        let bioBlock = {
-                            unbreakable: true, // Evita que os dados de um aluno sejam cortados na metade da página
-                            stack: [
-                                {
-                                    columns: [
-                                        student.photo ? { image: student.photo, width: 50, height: 50, alignment: 'left', margin: [0, 0, 10, 0] } : { text: '', width: 0 },
-                                        {
-                                            stack: [
-                                                { text: student.name, fontSize: 12, bold: true },
-                                                { text: student.needsFrontSeat ? '⚠️ Prioridade na 1ª Fila' : '', fontSize: 8, bold: true, color: '#d97706', margin: [0, 2, 0, 0] }
-                                            ]
-                                        }
-                                    ],
-                                    margin: [0, 0, 0, 10]
-                                },
-                                { text: 'Anotações:', fontSize: 10, bold: true, margin: [0, 0, 0, 4], color: '#4b5563' },
-                                { text: student.notes || 'Nenhuma anotação.', fontSize: 9, alignment: 'justify', margin: [0, 0, 0, 15], lineHeight: 1.2 },
-                                { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#e5e7eb' }], margin: [0, 0, 0, 20] }
-                            ]
-                        };
-                        doc.content.push(bioBlock);
-                    });
-
-                    downloadPDF(pdfMake.createPdf(doc), `Biografias_Turma_${cName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, 'download');
-                };
-
                 const generateAttendanceReportPDF = async (cid) => {
                     if (!cid) {
                         return showToast("Selecione uma turma específica acima para gerar o relatório.", "warning");
@@ -5703,14 +4556,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     // Diary
                     periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter,
                     attendanceMap, schedulesList, newSchedule, isCurrentSelectionValidSchedule, filteredStudentsInDiaryClass,
-                    saveAttendance, addSchedule, deleteSchedule, getJustification, handleJustificationAttachment, viewJustification,
-                    
-                    // Agenda
-                    agendaDate, newAgendaNoteText, addAgendaNote, deleteAgendaNote,
-                    newAgendaAttachments, handleAgendaAttachment, removeAgendaAttachment, isRecordingAudio, toggleAudioRecording,
-                    agendaSearchText, agendaStartDate, agendaEndDate, filteredAgendaNotes, printAgendaDayPDF,
-                    isAgendaDictating, toggleAgendaDictation, editingAgendaNoteId, editingAgendaNoteText, startEditingAgendaNote, cancelEditingAgendaNote, saveEditedAgendaNote,
-                    isImprovingText, improvingTarget, improveAgendaText,
+                    saveAttendance, addSchedule, deleteSchedule,
                     
                     // Modals & UI
                     showEditExamModal, editingExam, showHistory, selectedClassIdForReport, newClass, bulkStudents,
@@ -5749,9 +4595,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     // IA Generator
                     showAIGenModal, isGeneratingAI, aiGenConfig,
                     
-                    // IA Correction (OMR)
-                    showAICorrectionSetupModal, showAICameraModal, aiCorrectionConfig, aiCorrectionStudents, aiCorrectionExamVersions, isAnalyzingPhoto, startAICorrectionEntry, confirmAICorrectionSetup, stopAICamera, takePhotoAndAnalyze,
-
                     // Item Analysis
                     showItemAnalysisModal, itemAnalysisExam, itemAnalysisData, itemAnalysisTotalStudents, openItemAnalysis, printItemAnalysisPDF,
                     
@@ -5764,7 +4607,6 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     // Assistant
                     showAssistant, assistantQuery, isAssistantThinking, isDictating, assistantHistory, askAssistant,
                     toggleDictation, getActionDescription, confirmAssistantAction, cancelAssistantAction,
-                    assistantAttachedImage, assistantAttachedImageMime, assistantTTS, handleAssistantImageUpload, speakText,
                     
                     // Functions
                     addClass, deleteClass, saveStudents, toggleClassExpansion, deleteAllQuestions, deleteAllGrades,
@@ -5775,7 +4617,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     studentExamsList, studentExtraPointsList, studentBimesterAverage,
                     duplicateExam, openEditExam, deleteExam, uploadStudentPhoto, getStudent, getClassName, getAlternativeLabel,
                     generatePDF, generateKeyPDF, generateMergedPDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF,
-                    generateAttendanceReportPDF, generateLastExamPDF, saveUpdatedAnswers, openResultDetails, printStudentBioPDF, printClassBioPDF,
+                    generateAttendanceReportPDF, generateLastExamPDF, saveUpdatedAnswers, openResultDetails,
                     
                     saveStudentNotes, addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade,
                     deleteStudentResultAndClose: (id) => { showResultDetailsModal.value=false; triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?",async()=>{await db.results.delete(id);load();showToast("Nota removida com sucesso.", "success");}); },
