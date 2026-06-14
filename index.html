@@ -587,10 +587,9 @@
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3 pb-24 sm:pb-0">
-                    <div class="flex gap-2 w-full">
-                        <button @click="generatePDF('view')" :disabled="!examCart.length||!examConfig.classIds||examConfig.classIds.length===0" class="w-14 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 py-3.5 rounded-xl font-bold shadow-sm disabled:opacity-50 transition flex items-center justify-center" title="Visualizar na Tela"><i class="fa-solid fa-eye text-lg"></i></button>
-                        <button @click="generatePDF('share')" :disabled="!examCart.length||!examConfig.classIds||examConfig.classIds.length===0" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold shadow-lg disabled:opacity-50 transition"><i class="fa-solid fa-share-nodes"></i> {{editingExamId?'Atualizar':'Partilhar / Baixar'}}</button>
-                    </div>
+                    <button @click="saveExam()" :disabled="!examCart.length||!examConfig.classIds||examConfig.classIds.length===0" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-xl font-bold shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2" title="Salvar a prova no histórico sem gerar PDF"><i class="fa-solid fa-floppy-disk"></i> {{editingExamId?'Atualizar Prova':'Salvar Prova'}}</button>
+                    <button @click="generatePDF('view')" :disabled="!examCart.length||!examConfig.classIds||examConfig.classIds.length===0" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 py-3.5 rounded-xl font-bold shadow-sm disabled:opacity-50 transition flex items-center justify-center gap-2" title="Salvar alterações e visualizar na tela"><i class="fa-solid fa-eye text-lg"></i> Visualizar</button>
+                    <button @click="generatePDF('share')" :disabled="!examCart.length||!examConfig.classIds||examConfig.classIds.length===0" class="bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2"><i class="fa-solid fa-share-nodes"></i> Partilhar / Baixar</button>
                     <button @click="showHistory=true" class="bg-white hover:bg-gray-50 border text-gray-700 py-3.5 rounded-xl font-bold transition"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</button>
                 </div>
             </div>
@@ -1222,7 +1221,7 @@
                                 <div class="font-bold text-sm text-gray-800 leading-tight">{{e?.title}}</div>
                                 <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-1.5 mb-2"><i class="fa-regular fa-calendar-check text-indigo-400"></i> Editada em: <span class="font-bold text-gray-600">{{formatDateTime(e?.date)}}</span></div>
                                 <div class="text-[9px] font-black uppercase tracking-widest flex gap-1.5">
-                                    <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">{{getClassName(e?.classId)}}</span>
+                                    <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">{{getExamClassNames(e)}}</span>
                                     <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md border border-gray-200">{{e?.bimester}}º Bim</span>
                                 </div>
                             </div>
@@ -2332,6 +2331,32 @@ Texto original do professor: "${textToImprove}"`;
                 const examConfig = ref({bimester:1, variationMode:'1', date:new Date().toISOString().split('T')[0], classIds:[], instructions: ''});
                 const editingExamId = ref(null);
                 const printConfig = ref({logoSize:50, qImageSize:'medium', fontSize:'10', addBlankPage:false, paperSaving: false, showStudentPhoto: false});
+
+                // Compatibilidade: provas antigas possuem apenas classId; provas novas guardam classIds.
+                const getExamClassIds = (exam) => {
+                    if (!exam) return [];
+                    const ids = Array.isArray(exam.classIds) && exam.classIds.length
+                        ? exam.classIds
+                        : (exam.classId !== undefined && exam.classId !== null && exam.classId !== '' ? [exam.classId] : []);
+                    return [...new Set(ids.map(id => String(id)))];
+                };
+
+                const getExamStudents = (exam) => {
+                    const classIdSet = new Set(getExamClassIds(exam));
+                    return students.value
+                        .filter(s => classIdSet.has(String(s.classId)))
+                        .sort((a, b) => {
+                            const classCompare = String(getClassName(a.classId) || '').localeCompare(String(getClassName(b.classId) || ''));
+                            return classCompare || a.name.localeCompare(b.name);
+                        });
+                };
+
+                const getExamClassNames = (exam) => {
+                    const names = getExamClassIds(exam)
+                        .map(id => getClassName(id) || getClassName(Number(id)))
+                        .filter(Boolean);
+                    return names.length ? names.join(', ') : 'Turma não definida';
+                };
                 
                 // Details Modals
                 const showStudentModal = ref(false);
@@ -2398,7 +2423,7 @@ Texto original do professor: "${textToImprove}"`;
                     if (!directConfig.value.examId) return [];
                     const ex = exams.value.find(e => e.id === directConfig.value.examId);
                     if (!ex) return [];
-                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                    return getExamStudents(ex);
                 });
                 const filteredDirectStudents = computed(() => {
                     let list = directStudents.value;
@@ -2420,7 +2445,7 @@ Texto original do professor: "${textToImprove}"`;
                     if (!aiCorrectionConfig.value.examId) return [];
                     const ex = exams.value.find(e => e.id === aiCorrectionConfig.value.examId);
                     if (!ex) return [];
-                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                    return getExamStudents(ex);
                 });
 
                 const aiCorrectionExamVersions = computed(() => {
@@ -4113,6 +4138,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     const eId = await db.exams.add({
                         title: externalConfig.value.title,
                         classId: externalConfig.value.classId,
+                        classIds: [externalConfig.value.classId],
                         bimester: externalConfig.value.bimester,
                         date: new Date(externalConfig.value.date + "T12:00:00.000Z").getTime(),
                         isExternal: true,
@@ -4154,7 +4180,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     if (!directConfig.value.examId) return;
                     const ex = exams.value.find(e => e.id === directConfig.value.examId);
                     if (!ex) return;
-                    const stds = students.value.filter(s => s.classId === ex.classId);
+                    const stds = getExamStudents(ex);
                     stds.forEach(s => {
                         const r = results.value.find(res => res.examId === ex.id && res.studentId === s.id);
                         if (r) directGrades.value[s.id] = parseFloat(r.score);
@@ -4334,7 +4360,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: `RELATÓRIO DE NOTAS DA AVALIAÇÃO`, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
                             { text: `Prova: ${selectedExamForGrades.value.title}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15] },
-                            { text: `Turma: ${getClassName(selectedExamForGrades.value.classId)} | Lançamentos: ${examGradesList.value.length}`, fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, 20], color: '#4f46e5' }
+                            { text: `Turmas: ${getExamClassNames(selectedExamForGrades.value)} | Lançamentos: ${examGradesList.value.length}`, fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, 20], color: '#4f46e5' }
                         ],
                         defaultStyle: { font: 'Roboto' }
                     };
@@ -4562,7 +4588,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     let list = exams.value;
                     if(examHistoryFilter.value) {
                         const f = examHistoryFilter.value.toLowerCase();
-                        list = list.filter(e => e.title.toLowerCase().includes(f) || getClassName(e.classId)?.toLowerCase().includes(f));
+                        list = list.filter(e => e.title.toLowerCase().includes(f) || getExamClassNames(e).toLowerCase().includes(f));
                     }
                     return list;
                 });
@@ -4581,7 +4607,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     if (!manualConfig.value.examId) return [];
                     const ex = exams.value.find(e => e.id === manualConfig.value.examId);
                     if (!ex) return [];
-                    return students.value.filter(s => s.classId === ex.classId).sort((a,b) => a.name.localeCompare(b.name));
+                    return getExamStudents(ex);
                 });
 
                 const selectedExamVersions = computed(() => {
@@ -4616,7 +4642,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const getClassAverage = (cid) => {
                     const res = results.value.filter(r => {
                         const ex = exams.value.find(e => e.id === r.examId);
-                        return ex && ex.classId === cid;
+                        return ex && getExamClassIds(ex).includes(String(cid));
                     });
                     if (!res.length) return "0.0";
                     const sum = res.reduce((acc, r) => acc + parseFloat(r.score), 0);
@@ -4626,7 +4652,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const getEvaluatedStudentCount = (cid) => {
                     const res = results.value.filter(r => {
                         const ex = exams.value.find(e => e.id === r.examId);
-                        return ex && ex.classId === cid;
+                        return ex && getExamClassIds(ex).includes(String(cid));
                     });
                     return new Set(res.map(r => r.studentId)).size;
                 };
@@ -4818,7 +4844,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         bimester: e.bimester,
                         date: new Date(e.date).toISOString().split('T')[0],
                         variationMode: e.versions.length.toString(),
-                        classIds: [e.classId],
+                        classIds: getExamClassIds(e).map(id => classes.value.find(c => String(c.id) === String(id))?.id ?? id),
                         type: e.type || 'Mensal',
                         teacher: e.teacher || '',
                         instructions: e.instructions || ''
@@ -5106,127 +5132,211 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     return content;
                 };
 
-                const generatePDF = async (action) => { 
-                    showToast("Gerando Provas...", "loading"); 
-                    
-                    let exId = editingExamId.value;
-                    let exm;
-                    
-                    // Salvar prova nova no banco se não estiver em edição
-                    if (!exId) {
-                        let versions = [];
-                        let numVers = parseInt(examConfig.value.variationMode) || 1;
-                        if (isNaN(numVers)) numVers = 1;
-                        
-                        for(let i=0; i<numVers; i++) {
-                            let vQ = JSON.parse(JSON.stringify(examCart.value));
-                            if (i > 0) {
-                                vQ.sort(() => Math.random() - 0.5); // Baralha as questões
-                                vQ.forEach(q => {
-                                    if(q.type === 'mc') {
-                                        let origTxt = q.options[q.correct].text;
-                                        q.options.sort(() => Math.random() - 0.5); // Baralha as alternativas
-                                        q.correctIndex = q.options.findIndex(o => o.text === origTxt);
-                                    }
-                                });
-                            } else {
-                                vQ.forEach(q => q.correctIndex = q.correct);
-                            }
-                            versions.push({ questions: vQ });
+                const buildExamVersions = () => {
+                    const versions = [];
+                    let numVers = parseInt(examConfig.value.variationMode) || 1;
+                    if (isNaN(numVers) || numVers < 1) numVers = 1;
+
+                    for (let i = 0; i < numVers; i++) {
+                        const vQ = JSON.parse(JSON.stringify(examCart.value));
+                        if (i > 0) {
+                            vQ.sort(() => Math.random() - 0.5);
+                            vQ.forEach(q => {
+                                if (q.type === 'mc' && Array.isArray(q.options)) {
+                                    const originalCorrectText = q.options[q.correct]?.text;
+                                    q.options.sort(() => Math.random() - 0.5);
+                                    q.correctIndex = q.options.findIndex(o => o.text === originalCorrectText);
+                                }
+                            });
+                        } else {
+                            vQ.forEach(q => q.correctIndex = q.correct);
                         }
-                        
-                        exm = {
+                        versions.push({ questions: vQ });
+                    }
+                    return versions;
+                };
+
+                const applySafeQuestionEdits = (exam, editedQuestions) => {
+                    if (!exam?.versions?.length || !editedQuestions?.length) return exam;
+                    const originalFirstVersion = exam.versions[0]?.questions || [];
+                    const originalById = new Map(originalFirstVersion.map(q => [String(q.id), JSON.parse(JSON.stringify(q))]));
+                    const editedById = new Map(editedQuestions.map(q => [String(q.id), q]));
+
+                    exam.versions.forEach(version => {
+                        (version.questions || []).forEach(question => {
+                            const edited = editedById.get(String(question.id));
+                            const original = originalById.get(String(question.id));
+                            if (!edited) return;
+
+                            ['subject', 'topic', 'text', 'image', 'type'].forEach(field => {
+                                if (edited[field] !== undefined) question[field] = JSON.parse(JSON.stringify(edited[field]));
+                            });
+
+                            if (Array.isArray(edited.options) && Array.isArray(question.options)) {
+                                const originalOptions = Array.isArray(original?.options) ? original.options : [];
+                                const usedIndexes = new Set();
+                                question.options = question.options.map((currentOption, currentIndex) => {
+                                    let originalIndex = originalOptions.findIndex((opt, idx) => !usedIndexes.has(idx) && opt?.text === currentOption?.text);
+                                    if (originalIndex < 0) originalIndex = currentIndex < edited.options.length ? currentIndex : -1;
+                                    if (originalIndex >= 0 && edited.options[originalIndex]) {
+                                        usedIndexes.add(originalIndex);
+                                        return { ...currentOption, ...JSON.parse(JSON.stringify(edited.options[originalIndex])) };
+                                    }
+                                    return currentOption;
+                                });
+                            }
+                        });
+                    });
+                    return exam;
+                };
+
+                const saveExam = async (silent = false) => {
+                    if (!examCart.value.length) {
+                        showToast('Selecione pelo menos uma questão.', 'warning');
+                        return null;
+                    }
+                    if (!examConfig.value.classIds || examConfig.value.classIds.length === 0) {
+                        showToast('Selecione pelo menos uma turma.', 'warning');
+                        return null;
+                    }
+
+                    const selectedClassIds = [...new Set(examConfig.value.classIds)];
+                    const examDate = new Date(examConfig.value.date + 'T12:00:00.000Z').getTime();
+                    let exam;
+
+                    if (editingExamId.value) {
+                        exam = await db.exams.get(editingExamId.value);
+                        if (!exam) {
+                            editingExamId.value = null;
+                            showToast('A prova que estava sendo editada não foi encontrada.', 'error');
+                            return null;
+                        }
+
+                        exam.title = examConfig.value.title || 'Avaliação';
+                        exam.bimester = examConfig.value.bimester;
+                        exam.date = examDate;
+                        exam.classIds = selectedClassIds;
+                        exam.classId = selectedClassIds[0]; // Mantido para compatibilidade com versões antigas.
+                        exam.type = examConfig.value.type;
+                        exam.teacher = examConfig.value.teacher;
+                        exam.instructions = examConfig.value.instructions || '';
+                        applySafeQuestionEdits(exam, examCart.value);
+                        await db.exams.put(JSON.parse(JSON.stringify(exam)));
+                    } else {
+                        exam = {
                             title: examConfig.value.title || 'Avaliação',
                             bimester: examConfig.value.bimester,
-                            date: new Date(examConfig.value.date + "T12:00:00.000Z").getTime(),
-                            classId: examConfig.value.classIds[0], // Usa a primeira turma como âncora no histórico
+                            date: examDate,
+                            classIds: selectedClassIds,
+                            classId: selectedClassIds[0], // Âncora para compatibilidade com provas antigas.
                             type: examConfig.value.type,
                             teacher: examConfig.value.teacher,
                             instructions: examConfig.value.instructions || '',
-                            versions: versions,
+                            versions: buildExamVersions(),
                             isExternal: false
                         };
-                        exId = await db.exams.add(exm);
-                        exm.id = exId;
-                        load();
-                    } else {
-                        exm = exams.value.find(e => e.id === exId);
+                        exam.id = await db.exams.add(JSON.parse(JSON.stringify(exam)));
+                        editingExamId.value = exam.id; // Impede duplicação ao visualizar/partilhar depois de salvar.
                     }
 
+                    await load();
+                    exam = await db.exams.get(editingExamId.value);
+                    if (!silent) showToast('Prova salva com sucesso!', 'success');
+                    return exam;
+                };
+
+                const generatePDF = async (action) => {
+                    // O QR Code precisa de um ID persistente. Por isso, uma prova nova é salva uma única vez antes do PDF.
+                    const exm = await saveExam(true);
+                    if (!exm) return;
+
+                    showToast('Gerando Provas...', 'loading');
                     const content = [];
                     let firstStd = true;
-                    
-                    // Percorre as turmas selecionadas para gerar folha para cada aluno
-                    for (let cId of examConfig.value.classIds) {
-                        let stds = students.value.filter(s => s.classId === cId).sort((a,b) => a.name.localeCompare(b.name));
+
+                    for (const cId of getExamClassIds(exm)) {
+                        const stds = students.value
+                            .filter(s => String(s.classId) === String(cId))
+                            .sort((a, b) => a.name.localeCompare(b.name));
+
                         for (let i = 0; i < stds.length; i++) {
-                            let s = stds[i];
+                            const student = stds[i];
                             if (!firstStd) content.push({ text: '', pageBreak: 'before' });
                             firstStd = false;
-                            
-                            let vIdx = i % exm.versions.length;
-                            content.push(...buildExamContent(exm, s, vIdx, printConfig.value));
+                            const versionIndex = i % exm.versions.length;
+                            content.push(...buildExamContent(exm, student, versionIndex, printConfig.value));
                         }
                     }
 
-                    const doc = { content: content, defaultStyle: { font: 'Roboto' } };
-                    if (printConfig.value.paperSaving) {
-                        doc.pageMargins = [25, 25, 25, 25]; // Margens mínimas para economizar folha
+                    if (firstStd) {
+                        showToast('As turmas selecionadas não possuem alunos cadastrados.', 'warning');
+                        return;
                     }
-                    
+
+                    const doc = { content, defaultStyle: { font: 'Roboto' } };
+                    if (printConfig.value.paperSaving) doc.pageMargins = [25, 25, 25, 25];
                     downloadPDF(pdfMake.createPdf(doc), `Provas_${exm.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, action);
                 };
 
-                const reprintExamPDF = async (e, action) => { 
-                    showToast("Reimprimindo Provas...", "loading"); 
+                const reprintExamPDF = async (e, action) => {
+                    showToast('Reimprimindo Provas...', 'loading');
                     const content = [];
-                    let stds = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
-                    
-                    stds.forEach((s, i) => {
-                        if (i > 0) content.push({ text: '', pageBreak: 'before' });
-                        let vIdx = i % (e.versions ? e.versions.length : 1);
-                        if (!e.versions) e.versions = [{questions: e.questions}];
-                        content.push(...buildExamContent(e, s, vIdx, printConfig.value));
-                    });
+                    let firstStd = true;
+                    if (!e.versions) e.versions = [{ questions: e.questions || [] }];
 
-                    const doc = { content: content, defaultStyle: { font: 'Roboto' } };
-                    if (printConfig.value.paperSaving) doc.pageMargins = [25, 25, 25, 25];
-                    
-                    downloadPDF(pdfMake.createPdf(doc), `Provas_${e.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, action);
-                };
-                
-                const generateMergedPDF = async (action) => { 
-                    if(selectedHistoryExams.value.length === 0) return;
-                    showToast("Gerando Lote...", "loading"); 
-                    
-                    const content = [];
-                    let firstPage = true;
-
-                    for(let exId of selectedHistoryExams.value) {
-                        let e = exams.value.find(x => x.id === exId);
-                        if(!e) continue;
-
-                        let stds = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
-                        stds.forEach((s, i) => {
-                            if (!firstPage) content.push({ text: '', pageBreak: 'before' });
-                            firstPage = false;
-                            
-                            let vIdx = i % (e.versions ? e.versions.length : 1);
-                            if (!e.versions) e.versions = [{questions: e.questions}];
-                            content.push(...buildExamContent(e, s, vIdx, printConfig.value));
+                    for (const cId of getExamClassIds(e)) {
+                        const stds = students.value
+                            .filter(s => String(s.classId) === String(cId))
+                            .sort((a, b) => a.name.localeCompare(b.name));
+                        stds.forEach((student, index) => {
+                            if (!firstStd) content.push({ text: '', pageBreak: 'before' });
+                            firstStd = false;
+                            const versionIndex = index % e.versions.length;
+                            content.push(...buildExamContent(e, student, versionIndex, printConfig.value));
                         });
                     }
 
-                    const doc = { content: content, defaultStyle: { font: 'Roboto' } };
+                    if (firstStd) return showToast('Nenhum aluno encontrado nas turmas desta prova.', 'warning');
+                    const doc = { content, defaultStyle: { font: 'Roboto' } };
                     if (printConfig.value.paperSaving) doc.pageMargins = [25, 25, 25, 25];
-                    
+                    downloadPDF(pdfMake.createPdf(doc), `Provas_${e.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, action);
+                };
+                
+                const generateMergedPDF = async (action) => {
+                    if (selectedHistoryExams.value.length === 0) return;
+                    showToast('Gerando Lote...', 'loading');
+
+                    const content = [];
+                    let firstPage = true;
+
+                    for (const examId of selectedHistoryExams.value) {
+                        const exam = exams.value.find(x => x.id === examId);
+                        if (!exam) continue;
+                        if (!exam.versions) exam.versions = [{ questions: exam.questions || [] }];
+
+                        for (const cId of getExamClassIds(exam)) {
+                            const stds = students.value
+                                .filter(s => String(s.classId) === String(cId))
+                                .sort((a, b) => a.name.localeCompare(b.name));
+                            stds.forEach((student, index) => {
+                                if (!firstPage) content.push({ text: '', pageBreak: 'before' });
+                                firstPage = false;
+                                const versionIndex = index % exam.versions.length;
+                                content.push(...buildExamContent(exam, student, versionIndex, printConfig.value));
+                            });
+                        }
+                    }
+
+                    if (firstPage) return showToast('Nenhum aluno encontrado nas provas selecionadas.', 'warning');
+                    const doc = { content, defaultStyle: { font: 'Roboto' } };
+                    if (printConfig.value.paperSaving) doc.pageMargins = [25, 25, 25, 25];
                     downloadPDF(pdfMake.createPdf(doc), `Lote_Avaliacoes_${Date.now()}.pdf`, action);
                 };
 
                 const openMakeupExam = (e) => {
                     makeupExam.value = JSON.parse(JSON.stringify(e)); // Clone seguro
                     makeupExamCart.value = e.versions && e.versions[0] ? JSON.parse(JSON.stringify(e.versions[0].questions)) : [];
-                    makeupStudents.value = students.value.filter(s => s.classId === e.classId).sort((a,b) => a.name.localeCompare(b.name));
+                    makeupStudents.value = getExamStudents(e);
                     makeupSelectedStudentIds.value = [];
                     makeupTab.value = 'students';
                     showMakeupBank.value = false;
@@ -5676,7 +5786,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: 'RELATÓRIO DE NOTAS DA AVALIAÇÃO', fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
                             { text: `Prova: ${exam.title}`, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 5] },
-                            { text: `Turma: ${getClassName(exam.classId)} | Avaliados: ${examResults.length}`, fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' },
+                            { text: `Turmas: ${getExamClassNames(exam)} | Avaliados: ${examResults.length}`, fontSize: 10, bold: true, alignment: 'center', margin: [0, 0, 0, 15], color: '#4f46e5' },
                             {
                                 table: { headerRows: 1, widths: ['auto', '*', 100], body: tableBody },
                                 layout: { hLineColor: () => '#e5e7eb', vLineColor: () => '#e5e7eb', paddingTop: () => 4, paddingBottom: () => 4 }
@@ -5773,8 +5883,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     toggleExamQ, isQInExam, filteredHistoryExams, recentCorrections, filteredRecentCorrections,
                     getClassAverage, getEvaluatedStudentCount, getClassGradeDistribution, openStudentProfile,
                     studentExamsList, studentExtraPointsList, studentBimesterAverage,
-                    duplicateExam, openEditExam, deleteExam, uploadStudentPhoto, getStudent, getClassName, getAlternativeLabel,
-                    generatePDF, generateKeyPDF, generateMergedPDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF,
+                    duplicateExam, openEditExam, deleteExam, uploadStudentPhoto, getStudent, getClassName, getExamClassIds, getExamClassNames, getAlternativeLabel,
+                    saveExam, generatePDF, generateKeyPDF, generateMergedPDF, reprintExamPDF, generateClassReportPDF, generateGeneralReportPDF,
                     generateAttendanceReportPDF, generateLastExamPDF, saveUpdatedAnswers, openResultDetails, printStudentBioPDF, printClassBioPDF,
                     
                     saveStudentNotes, addExtraPoint, deleteExtraPoint, startEditingGrade, saveEditedGrade, cancelEditingGrade,
