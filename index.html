@@ -467,7 +467,7 @@
             <!-- PROVAS -->
             <div v-if="currentView==='exams'" class="space-y-4 h-full flex flex-col animate-fade-in">
                  <div class="bg-white p-5 rounded-2xl shadow-sm border">
-                    <div class="flex items-center gap-4 border-b pb-4 mb-4"><label class="w-14 h-14 rounded-xl border-2 border-dashed bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer"><img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-cover"><i v-else class="fa-solid fa-school text-gray-300 text-xl"></i><input type="file" @change="e => {const r=new FileReader(); r.onload=ev=>{settings.logo=ev.target.result; saveSettings(true)}; r.readAsDataURL(e.target.files[0])}" class="hidden"></label><div class="flex-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Instituição</label><input v-model="settings.schoolName" placeholder="Escola" class="font-bold text-indigo-700 text-lg w-full outline-none bg-transparent" @change="saveSettings(true)"></div></div>
+                    <div class="flex items-center gap-4 border-b pb-4 mb-4"><label class="w-14 h-14 rounded-xl border-2 border-dashed bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer" title="Selecionar logo da escola"><img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-contain p-1"><i v-else class="fa-solid fa-school text-gray-300 text-xl"></i><input type="file" accept="image/png,image/jpeg,image/webp" @change="handleSchoolLogoUpload" class="hidden"></label><div class="flex-1"><label class="text-[9px] font-bold text-gray-400 uppercase">Instituição</label><input v-model="settings.schoolName" placeholder="Escola" class="font-bold text-indigo-700 text-lg w-full outline-none bg-transparent" @change="saveSettings(true)"></div></div>
                     <div class="space-y-3">
                         <div v-if="editingExamId" class="bg-indigo-50 border border-indigo-200 text-indigo-800 p-3 rounded-xl mb-3 text-xs shadow-inner">
                             <div class="flex justify-between font-black mb-1 text-sm items-center">
@@ -3145,7 +3145,62 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     try {
                         await db.settings.put(JSON.parse(JSON.stringify({...settings.value, id:'config', geminiKey: geminiKey.value, printConfig: printConfig.value})));
                         if(!silent) showToast('Configurações salvas!', 'success');
-                    } catch(e){}
+                        return true;
+                    } catch(e){
+                        console.error('Erro ao salvar configurações:', e);
+                        showToast('Não foi possível salvar as configurações. Verifique o espaço disponível no navegador.', 'error');
+                        return false;
+                    }
+                };
+
+                // Converte a logo para JPEG antes de armazenar. Isso reduz o tamanho
+                // e garante compatibilidade com o pdfMake usado para gerar as provas.
+                const handleSchoolLogoUpload = async (event) => {
+                    const input = event.target;
+                    const file = input.files && input.files[0];
+                    input.value = ''; // Permite escolher novamente o mesmo arquivo.
+                    if (!file) return;
+
+                    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+                    if (!allowedTypes.includes(file.type)) {
+                        return showToast('Formato inválido. Escolha uma imagem PNG, JPG ou WebP.', 'warning');
+                    }
+                    if (file.size > 8 * 1024 * 1024) {
+                        return showToast('A logo deve ter no máximo 8 MB.', 'warning');
+                    }
+
+                    const objectUrl = URL.createObjectURL(file);
+                    try {
+                        const image = await new Promise((resolve, reject) => {
+                            const img = new Image();
+                            img.onload = () => resolve(img);
+                            img.onerror = () => reject(new Error('Imagem inválida ou não suportada'));
+                            img.src = objectUrl;
+                        });
+
+                        const maxSize = 800;
+                        const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+                        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+                        const previousLogo = settings.value.logo;
+                        settings.value.logo = canvas.toDataURL('image/jpeg', 0.9);
+                        if (await saveSettings(true)) {
+                            showToast('Logo da escola adicionada!', 'success');
+                        } else {
+                            settings.value.logo = previousLogo;
+                        }
+                    } catch (error) {
+                        console.error('Erro ao carregar a logo:', error);
+                        showToast('Não foi possível ler essa imagem. Tente usar um arquivo PNG ou JPG.', 'error');
+                    } finally {
+                        URL.revokeObjectURL(objectUrl);
+                    }
                 };
 
                 const openAttendancePrintModal = () => {
@@ -6086,7 +6141,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     deleteStudentResult: id=>triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?",async()=>{await db.results.delete(id);load();showToast("Nota removida com sucesso.", "success");}),
                     
                     // Global utilities
-                    installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, importBackup, triggerImport, backupData, testGeminiKey,
+                    installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, handleSchoolLogoUpload, importBackup, triggerImport, backupData, testGeminiKey,
                     generateQuestionsAI, simulateAIGeneration, whatsappLink, canInstall, formatDateTime
                 };
             }
