@@ -2,18 +2,18 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nexus - Gestão Docente</title>
     <meta name="theme-color" content="#4f46e5">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script src="https://unpkg.com/vue@3.5.18/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/dexie@4.0.11/dist/dexie.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
@@ -24,15 +24,17 @@
         .fade-enter-from, .fade-leave-to { opacity: 0; }
         .animate-fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .q-type-btn { @apply flex-1 py-3 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border border-transparent; }
-        .q-type-btn.active { @apply bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm ring-1 ring-indigo-200; }
-        .q-type-btn.inactive { @apply bg-white text-gray-400 border-gray-100 hover:bg-gray-50 hover:text-gray-600; }
+        [v-cloak] { display: none !important; }
+        .q-type-btn { flex: 1 1 0%; padding: .75rem .5rem; border-radius: .75rem; font-size: .75rem; line-height: 1rem; font-weight: 700; transition: all .15s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .25rem; border: 1px solid transparent; }
+        .q-type-btn.active { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; box-shadow: 0 1px 2px rgb(0 0 0 / .05), 0 0 0 1px #c7d2fe; }
+        .q-type-btn.inactive { background: #fff; color: #9ca3af; border-color: #f3f4f6; }
+        .q-type-btn.inactive:hover { background: #f9fafb; color: #4b5563; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden select-none">
-    <div id="app" class="flex flex-col h-full relative">
+<body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden">
+    <div id="app" v-cloak class="flex flex-col h-full relative">
         <!-- MODAIS GLOBAIS -->
         <div v-if="appLocked || showLicenseModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900 text-white p-6 backdrop-blur-sm">
             <div class="max-w-md w-full text-center space-y-6 animate-fade-in relative">
@@ -961,6 +963,7 @@
                             <button @click="testGeminiKey" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-xs font-bold"><i class="fa-solid fa-vial"></i></button>
                         </div>
                         <p class="text-[9px] text-gray-400 leading-tight mt-1" v-if="settings.activeModel">Modelo Ativo: {{settings.activeModel}}</p>
+                        <p class="text-[9px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2 leading-snug mt-2"><i class="fa-solid fa-shield-halved mr-1"></i> A IA envia ao Google o conteúdo necessário da solicitação, inclusive imagens e dados de alunos quando usados. Não envie dados sensíveis sem a autorização aplicável. A chave fica guardada neste navegador e integra o backup.</p>
                     </div>
                     <div class="pt-2 border-t">
                         <label class="text-[10px] font-bold text-gray-400 uppercase block mb-2">Quantidades</label>
@@ -1680,6 +1683,7 @@
                         </div>
                         <p class="text-[9px] text-pink-500 leading-tight mt-1" v-if="settings.activeModel">Modelo: {{settings.activeModel}}</p>
                         <p class="text-[9px] text-red-500 font-bold leading-tight mt-1" v-else>Teste a chave antes de prosseguir.</p>
+                        <p class="text-[9px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2 leading-snug mt-2"><i class="fa-solid fa-shield-halved mr-1"></i> Fotos e dados usados na correção por IA são enviados ao Google. Evite dados sensíveis sem a autorização aplicável.</p>
                     </div>
 
                     <div class="pt-3 border-t border-gray-100">
@@ -1752,6 +1756,13 @@
 
     <!-- SCRIPT -->
     <script>
+        if (!window.tailwind || !window.Vue || !window.Dexie || !window.pdfMake?.vfs || !window.Html5Qrcode) {
+            const appRoot = document.getElementById('app');
+            appRoot.removeAttribute('v-cloak');
+            appRoot.innerHTML = '<main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#f9fafb;font-family:system-ui,sans-serif"><section style="max-width:560px;padding:28px;border:1px solid #fecaca;border-radius:18px;background:white;box-shadow:0 10px 30px rgba(0,0,0,.08)"><h1 style="margin:0 0 10px;color:#b91c1c;font-size:22px">Não foi possível iniciar o Nexus</h1><p style="margin:0;color:#4b5563;line-height:1.5">Uma biblioteca essencial não carregou. Verifique a conexão com a internet e recarregue a página. Se o problema continuar, use uma rede que permita acesso aos serviços CDN do aplicativo.</p></section></main>';
+            throw new Error('Dependências essenciais do Nexus não foram carregadas.');
+        }
+
         const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
         const db = new Dexie('NexusAppDB');
         
@@ -1789,6 +1800,24 @@
             setup() {
                 const getAlternativeLabel = (t, i) => i == null ? '-' : (t === 'ce' ? ['A', 'B'][i] || '?' : ['A', 'B', 'C', 'D', 'E'][i] || '?');
                 const formatDateTime = (ts) => { if (!ts) return '-'; const d = new Date(ts); return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}); };
+                const getLocalISODate = (date = new Date()) => {
+                    const y = date.getFullYear();
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const d = String(date.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                };
+                const parseValidScore = (value) => {
+                    if (value === '' || value === null || value === undefined) return null;
+                    const normalized = typeof value === 'string' ? value.replace(',', '.') : value;
+                    const score = Number(normalized);
+                    return Number.isFinite(score) && score >= 0 && score <= 10 ? score : null;
+                };
+                const isValidISODate = (value) => {
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return false;
+                    const [y, m, d] = value.split('-').map(Number);
+                    const parsed = new Date(y, m - 1, d);
+                    return parsed.getFullYear() === y && parsed.getMonth() === m - 1 && parsed.getDate() === d;
+                };
 
                 // --- STATE REFS ---
                 const currentView = ref('dashboard');
@@ -1843,7 +1872,7 @@
                 const periodsList = ['1ª Aula', '2ª Aula', '3ª Aula', '4ª Aula', '5ª Aula', '6ª Aula', '7ª Aula', '8ª Aula', '9ª Aula'];
                 const diaryClassId = ref(null);
                 const diaryTab = ref('attendance');
-                const attendanceDate = ref(new Date().toISOString().split('T')[0]);
+                const attendanceDate = ref(getLocalISODate());
                 const attendancePeriod = ref('1ª Aula');
                 const attendanceStudentFilter = ref('');
                 const attendanceMap = ref({});
@@ -1861,6 +1890,11 @@
                 const handleJustificationAttachment = (e, id) => {
                     const file = e.target.files[0];
                     if (!file) return;
+                    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+                    if (!allowedTypes.includes(file.type)) {
+                        e.target.value = '';
+                        return showToast("Formato não suportado. Use JPG, PNG, WebP ou PDF.", "error");
+                    }
                     if (file.size > 5 * 1024 * 1024) return showToast("O anexo excede 5MB.", "error");
                     
                     showToast("Processando documento...", "loading");
@@ -1873,6 +1907,7 @@
                         };
                         showToast("Comprovativo anexado!", "success");
                     };
+                    reader.onerror = () => showToast("Não foi possível ler o documento.", "error");
                     reader.readAsDataURL(file);
                     e.target.value = ''; // Reset
                 };
@@ -1893,7 +1928,7 @@
                 };
                 
                 // Agenda
-                const agendaDate = ref(new Date().toISOString().split('T')[0]);
+                const agendaDate = ref(getLocalISODate());
                 const agendaPrintRange = ref('week');
                 const allAgendaNotes = ref([]);
                 const newAgendaNoteText = ref('');
@@ -1936,12 +1971,17 @@
 
                 const toggleAgendaDictation = () => {
                     if (!agendaRecognition) return showToast("Transcrição não suportada neste navegador.", "warning");
-                    if (isAgendaDictating.value) {
-                        agendaRecognition.stop();
-                    } else {
-                        agendaRecognition.start();
-                        isAgendaDictating.value = true;
-                        showToast("Pode falar! Estou ouvindo...", "info");
+                    try {
+                        if (isAgendaDictating.value) {
+                            agendaRecognition.stop();
+                        } else {
+                            agendaRecognition.start();
+                            isAgendaDictating.value = true;
+                            showToast("Pode falar! Estou ouvindo...", "info");
+                        }
+                    } catch (error) {
+                        isAgendaDictating.value = false;
+                        showToast("Não foi possível iniciar o microfone. Tente novamente.", "error");
                     }
                 };
 
@@ -1967,37 +2007,45 @@
                     if (agendaEndDate.value) list = list.filter(n => n.date <= agendaEndDate.value);
                     if (agendaSearchText.value.trim()) {
                         const q = agendaSearchText.value.toLowerCase();
-                        list = list.filter(n => n.text.toLowerCase().includes(q));
+                        list = list.filter(n => String(n.text || '').toLowerCase().includes(q));
                     }
                     return list;
                 });
                 
                 // NOVO: Lê os ficheiros para Base64
-                const handleAgendaAttachment = (event) => {
+                const handleAgendaAttachment = async (event) => {
                     const files = event.target.files;
                     if (!files || files.length === 0) return;
-                    
+
+                    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/ogg'];
                     showToast("Processando anexos...", "loading");
-                    
-                    Array.from(files).forEach(file => {
-                        // Limite simples de 5MB por ficheiro para evitar rebentar a base de dados
-                        if(file.size > 5 * 1024 * 1024) {
-                            showToast(`Ficheiro ${file.name} muito grande (Máx: 5MB)`, "error");
-                            return;
+
+                    const validFiles = Array.from(files).filter(file => {
+                        if (!allowedTypes.includes(file.type)) {
+                            showToast(`Formato não suportado: ${file.name}`, "error");
+                            return false;
                         }
-                        
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            newAgendaAttachments.value.push({
-                                name: file.name,
-                                type: file.type,
-                                data: e.target.result
-                            });
-                        };
-                        reader.readAsDataURL(file);
+                        if (file.size > 5 * 1024 * 1024) {
+                            showToast(`Ficheiro ${file.name} muito grande (Máx: 5MB)`, "error");
+                            return false;
+                        }
+                        return true;
                     });
-                    event.target.value = ''; // Reset input
-                    showToast("Anexos adicionados!", "success");
+
+                    try {
+                        const loaded = await Promise.all(validFiles.map(file => new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = e => resolve({ name: file.name, type: file.type, data: e.target.result });
+                            reader.onerror = () => reject(new Error(`Falha ao ler ${file.name}`));
+                            reader.readAsDataURL(file);
+                        })));
+                        newAgendaAttachments.value.push(...loaded);
+                        if (loaded.length) showToast(`${loaded.length} anexo(s) adicionado(s)!`, "success");
+                    } catch (error) {
+                        showToast(error.message || "Não foi possível ler os anexos.", "error");
+                    } finally {
+                        event.target.value = '';
+                    }
                 };
 
                 const removeAgendaAttachment = (idx) => {
@@ -2015,8 +2063,13 @@
                     }
 
                     try {
+                        if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+                            return showToast("Gravação de áudio não suportada neste navegador.", "warning");
+                        }
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        mediaRecorder = new MediaRecorder(stream);
+                        const preferredTypes = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'];
+                        const supportedType = preferredTypes.find(type => MediaRecorder.isTypeSupported?.(type));
+                        mediaRecorder = supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream);
                         audioChunks = [];
 
                         mediaRecorder.ondataavailable = e => {
@@ -2024,12 +2077,14 @@
                         };
 
                         mediaRecorder.onstop = () => {
-                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // webm/mp4
+                            const audioType = mediaRecorder.mimeType || supportedType || 'audio/webm';
+                            const extension = audioType.includes('mp4') ? 'm4a' : (audioType.includes('ogg') ? 'ogg' : 'webm');
+                            const audioBlob = new Blob(audioChunks, { type: audioType });
                             const reader = new FileReader();
                             reader.onload = (e) => {
                                 newAgendaAttachments.value.push({
-                                    name: `Gravacao_${new Date().getTime()}.webm`,
-                                    type: 'audio/webm',
+                                    name: `Gravacao_${Date.now()}.${extension}`,
+                                    type: audioType,
                                     data: e.target.result
                                 });
                             };
@@ -2335,7 +2390,7 @@ Texto original do professor: "${textToImprove}"`;
                 const showAttendancePrintModal = ref(false);
                 const attPrintConfig = ref({
                     type: 'monthly',
-                    date: new Date().toISOString().split('T')[0],
+                    date: getLocalISODate(),
                     month: new Date().getMonth(),
                     year: new Date().getFullYear(),
                     withPhoto: false,
@@ -2421,19 +2476,19 @@ Texto original do professor: "${textToImprove}"`;
                         // Alunos com faltas recorrentes (2 ou mais nos últimos 14 dias)
                         const recentDate = new Date();
                         recentDate.setDate(recentDate.getDate() - 14);
-                        const recentDateStr = recentDate.toISOString().split('T')[0];
+                        const recentDateStr = getLocalISODate(recentDate);
 
                         const recentAbsences = attArray.filter(a => a.status === 'F' && a.date >= recentDateStr);
                         const absMap = {};
                         recentAbsences.forEach(a => { absMap[a.studentId] = (absMap[a.studentId] || 0) + 1; });
                         const criticalStudents = Object.keys(absMap).filter(id => absMap[id] >= 2).map(Number);
 
-                        const todayIso = today.toISOString().split('T')[0];
+                        const todayIso = getLocalISODate(today);
                         const todayNotes = await db.agendaNotes.where({date: todayIso}).toArray();
                         const todayExams = exams.value.filter(e => {
                             if (!e.date) return false;
                             const d = new Date(e.date);
-                            return d.toISOString().split('T')[0] === todayIso;
+                            return getLocalISODate(d) === todayIso;
                         });
 
                         let msg = `Olá, Professor! ${greeting}! Hoje é ${todayName}. `;
@@ -2523,7 +2578,7 @@ Texto original do professor: "${textToImprove}"`;
                 const showQFormModal = ref(false);
                 const formSource = ref('');
                 const examCart = ref([]);
-                const examConfig = ref({bimester:1, variationMode:'1', date:new Date().toISOString().split('T')[0], classIds:[], targetMode:'all', studentIds:[], instructions: ''});
+                const examConfig = ref({bimester:1, variationMode:'1', date:getLocalISODate(), classIds:[], targetMode:'all', studentIds:[], instructions: ''});
                 const examTargetStudentFilter = ref('');
                 const editingExamId = ref(null);
                 const printConfig = ref({logoSize:50, qImageSize:'medium', fontSize:'10', addBlankPage:false, paperSaving: false, showStudentPhoto: false});
@@ -2687,6 +2742,7 @@ Texto original do professor: "${textToImprove}"`;
 
                 const confirmAICorrectionSetup = async () => {
                     if(!aiCorrectionConfig.value.examId || !aiCorrectionConfig.value.studentId) return;
+                    if (!navigator.mediaDevices?.getUserMedia) return showToast("A câmara requer um navegador atualizado e ligação HTTPS.", "error");
                     showAICorrectionSetupModal.value = false;
                     showAICameraModal.value = true;
                     nextTick(async () => {
@@ -2718,6 +2774,7 @@ Texto original do professor: "${textToImprove}"`;
                     try {
                         const video = document.getElementById('ai-camera-video');
                         const canvas = document.getElementById('ai-capture-canvas');
+                        if (!video || !canvas || !video.videoWidth || !video.videoHeight) throw new Error("A câmara ainda não está pronta. Aguarde um instante e tente novamente.");
                         canvas.width = video.videoWidth;
                         canvas.height = video.videoHeight;
                         const ctx = canvas.getContext('2d');
@@ -2809,7 +2866,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 // External Exam Input
                 const showExternalExamModal = ref(false);
                 const externalExamStep = ref(1);
-                const externalConfig = ref({ title: '', classId: '', bimester: 1, date: new Date().toISOString().split('T')[0] });
+                const externalConfig = ref({ title: '', classId: '', bimester: 1, date: getLocalISODate() });
                 const externalStudents = ref([]);
                 const externalGrades = ref({});
 
@@ -2845,6 +2902,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 // PWA
                 const canInstall = ref(false);
                 let deferredPrompt = null;
+                let toastTimer = null;
                 
                 // QR Scanner
                 const showLiveQRScanner = ref(false);
@@ -2860,15 +2918,34 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 
                 const installPWA = async () => { 
                     if (deferredPrompt) { 
-                        deferredPrompt.prompt(); 
-                        await deferredPrompt.userChoice; 
-                        canInstall.value = false; 
+                        try {
+                            await deferredPrompt.prompt();
+                            await deferredPrompt.userChoice;
+                        } finally {
+                            deferredPrompt = null;
+                            canInstall.value = false;
+                        }
                     } 
                 };
 
-                const showToast = (msg, type='info') => { toast.value={show:true,message:msg,type}; setTimeout(()=>toast.value.show=false,3000); };
+                const showToast = (msg, type='info') => {
+                    if (toastTimer) clearTimeout(toastTimer);
+                    toast.value = {show:true, message:msg, type};
+                    if (type !== 'loading') toastTimer = setTimeout(() => { toast.value.show = false; toastTimer = null; }, 3500);
+                };
                 const triggerConfirm = (msg, act) => { confirmModal.value={show:true,message:msg,onConfirm:act}; };
-                const handleConfirm = (res) => { confirmModal.value.show=false; if(res&&confirmModal.value.onConfirm)confirmModal.value.onConfirm(); confirmModal.value.onConfirm=null; };
+                const handleConfirm = async (res) => {
+                    const action = confirmModal.value.onConfirm;
+                    confirmModal.value.show = false;
+                    confirmModal.value.onConfirm = null;
+                    if (!res || !action) return;
+                    try {
+                        await action();
+                    } catch (error) {
+                        console.error(error);
+                        showToast(error.message || 'Não foi possível concluir a operação.', 'error');
+                    }
+                };
                 
                 // Helper para Mobile (Usa a Web Share API para evitar bloqueios de download em telemóveis)
                 const downloadPDF = (pdfMakeInstance, fileName, action = 'share') => {
@@ -2923,7 +3000,11 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 const _0xabc123=async function(_1,_2){const _3="NEXUS_SECURE_KEY_2025_PRO_V1";const _4=async(_5)=>{const _6=new TextEncoder().encode(_5);const _7=await crypto.subtle.digest("SHA-256",_6);const _8=Array.from(new Uint8Array(_7));const _9=_8.map(a=>a.toString(16).padStart(2,'0')).join('').toUpperCase().substring(0,12);return `${_9.slice(0,4)}-${_9.slice(4,8)}-${_9.slice(8,12)}`;};const _b=_2.split('-');if(_b.length===3){if(_2===await _4(_1+_3))return{valid:!0,type:'permanent'};}else if(_b.length===4){const _d=_b[0],_e=_b.slice(1).join('-');if(_e===await _4(_1+_d+_3)){const _10=parseInt(_d,16);if(Math.floor(Date.now()/3600000)<=_10)return{valid:!0,type:'temporal',expireHours:_10};else return{valid:!1,expired:!0};}}return{valid:!1};};
                 
                 const initLicenseSystem = async () => {
-                    let cfg = await db.settings.get('license_config') || { id:'license_config', deviceId:crypto.randomUUID(), firstRun:Date.now(), licenseKey:null };
+                    const fallbackUuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                        const r = crypto.getRandomValues(new Uint8Array(1))[0] & 15;
+                        return (c === 'x' ? r : (r & 3) | 8).toString(16);
+                    });
+                    let cfg = await db.settings.get('license_config') || { id:'license_config', deviceId:crypto.randomUUID?.() || fallbackUuid(), firstRun:Date.now(), licenseKey:null };
                     await db.settings.put(cfg); deviceId.value = cfg.deviceId;
                     if(cfg.licenseKey) {
                         const res = await _0xabc123(cfg.deviceId, cfg.licenseKey);
@@ -2941,7 +3022,25 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     if(res.valid) { const cfg=await db.settings.get('license_config'); cfg.licenseKey=licenseInput.value.toUpperCase(); await db.settings.put(cfg); appLocked.value=false; showLicenseModal.value=false; isLicensed.value=true; showToast("Licença Ativada!", "success"); } else showToast(res.expired?"Expirada":"Inválida", "error");
                 };
 
-                const copyDeviceId = () => { navigator.clipboard.writeText(deviceId.value); showToast("Copiado!", "success"); };
+                const copyDeviceId = async () => {
+                    try {
+                        if (navigator.clipboard?.writeText) {
+                            await navigator.clipboard.writeText(deviceId.value);
+                        } else {
+                            const input = document.createElement('textarea');
+                            input.value = deviceId.value;
+                            input.style.position = 'fixed';
+                            input.style.opacity = '0';
+                            document.body.appendChild(input);
+                            input.select();
+                            document.execCommand('copy');
+                            input.remove();
+                        }
+                        showToast("Copiado!", "success");
+                    } catch (error) {
+                        showToast("Não foi possível copiar. Selecione o ID manualmente.", "error");
+                    }
+                };
                 const whatsappLink = computed(() => `https://wa.me/558899361992?text=${encodeURIComponent('Interesse licença Nexus App. Device ID: '+deviceId.value)}`);
 
                 const load = async () => {
@@ -2950,9 +3049,9 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     students.value=await db.students.toArray(); questions.value=await db.questions.orderBy('id').reverse().toArray();
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
                     extraPoints.value=await db.extraPoints.toArray(); const s=await db.settings.get('config');
-                    loadAgendaNotes();
+                    await loadAgendaNotes();
                     if(s) { 
-                        settings.value={schoolName:s.schoolName,logo:s.logo, activeModel:s.activeModel||null, hideAppLogo:s.hideAppLogo||false}; 
+                        settings.value={...settings.value, ...s, id: undefined, schoolName:s.schoolName || '', logo:s.logo || null, activeModel:s.activeModel||null, hideAppLogo:!!s.hideAppLogo}; 
                         if(s.geminiKey) geminiKey.value=s.geminiKey; 
                         if(s.printConfig) printConfig.value = { ...printConfig.value, ...s.printConfig };
                     }
@@ -3253,18 +3352,21 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     const allClassAtt = await db.attendance.where('classId').equals(diaryClassId.value).toArray();
                     const toDeleteIds = allClassAtt.filter(r => r.date === attendanceDate.value && r.period === attendancePeriod.value).map(r => r.id);
                     
-                    await db.attendance.bulkDelete(toDeleteIds);
-                    await db.attendance.bulkAdd(records);
+                    await db.transaction('rw', db.attendance, async () => {
+                        await db.attendance.bulkDelete(toDeleteIds);
+                        if (records.length) await db.attendance.bulkAdd(records);
+                    });
                     showToast("Frequência e Anexos salvos!", "success");
                 };
 
                 const saveAttendance = async () => {
                     if(!diaryClassId.value) return;
+                    if (!isValidISODate(attendanceDate.value) || !periodsList.includes(attendancePeriod.value)) return showToast("Selecione uma data e uma aula válidas.", "warning");
                     if (!isCurrentSelectionValidSchedule.value) {
                         triggerConfirm("Aviso: Você não tem horário cadastrado nesta turma para este dia/aula. Deseja lançar a frequência mesmo assim (ex: reposição)?", executeSaveAttendance);
                         return;
                     }
-                    executeSaveAttendance();
+                    await executeSaveAttendance();
                 };
 
                 const addSchedule = async () => {
@@ -3509,8 +3611,10 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 const deleteAllGrades = () => {
                     triggerConfirm("Tem certeza que deseja apagar TODAS as notas e pontos extras de TODOS os alunos? Esta ação é irreversível.", async () => {
                         try {
-                            await db.results.clear();
-                            await db.extraPoints.clear();
+                            await db.transaction('rw', db.results, db.extraPoints, async () => {
+                                await db.results.clear();
+                                await db.extraPoints.clear();
+                            });
                             results.value = [];
                             extraPoints.value = [];
                             await load();
@@ -3523,36 +3627,57 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
 
                 const importBackup = async (e) => {
                     const f = e.target.files[0]; if (!f) return;
-                    triggerConfirm("Tem certeza que deseja importar este backup? TODOS os dados atuais serão apagados e substituídos.", () => {
+                    if (f.size > 100 * 1024 * 1024) {
+                        e.target.value = '';
+                        return showToast("O backup excede o limite de 100 MB.", "error");
+                    }
+                    triggerConfirm("Tem certeza que deseja importar este backup? Os dados atuais serão substituídos somente se o arquivo for validado por completo.", () => {
                         showToast("A restaurar backup...", "loading");
                         const r = new FileReader();
                         r.onload = async event => {
                             try {
                                 const d = JSON.parse(event.target.result);
-                                
-                                // Limpar a base de dados atual para evitar mistura de dados antigos com os do backup (Ghost Data)
-                                await Promise.all([
-                                    db.classes.clear(), db.students.clear(), db.questions.clear(), 
-                                    db.exams.clear(), db.results.clear(), db.schedules.clear(), 
-                                    db.attendance.clear(), db.seatingPlans.clear(), db.extraPoints.clear(),
-                                    db.agendaNotes.clear()
-                                ]);
+                                if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('Estrutura de backup inválida.');
+                                const keys = ['c','s','q','e','r','sch','att','seatP','ep','ag'];
+                                if (!keys.some(key => Array.isArray(d[key]))) throw new Error('O arquivo não é um backup do Nexus.');
+                                for (const key of keys) {
+                                    if (d[key] !== undefined && !Array.isArray(d[key])) throw new Error(`Secção inválida no backup: ${key}`);
+                                }
+                                const data = Object.fromEntries(keys.map(key => [key, d[key] || []]));
+                                if (data.c.some(c => !c || c.id == null || !String(c.name || '').trim())) throw new Error('Há turmas inválidas no backup.');
+                                if (data.s.some(s => !s || s.id == null || s.classId == null || !String(s.name || '').trim())) throw new Error('Há alunos inválidos no backup.');
+                                const classIds = new Set(data.c.map(c => String(c.id)));
+                                const studentIds = new Set(data.s.map(s => String(s.id)));
+                                const examIds = new Set(data.e.map(ex => String(ex.id)));
+                                if (data.s.some(s => !classIds.has(String(s.classId)))) throw new Error('Há alunos ligados a turmas inexistentes.');
+                                if (data.e.some(ex => !ex || ex.id == null || !String(ex.title || '').trim())) throw new Error('Há provas inválidas no backup.');
+                                if (data.r.some(row => !studentIds.has(String(row.studentId)) || !examIds.has(String(row.examId)) || parseValidScore(row.score) === null)) throw new Error('Há notas inválidas ou sem aluno/prova correspondente.');
+                                if (data.att.some(row => !classIds.has(String(row.classId)) || !studentIds.has(String(row.studentId)) || !isValidISODate(row.date) || !['P','F','J'].includes(row.status))) throw new Error('Há registos de frequência inválidos.');
+                                if (data.sch.some(row => !classIds.has(String(row.classId)) || !row.day || !row.period)) throw new Error('Há horários inválidos no backup.');
+                                if (data.ep.some(row => !studentIds.has(String(row.studentId)) || !Number.isFinite(Number(row.points)))) throw new Error('Há pontos extras inválidos no backup.');
+                                if (data.seatP.some(row => !classIds.has(String(row.classId)) || !Array.isArray(row.grid))) throw new Error('Há mapas de sala inválidos no backup.');
+                                if (data.ag.some(row => !isValidISODate(row.date) || (!String(row.text || '').trim() && !(row.attachments || []).length))) throw new Error('Há anotações inválidas no backup.');
 
-                                // Restaurar os dados do ficheiro
-                                if(d.c) await db.classes.bulkAdd(d.c); 
-                                if(d.s) await db.students.bulkAdd(d.s);
-                                if(d.q) await db.questions.bulkAdd(d.q); 
-                                if(d.e) await db.exams.bulkAdd(d.e);
-                                if(d.r) await db.results.bulkAdd(d.r);
-                                if(d.sch) await db.schedules.bulkAdd(d.sch);
-                                if(d.att) await db.attendance.bulkAdd(d.att);
-                                if(d.seatP) await db.seatingPlans.bulkAdd(d.seatP);
-                                if(d.ep) await db.extraPoints.bulkAdd(d.ep);
-                                if(d.ag) await db.agendaNotes.bulkAdd(d.ag);
+                                await db.transaction('rw', db.classes, db.students, db.questions, db.exams, db.results, db.schedules, db.attendance, db.seatingPlans, db.extraPoints, db.agendaNotes, db.settings, async () => {
+                                    await db.classes.clear(); await db.students.clear(); await db.questions.clear();
+                                    await db.exams.clear(); await db.results.clear(); await db.schedules.clear();
+                                    await db.attendance.clear(); await db.seatingPlans.clear(); await db.extraPoints.clear(); await db.agendaNotes.clear();
+                                    if(data.c.length) await db.classes.bulkPut(data.c);
+                                    if(data.s.length) await db.students.bulkPut(data.s);
+                                    if(data.q.length) await db.questions.bulkPut(data.q);
+                                    if(data.e.length) await db.exams.bulkPut(data.e);
+                                    if(data.r.length) await db.results.bulkPut(data.r);
+                                    if(data.sch.length) await db.schedules.bulkPut(data.sch);
+                                    if(data.att.length) await db.attendance.bulkPut(data.att);
+                                    if(data.seatP.length) await db.seatingPlans.bulkPut(data.seatP);
+                                    if(data.ep.length) await db.extraPoints.bulkPut(data.ep);
+                                    if(data.ag.length) await db.agendaNotes.bulkPut(data.ag);
+                                    if(d.cfg && typeof d.cfg === 'object') await db.settings.put({ ...d.cfg, id: 'config' });
+                                    if(d.license && typeof d.license === 'object' && d.license.deviceId) await db.settings.put({ ...d.license, id: 'license_config' });
+                                });
 
-                                if(d.cfg) await db.settings.put({ ...d.cfg, id: 'config' });
-                                if(d.license) {
-                                    await db.settings.put(d.license); deviceId.value = d.license.deviceId;
+                                if(d.license?.deviceId) {
+                                    deviceId.value = d.license.deviceId;
                                     if(d.license.licenseKey) {
                                         const result = await _0xabc123(d.license.deviceId, d.license.licenseKey);
                                         isLicensed.value = result.valid; appLocked.value = !result.valid;
@@ -3563,9 +3688,13 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                     }
                                 }
                                 showToast('Backup restaurado com sucesso!', 'success'); 
-                                load();
-                            } catch (err) { showToast('Ficheiro inválido ou corrompido', 'error'); }
+                                await load();
+                            } catch (err) {
+                                console.error(err);
+                                showToast(err.message || 'Ficheiro inválido ou corrompido', 'error');
+                            }
                         };
+                        r.onerror = () => showToast('Não foi possível ler o ficheiro de backup.', 'error');
                         r.readAsText(f);
                     });
                     e.target.value = ''; // Reseta o input para permitir importar o mesmo ficheiro novamente se necessário
@@ -3582,18 +3711,22 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     const ag = await db.agendaNotes.toArray();
                     
                     const d = { 
+                        app: 'Nexus', schemaVersion: 7, exportedAt: new Date().toISOString(),
                         c: classes.value, s: students.value, q: questions.value, e: exams.value, r: results.value, 
                         sch: sch, att: att, seatP: seatP, ep: ep, ag: ag,
                         cfg: { ...settings.value, id: 'config', geminiKey: geminiKey.value }, license: licenseConfig 
                     };
                     
                     const b = new Blob([JSON.stringify(d)], {type:"application/json"});
-                    const a = document.createElement('a'); a.href = URL.createObjectURL(b); 
+                    const a = document.createElement('a');
+                    const backupUrl = URL.createObjectURL(b);
+                    a.href = backupUrl;
                     
                     // Adiciona a data atual ao nome do ficheiro (ex: Nexus_Backup_03-05-2026.json)
                     const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
                     a.download = `Nexus_Backup_${dataAtual}.json`; 
                     a.click();
+                    setTimeout(() => URL.revokeObjectURL(backupUrl), 1000);
                 };
 
                 const fetchGemini = async (prompt, schema, base64Img=null, mimeType=null) => {
@@ -3603,19 +3736,21 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                             const d = await r.json();
                             if(d.error) throw d.error;
                             let availableModels = d.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
-                            settings.value.activeModel = availableModels.find(m => m.includes('2.5-flash')) ||
-                                                         availableModels.find(m => m.includes('1.5-flash')) ||
+                            const preferredModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+                            settings.value.activeModel = preferredModels.find(model => availableModels.includes(model)) ||
+                                                         availableModels.find(m => m.includes('flash') && !m.includes('image') && !m.includes('live')) ||
                                                          availableModels[0];
+                            if (!settings.value.activeModel) throw new Error('Nenhum modelo Gemini compatível foi encontrado.');
                             saveSettings(true);
                         } catch (e) {
-                            settings.value.activeModel = 'gemini-1.5-flash';
+                            settings.value.activeModel = 'gemini-2.5-flash';
                         }
                     }
 
                     const modelToUse = settings.value.activeModel;
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${geminiKey.value}`;
 
-                    const payload = { contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.2, responseMimeType:"application/json"} };
+                    const payload = { contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.2, responseMimeType:"application/json", ...(schema ? {responseSchema: schema} : {})} };
                     if(base64Img) payload.contents[0].parts.push({inlineData:{mimeType, data:base64Img}});
 
                     let retries=3, delay=2000;
@@ -3674,7 +3809,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         }
                         if (act.actionType === 'set_attendance') {
                             const stMap = {'P':'Presença', 'F':'Falta', 'J':'Falta Justificada'};
-                            const rawDate = act.date || new Date().toISOString().split('T')[0];
+                            const rawDate = act.date || getLocalISODate();
                             const dateFormatted = rawDate.split('-').reverse().join('/');
                             return `Registrar ${stMap[act.status]||act.status} para ${name} no dia ${dateFormatted} (${act.period || 'Aula Desconhecida'})`;
                         }
@@ -3683,7 +3818,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         const cls = classes.value.find(c => Number(c.id) === Number(act.classId));
                         const className = cls ? cls.name : 'Turma Desconhecida';
                         const absentCount = act.absentStudentIds ? act.absentStudentIds.length : 0;
-                        const rawDate = act.date || new Date().toISOString().split('T')[0];
+                        const rawDate = act.date || getLocalISODate();
                         const dateFormatted = rawDate.split('-').reverse().join('/');
                         return `Registrar chamada da turma inteira '${className}' (${dateFormatted} - ${act.period}): ${absentCount} falta(s) e o resto com Presença.`;
                     }
@@ -3718,16 +3853,20 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
 
                             if (act.actionType === 'update_grade') {
                                 if (!stdId || !exId) throw new Error("Faltam os dados do aluno ou prova.");
+                                const score = parseValidScore(act.score);
+                                if (score === null) throw new Error("A nota deve ser um número entre 0 e 10.");
+                                const exam = exams.value.find(e => Number(e.id) === exId);
+                                const student = students.value.find(s => Number(s.id) === stdId);
+                                if (!exam || !student) throw new Error("Aluno ou prova não encontrado.");
+                                if (!getExamStudents(exam).some(s => Number(s.id) === stdId)) throw new Error("Este aluno não pertence ao público desta prova.");
                                 let res = results.value.find(r => Number(r.examId) === exId && Number(r.studentId) === stdId);
                                 if (res) {
-                                    res.score = Number(act.score).toFixed(1);
+                                    res.score = score.toFixed(1);
                                     await db.results.put(JSON.parse(JSON.stringify(res)));
                                 } else {
-                                    const std = students.value.find(s => Number(s.id) === stdId);
-                                    if(!std) throw new Error(`Aluno não encontrado no sistema.`);
                                     await db.results.add({
-                                        examId: exId, studentId: stdId, studentName: std.name,
-                                        score: Number(act.score).toFixed(1), bonus: 0, date: Date.now(), answers: {}, version: 0
+                                        examId: exId, studentId: stdId, studentName: student.name,
+                                        score: score.toFixed(1), bonus: 0, date: Date.now(), answers: {}, version: 0
                                     });
                                 }
                             } else if (act.actionType === 'delete_grade') {
@@ -3736,18 +3875,20 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 if (res) await db.results.delete(res.id);
                             } else if (act.actionType === 'set_attendance') {
                                 if (!stdId) throw new Error("Falta o ID do aluno.");
+                                if (!['P', 'F', 'J'].includes(act.status)) throw new Error("Estado de frequência inválido.");
                                 const std = students.value.find(s => Number(s.id) === stdId);
                                 if(!std) throw new Error("Aluno não encontrado para registar presença.");
 
                                 const classId = Number(std.classId);
                                 
-                                let dt = act.date || new Date().toISOString().split('T')[0];
+                                let dt = act.date || getLocalISODate();
                                 if (dt.includes('/')) {
                                     const parts = dt.split('/');
                                     if (parts.length === 3 && parts[2].length === 4) {
                                         dt = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                                     }
                                 }
+                                if (!isValidISODate(dt)) throw new Error("A data da frequência é inválida.");
                                 
                                 let per = act.period || '1ª Aula';
                                 const match = per.match(/(\d)/);
@@ -3763,26 +3904,27 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
 
                                 const allClassAtt = await db.attendance.where('classId').equals(classId).toArray();
                                 const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per && Number(r.studentId) === stdId).map(r => r.id);
-                                await db.attendance.bulkDelete(toDelete);
-                                
-                                // Nova lógica para acomodar a razão do Atestado Médico lido pela Visão da IA
                                 let newAtt = {classId, date: dt, period: per, studentId: stdId, status: act.status};
                                 if (act.status === 'J' && act.text) {
                                     newAtt.reason = act.text; 
                                 }
-                                await db.attendance.add(newAtt);
+                                await db.transaction('rw', db.attendance, async () => {
+                                    await db.attendance.bulkDelete(toDelete);
+                                    await db.attendance.add(newAtt);
+                                });
                                 
                                 diaryClassId.value = classId;
                                 diaryTab.value = 'attendance';
                                 attendanceDate.value = dt;
                                 attendancePeriod.value = per;
-                                switchToDiary = true;
+                                targetView = 'diary';
                                 
                             } else if (act.actionType === 'bulk_attendance') {
                                 // NOVA LÓGICA DE CHAMADA COMPLETA RÁPIDA
                                 if (!cId) throw new Error("Não foi possível identificar a turma para a chamada.");
                                 
-                                let dt = act.date || new Date().toISOString().split('T')[0];
+                                let dt = act.date || getLocalISODate();
+                                if (!isValidISODate(dt)) throw new Error("A data da chamada é inválida.");
                                 let per = act.period;
                                 if (!per) throw new Error("A IA não conseguiu identificar em qual aula registrar a chamada. Informe a aula (ex: 1ª Aula).");
 
@@ -3796,6 +3938,8 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
 
                                 const classStudents = students.value.filter(s => Number(s.classId) === cId);
                                 const absentIds = act.absentStudentIds ? act.absentStudentIds.map(Number) : [];
+                                const validStudentIds = new Set(classStudents.map(s => Number(s.id)));
+                                if (absentIds.some(id => !validStudentIds.has(id))) throw new Error("A lista de faltas contém aluno que não pertence à turma.");
 
                                 // Prepara a presença em massa (Presente para todos, exceto os que faltaram)
                                 const records = classStudents.map(s => ({
@@ -3809,14 +3953,16 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 const allClassAtt = await db.attendance.where('classId').equals(cId).toArray();
                                 const toDelete = allClassAtt.filter(r => r.date === dt && r.period === per).map(r => r.id);
                                 
-                                await db.attendance.bulkDelete(toDelete); // Limpa chamada anterior deste dia/aula
-                                await db.attendance.bulkAdd(records); // Salva nova chamada
+                                await db.transaction('rw', db.attendance, async () => {
+                                    await db.attendance.bulkDelete(toDelete);
+                                    if (records.length) await db.attendance.bulkAdd(records);
+                                });
 
                                 diaryClassId.value = cId;
                                 diaryTab.value = 'attendance';
                                 attendanceDate.value = dt;
                                 attendancePeriod.value = per;
-                                switchToDiary = true;
+                                targetView = 'diary';
 
                             } else if (act.actionType === 'add_schedule') {
                                 if (!cId) throw new Error("Falta a referência da turma.");
@@ -3846,12 +3992,12 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 }
                             } else if (act.actionType === 'add_agenda') {
                                 await db.agendaNotes.add({
-                                    date: act.date || new Date().toISOString().split('T')[0],
+                                    date: act.date || getLocalISODate(),
                                     text: act.text || 'Nova anotação via Assistente',
                                     attachments: [],
                                     createdAt: Date.now()
                                 });
-                                agendaDate.value = act.date || new Date().toISOString().split('T')[0];
+                                agendaDate.value = act.date || getLocalISODate();
                                 targetView = 'agenda';
                             } else if (act.actionType === 'generate_exam') {
                                 aiGenConfig.value.subject = act.subject || '';
@@ -3912,11 +4058,16 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     if (!recognition) {
                         return showToast("O seu navegador não suporta reconhecimento de voz.", "warning");
                     }
-                    if (isDictating.value) {
-                        recognition.stop();
-                    } else {
-                        recognition.start();
-                        isDictating.value = true;
+                    try {
+                        if (isDictating.value) {
+                            recognition.stop();
+                        } else {
+                            recognition.start();
+                            isDictating.value = true;
+                        }
+                    } catch (error) {
+                        isDictating.value = false;
+                        showToast("Não foi possível iniciar o microfone. Tente novamente.", "error");
                     }
                 };
 
@@ -3969,7 +4120,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         const attArray = await db.attendance.toArray();
                         const thirtyDaysAgo = new Date();
                         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                        const thirtyDaysStr = thirtyDaysAgo.toISOString().split('T')[0];
+                        const thirtyDaysStr = getLocalISODate(thirtyDaysAgo);
                         
                         const att = attArray
                             .filter(x => x.date >= thirtyDaysStr || queryLower.includes(x.date.split('-')[0]) || queryLower.includes(x.date.split('-').reverse()[0])) 
@@ -4107,12 +4258,11 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                         let availableModels = d.models.map(m => m.name.replace('models/', '')).filter(m => m.includes('gemini'));
                         
                         // PRIORIZAR MODELOS FLASH: Muito mais rápidos e evitam travar com limites gratuitos (429 Rate Limit)
-                        let bestModel = 
-                            availableModels.find(m => m === 'gemini-2.5-flash') || 
-                            availableModels.find(m => m === 'gemini-1.5-flash') || 
-                            availableModels.find(m => m === 'gemini-2.5-pro') || 
-                            availableModels.find(m => m === 'gemini-1.5-pro') || 
+                        const preferredModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+                        let bestModel = preferredModels.find(model => availableModels.includes(model)) ||
+                            availableModels.find(m => m.includes('flash') && !m.includes('image') && !m.includes('live')) ||
                             availableModels[0];
+                        if (!bestModel) throw new Error('Nenhum modelo Gemini compatível foi encontrado.');
                             
                         settings.value.activeModel = bestModel;
                         showToast(`Chave válida! Modelo ativado: ${bestModel}`, "success");
@@ -4350,7 +4500,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 // --- SCORES & RESULTS ---
                 const getVersionQuestions = (exam, vIdx) => { if(!exam.versions) return exam.questions||[]; return exam.versions[vIdx]?exam.versions[vIdx].questions:exam.versions[0].questions; };
-                const calculateExamScore = (ansObj, qArr) => { let hits=0; qArr.forEach((q,i)=>{let c=q.type==='vf'||q.type==='assoc'?(q.id||0)%5:q.correctIndex; if(ansObj[i]===c)hits++;}); return ((hits/qArr.length)*10).toFixed(1); };
+                const calculateExamScore = (ansObj, qArr) => {
+                    if (!Array.isArray(qArr) || qArr.length === 0) return '0.0';
+                    let hits = 0;
+                    qArr.forEach((q,i) => { const c=q.type==='vf'||q.type==='assoc'?(q.id||0)%5:q.correctIndex; if(ansObj[i]===c)hits++; });
+                    return ((hits/qArr.length)*10).toFixed(1);
+                };
 
                 const saveExamResult = async (examId, sId, sName, vIdx, ans, debugImg = null, needsReview = false, isManual = false, isIncomplete = false) => {
                     const ex=exams.value.find(e=>e.id===examId), qArr=getVersionQuestions(ex,vIdx);
@@ -4366,7 +4521,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     const dt={examId, studentId:sId, studentName:sName, score:fScr, bonus:bns, date:Date.now(), answers:ans, maxScore:qArr.length, version:vIdx, debugImage: finalDebugImg, needsReview: (isManual ? false : needsReview), isManual: finalIsManual, isIncomplete: finalIsIncomplete};
                     let id=exst?exst.id:await db.results.add(JSON.parse(JSON.stringify(dt)));
-                    if(exst) await db.results.put({...dt,id}); results.value=await db.results.toArray(); return id;
+                    if(exst) await db.results.put(JSON.parse(JSON.stringify({...dt,id}))); results.value=await db.results.toArray(); return id;
                 };
 
                 const openResultDetails = (r) => {
@@ -4420,7 +4575,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const openExternalExamForm = () => {
-                    externalConfig.value = { title: '', classId: '', bimester: 1, date: new Date().toISOString().split('T')[0] };
+                    externalConfig.value = { title: '', classId: '', bimester: 1, date: getLocalISODate() };
                     externalGrades.value = {};
                     externalExamStep.value = 1;
                     showExternalExamModal.value = true;
@@ -4434,39 +4589,39 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const saveExternalExam = async () => {
-                    const eId = await db.exams.add({
-                        title: externalConfig.value.title,
-                        classId: externalConfig.value.classId,
-                        classIds: [externalConfig.value.classId],
-                        bimester: externalConfig.value.bimester,
-                        date: new Date(externalConfig.value.date + "T12:00:00.000Z").getTime(),
-                        isExternal: true,
-                        type: 'Externa',
-                        weight: 1
+                    if (!externalConfig.value.title?.trim() || !externalConfig.value.classId || !isValidISODate(externalConfig.value.date)) {
+                        return showToast("Revise o título, a turma e a data da avaliação.", "warning");
+                    }
+                    const gradeRows = [];
+                    for (const s of externalStudents.value) {
+                        const raw = externalGrades.value[s.id];
+                        if (raw === undefined || raw === null || raw === '') continue;
+                        const score = parseValidScore(raw);
+                        if (score === null) return showToast(`Nota inválida para ${s.name}. Use um valor de 0 a 10.`, "error");
+                        gradeRows.push({ student: s, score });
+                    }
+                    if (!gradeRows.length) return showToast("Informe pelo menos uma nota válida.", "warning");
+
+                    await db.transaction('rw', db.exams, db.results, async () => {
+                        const eId = await db.exams.add({
+                            title: externalConfig.value.title.trim(),
+                            classId: externalConfig.value.classId,
+                            classIds: [externalConfig.value.classId],
+                            bimester: externalConfig.value.bimester,
+                            date: new Date(externalConfig.value.date + "T12:00:00.000Z").getTime(),
+                            isExternal: true,
+                            type: 'Externa',
+                            weight: 1
+                        });
+                        await db.results.bulkAdd(gradeRows.map(({student, score}) => ({
+                            examId: eId, studentId: student.id, studentName: student.name,
+                            score: score.toFixed(1), bonus: 0, date: Date.now(), answers: {}, maxScore: 10, version: 0
+                        })));
                     });
                     
-                    let count = 0;
-                    for (const s of externalStudents.value) {
-                        let scoreStr = externalGrades.value[s.id];
-                        if (scoreStr !== undefined && scoreStr !== null && scoreStr !== '') {
-                            await db.results.add({
-                                examId: eId,
-                                studentId: s.id,
-                                studentName: s.name,
-                                score: parseFloat(scoreStr).toFixed(1),
-                                bonus: 0,
-                                date: Date.now(),
-                                answers: {},
-                                maxScore: 10,
-                                version: 0
-                            });
-                            count++;
-                        }
-                    }
-                    
-                    showToast(`${count} notas lançadas com sucesso!`, "success");
+                    showToast(`${gradeRows.length} notas lançadas com sucesso!`, "success");
                     showExternalExamModal.value = false;
-                    load();
+                    await load();
                 };
 
                 const startManualEntry=()=>{manualConfig.value={examId:'',studentId:'',version:0};showManualInputModal.value=true;};
@@ -4492,39 +4647,26 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     if(!ex) return;
                     const maxQ = ex.versions && ex.versions[0] ? ex.versions[0].questions.length : 10;
                     
-                    let count = 0;
+                    const gradeRows = [];
                     for (const s of directStudents.value) {
                         let scoreStr = directGrades.value[s.id];
                         if (scoreStr !== undefined && scoreStr !== null && scoreStr !== '') {
-                            const scoreNum = parseFloat(scoreStr);
-                            if(!isNaN(scoreNum) && scoreNum >= 0 && scoreNum <= 10) {
-                                const exst = results.value.find(r => r.examId === ex.id && r.studentId === s.id);
-                                const dt = {
-                                    examId: ex.id, 
-                                    studentId: s.id, 
-                                    studentName: s.name, 
-                                    score: scoreNum.toFixed(1), 
-                                    bonus: exst ? parseFloat(exst.bonus || 0) : 0, 
-                                    date: Date.now(), 
-                                    answers: exst ? exst.answers : {}, 
-                                    maxScore: maxQ, 
-                                    version: exst ? (exst.version || 0) : 0, 
-                                    debugImage: exst ? exst.debugImage : null, 
-                                    needsReview: false, 
-                                    isManual: true, 
-                                    isIncomplete: false
-                                };
-                                
-                                if (exst) await db.results.put({...dt, id: exst.id});
-                                else await db.results.add(JSON.parse(JSON.stringify(dt)));
-                                count++;
-                            }
+                            const scoreNum = parseValidScore(scoreStr);
+                            if(scoreNum === null) return showToast(`Nota inválida para ${s.name}. Use um valor de 0 a 10.`, "error");
+                            const exst = results.value.find(r => r.examId === ex.id && r.studentId === s.id);
+                            gradeRows.push({
+                                examId: ex.id, studentId: s.id, studentName: s.name, score: scoreNum.toFixed(1),
+                                bonus: exst ? Number(exst.bonus || 0) : 0, date: Date.now(), answers: exst ? exst.answers : {},
+                                maxScore: maxQ, version: exst ? (exst.version || 0) : 0, debugImage: exst ? exst.debugImage : null,
+                                needsReview: false, isManual: true, isIncomplete: false, ...(exst ? {id: exst.id} : {})
+                            });
                         }
                     }
                     
-                    if(count > 0) {
+                    if(gradeRows.length > 0) {
+                        await db.transaction('rw', db.results, async () => { await db.results.bulkPut(JSON.parse(JSON.stringify(gradeRows))); });
                         results.value = await db.results.toArray();
-                        showToast(`${count} notas salvas com sucesso!`, "success");
+                        showToast(`${gradeRows.length} notas salvas com sucesso!`, "success");
                         showDirectGradeModal.value = false;
                     } else {
                         showToast("Nenhuma nota válida foi inserida.", "warning");
@@ -4698,10 +4840,26 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const loadFixKeyQuestions=()=>{if(!fixKeyExam.value||!fixKeyExam.value.versions)return; fixKeyQuestions.value=JSON.parse(JSON.stringify(fixKeyExam.value.versions[fixKeySelectedVersion.value].questions)).map(q=>({...q,newCorrectIndex:q.correctIndex}));};
                 const openFixKey=(ex)=>{fixKeyExam.value=ex;if(!ex.versions)ex.versions=[{id:0,questions:ex.questions}]; fixKeySelectedVersion.value=0; loadFixKeyQuestions(); showFixKeyModal.value=true;};
-                const saveFixedKey=async()=>{let uEx=JSON.parse(JSON.stringify(fixKeyExam.value)), vi=fixKeySelectedVersion.value; uEx.versions[vi].questions.forEach((q,i)=>q.correctIndex=fixKeyQuestions.value[i].newCorrectIndex); await db.exams.put(uEx); exams.value=await db.exams.orderBy('id').reverse().toArray(); let rs=results.value.filter(r=>r.examId===uEx.id&&r.version===vi); for(let r of rs) await saveExamResult(uEx.id,r.studentId,r.studentName,r.version,r.answers); showFixKeyModal.value=false; showToast(`Gabarito V${vi+1} salvo! ${rs.length} notas recalculadas.`,"success");};
+                const saveFixedKey = async () => {
+                    const uEx = JSON.parse(JSON.stringify(fixKeyExam.value));
+                    const vi = fixKeySelectedVersion.value;
+                    if (!uEx?.versions?.[vi] || fixKeyQuestions.value.length !== uEx.versions[vi].questions.length) return showToast("Não foi possível validar este gabarito.", "error");
+                    uEx.versions[vi].questions.forEach((q,i) => { q.correctIndex = fixKeyQuestions.value[i].newCorrectIndex; });
+                    await db.exams.put(uEx);
+                    exams.value = await db.exams.orderBy('id').reverse().toArray();
+                    const recalculable = results.value.filter(r => r.examId === uEx.id && r.version === vi && r.answers && Object.keys(r.answers).length > 0);
+                    for (const result of recalculable) {
+                        await saveExamResult(uEx.id, result.studentId, result.studentName, result.version, result.answers, result.debugImage || null, !!result.needsReview, !!result.isManual, !!result.isIncomplete);
+                    }
+                    const preserved = results.value.filter(r => r.examId === uEx.id && r.version === vi).length - recalculable.length;
+                    showFixKeyModal.value = false;
+                    showToast(`Gabarito V${vi+1} salvo! ${recalculable.length} nota(s) recalculada(s)${preserved ? `; ${preserved} lançamento(s) direto(s) preservado(s)` : ''}.`, "success");
+                };
 
                 // --- QR SCANNER ---
                 const startLiveQRScan = (mode = 'correction') => {
+                    if (html5QrCode || showLiveQRScanner.value) return;
+                    if (!navigator.mediaDevices?.getUserMedia) return showToast("A câmara requer um navegador atualizado e ligação HTTPS.", "error");
                     qrScanMode.value = mode;
                     showLiveQRScanner.value = true;
                     nextTick(() => {
@@ -4798,7 +4956,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 }
                             },
                             (errorMessage) => {}
-                        ).catch(err => { showToast("Erro ao aceder à câmara.", "error"); showLiveQRScanner.value = false; });
+                        ).catch(err => {
+                            console.error(err);
+                            html5QrCode = null;
+                            showToast("Erro ao aceder à câmara. Verifique a permissão e se a página usa HTTPS.", "error");
+                            showLiveQRScanner.value = false;
+                        });
                     });
                 };
 
@@ -4813,9 +4976,79 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     }
                 };
 
-                const addClass=async()=>{if(newClass.value){await db.classes.add({name:newClass.value}); newClass.value=''; load(); showToast("Criada","success")}};
-                const deleteClass=(id)=>{triggerConfirm("Tem certeza que deseja apagar esta turma e todos os seus alunos?",async()=>{await db.students.bulkDelete(students.value.filter(s=>Number(s.classId)===Number(id)).map(s=>s.id)); await db.classes.delete(id); load();})};
-                const saveStudents=(cid)=>{if(!bulkStudents.value[cid])return; triggerConfirm("Tem certeza que deseja salvar estes alunos?",async()=>{await db.students.bulkAdd(bulkStudents.value[cid].split('\n').map(n=>n.trim()).filter(n=>n).map(n=>({classId:Number(cid),name:n}))); bulkStudents.value[cid]=''; load();})};
+                const addClass = async () => {
+                    const name = String(newClass.value || '').trim();
+                    if (!name) return showToast("Informe o nome da turma.", "warning");
+                    if (classes.value.some(c => c.name.trim().toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) return showToast("Já existe uma turma com este nome.", "warning");
+                    await db.classes.add({name});
+                    newClass.value = '';
+                    await load();
+                    showToast("Turma criada!", "success");
+                };
+
+                const deleteClass = (id) => {
+                    triggerConfirm("Tem certeza que deseja apagar esta turma, os alunos e todos os dados vinculados a ela?", async () => {
+                        const classId = Number(id);
+                        await db.transaction('rw', db.classes, db.students, db.results, db.extraPoints, db.attendance, db.schedules, db.seatingPlans, db.exams, async () => {
+                            const classStudents = await db.students.where('classId').equals(classId).toArray();
+                            const studentIds = new Set(classStudents.map(s => Number(s.id)));
+                            const allResults = await db.results.toArray();
+                            const allExtraPoints = await db.extraPoints.toArray();
+                            const allAttendance = await db.attendance.where('classId').equals(classId).toArray();
+                            const allSchedules = await db.schedules.where('classId').equals(classId).toArray();
+                            const allExams = await db.exams.toArray();
+                            const deletedExamIds = new Set();
+
+                            for (const exam of allExams) {
+                                const originalIds = Array.isArray(exam.classIds) && exam.classIds.length ? exam.classIds : [exam.classId];
+                                if (!originalIds.some(cid => Number(cid) === classId)) continue;
+                                const remainingIds = originalIds.filter(cid => Number(cid) !== classId);
+                                if (!remainingIds.length) {
+                                    deletedExamIds.add(Number(exam.id));
+                                    await db.exams.delete(exam.id);
+                                } else {
+                                    exam.classIds = remainingIds;
+                                    exam.classId = remainingIds[0];
+                                    exam.studentIds = (exam.studentIds || []).filter(sid => !studentIds.has(Number(sid)));
+                                    exam.targetStudentIds = (exam.targetStudentIds || []).filter(sid => !studentIds.has(Number(sid)));
+                                    await db.exams.put(exam);
+                                }
+                            }
+
+                            await db.results.bulkDelete(allResults.filter(r => studentIds.has(Number(r.studentId)) || deletedExamIds.has(Number(r.examId))).map(r => r.id));
+                            await db.extraPoints.bulkDelete(allExtraPoints.filter(ep => studentIds.has(Number(ep.studentId))).map(ep => ep.id));
+                            await db.attendance.bulkDelete(allAttendance.map(a => a.id));
+                            await db.schedules.bulkDelete(allSchedules.map(s => s.id));
+                            await db.seatingPlans.delete(classId);
+                            await db.students.bulkDelete(classStudents.map(s => s.id));
+                            await db.classes.delete(id);
+                        });
+                        if (Number(diaryClassId.value) === classId) diaryClassId.value = null;
+                        if (Number(selectedClassIdForReport.value) === classId) selectedClassIdForReport.value = null;
+                        await load();
+                        showToast("Turma e dados vinculados removidos.", "success");
+                    });
+                };
+
+                const saveStudents = (cid) => {
+                    const names = String(bulkStudents.value[cid] || '').split('\n').map(n => n.trim()).filter(Boolean);
+                    if (!names.length) return;
+                    const existing = new Set(students.value.filter(s => Number(s.classId) === Number(cid)).map(s => s.name.trim().toLocaleLowerCase('pt-BR')));
+                    const seen = new Set();
+                    const uniqueNames = names.filter(name => {
+                        const key = name.toLocaleLowerCase('pt-BR');
+                        if (existing.has(key) || seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                    });
+                    if (!uniqueNames.length) return showToast("Todos os alunos informados já estão cadastrados.", "warning");
+                    triggerConfirm(`Salvar ${uniqueNames.length} aluno(s) nesta turma?`, async () => {
+                        await db.students.bulkAdd(uniqueNames.map(name => ({classId:Number(cid), name})));
+                        bulkStudents.value[cid] = '';
+                        await load();
+                        showToast("Alunos salvos!", "success");
+                    });
+                };
 
                 const toggleClassExpansion = (id) => {
                     const cls = classes.value.find(c => Number(c.id) === Number(id));
@@ -4838,7 +5071,26 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const openQForm=src=>{formSource.value=src; newQ.value={subject:'',topic:'',text:'',options:[]}; changeQType('mc'); showQFormModal.value=true};
                 const saveQuestion=async(add)=>{
                     let q={...newQ.value, type:qType.value}; 
-                    if(qType.value==='ce')q.options=[{text:'Certo'},{text:'Errado'}]; 
+                    q.subject = String(q.subject || '').trim();
+                    q.topic = String(q.topic || '').trim();
+                    q.text = String(q.text || '').trim();
+                    if (!q.subject || !q.text) return showToast("Informe a disciplina e o enunciado.", "warning");
+                    if(qType.value==='ce') q.options=[{text:'Certo'},{text:'Errado'}];
+                    if (qType.value === 'mc') {
+                        q.options = (q.options || []).map(o => ({...o, text: String(o.text || '').trim()}));
+                        if (q.options.length !== 5 || q.options.some(o => !o.text)) return showToast("Preencha as cinco alternativas.", "warning");
+                        if (!Number.isInteger(q.correct) || q.correct < 0 || q.correct >= q.options.length) return showToast("Marque a alternativa correta.", "warning");
+                        if (new Set(q.options.map(o => o.text.toLocaleLowerCase('pt-BR'))).size !== q.options.length) return showToast("As alternativas não podem ser repetidas.", "warning");
+                    } else if (qType.value === 'ce') {
+                        if (![0, 1].includes(q.correct)) return showToast("Marque Certo ou Errado.", "warning");
+                    } else if (qType.value === 'vf') {
+                        q.options = (q.options || []).map(o => ({...o, text: String(o.text || '').trim(), isTrue: !!o.isTrue}));
+                        if (q.options.length < 2 || q.options.some(o => !o.text)) return showToast("Inclua ao menos duas afirmações V/F preenchidas.", "warning");
+                    } else if (qType.value === 'assoc') {
+                        q.options = (q.options || []).map(o => ({...o, text: String(o.text || '').trim(), match: String(o.match || '').trim()}));
+                        if (q.options.length < 2 || q.options.some(o => !o.text || !o.match)) return showToast("Inclua ao menos dois pares de associação completos.", "warning");
+                    }
+                    q = JSON.parse(JSON.stringify(q));
                     if(q.id) {
                         await db.questions.put(q);
                         const cartIdx = examCart.value.findIndex(x => x.id === q.id);
@@ -4854,14 +5106,54 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const handleImageUpload = (e) => {
                     const f = e.target.files[0]; if(!f) return;
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) return showToast("Use uma imagem JPG, PNG ou WebP.", "warning");
+                    if (f.size > 8 * 1024 * 1024) return showToast("A imagem deve ter no máximo 8 MB.", "warning");
                     const r = new FileReader();
                     r.onload = ev => { newQ.value.image = ev.target.result; };
+                    r.onerror = () => showToast("Não foi possível ler a imagem.", "error");
                     r.readAsDataURL(f);
+                    e.target.value = '';
                 };
 
                 const deleteQuestion = id => triggerConfirm("Apagar questão?", async() => { await db.questions.delete(id); load(); });
                 const editQuestion = q => { newQ.value = JSON.parse(JSON.stringify(q)); qType.value = q.type; showQFormModal.value = true; };
-                const deleteStudent = id => triggerConfirm("Apagar aluno?", async() => { await db.students.delete(id); load(); });
+                const deleteStudent = id => triggerConfirm("Apagar este aluno e todos os seus dados de notas, frequência e mapa de sala?", async() => {
+                    const studentId = Number(id);
+                    await db.transaction('rw', db.students, db.results, db.extraPoints, db.attendance, db.seatingPlans, db.exams, async () => {
+                        const student = await db.students.get(id);
+                        if (!student) return;
+                        const [studentResults, studentPoints, allAttendance, examsForUpdate] = await Promise.all([
+                            db.results.toArray().then(rows => rows.filter(r => Number(r.studentId) === studentId)),
+                            db.extraPoints.where('studentId').equals(studentId).toArray(),
+                            db.attendance.toArray(),
+                            db.exams.toArray()
+                        ]);
+                        await db.results.bulkDelete(studentResults.map(r => r.id));
+                        await db.extraPoints.bulkDelete(studentPoints.map(ep => ep.id));
+                        await db.attendance.bulkDelete(allAttendance.filter(a => Number(a.studentId) === studentId).map(a => a.id));
+
+                        const plan = await db.seatingPlans.get(student.classId);
+                        if (plan?.grid?.some(sid => Number(sid) === studentId)) {
+                            plan.grid = plan.grid.map(sid => Number(sid) === studentId ? null : sid);
+                            await db.seatingPlans.put(plan);
+                        }
+                        for (const exam of examsForUpdate) {
+                            const oldStudentIds = exam.studentIds || [];
+                            const oldTargetIds = exam.targetStudentIds || [];
+                            const studentIds = oldStudentIds.filter(sid => Number(sid) !== studentId);
+                            const targetStudentIds = oldTargetIds.filter(sid => Number(sid) !== studentId);
+                            if (studentIds.length !== oldStudentIds.length || targetStudentIds.length !== oldTargetIds.length) {
+                                exam.studentIds = studentIds;
+                                exam.targetStudentIds = targetStudentIds;
+                                await db.exams.put(exam);
+                            }
+                        }
+                        await db.students.delete(id);
+                    });
+                    if (studentDetails.value?.id === id) showStudentModal.value = false;
+                    await load();
+                    showToast("Aluno e dados vinculados removidos.", "success");
+                });
 
                 // Filtros e Computeds
                 const filteredClasses = computed(() => {
@@ -5037,21 +5329,22 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 });
 
                 // Dashboard & Relatórios
+                const getValidResultsForClass = (cid, studentId = null) => results.value.filter(result => {
+                    if (studentId !== null && Number(result.studentId) !== Number(studentId)) return false;
+                    if (parseValidScore(result.score) === null) return false;
+                    const exam = exams.value.find(e => Number(e.id) === Number(result.examId));
+                    return exam && getExamClassIds(exam).includes(String(cid));
+                });
+
                 const getClassAverage = (cid) => {
-                    const res = results.value.filter(r => {
-                        const ex = exams.value.find(e => e.id === r.examId);
-                        return ex && getExamClassIds(ex).includes(String(cid));
-                    });
+                    const res = getValidResultsForClass(cid);
                     if (!res.length) return "0.0";
                     const sum = res.reduce((acc, r) => acc + parseFloat(r.score), 0);
                     return (sum / res.length).toFixed(1);
                 };
 
                 const getEvaluatedStudentCount = (cid) => {
-                    const res = results.value.filter(r => {
-                        const ex = exams.value.find(e => e.id === r.examId);
-                        return ex && getExamClassIds(ex).includes(String(cid));
-                    });
+                    const res = getValidResultsForClass(cid);
                     return new Set(res.map(r => r.studentId)).size;
                 };
 
@@ -5065,7 +5358,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     }
 
                     listToUse.forEach(s => {
-                        const res = results.value.filter(r => r.studentId === s.id);
+                        const res = getValidResultsForClass(cid, s.id);
                         if (res.length > 0) {
                             const sum = res.reduce((acc, r) => acc + parseFloat(r.score), 0);
                             stdScores[s.id] = { studentId: s.id, name: s.name, avg: (sum / res.length).toFixed(1) };
@@ -5177,11 +5470,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const addExtraPoint = async () => {
                     if (!newExtraPoint.value.val || !newExtraPoint.value.reason) return;
+                    const points = Number(String(newExtraPoint.value.val).replace(',', '.'));
+                    if (!Number.isFinite(points) || points <= 0 || points > 10) {
+                        return showToast("Informe pontos extras entre 0,1 e 10.", "warning");
+                    }
                     await db.extraPoints.add({
                         studentId: studentDetails.value.id,
                         bimester: selectedBimester.value,
-                        points: parseFloat(newExtraPoint.value.val).toFixed(1),
-                        reason: newExtraPoint.value.reason
+                        points: points.toFixed(1),
+                        reason: newExtraPoint.value.reason.trim()
                     });
                     newExtraPoint.value = { val: '', reason: '' };
                     extraPoints.value = await db.extraPoints.toArray();
@@ -5205,7 +5502,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const saveEditedGrade = async () => {
                     const res = results.value.find(r => r.id === editingResultId.value);
                     if (res) {
-                        res.score = parseFloat(tempScore.value).toFixed(1);
+                        const score = parseValidScore(tempScore.value);
+                        if (score === null) return showToast("A nota deve estar entre 0 e 10.", "warning");
+                        res.score = score.toFixed(1);
                         await db.results.put(JSON.parse(JSON.stringify(res)));
                         results.value = await db.results.toArray();
                         editingResultId.value = null;
@@ -5240,7 +5539,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     examConfig.value = {
                         title: e.title,
                         bimester: e.bimester,
-                        date: new Date(e.date).toISOString().split('T')[0],
+                        date: getLocalISODate(new Date(e.date)),
                         variationMode: e.versions.length.toString(),
                         classIds: getExamClassIds(e).map(id => classes.value.find(c => String(c.id) === String(id))?.id ?? id),
                         targetMode: (e.targetMode === 'selected' || getExamTargetStudentIds(e).length > 0) ? 'selected' : 'all',
@@ -5256,9 +5555,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const deleteExam = id => triggerConfirm("Apagar prova e todas as suas notas?", async() => {
-                    await db.results.bulkDelete(results.value.filter(r => r.examId === id).map(r => r.id));
-                    await db.exams.delete(id);
-                    load();
+                    await db.transaction('rw', db.results, db.exams, async () => {
+                        await db.results.bulkDelete(results.value.filter(r => r.examId === id).map(r => r.id));
+                        await db.exams.delete(id);
+                    });
+                    await load();
                 });
 
                 // --- GERAÇÃO DE PROVAS (PDF) ---
@@ -5604,8 +5905,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         showToast('Selecione pelo menos uma turma.', 'warning');
                         return null;
                     }
-                    if (!examConfig.value.date) {
-                        showToast('Antes de salvar, informe a data da prova.', 'warning');
+                    if (!isValidISODate(examConfig.value.date)) {
+                        showToast('Antes de salvar, informe uma data válida para a prova.', 'warning');
                         return null;
                     }
 
@@ -5892,7 +6193,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     let classStds = students.value.filter(s => s.classId === cid);
 
                     classStds.forEach(s => {
-                        const res = results.value.filter(r => r.studentId === s.id);
+                        const res = getValidResultsForClass(cid, s.id);
                         let avg = 0;
                         if (res.length > 0) {
                             const sum = res.reduce((acc, r) => acc + parseFloat(r.score), 0);
@@ -5954,7 +6255,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         let eps = extraPoints.value.filter(ep => ep.studentId === s.id && ep.bimester == bim).reduce((acc, ep) => acc + parseFloat(ep.points), 0);
                         
-                        let sExams = results.value.filter(r => r.studentId === s.id);
+                        let sExams = getValidResultsForClass(cid, s.id);
                         let bimExams = sExams.filter(r => {
                             let ex = exams.value.find(e => e.id === r.examId);
                             return ex && ex.bimester == bim;
@@ -6228,9 +6529,14 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     downloadPDF(pdfMake.createPdf(doc), `Notas_Ultima_Prova_${exam.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, 'download');
                 };
 
-                onMounted(() => {
-                    initLicenseSystem();
-                    load();
+                onMounted(async () => {
+                    try {
+                        await initLicenseSystem();
+                        await load();
+                    } catch (error) {
+                        console.error('Falha ao iniciar o Nexus:', error);
+                        showToast('Não foi possível abrir a base local. Verifique o armazenamento do navegador.', 'error');
+                    }
                 });
 
                 return {
