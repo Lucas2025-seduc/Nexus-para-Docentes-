@@ -428,7 +428,7 @@
             <div v-if="currentView==='questions'" class="space-y-4 animate-fade-in">
                  <div class="bg-white p-3 rounded-2xl shadow-sm border sticky top-0 z-20 space-y-2">
                     <div class="flex gap-2"><input v-model="qFilter" placeholder="Buscar enunciado..." class="flex-1 bg-gray-50 px-3 rounded-xl text-sm outline-none font-medium"><button @click="deleteAllQuestions" class="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white transition w-12 h-10 rounded-xl flex items-center justify-center" title="Apagar todo o banco"><i class="fa-solid fa-trash-can"></i></button><button @click="showAIGenModal=true" class="bg-purple-600 text-white w-12 h-10 rounded-xl flex items-center justify-center" title="Gerador IA"><i class="fa-solid fa-wand-magic-sparkles"></i></button><button @click="openQForm('bank')" class="bg-indigo-600 text-white w-12 h-10 rounded-xl flex items-center justify-center" title="Nova Questão"><i class="fa-solid fa-plus"></i></button></div>
-                    <div class="grid grid-cols-3 gap-2"><select v-model="filterType" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"><option value="">Tipos</option><option value="mc">Multi</option><option value="ce">C/E</option><option value="assoc">Assoc</option></select><input list="dl-subjects" v-model="filterSubject" placeholder="Disciplina" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"><input list="dl-topics" v-model="filterTopic" placeholder="Conteúdo" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"></div>
+                    <div class="grid grid-cols-3 gap-2"><select v-model="filterType" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"><option value="">Tipos</option><option value="mc">Multi</option><option value="ce">C/E</option><option value="assoc">Assoc</option><option value="vf">V/F</option></select><input list="dl-subjects" v-model="filterSubject" placeholder="Disciplina" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"><input list="dl-topics" v-model="filterTopic" placeholder="Conteúdo" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"></div>
                 </div>
                 <div class="space-y-3 pb-20">
                     <div v-for="q in filteredQuestions" :key="q.id" class="bg-white p-4 rounded-2xl shadow-sm border transition">
@@ -671,7 +671,7 @@
                 <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden">
                     <div class="z-10">
                         <h2 class="text-2xl font-black">Lançamento de Notas</h2>
-                        <p class="text-xs text-indigo-200">Rápido e 100% Preciso</p>
+                        <p class="text-xs text-indigo-200">Rápido, com revisão do professor</p>
                     </div>
                     <i class="fa-solid fa-check-double text-5xl text-white/20"></i>
                 </div>
@@ -2578,7 +2578,7 @@ Texto original do professor: "${textToImprove}"`;
                 const showQFormModal = ref(false);
                 const formSource = ref('');
                 const examCart = ref([]);
-                const examConfig = ref({bimester:1, variationMode:'1', date:getLocalISODate(), classIds:[], targetMode:'all', studentIds:[], instructions: ''});
+                const examConfig = ref({bimester:1, variationMode:'1', date:getLocalISODate(), classIds:[], targetMode:'all', studentIds:[], type:'Mensal', teacher:'', instructions: ''});
                 const examTargetStudentFilter = ref('');
                 const editingExamId = ref(null);
                 const printConfig = ref({logoSize:50, qImageSize:'medium', fontSize:'10', addBlankPage:false, paperSaving: false, showStudentPhoto: false});
@@ -2611,10 +2611,147 @@ Texto original do professor: "${textToImprove}"`;
                         list = list.filter(s => targetSet.has(String(s.id)));
                     }
 
-                    return list.sort((a, b) => {
+                    return [...list].sort((a, b) => {
                         const classCompare = String(getClassName(a.classId) || '').localeCompare(String(getClassName(b.classId) || ''));
                         return classCompare || a.name.localeCompare(b.name);
                     });
+                };
+
+                const hashString = (value) => {
+                    let hash = 2166136261;
+                    const str = String(value ?? '');
+                    for (let i = 0; i < str.length; i++) {
+                        hash ^= str.charCodeAt(i);
+                        hash = Math.imul(hash, 16777619);
+                    }
+                    return hash >>> 0;
+                };
+
+                const seededRandomFactory = (seed) => {
+                    let state = hashString(seed) || 1;
+                    return () => {
+                        state = Math.imul(state ^ (state >>> 15), 1 | state);
+                        state ^= state + Math.imul(state ^ (state >>> 7), 61 | state);
+                        return ((state ^ (state >>> 14)) >>> 0) / 4294967296;
+                    };
+                };
+
+                const stableShuffle = (items, seed) => {
+                    const arr = JSON.parse(JSON.stringify(items || []));
+                    const random = seededRandomFactory(seed);
+                    for (let i = arr.length - 1; i > 0; i--) {
+                        const j = Math.floor(random() * (i + 1));
+                        [arr[i], arr[j]] = [arr[j], arr[i]];
+                    }
+                    return arr;
+                };
+
+                const getQuestionCorrectIndex = (q) => {
+                    const explicit = Number(q?.correctIndex);
+                    if (Number.isInteger(explicit) && explicit >= 0) return explicit;
+                    if (q?.type === 'vf' || q?.type === 'assoc') return Math.abs(Number(q?.id || 0)) % 5;
+                    const legacy = Number(q?.correct);
+                    return Number.isInteger(legacy) && legacy >= 0 ? legacy : 0;
+                };
+
+                const buildSequenceAlternatives = (correctSequence, seed, size = 5) => {
+                    const correctText = Array.isArray(correctSequence) ? correctSequence.join(', ') : String(correctSequence || '');
+                    const correctIndex = hashString(seed + '|correct') % size;
+                    const alternatives = new Array(size).fill('');
+                    alternatives[correctIndex] = correctText;
+                    const parts = correctText.split(',').map(x => x.trim()).filter(Boolean);
+                    const wrongValues = [];
+                    const random = seededRandomFactory(seed + '|wrong');
+                    let guard = 0;
+                    while (wrongValues.length < size - 1 && guard < 200) {
+                        guard++;
+                        let candidate;
+                        if (parts.every(p => p === 'V' || p === 'F')) {
+                            candidate = parts.map(v => random() > 0.5 ? 'V' : 'F').join(', ');
+                            if (candidate === correctText && parts.length) {
+                                const arr = candidate.split(', ');
+                                arr[0] = arr[0] === 'V' ? 'F' : 'V';
+                                candidate = arr.join(', ');
+                            }
+                        } else {
+                            const shuffled = stableShuffle(parts, seed + '|perm|' + guard);
+                            candidate = shuffled.join(', ');
+                            if (candidate === correctText && shuffled.length > 1) {
+                                [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+                                candidate = shuffled.join(', ');
+                            }
+                        }
+                        if (candidate && candidate !== correctText && !wrongValues.includes(candidate)) wrongValues.push(candidate);
+                    }
+                    while (wrongValues.length < size - 1) {
+                        if (parts.every(p => p === 'V' || p === 'F')) {
+                            wrongValues.push(parts.map((v, i) => (i + wrongValues.length) % 2 ? (v === 'V' ? 'F' : 'V') : v).join(', '));
+                        } else {
+                            wrongValues.push([...parts].reverse().join(', '));
+                        }
+                    }
+                    let w = 0;
+                    for (let i = 0; i < size; i++) if (i !== correctIndex) alternatives[i] = wrongValues[w++];
+                    return { alternatives, correctIndex };
+                };
+
+                const normalizeVersionQuestion = (question, seed, shouldShuffleOptions = false, index = 0) => {
+                    const q = JSON.parse(JSON.stringify(question || {}));
+                    q.type = q.type || 'mc';
+                    const qSeed = `${seed}|q:${q.id ?? index}|${q.text || ''}`;
+
+                    if (q.type === 'mc') {
+                        if (!Array.isArray(q.options)) q.options = [];
+                        const originalCorrectIndex = Number.isInteger(Number(q.correctIndex)) ? Number(q.correctIndex) : Number(q.correct || 0);
+                        const originalCorrect = q.options[originalCorrectIndex];
+                        const originalCorrectText = originalCorrect?.text ?? null;
+                        if (shouldShuffleOptions && q.options.length > 1) q.options = stableShuffle(q.options, qSeed + '|options');
+                        q.correctIndex = originalCorrectText != null ? q.options.findIndex(o => o?.text === originalCorrectText) : originalCorrectIndex;
+                        if (q.correctIndex < 0) q.correctIndex = Math.max(0, Math.min(originalCorrectIndex, q.options.length - 1));
+                    } else if (q.type === 'ce') {
+                        q.correctIndex = Number.isInteger(Number(q.correctIndex)) ? Number(q.correctIndex) : Number(q.correct || 0);
+                        q.correctIndex = q.correctIndex === 1 ? 1 : 0;
+                    } else if (q.type === 'vf') {
+                        const correctSeq = (q.options || []).map(o => o?.isTrue ? 'V' : 'F');
+                        const built = buildSequenceAlternatives(correctSeq, qSeed + '|vf');
+                        q.answerOptions = built.alternatives;
+                        q.correctIndex = built.correctIndex;
+                    } else if (q.type === 'assoc') {
+                        const baseMatches = (q.options || []).map((o, i) => ({ id: i + 1, match: o?.match || '' }));
+                        q.associationMatches = stableShuffle(baseMatches, qSeed + '|matches');
+                        const correctSeq = q.associationMatches.map(m => String(m.id));
+                        const built = buildSequenceAlternatives(correctSeq, qSeed + '|assoc');
+                        q.answerOptions = built.alternatives;
+                        q.correctIndex = built.correctIndex;
+                    } else {
+                        q.correctIndex = Number.isInteger(Number(q.correctIndex)) ? Number(q.correctIndex) : Number(q.correct || 0);
+                    }
+                    return q;
+                };
+
+                const ensureQuestionPrintState = (question, seed, index = 0) => {
+                    const q = JSON.parse(JSON.stringify(question || {}));
+                    if ((q.type === 'vf' || q.type === 'assoc') && Array.isArray(q.answerOptions) && q.answerOptions.length === 5 && Number.isInteger(Number(q.correctIndex))) return q;
+                    return normalizeVersionQuestion(q, seed, false, index);
+                };
+
+                const buildVersionAssignments = (exam, previousAssignments = []) => {
+                    const versionCount = Math.max(1, exam?.versions?.length || 1);
+                    const previous = new Map((previousAssignments || []).map(a => [String(a.studentId), a]));
+                    return getExamStudents(exam).map((student, index) => {
+                        const existing = previous.get(String(student.id));
+                        const oldIndex = Number(existing?.versionIndex ?? existing?.version ?? existing?.v);
+                        const versionIndex = Number.isInteger(oldIndex) && oldIndex >= 0 && oldIndex < versionCount ? oldIndex : (index % versionCount);
+                        return { studentId: student.id, classId: student.classId, versionIndex };
+                    });
+                };
+
+                const getExamStudentVersionIndex = (exam, student, fallbackIndex = 0) => {
+                    const versionCount = Math.max(1, exam?.versions?.length || 1);
+                    const assignment = (exam?.versionAssignments || []).find(a => String(a.studentId) === String(student?.id));
+                    const vIdx = Number(assignment?.versionIndex ?? assignment?.version ?? assignment?.v);
+                    if (Number.isInteger(vIdx) && vIdx >= 0 && vIdx < versionCount) return vIdx;
+                    return Math.abs(Number(fallbackIndex) || 0) % versionCount;
                 };
 
                 const getExamClassNames = (exam) => {
@@ -2823,14 +2960,21 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
 
                         const aiResult = await fetchGemini(promptText, schema, base64Img, mimeType);
 
-                        if (!aiResult || !aiResult.respostas_marcadas || !Array.isArray(aiResult.respostas_marcadas)) {
+                        if (!aiResult || !Array.isArray(aiResult.respostas_marcadas)) {
                             throw new Error("A IA não conseguiu interpretar o gabarito de forma estruturada. Verifique o enquadramento.");
+                        }
+                        if (aiResult.respostas_marcadas.length !== numQuestions) {
+                            throw new Error(`Foram reconhecidas ${aiResult.respostas_marcadas.length} de ${numQuestions} respostas. Fotografe o cartão inteiro e tente novamente.`);
                         }
 
                         let studentAnswersMap = {};
                         aiResult.respostas_marcadas.forEach((val, idx) => {
-                            if (idx < numQuestions) {
-                                studentAnswersMap[idx] = val !== undefined ? val : null;
+                            if (val === null || val === undefined || val === '') {
+                                studentAnswersMap[idx] = null;
+                            } else {
+                                const parsed = Number(val);
+                                if (!Number.isInteger(parsed) || parsed < 0 || parsed > 4) throw new Error(`Resposta inválida na questão ${idx + 1}. Revise a foto e tente novamente.`);
+                                studentAnswersMap[idx] = parsed;
                             }
                         });
 
@@ -3227,7 +3371,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                             let std = getStudent(sId);
                             
                             if (std) {
-                                let qrData = JSON.stringify({ s: std.id, action: 'attendance' });
+                                let qrData = JSON.stringify({ s: std.id, c: std.classId, action: 'attendance' });
                                 let qSize = seatingPrintQR.value ? (filas > 5 ? 26 : 32) : (filas > 5 ? 36 : 46); // Aumenta a foto se não tiver QR
                                 let photoNode = std.photo ? { image: std.photo, width: qSize, height: qSize, alignment: 'center' } : { canvas: [{ type: 'rect', x: 0, y: 0, w: qSize, h: qSize, color: '#e5e7eb' }], alignment: 'center' };
                                 
@@ -3329,7 +3473,10 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 });
 
                 const executeSaveAttendance = async () => {
-                    const records = Object.keys(attendanceMap.value).map(sId => {
+                    const validClassStudentIds = new Set(students.value.filter(s => String(s.classId) === String(diaryClassId.value)).map(s => String(s.id)));
+                    const records = Object.keys(attendanceMap.value)
+                        .filter(sId => validClassStudentIds.has(String(sId)))
+                        .map(sId => {
                         let status = attendanceMap.value[sId];
                         let rec = {
                             classId: diaryClassId.value,
@@ -3657,6 +3804,24 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 if (data.ep.some(row => !studentIds.has(String(row.studentId)) || !Number.isFinite(Number(row.points)))) throw new Error('Há pontos extras inválidos no backup.');
                                 if (data.seatP.some(row => !classIds.has(String(row.classId)) || !Array.isArray(row.grid))) throw new Error('Há mapas de sala inválidos no backup.');
                                 if (data.ag.some(row => !isValidISODate(row.date) || (!String(row.text || '').trim() && !(row.attachments || []).length))) throw new Error('Há anotações inválidas no backup.');
+
+                                data.c = data.c.map(c => ({ ...c, id: Number(c.id), name: String(c.name || '').trim() }));
+                                data.s = data.s.map(s => ({ ...s, id: Number(s.id), classId: Number(s.classId), name: String(s.name || '').trim() }));
+                                data.e = data.e.map(ex => ({
+                                    ...ex,
+                                    id: Number(ex.id),
+                                    classId: ex.classId != null ? Number(ex.classId) : (Array.isArray(ex.classIds) && ex.classIds.length ? Number(ex.classIds[0]) : undefined),
+                                    classIds: (Array.isArray(ex.classIds) && ex.classIds.length ? ex.classIds : (ex.classId != null ? [ex.classId] : [])).map(Number).filter(Number.isFinite),
+                                    studentIds: Array.isArray(ex.studentIds) ? ex.studentIds.map(Number).filter(Number.isFinite) : [],
+                                    targetStudentIds: Array.isArray(ex.targetStudentIds) ? ex.targetStudentIds.map(Number).filter(Number.isFinite) : [],
+                                    versionAssignments: Array.isArray(ex.versionAssignments) ? ex.versionAssignments.map(a => ({ ...a, studentId: Number(a.studentId), classId: Number(a.classId), versionIndex: Number(a.versionIndex ?? a.version ?? a.v) || 0 })).filter(a => Number.isFinite(a.studentId)) : []
+                                }));
+                                data.r = data.r.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, examId: Number(row.examId), studentId: Number(row.studentId), version: Number(row.version || 0) }));
+                                data.sch = data.sch.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, classId: Number(row.classId) }));
+                                data.att = data.att.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, classId: Number(row.classId), studentId: Number(row.studentId) }));
+                                data.seatP = data.seatP.map(row => ({ ...row, classId: Number(row.classId) }));
+                                data.ep = data.ep.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, studentId: Number(row.studentId), points: Number(row.points) }));
+                                data.ag = data.ag.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined }));
 
                                 await db.transaction('rw', db.classes, db.students, db.questions, db.exams, db.results, db.schedules, db.attendance, db.seatingPlans, db.extraPoints, db.agendaNotes, db.settings, async () => {
                                     await db.classes.clear(); await db.students.clear(); await db.questions.clear();
@@ -4503,7 +4668,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const calculateExamScore = (ansObj, qArr) => {
                     if (!Array.isArray(qArr) || qArr.length === 0) return '0.0';
                     let hits = 0;
-                    qArr.forEach((q,i) => { const c=q.type==='vf'||q.type==='assoc'?(q.id||0)%5:q.correctIndex; if(ansObj[i]===c)hits++; });
+                    qArr.forEach((q,i) => { const c = getQuestionCorrectIndex(q); if(ansObj[i]===c)hits++; });
                     return ((hits/qArr.length)*10).toFixed(1);
                 };
 
@@ -4551,7 +4716,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         studentName: resObj.studentName,
                         answers: JSON.parse(JSON.stringify(resObj.answers || {})),
                         debugImage: resObj.debugImage,
-                        questions: v.map(q => ({ ...q, correctIndex: (q.type === 'vf' || q.type === 'assoc') ? (q.id || 0) % 5 : q.correctIndex }))
+                        questions: v.map(q => ({ ...q, correctIndex: getQuestionCorrectIndex(q) }))
                     };
                     showResultDetailsModal.value = true;
                 };
@@ -4726,7 +4891,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         
                         vQuestions.forEach((q, idx) => {
                             let sAns = r.answers[idx];
-                            let correctAns = (q.type === 'vf' || q.type === 'assoc') ? (q.id || 0) % 5 : q.correctIndex;
+                            let correctAns = getQuestionCorrectIndex(q);
                             
                             if (sAns === null || sAns === undefined || sAns !== correctAns) {
                                 if (errorMap[q.id] !== undefined) {
@@ -4838,7 +5003,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     downloadPDF(pdfMake.createPdf(doc), `Notas_Prova_${safeTitle}.pdf`, 'download');
                 };
 
-                const loadFixKeyQuestions=()=>{if(!fixKeyExam.value||!fixKeyExam.value.versions)return; fixKeyQuestions.value=JSON.parse(JSON.stringify(fixKeyExam.value.versions[fixKeySelectedVersion.value].questions)).map(q=>({...q,newCorrectIndex:q.correctIndex}));};
+                const loadFixKeyQuestions=()=>{if(!fixKeyExam.value||!fixKeyExam.value.versions)return; fixKeyQuestions.value=JSON.parse(JSON.stringify(fixKeyExam.value.versions[fixKeySelectedVersion.value].questions)).map(q=>({...q,correctIndex:getQuestionCorrectIndex(q),newCorrectIndex:getQuestionCorrectIndex(q)}));};
                 const openFixKey=(ex)=>{fixKeyExam.value=ex;if(!ex.versions)ex.versions=[{id:0,questions:ex.questions}]; fixKeySelectedVersion.value=0; loadFixKeyQuestions(); showFixKeyModal.value=true;};
                 const saveFixedKey = async () => {
                     const uEx = JSON.parse(JSON.stringify(fixKeyExam.value));
@@ -4857,124 +5022,127 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 // --- QR SCANNER ---
+                const destroyLiveQRScanner = async () => {
+                    const scanner = html5QrCode;
+                    html5QrCode = null;
+                    showLiveQRScanner.value = false;
+                    if (!scanner) return;
+                    try {
+                        if (scanner.isScanning) await scanner.stop();
+                    } catch (error) {
+                        console.warn('Falha ao parar scanner QR:', error);
+                    }
+                    try {
+                        await scanner.clear();
+                    } catch (error) {
+                        console.warn('Falha ao limpar scanner QR:', error);
+                    }
+                };
+
+                const validateExamQRCode = (qd) => {
+                    const exm = exams.value.find(e => Number(e.id) === Number(qd.e));
+                    const std = students.value.find(s => Number(s.id) === Number(qd.s));
+                    if (!exm || !std) throw new Error("Prova ou aluno não encontrados neste dispositivo.");
+                    if (!getExamStudents(exm).some(s => String(s.id) === String(std.id))) throw new Error("Este aluno não pertence ao público desta prova.");
+                    const version = Number(qd.v || 0);
+                    if (!Number.isInteger(version) || version < 0 || version >= Math.max(1, exm.versions?.length || 1)) throw new Error("A versão indicada no QR Code não pertence a esta prova.");
+                    return { exm, std, version };
+                };
+
+                const handleLiveQRDecoded = async (decodedText) => {
+                    let qd;
+                    try {
+                        qd = JSON.parse(decodedText);
+                    } catch (error) {
+                        if (qrScanMode.value !== 'attendance') {
+                            await destroyLiveQRScanner();
+                            showToast("QR Code inválido ou não reconhecido.", "error");
+                        }
+                        return;
+                    }
+
+                    try {
+                        if (qrScanMode.value === 'attendance' || qd.action === 'attendance') {
+                            if (!diaryClassId.value) return showToast("Selecione a turma no Diário antes de ler faltas por QR.", "warning");
+                            const std = students.value.find(s => Number(s.id) === Number(qd.s));
+                            if (!std) return showToast("Aluno não encontrado neste dispositivo.", "error");
+                            if (qd.c != null && String(qd.c) !== String(diaryClassId.value)) return showToast("Este QR pertence a outra turma.", "error");
+                            if (String(std.classId) !== String(diaryClassId.value)) return showToast("Este aluno não pertence à turma selecionada.", "error");
+                            if (attendanceMap.value[std.id] !== 'F') {
+                                attendanceMap.value[std.id] = 'F';
+                                showToast(`Falta registrada: ${std.name.split(' ')[0]}`, "error");
+                            }
+                            return;
+                        }
+
+                        const { exm, std, version } = validateExamQRCode(qd);
+                        await destroyLiveQRScanner();
+
+                        if (qrScanMode.value === 'ai_correction') {
+                            aiCorrectionConfig.value = { examId: exm.id, studentId: std.id, version };
+                            showToast(`Identificado: ${std.name}. Fotografe o gabarito!`, "success");
+                            showAICameraModal.value = true;
+                            nextTick(async () => {
+                                try {
+                                    const video = document.getElementById('ai-camera-video');
+                                    aiCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+                                    video.srcObject = aiCameraStream;
+                                } catch (e) {
+                                    showToast("Erro ao acessar a câmera. Verifique as permissões.", "error");
+                                    showAICameraModal.value = false;
+                                }
+                            });
+                            return;
+                        }
+
+                        if (qrScanMode.value === 'view') {
+                            let res = results.value.find(r => r.examId === exm.id && r.studentId === std.id);
+                            if (res) {
+                                showToast(`Nota encontrada: ${std.name}`, "success");
+                                openResultDetails(res);
+                            } else {
+                                showToast(`Ainda não há nota lançada para ${std.name} nesta prova.`, "warning");
+                            }
+                        } else if (qrScanMode.value === 'direct') {
+                            directConfig.value.examId = exm.id;
+                            loadExistingDirectGrades();
+                            directSearchQuery.value = std.name;
+                            showDirectGradeModal.value = true;
+                            showToast(`Aluno localizado: ${std.name}`, "success");
+                        } else {
+                            activeExam.value = exm;
+                            activeStudent.value = std;
+                            activeVersion.value = version;
+                            studentAnswers.value = {};
+                            correctionMode.value = true;
+                            showToast(`Identificado: ${std.name}`, "success");
+                        }
+                    } catch (err) {
+                        await destroyLiveQRScanner();
+                        showToast(err.message || "QR Code inválido ou não reconhecido.", "error");
+                    }
+                };
+
                 const startLiveQRScan = (mode = 'correction') => {
                     if (html5QrCode || showLiveQRScanner.value) return;
-                    if (!navigator.mediaDevices?.getUserMedia) return showToast("A câmara requer um navegador atualizado e ligação HTTPS.", "error");
+                    if (!navigator.mediaDevices?.getUserMedia) return showToast("A câmera requer um navegador atualizado e conexão HTTPS.", "error");
                     qrScanMode.value = mode;
                     showLiveQRScanner.value = true;
                     nextTick(() => {
                         html5QrCode = new Html5Qrcode("live-qr-reader");
                         html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 250 } },
-                            (decodedText) => {
-                                try {
-                                    let qd = JSON.parse(decodedText);
-                                    
-                                    // --- MODO: FALTAS CONTÍNUAS (MAPA DE SALA) ---
-                                    if (qrScanMode.value === 'attendance' || qd.action === 'attendance') {
-                                        let std = students.value.find(s => s.id === Number(qd.s));
-                                        if (std) {
-                                            if (attendanceMap.value[std.id] !== 'F') {
-                                                attendanceMap.value[std.id] = 'F';
-                                                showToast(`Falta registrada: ${std.name.split(' ')[0]}`, "error");
-                                            }
-                                        }
-                                        return; // Retorna sem parar o scanner para permitir leitura em cadeia
-                                    }
-
-                                    // --- MODO OMR: LEITURA INTELIGENTE (QR + IA MÁGICA) ---
-                                    if (qrScanMode.value === 'ai_correction') {
-                                        html5QrCode.stop().then(() => {
-                                            showLiveQRScanner.value = false;
-                                            let exm = exams.value.find(e => e.id === Number(qd.e));
-                                            let std = students.value.find(s => s.id === Number(qd.s));
-                                            
-                                            if(!exm || !std) throw new Error("Prova ou Aluno não encontrados no dispositivo.");
-                                            
-                                            // Configura os dados base e avança de imediato para a câmara do Gabarito
-                                            aiCorrectionConfig.value = {
-                                                examId: exm.id,
-                                                studentId: std.id,
-                                                version: Number(qd.v) || 0
-                                            };
-                                            
-                                            showToast(`Identificado: ${std.name}. Fotografe o gabarito!`, "success");
-                                            
-                                            showAICameraModal.value = true;
-                                            nextTick(async () => {
-                                                try {
-                                                    const video = document.getElementById('ai-camera-video');
-                                                    aiCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
-                                                    video.srcObject = aiCameraStream;
-                                                } catch (e) {
-                                                    showToast("Erro ao aceder à câmara. Verifique as permissões.", "error");
-                                                    showAICameraModal.value = false;
-                                                }
-                                            });
-                                        }).catch(()=>{});
-                                        return;
-                                    }
-
-                                    // --- MODO PADRÃO DE CORREÇÃO (Para o Scanner) ---
-                                    html5QrCode.stop().then(() => {
-                                        showLiveQRScanner.value = false;
-                                        let exm = exams.value.find(e => e.id === Number(qd.e));
-                                        let std = students.value.find(s => s.id === Number(qd.s));
-                                        
-                                        if(!exm || !std) throw new Error("Prova ou Aluno não encontrados no dispositivo.");
-                                        
-                                        if (qrScanMode.value === 'view') {
-                                            let res = results.value.find(r => r.examId === exm.id && r.studentId === std.id);
-                                            if (res) {
-                                                showToast(`Nota encontrada: ${std.name}`, "success");
-                                                openResultDetails(res);
-                                            } else {
-                                                showToast(`Ainda não há nota lançada para ${std.name} nesta prova.`, "warning");
-                                            }
-                                        } else if (qrScanMode.value === 'direct') {
-                                            directConfig.value.examId = exm.id;
-                                            loadExistingDirectGrades();
-                                            directSearchQuery.value = std.name;
-                                            showDirectGradeModal.value = true;
-                                            showToast(`Aluno localizado: ${std.name}`, "success");
-                                        } else {
-                                            activeExam.value = exm;
-                                            activeStudent.value = std;
-                                            activeVersion.value = Number(qd.v) || 0;
-                                            studentAnswers.value = {};
-                                            correctionMode.value = true;
-                                            showToast(`Identificado: ${std.name}`, "success");
-                                        }
-                                    }).catch(()=>{});
-                                } catch(err) {
-                                    // Ignora erros de JSON no modo contínuo para não travar o scanner ao ver algo que não é QR
-                                    if (qrScanMode.value !== 'attendance') {
-                                        html5QrCode.stop().then(() => {
-                                            showLiveQRScanner.value = false;
-                                            showToast("QR Code inválido ou não reconhecido.", "error");
-                                        });
-                                    }
-                                }
-                            },
-                            (errorMessage) => {}
+                            decodedText => { handleLiveQRDecoded(decodedText); },
+                            () => {}
                         ).catch(err => {
                             console.error(err);
                             html5QrCode = null;
-                            showToast("Erro ao aceder à câmara. Verifique a permissão e se a página usa HTTPS.", "error");
+                            showToast("Erro ao acessar a câmera. Verifique a permissão e se a página usa HTTPS.", "error");
                             showLiveQRScanner.value = false;
                         });
                     });
                 };
 
-                const stopLiveQRScan = () => {
-                    if (html5QrCode) {
-                        html5QrCode.stop().finally(() => {
-                            showLiveQRScanner.value = false;
-                            html5QrCode = null;
-                        });
-                    } else {
-                        showLiveQRScanner.value = false;
-                    }
-                };
+                const stopLiveQRScan = () => { destroyLiveQRScanner(); };
 
                 const addClass = async () => {
                     const name = String(newClass.value || '').trim();
@@ -5540,7 +5708,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         title: e.title,
                         bimester: e.bimester,
                         date: getLocalISODate(new Date(e.date)),
-                        variationMode: e.versions.length.toString(),
+                        variationMode: e.variationMode || e.versions.length.toString(),
                         classIds: getExamClassIds(e).map(id => classes.value.find(c => String(c.id) === String(id))?.id ?? id),
                         targetMode: (e.targetMode === 'selected' || getExamTargetStudentIds(e).length > 0) ? 'selected' : 'all',
                         studentIds: getExamTargetStudentIds(e).map(id => students.value.find(s => String(s.id) === String(id))?.id ?? id),
@@ -5579,7 +5747,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     v.questions.forEach((q, qIdx) => {
                         let row = [{ text: (qIdx + 1).toString(), alignment: 'center', bold: true, margin: [0, 5, 0, 0] }];
-                        let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
+                        let cIdx = getQuestionCorrectIndex(q);
                         
                         for (let i = 0; i < 5; i++) {
                             if (q.type === 'ce' && i > 1) {
@@ -5679,7 +5847,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     }
 
                     // Questões
-                    v.questions.forEach((q, qIdx) => {
+                    v.questions.forEach((question, qIdx) => {
+                        const q = ensureQuestionPrintState(question, `${ex.id}|v:${vIdx}|q:${qIdx}`, qIdx);
                         let qFontSize = isEco ? 9 : 11;
                         content.push({ text: `${qIdx + 1}. ${q.text}`, fontSize: qFontSize, bold: true, margin: [0, 0, 0, isEco ? 4 : 8] });
                         
@@ -5712,21 +5881,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 content.push({ text: `(   ) ${o.text}`, fontSize: qFontSize, margin: [15, 0, 0, isEco ? 2 : 4] });
                             });
                             
-                            // GERAÇÃO AUTOMÁTICA DAS ALTERNATIVAS A, B, C, D, E PARA V/F
-                            let cIdx = (q.id || 0) % 5;
-                            let correctSeq = q.options.map(o => o.isTrue ? 'V' : 'F');
-                            let optsText = [];
-                            
-                            for (let i = 0; i < 5; i++) {
-                                if (i === cIdx) {
-                                    optsText.push(correctSeq.join(', '));
-                                } else {
-                                    let fake = correctSeq.map(val => Math.random() > 0.5 ? 'V' : 'F');
-                                    if (fake.join(', ') === correctSeq.join(', ')) fake = fake.map(v => v === 'V' ? 'F' : 'V');
-                                    optsText.push(fake.join(', '));
-                                }
-                            }
-                            
+                            const optsText = Array.isArray(q.answerOptions) && q.answerOptions.length === 5
+                                ? q.answerOptions
+                                : normalizeVersionQuestion(q, `${ex.id}|${vIdx}|${qIdx}|vf`, false, qIdx).answerOptions;
                             content.push({ text: 'A sequência correta é:', fontSize: qFontSize, bold: true, margin: [15, 6, 0, 2] });
                             
                             if (isEco) {
@@ -5742,31 +5899,19 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 });
                             }
                         } else if (q.type === 'assoc') {
-                            let matchItems = q.options.map((o, i) => ({ id: i + 1, match: o.match }));
-                            matchItems.sort(() => Math.random() - 0.5); // Baralha as definições do lado direito
+                            const assocState = Array.isArray(q.associationMatches) && q.associationMatches.length
+                                ? q
+                                : normalizeVersionQuestion(q, `${ex.id}|${vIdx}|${qIdx}|assoc`, false, qIdx);
+                            let matchItems = assocState.associationMatches || [];
                             
                             let cols = [[], []];
                             q.options.forEach((o, i) => {
                                 cols[0].push({ text: `${i + 1}. ${o.text}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
-                                cols[1].push({ text: `(   ) ${matchItems[i].match}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
+                                cols[1].push({ text: `(   ) ${(matchItems[i] || {}).match || ''}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
                             });
                             content.push({ columns: [{width: '*', stack: cols[0]}, {width: '*', stack: cols[1]}], margin: [15, 0, 0, isEco ? 2 : 4] });
                             
-                            // GERAÇÃO AUTOMÁTICA DAS ALTERNATIVAS A, B, C, D, E PARA ASSOCIAÇÃO
-                            let correctSeq = matchItems.map(m => m.id);
-                            let cIdx = (q.id || 0) % 5;
-                            let optsText = [];
-                            
-                            for (let i = 0; i < 5; i++) {
-                                if (i === cIdx) {
-                                    optsText.push(correctSeq.join(', '));
-                                } else {
-                                    let fake = [...correctSeq].sort(() => Math.random() - 0.5);
-                                    if (fake.join(', ') === correctSeq.join(', ')) fake.reverse();
-                                    optsText.push(fake.join(', '));
-                                }
-                            }
-                            
+                            const optsText = Array.isArray(assocState.answerOptions) && assocState.answerOptions.length === 5 ? assocState.answerOptions : [];
                             content.push({ text: 'A sequência correta é:', fontSize: qFontSize, bold: true, margin: [15, 6, 0, 2] });
                             
                             if (isEco) {
@@ -5836,24 +5981,18 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const buildExamVersions = () => {
                     const versions = [];
-                    let numVers = parseInt(examConfig.value.variationMode) || 1;
+                    const targetStudentCount = examConfig.value.targetMode === 'selected' ? examSelectedStudentCount.value : examSelectableStudents.value.length;
+                    let numVers = examConfig.value.variationMode === 'unique'
+                        ? Math.max(1, targetStudentCount)
+                        : (parseInt(examConfig.value.variationMode) || 1);
                     if (isNaN(numVers) || numVers < 1) numVers = 1;
 
                     for (let i = 0; i < numVers; i++) {
-                        const vQ = JSON.parse(JSON.stringify(examCart.value));
-                        if (i > 0) {
-                            vQ.sort(() => Math.random() - 0.5);
-                            vQ.forEach(q => {
-                                if (q.type === 'mc' && Array.isArray(q.options)) {
-                                    const originalCorrectText = q.options[q.correct]?.text;
-                                    q.options.sort(() => Math.random() - 0.5);
-                                    q.correctIndex = q.options.findIndex(o => o.text === originalCorrectText);
-                                }
-                            });
-                        } else {
-                            vQ.forEach(q => q.correctIndex = q.correct);
-                        }
-                        versions.push({ questions: vQ });
+                        let vQ = JSON.parse(JSON.stringify(examCart.value));
+                        const versionSeed = `${examConfig.value.title}|${examConfig.value.date}|${i}|${vQ.map(q => q.id || q.text).join('|')}`;
+                        if (i > 0) vQ = stableShuffle(vQ, versionSeed + '|questions');
+                        vQ = vQ.map((q, qIndex) => normalizeVersionQuestion(q, versionSeed, i > 0, qIndex));
+                        versions.push({ id: i, questions: vQ });
                     }
                     return versions;
                 };
@@ -5905,6 +6044,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         showToast('Selecione pelo menos uma turma.', 'warning');
                         return null;
                     }
+                    if (!examConfig.value.type) {
+                        showToast('Selecione o tipo da avaliação.', 'warning');
+                        return null;
+                    }
                     if (!isValidISODate(examConfig.value.date)) {
                         showToast('Antes de salvar, informe uma data válida para a prova.', 'warning');
                         return null;
@@ -5945,7 +6088,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         exam.type = examConfig.value.type;
                         exam.teacher = examConfig.value.teacher;
                         exam.instructions = examConfig.value.instructions || '';
+                        exam.variationMode = examConfig.value.variationMode;
                         applySafeQuestionEdits(exam, examCart.value);
+                        exam.versionAssignments = buildVersionAssignments(exam, exam.versionAssignments || []);
                         await db.exams.put(JSON.parse(JSON.stringify(exam)));
                     } else {
                         exam = {
@@ -5960,9 +6105,12 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             type: examConfig.value.type,
                             teacher: examConfig.value.teacher,
                             instructions: examConfig.value.instructions || '',
+                            variationMode: examConfig.value.variationMode,
                             versions: buildExamVersions(),
+                            versionAssignments: [],
                             isExternal: false
                         };
+                        exam.versionAssignments = buildVersionAssignments(exam);
                         exam.id = await db.exams.add(JSON.parse(JSON.stringify(exam)));
                         editingExamId.value = exam.id; // Impede duplicação ao visualizar/partilhar depois de salvar.
                     }
@@ -5991,7 +6139,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             const student = stds[i];
                             if (!firstStd) content.push({ text: '', pageBreak: 'before' });
                             firstStd = false;
-                            const versionIndex = i % exm.versions.length;
+                            const versionIndex = getExamStudentVersionIndex(exm, student, i);
                             content.push(...buildExamContent(exm, student, versionIndex, printConfig.value));
                         }
                     }
@@ -6019,7 +6167,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         stds.forEach((student, index) => {
                             if (!firstStd) content.push({ text: '', pageBreak: 'before' });
                             firstStd = false;
-                            const versionIndex = index % e.versions.length;
+                            const versionIndex = getExamStudentVersionIndex(e, student, index);
                             content.push(...buildExamContent(e, student, versionIndex, printConfig.value));
                         });
                     }
@@ -6049,7 +6197,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             stds.forEach((student, index) => {
                                 if (!firstPage) content.push({ text: '', pageBreak: 'before' });
                                 firstPage = false;
-                                const versionIndex = index % exam.versions.length;
+                                const versionIndex = getExamStudentVersionIndex(exam, student, index);
                                 content.push(...buildExamContent(exam, student, versionIndex, printConfig.value));
                             });
                         }
@@ -6149,7 +6297,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                         let keyText = [];
                         v.questions.forEach((q, qIdx) => {
-                            let cIdx = (q.type === 'vf' || q.type === 'assoc') ? ((q.id || 0) % 5) : q.correctIndex;
+                            let cIdx = getQuestionCorrectIndex(q);
                             let altLetra = ['A)','B)','C)','D)','E)'][cIdx] || '?'; 
 
                             let ans = '';
