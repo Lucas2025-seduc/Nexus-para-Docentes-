@@ -217,6 +217,10 @@
                     <!-- Horários -->
                     <div v-if="diaryTab==='schedule'" class="p-4 space-y-4 bg-gray-50/30">
                         <div class="bg-white p-3 rounded-xl border flex flex-col gap-3">
+                            <div>
+                                <label class="text-[10px] text-gray-500 font-bold block mb-1">Disciplina</label>
+                                <input v-model.trim="newSchedule.subject" @keyup.enter="addSchedule" type="text" placeholder="Ex.: Matemática" class="w-full p-2 bg-gray-50 rounded-lg text-sm border font-bold outline-none focus:border-indigo-500">
+                            </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <div class="flex-1">
                                     <label class="text-[10px] text-gray-500 font-bold block mb-1">Dia</label>
@@ -231,16 +235,17 @@
                                     </select>
                                 </div>
                             </div>
-                            <button @click="addSchedule" class="w-full py-2 bg-emerald-500 text-white rounded-lg text-xs font-bold"><i class="fa-solid fa-plus"></i> Adicionar Horário</button>
+                            <button @click="addSchedule" class="w-full py-2 bg-emerald-500 text-white rounded-lg text-xs font-bold"><i class="fa-solid fa-save"></i> Salvar Horário</button>
                         </div>
                         
                         <div class="space-y-2">
                             <div v-for="sch in schedulesList" :key="sch.id" class="bg-white border p-3 rounded-xl flex justify-between items-center shadow-sm">
-                                <div>
-                                    <span class="font-bold text-indigo-700 text-sm block">{{sch.day}}</span>
+                                <div class="min-w-0 pr-3">
+                                    <span class="font-black text-gray-800 text-sm block truncate">{{sch.subject || 'Disciplina não informada'}}</span>
+                                    <span class="font-bold text-indigo-700 text-xs block mt-0.5">{{sch.day}}</span>
                                     <span class="text-xs text-gray-500 font-medium">{{sch.period}}</span>
                                 </div>
-                                <button @click="deleteSchedule(sch.id)" class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button>
+                                <button @click="deleteSchedule(sch.id)" class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition flex items-center justify-center flex-none"><i class="fa-solid fa-trash text-xs"></i></button>
                             </div>
                             <p v-if="schedulesList.length === 0" class="text-center text-xs text-gray-400 py-4 font-medium">Nenhum horário cadastrado.</p>
                         </div>
@@ -1843,7 +1848,7 @@
                 const attendanceStudentFilter = ref('');
                 const attendanceMap = ref({});
                 const schedulesList = ref([]);
-                const newSchedule = ref({ day: 'Segunda', period: '1ª Aula' });
+                const newSchedule = ref({ subject: '', day: 'Segunda', period: '1ª Aula' });
                 
                 // NOVO: Gestão das Justificativas de Falta
                 const justificationMap = ref({});
@@ -3263,14 +3268,30 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 };
 
                 const addSchedule = async () => {
-                    if(!diaryClassId.value || !newSchedule.value.period) return showToast("Preencha todos os campos do horário", "warning");
+                    const subject = (newSchedule.value.subject || '').trim();
+                    const day = newSchedule.value.day;
+                    const period = newSchedule.value.period;
+
+                    if (!diaryClassId.value || !subject || !day || !period) {
+                        return showToast("Informe a disciplina, o dia e o período.", "warning");
+                    }
+
+                    const occupiedSlot = schedulesList.value.find(sch => sch.day === day && sch.period === period);
+                    if (occupiedSlot) {
+                        const registeredSubject = occupiedSlot.subject || 'outra disciplina';
+                        return showToast(`Este dia e período já estão ocupados por ${registeredSubject}.`, "warning");
+                    }
+
                     await db.schedules.add({
                         classId: diaryClassId.value,
-                        day: newSchedule.value.day,
-                        period: newSchedule.value.period
+                        subject,
+                        day,
+                        period
                     });
-                    loadDiaryData();
-                    showToast("Horário adicionado", "success");
+
+                    newSchedule.value.subject = '';
+                    await loadDiaryData();
+                    showToast("Horário salvo com sucesso.", "success");
                 };
 
                 const deleteSchedule = async (id) => {
@@ -3669,7 +3690,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     if (act.actionType === 'add_schedule') {
                         const cId = Number(act.classId);
                         const cls = classes.value.find(c => Number(c.id) === cId);
-                        return `Adicionar horário na turma '${cls ? cls.name : 'Desconhecida'}': ${act.day}, ${act.period}`;
+                        return `Adicionar horário na turma '${cls ? cls.name : 'Desconhecida'}': ${act.subject || 'Disciplina não informada'}, ${act.day}, ${act.period}`;
                     }
                     if (act.actionType === 'add_agenda') {
                         const dateFormatted = act.date ? act.date.split('-').reverse().join('/') : 'Hoje';
@@ -3805,8 +3826,16 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                     const match = per.match(/(\d)/);
                                     if (match) per = match[1] + 'ª Aula';
 
+                                    const subject = (act.subject || '').trim();
+                                    if (!subject) throw new Error("Falta informar a disciplina do horário.");
+
+                                    const classSchedules = await db.schedules.where({classId: cId}).toArray();
+                                    const occupiedSlot = classSchedules.find(sch => sch.day === act.day && sch.period === per);
+                                    if (occupiedSlot) throw new Error(`Este dia e período já estão ocupados por ${occupiedSlot.subject || 'outra disciplina'}.`);
+
                                     await db.schedules.add({
                                         classId: cId,
+                                        subject,
                                         day: act.day,
                                         period: per
                                     });
@@ -3985,7 +4014,7 @@ REGRAS OBRIGATÓRIAS E EXIGÊNCIA DE DADOS:
 2. NOTAS (Lançar/Apagar): Se o usuário falar em notas, precisa de studentId, examId e score. Use actionType "update_grade" ou "delete_grade".
 3. CHAMADA RÁPIDA EM LOTE: Para chamadas de turma (actionType="bulk_attendance"). Preencha 'classId', 'date' (${todayDate}), 'period' e a lista 'absentStudentIds'.
 4. FREQUÊNCIA INDIVIDUAL: Para colocar falta ou presença (actionType="set_attendance"). Preencha studentId, date, period e status ("P", "F" ou "J"). Opcionalmente envie "text" para o motivo/justificativa.
-5. HORÁRIO: actionType="add_schedule", forneça classId, day e period.
+5. HORÁRIO: actionType="add_schedule", forneça classId, subject, day e period.
 6. AGENDA E LEMBRETES: actionType="add_agenda". Forneça 'date' (YYYY-MM-DD) e 'text'.
 7. GERAR PROVA: actionType="generate_exam". Forneça 'subject', 'topic', 'mc_count', 'ce_count', 'vf_count', 'assoc_count'.
 8. ANÁLISES: Para relatórios ou médias, apenas responda em 'reply' e envie 'actions' vazias.
