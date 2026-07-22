@@ -15,6 +15,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -260,8 +261,19 @@
                 <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
                     <div class="flex gap-2 items-center">
                         <input type="date" v-model="agendaDate" class="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-indigo-500 transition-colors">
-                        <button @click="agendaDate = new Date().toISOString().split('T')[0]" class="px-4 py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-xs hover:bg-indigo-100 transition shadow-sm border border-indigo-100">Hoje</button>
                         <button @click="printAgendaDayPDF" class="px-4 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold text-xs transition shadow-sm border border-red-100 flex items-center gap-1.5" title="Baixar relatório em PDF"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select v-model="agendaPrintRange" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:border-indigo-500 transition-colors">
+                            <option value="today">Hoje</option>
+                            <option value="week">Semana</option>
+                            <option value="fortnight">Quinzena</option>
+                            <option value="month">Mês</option>
+                            <option value="quarter">Trimestre</option>
+                            <option value="semester">Semestre</option>
+                            <option value="year">Ano</option>
+                        </select>
+                        <button @click="printAgendaRangePDF" class="px-4 py-2.5 bg-red-600 text-white hover:bg-red-700 rounded-xl font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5" title="Baixar agenda do período em PDF"><i class="fa-solid fa-calendar-week"></i> PDF do Período</button>
                     </div>
 
                     <div class="flex flex-col gap-2 pt-2 border-t">
@@ -573,7 +585,7 @@
                             <div class="mt-3 border-t pt-2">
                                 <p class="text-[9px] font-bold text-gray-400 uppercase mb-2"><i class="fa-solid fa-print"></i> Layout</p>
                                 <div class="mb-2 flex gap-2">
-                                    <select v-model="printConfig.qImageSize" @change="saveSettings(true)" class="flex-1 p-1.5 bg-white rounded-lg text-xs border outline-none"><option value="medium">Img Média</option><option value="large">Img Grande</option></select>
+                                    <select v-model="printConfig.qImageSize" @change="saveSettings(true)" class="flex-1 p-1.5 bg-white rounded-lg text-xs border outline-none"><option value="small">Img Pequena</option><option value="medium">Img Média</option><option value="large">Img Grande</option></select>
                                     <label class="flex-1 flex items-center gap-2 cursor-pointer bg-white border p-1.5 rounded-lg hover:bg-gray-50 transition" title="Incluir a foto do aluno abaixo do QR Code">
                                         <input type="checkbox" v-model="printConfig.showStudentPhoto" @change="saveSettings(true)">
                                         <span class="text-[9px] font-bold text-gray-600 leading-tight">Incluir Fotos</span>
@@ -592,6 +604,10 @@
                             </div>
                         </div>
                     </div>
+                </div>
+                <div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl text-[11px] font-bold leading-relaxed flex gap-2 items-start">
+                    <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                    <span>Antes de salvar ou gerar o PDF, confira se colocou o nome da prova, a turma e a data.</span>
                 </div>
 
                 <div class="flex-1 bg-white rounded-2xl shadow-sm flex flex-col overflow-hidden border min-h-[300px]">
@@ -837,8 +853,11 @@
             </div>
         </nav>
         <div class="flex-none bg-gray-50 py-1.5 px-3 text-center border-t border-gray-200 z-50">
-            <p class="text-[9px] font-medium text-gray-500 flex items-center justify-center gap-1.5 leading-tight">
-                <i class="fa-solid fa-shield-halved text-indigo-400"></i> Dados salvos 100% localmente (Offline). Proteção de Dados assegurada.
+            <p class="text-[9px] font-bold text-gray-600 flex items-center justify-center gap-1.5 leading-tight flex-wrap">
+                <i class="fa-solid fa-shield-halved text-indigo-400"></i> Desenvolvedor: Nexus - Cursos e Soluções Inteligentes | CNPJ: 62,323,279/0001-00
+            </p>
+            <p class="text-[8px] font-medium text-gray-500 leading-tight mt-0.5 max-w-3xl mx-auto">
+                Aplicativo protegido contra cópia, reprodução, distribuição ou revenda não autorizada, conforme Lei do Software nº 9.609/1998, Lei de Direitos Autorais nº 9.610/1998 e art. 184 do Código Penal.
             </p>
         </div>
 
@@ -945,7 +964,6 @@
                         </div>
                     </div>
                     <button @click="generateQuestionsAI" :disabled="isGeneratingAI" class="w-full py-3.5 bg-purple-600 text-white rounded-xl font-bold"><i :class="isGeneratingAI?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-wand-magic-sparkles'"></i> Gerar</button>
-                    <button @click="simulateAIGeneration" class="w-full mt-2 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold text-sm transition-colors"><i class="fa-solid fa-flask"></i> Testar Visualização (Sem Chave API)</button>
                 </div>
             </div>
         </div>
@@ -1027,11 +1045,11 @@
             <div class="p-4 bg-white border-b shadow-sm z-10 flex flex-wrap gap-3 items-end">
                 <div class="flex gap-3 flex-1">
                     <div class="flex-1">
-                        <label class="text-[10px] font-bold text-gray-500 uppercase">Filas (Vertical)</label>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase">Filas Verticais</label>
                         <input type="number" v-model.number="seatingRows" min="1" max="15" class="w-full p-2 bg-gray-50 border rounded-lg text-sm font-bold text-center outline-none focus:border-indigo-500">
                     </div>
                     <div class="flex-1">
-                        <label class="text-[10px] font-bold text-gray-500 uppercase">Cadeiras (Horiz.)</label>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase">Cadeiras por Fila</label>
                         <input type="number" v-model.number="seatingCols" min="1" max="15" class="w-full p-2 bg-gray-50 border rounded-lg text-sm font-bold text-center outline-none focus:border-indigo-500">
                     </div>
                 </div>
@@ -1047,11 +1065,11 @@
 
                 <!-- Lousa do Professor -->
                 <div class="w-full max-w-lg mx-auto mb-6 h-8 bg-gray-300 rounded-t-2xl flex items-center justify-center text-[10px] font-black text-gray-500 uppercase border-b-4 border-gray-400 shadow-inner">
-                    <i class="fa-solid fa-chalkboard-user mr-2"></i> Lousa / Professor
+                    <i class="fa-solid fa-chalkboard-user mr-2"></i> Birô / Professor
                 </div>
 
                 <!-- Grelha do Mapa -->
-                <div class="max-w-4xl mx-auto grid gap-2" :style="{ gridTemplateColumns: `repeat(${seatingCols}, minmax(0, 1fr))` }">
+                <div class="max-w-4xl mx-auto grid gap-2" :style="{ gridTemplateColumns: `repeat(${seatingRows}, minmax(0, 1fr))` }">
                     <div v-for="(studentId, idx) in seatingGrid" :key="idx"
                          @click="handleSeatClick(idx)"
                          class="aspect-square bg-white rounded-xl border-2 flex flex-col items-center justify-center p-1 cursor-pointer transition-all shadow-sm overflow-hidden relative"
@@ -1871,6 +1889,7 @@
                 
                 // Agenda
                 const agendaDate = ref(new Date().toISOString().split('T')[0]);
+                const agendaPrintRange = ref('week');
                 const allAgendaNotes = ref([]);
                 const newAgendaNoteText = ref('');
                 const newAgendaAttachments = ref([]); 
@@ -2120,71 +2139,192 @@ Texto original do professor: "${textToImprove}"`;
                     }
                 };
 
-                const printAgendaDayPDF = () => {
-                    if (filteredAgendaNotes.value.length === 0) return showToast("Não há anotações para imprimir.", "warning");
+                const parseISODateLocal = (iso) => {
+                    const [y, m, d] = iso.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                };
+
+                const toISODateLocal = (date) => {
+                    const y = date.getFullYear();
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const d = String(date.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                };
+
+                const formatISODateBR = (iso) => iso ? iso.split('-').reverse().join('/') : '-';
+
+                const getAgendaRangeInfo = (rangeType) => {
+                    const ref = parseISODateLocal(agendaDate.value);
+                    let start = new Date(ref);
+                    let end = new Date(ref);
+                    let label = 'Semana';
+
+                    if (rangeType === 'today') {
+                        start = new Date();
+                        end = new Date();
+                        label = 'Hoje';
+                    } else if (rangeType === 'week') {
+                        const weekDay = ref.getDay();
+                        const diffToMonday = weekDay === 0 ? -6 : 1 - weekDay;
+                        start.setDate(ref.getDate() + diffToMonday);
+                        end = new Date(start);
+                        end.setDate(start.getDate() + 6);
+                        label = 'Semana';
+                    } else if (rangeType === 'fortnight') {
+                        const firstHalf = ref.getDate() <= 15;
+                        start = new Date(ref.getFullYear(), ref.getMonth(), firstHalf ? 1 : 16);
+                        end = new Date(ref.getFullYear(), ref.getMonth() + 1, firstHalf ? 15 : 0);
+                        label = 'Quinzena';
+                    } else if (rangeType === 'month') {
+                        start = new Date(ref.getFullYear(), ref.getMonth(), 1);
+                        end = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+                        label = 'Mês';
+                    } else if (rangeType === 'quarter') {
+                        const quarterStartMonth = Math.floor(ref.getMonth() / 3) * 3;
+                        start = new Date(ref.getFullYear(), quarterStartMonth, 1);
+                        end = new Date(ref.getFullYear(), quarterStartMonth + 3, 0);
+                        label = 'Trimestre';
+                    } else if (rangeType === 'semester') {
+                        const semesterStartMonth = ref.getMonth() < 6 ? 0 : 6;
+                        start = new Date(ref.getFullYear(), semesterStartMonth, 1);
+                        end = new Date(ref.getFullYear(), semesterStartMonth + 6, 0);
+                        label = 'Semestre';
+                    } else if (rangeType === 'year') {
+                        start = new Date(ref.getFullYear(), 0, 1);
+                        end = new Date(ref.getFullYear(), 11, 31);
+                        label = 'Ano';
+                    }
+
+                    return {
+                        label,
+                        start: toISODateLocal(start),
+                        end: toISODateLocal(end)
+                    };
+                };
+
+                const dataUrlToUint8Array = (dataUrl) => {
+                    const base64 = (dataUrl || '').split(',')[1] || '';
+                    const binary = atob(base64);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    return bytes;
+                };
+
+                const renderAgendaPdfAttachment = async (att) => {
+                    const nodes = [];
+                    if (!window.pdfjsLib || !att.data) {
+                        return [{ text: `PDF anexado: ${att.name || 'documento.pdf'} (não foi possível abrir as páginas neste navegador).`, fontSize: 9, color: '#b91c1c', bold: true, margin: [0, 4, 0, 4] }];
+                    }
+
+                    try {
+                        if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                        }
+                        const pdf = await window.pdfjsLib.getDocument({ data: dataUrlToUint8Array(att.data) }).promise;
+                        nodes.push({ text: `PDF aberto: ${att.name || 'documento.pdf'} (${pdf.numPages} página(s))`, fontSize: 9, bold: true, color: '#b91c1c', margin: [0, 6, 0, 4] });
+
+                        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                            const page = await pdf.getPage(pageNum);
+                            const viewport = page.getViewport({ scale: 1.25 });
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            canvas.width = viewport.width;
+                            canvas.height = viewport.height;
+                            await page.render({ canvasContext: ctx, viewport }).promise;
+                            nodes.push({
+                                image: canvas.toDataURL('image/jpeg', 0.86),
+                                fit: [500, 650],
+                                alignment: 'center',
+                                margin: [0, 3, 0, 10]
+                            });
+                        }
+                    } catch (err) {
+                        console.error('Erro ao abrir PDF da agenda:', err);
+                        nodes.push({ text: `PDF anexado: ${att.name || 'documento.pdf'} (não foi possível renderizar as páginas).`, fontSize: 9, color: '#b91c1c', bold: true, margin: [0, 4, 0, 4] });
+                    }
+
+                    return nodes;
+                };
+
+                const buildAgendaAttachmentNodes = async (attachments = []) => {
+                    const nodes = [];
+                    if (!attachments.length) return nodes;
+
+                    nodes.push({ text: 'Anexos:', fontSize: 9, bold: true, color: '#4f46e5', margin: [0, 6, 0, 4] });
+
+                    for (const att of attachments) {
+                        const type = att.type || '';
+                        if (type.startsWith('image/')) {
+                            nodes.push({ text: `Imagem: ${att.name || 'anexo'}`, fontSize: 8, color: '#6b7280', margin: [0, 2, 0, 2] });
+                            nodes.push({ image: att.data, fit: [500, 360], alignment: 'center', margin: [0, 2, 0, 10] });
+                        } else if (type.startsWith('application/pdf')) {
+                            nodes.push(...await renderAgendaPdfAttachment(att));
+                        } else if (type.startsWith('audio/')) {
+                            nodes.push({
+                                table: {
+                                    widths: ['*'],
+                                    body: [[{ text: `Áudio anexado: ${att.name || 'gravação'}\nO arquivo de áudio permanece salvo na anotação original.`, fontSize: 9, color: '#1d4ed8', margin: [8, 6, 8, 6] }]]
+                                },
+                                layout: { hLineColor: () => '#bfdbfe', vLineColor: () => '#bfdbfe', fillColor: () => '#eff6ff' },
+                                margin: [0, 4, 0, 8]
+                            });
+                        } else {
+                            nodes.push({ text: `Anexo: ${att.name || 'arquivo'} (${type || 'tipo desconhecido'})`, fontSize: 9, bold: true, color: '#6b7280', margin: [0, 4, 0, 4] });
+                        }
+                    }
+
+                    return nodes;
+                };
+
+                const printAgendaNotesPDF = async (notes, subtitle, fileName, rangeText = '') => {
+                    if (!notes.length) return showToast("Não há anotações para imprimir neste período.", "warning");
                     showToast("A gerar Relatório da Agenda...", "loading");
 
-                    let isFiltered = agendaSearchText.value || agendaStartDate.value || agendaEndDate.value;
-                    let subtitle = isFiltered ? "RELATÓRIO DE PESQUISA DA AGENDA" : `RELATÓRIO DIÁRIO - ${agendaDate.value.split('-').reverse().join('/')}`;
+                    const orderedNotes = [...notes].sort((a, b) => {
+                        if (a.date !== b.date) return a.date.localeCompare(b.date);
+                        return (a.createdAt || 0) - (b.createdAt || 0);
+                    });
 
                     let doc = {
                         content: [
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
-                            { text: subtitle, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 20], color: '#4f46e5' }
+                            { text: subtitle, fontSize: 12, bold: true, alignment: 'center', margin: [0, 5, 0, 4], color: '#4f46e5' },
+                            { text: rangeText, fontSize: 9, alignment: 'center', margin: [0, 0, 0, 18], color: '#6b7280' }
                         ],
                         defaultStyle: { font: 'Roboto' },
                         pageMargins: [40, 40, 40, 40]
                     };
 
-                    filteredAgendaNotes.value.forEach((note, index) => {
-                        // Data e Hora da anotação
-                        const d = new Date(note.createdAt);
-                        const dataFormatada = note.date.split('-').reverse().join('/') + ' às ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-                        
+                    for (let index = 0; index < orderedNotes.length; index++) {
+                        const note = orderedNotes[index];
+                        const d = note.createdAt ? new Date(note.createdAt) : null;
+                        const hora = d ? ` às ${d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}` : '';
+                        const dataFormatada = `${formatISODateBR(note.date)}${hora}`;
+
                         doc.content.push({ text: `Anotação ${index + 1} - ${dataFormatada}`, fontSize: 10, bold: true, color: '#374151', margin: [0, 10, 0, 5] });
-                        
-                        // Texto da anotação
-                        if (note.text) {
-                            doc.content.push({ text: note.text, fontSize: 10, margin: [0, 0, 0, 10], alignment: 'justify' });
-                        }
-
-                        // Processamento dos Anexos
-                        if (note.attachments && note.attachments.length > 0) {
-                            let imgCols = [];
-                            let docsAudioList = [];
-
-                            note.attachments.forEach(att => {
-                                if (att.type.startsWith('image/')) {
-                                    imgCols.push({ image: att.data, width: 150, margin: [0, 5, 10, 5], alignment: 'center' });
-                                } else if (att.type.startsWith('application/pdf')) {
-                                    docsAudioList.push(`📎 Documento PDF Anexado: ${att.name || 'Ficheiro'}`);
-                                } else if (att.type.startsWith('audio/')) {
-                                    docsAudioList.push(`🎤 Gravação de Áudio: ${att.name || 'Áudio'}`);
-                                }
-                            });
-
-                            // Organiza as imagens em linhas de 3 para não quebrar a página
-                            if (imgCols.length > 0) {
-                                for (let i = 0; i < imgCols.length; i += 3) {
-                                    doc.content.push({ columns: imgCols.slice(i, i + 3), margin: [0, 5, 0, 5] });
-                                }
-                            }
-
-                            // Lista de PDFs e Áudios
-                            if (docsAudioList.length > 0) {
-                                doc.content.push({
-                                    text: docsAudioList.join('\n'),
-                                    fontSize: 9, bold: true, color: '#ef4444', margin: [0, 5, 0, 5]
-                                });
-                            }
-                        }
-
-                        // Linha separadora
+                        doc.content.push({ text: note.text || 'Anotação sem texto.', fontSize: 10, margin: [0, 0, 0, 8], alignment: 'justify' });
+                        doc.content.push(...await buildAgendaAttachmentNodes(note.attachments || []));
                         doc.content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#d1d5db' }], margin: [0, 10, 0, 10] });
-                    });
+                    }
 
-                    let fileName = isFiltered ? `Agenda_Pesquisa_${Date.now()}.pdf` : `Agenda_${agendaDate.value}.pdf`;
                     downloadPDF(pdfMake.createPdf(doc), fileName, 'download');
+                };
+
+                const printAgendaDayPDF = async () => {
+                    let isFiltered = agendaSearchText.value || agendaStartDate.value || agendaEndDate.value;
+                    let subtitle = isFiltered ? "RELATÓRIO DE PESQUISA DA AGENDA" : `RELATÓRIO DIÁRIO - ${formatISODateBR(agendaDate.value)}`;
+                    let fileName = isFiltered ? `Agenda_Pesquisa_${Date.now()}.pdf` : `Agenda_${agendaDate.value}.pdf`;
+                    const rangeText = isFiltered ? 'Filtros aplicados na tela da agenda.' : `Data: ${formatISODateBR(agendaDate.value)}`;
+                    await printAgendaNotesPDF(filteredAgendaNotes.value, subtitle, fileName, rangeText);
+                };
+
+                const printAgendaRangePDF = async () => {
+                    const range = getAgendaRangeInfo(agendaPrintRange.value);
+                    const notes = allAgendaNotes.value.filter(n => n.date >= range.start && n.date <= range.end);
+                    const subtitle = `RELATÓRIO DA AGENDA - ${range.label.toUpperCase()}`;
+                    const rangeText = `${formatISODateBR(range.start)} a ${formatISODateBR(range.end)}`;
+                    const safeRange = range.label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '_');
+                    await printAgendaNotesPDF(notes, subtitle, `Agenda_${safeRange}_${range.start}_a_${range.end}.pdf`, rangeText);
                 };
 
                 const showAttendancePrintModal = ref(false);
@@ -2970,21 +3110,21 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
 
                 const printSeatingPlan = () => {
                     let title = `Mapa de Sala - ${getClassName(seatingClassId.value)}`;
-                    let cols = seatingCols.value;
-                    let rows = seatingRows.value;
+                    let filas = seatingRows.value;
+                    let cadeirasPorFila = seatingCols.value;
                     
                     let tableBody = [];
                     
-                    for (let r = 0; r < rows; r++) {
+                    for (let cadeira = 0; cadeira < cadeirasPorFila; cadeira++) {
                         let rowData = [];
-                        for (let c = 0; c < cols; c++) {
-                            let idx = r * cols + c;
+                        for (let fila = 0; fila < filas; fila++) {
+                            let idx = cadeira * filas + fila;
                             let sId = seatingGrid.value[idx];
                             let std = getStudent(sId);
                             
                             if (std) {
                                 let qrData = JSON.stringify({ s: std.id, action: 'attendance' });
-                                let qSize = seatingPrintQR.value ? (cols > 5 ? 26 : 32) : (cols > 5 ? 36 : 46); // Aumenta a foto se não tiver QR
+                                let qSize = seatingPrintQR.value ? (filas > 5 ? 26 : 32) : (filas > 5 ? 36 : 46); // Aumenta a foto se não tiver QR
                                 let photoNode = std.photo ? { image: std.photo, width: qSize, height: qSize, alignment: 'center' } : { canvas: [{ type: 'rect', x: 0, y: 0, w: qSize, h: qSize, color: '#e5e7eb' }], alignment: 'center' };
                                 
                                 let studentStack = [];
@@ -3020,14 +3160,14 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     }
 
                     const doc = {
-                        pageOrientation: cols > 5 ? 'landscape' : 'portrait',
+                        pageOrientation: filas > 5 ? 'landscape' : 'portrait',
                         content: [
                             { text: settings.value.schoolName || 'ESCOLA', fontSize: 16, bold: true, alignment: 'center' },
                             { text: title, fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 15] },
-                            { text: 'LOUSA / MESA DO PROFESSOR', alignment: 'center', bold: true, color: '#fff', fillColor: '#6b7280', margin: [0, 0, 0, 10], padding: [0,4,0,4] },
+                            { text: 'BIRÔ / MESA DO PROFESSOR', alignment: 'center', bold: true, color: '#fff', fillColor: '#6b7280', margin: [0, 0, 0, 10], padding: [0,4,0,4] },
                             {
                                 table: {
-                                    widths: Array(cols).fill('*'),
+                                    widths: Array(filas).fill('*'),
                                     body: tableBody
                                 },
                                 layout: {
@@ -4782,6 +4922,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 const isExamReady = computed(() => {
                     return !!examCart.value.length
+                        && !!(examConfig.value.title && examConfig.value.title.trim())
+                        && !!examConfig.value.date
                         && !!(examConfig.value.classIds && examConfig.value.classIds.length)
                         && (examConfig.value.targetMode !== 'selected' || examSelectedStudentCount.value > 0);
                 });
@@ -5212,8 +5354,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         content.push({ text: `${qIdx + 1}. ${q.text}`, fontSize: qFontSize, bold: true, margin: [0, 0, 0, isEco ? 4 : 8] });
                         
                         if (q.image) {
-                            let imgW = printCfg.qImageSize === 'large' ? 400 : 250;
-                            if (isEco) imgW = 200;
+                            const normalImageWidths = { small: 150, medium: 250, large: 400 };
+                            const ecoImageWidths = { small: 120, medium: 200, large: 260 };
+                            let imgW = (isEco ? ecoImageWidths : normalImageWidths)[printCfg.qImageSize] || normalImageWidths.medium;
                             content.push({ image: q.image, width: imgW, alignment: 'center', margin: [0, 0, 0, 8] });
                         }
 
@@ -5424,8 +5567,16 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         showToast('Selecione pelo menos uma questão.', 'warning');
                         return null;
                     }
+                    if (!examConfig.value.title || !examConfig.value.title.trim()) {
+                        showToast('Antes de salvar, coloque o nome da prova.', 'warning');
+                        return null;
+                    }
                     if (!examConfig.value.classIds || examConfig.value.classIds.length === 0) {
                         showToast('Selecione pelo menos uma turma.', 'warning');
+                        return null;
+                    }
+                    if (!examConfig.value.date) {
+                        showToast('Antes de salvar, informe a data da prova.', 'warning');
                         return null;
                     }
 
@@ -5453,7 +5604,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             return null;
                         }
 
-                        exam.title = examConfig.value.title || 'Avaliação';
+                        exam.title = examConfig.value.title.trim();
                         exam.bimester = examConfig.value.bimester;
                         exam.date = examDate;
                         exam.classIds = selectedClassIds;
@@ -5468,7 +5619,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         await db.exams.put(JSON.parse(JSON.stringify(exam)));
                     } else {
                         exam = {
-                            title: examConfig.value.title || 'Avaliação',
+                            title: examConfig.value.title.trim(),
                             bimester: examConfig.value.bimester,
                             date: examDate,
                             classIds: selectedClassIds,
@@ -5844,8 +5995,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         stack: [
                             {
                                 columns: [
-                                    student.photo ? { image: student.photo, width: 60, height: 60, alignment: 'left', margin: [0, 0, 15, 0] } : { text: '', width: 0 },
+                                    student.photo ? { image: student.photo, width: 60, height: 60, alignment: 'left' } : { text: '', width: 0 },
                                     {
+                                        width: '*',
                                         stack: [
                                             { text: student.name, fontSize: 14, bold: true },
                                             { text: `Turma: ${cName}`, fontSize: 10, color: 'gray', margin: [0, 2, 0, 0] },
@@ -5853,6 +6005,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                         ]
                                     }
                                 ],
+                                columnGap: 22,
                                 margin: [0, 0, 0, 20]
                             },
                             { text: 'Anotações e Histórico Escolar:', fontSize: 11, bold: true, margin: [0, 0, 0, 8], color: '#4f46e5' },
@@ -5887,14 +6040,16 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             stack: [
                                 {
                                     columns: [
-                                        student.photo ? { image: student.photo, width: 50, height: 50, alignment: 'left', margin: [0, 0, 10, 0] } : { text: '', width: 0 },
+                                        student.photo ? { image: student.photo, width: 50, height: 50, alignment: 'left' } : { text: '', width: 0 },
                                         {
+                                            width: '*',
                                             stack: [
                                                 { text: student.name, fontSize: 12, bold: true },
                                                 { text: student.needsFrontSeat ? '⚠️ Prioridade na 1ª Fila' : '', fontSize: 8, bold: true, color: '#d97706', margin: [0, 2, 0, 0] }
                                             ]
                                         }
                                     ],
+                                    columnGap: 18,
                                     margin: [0, 0, 0, 10]
                                 },
                                 { text: 'Anotações:', fontSize: 10, bold: true, margin: [0, 0, 0, 4], color: '#4b5563' },
@@ -6065,7 +6220,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     // Agenda
                     agendaDate, newAgendaNoteText, addAgendaNote, deleteAgendaNote,
                     newAgendaAttachments, handleAgendaAttachment, removeAgendaAttachment, isRecordingAudio, toggleAudioRecording,
-                    agendaSearchText, agendaStartDate, agendaEndDate, filteredAgendaNotes, printAgendaDayPDF,
+                    agendaSearchText, agendaStartDate, agendaEndDate, filteredAgendaNotes, printAgendaDayPDF, agendaPrintRange, printAgendaRangePDF,
                     isAgendaDictating, toggleAgendaDictation, editingAgendaNoteId, editingAgendaNoteText, startEditingAgendaNote, cancelEditingAgendaNote, saveEditedAgendaNote,
                     isImprovingText, improvingTarget, improveAgendaText,
                     
