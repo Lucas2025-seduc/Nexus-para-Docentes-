@@ -49,7 +49,7 @@
 
         <transition name="fade"><div v-if="toast.show" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-[9999] px-6 py-3 rounded-full shadow-2xl font-bold text-sm flex items-center gap-3 text-center min-w-[320px] justify-center backdrop-blur-md border border-white/20" :class="toast.type === 'error' ? 'bg-red-500/90 text-white' : (toast.type === 'success' ? 'bg-emerald-600/90 text-white' : 'bg-gray-800/90 text-white')"><i :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation' : (toast.type === 'loading' ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-check-circle')"></i>{{ toast.message }}</div></transition>
 
-        <transition name="fade"><div v-if="confirmModal.show" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 max-w-xs w-full animate-fade-in border border-gray-100"><div class="text-center mb-4 text-indigo-600"><i class="fa-solid fa-circle-question text-4xl"></i></div><h3 class="text-lg font-bold text-center text-gray-800 mb-2">Confirmação</h3><p class="text-gray-500 text-center mb-6 text-sm">{{ confirmModal.message }}</p><div class="flex gap-3"><button @click="handleConfirm(false)" class="flex-1 py-2.5 rounded-xl border border-gray-200 font-bold text-gray-500 hover:bg-gray-50">Cancelar</button><button @click="handleConfirm(true)" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold shadow-lg hover:bg-indigo-700">Sim</button></div></div></div></transition>
+        <transition name="fade"><div v-if="confirmModal.show" class="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"><div class="bg-white rounded-2xl shadow-2xl p-6 max-w-xs w-full animate-fade-in border border-gray-100"><div class="text-center mb-4" :class="confirmModal.danger ? 'text-red-600' : 'text-indigo-600'"><i :class="confirmModal.danger ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-circle-question'" class="text-4xl"></i></div><h3 class="text-lg font-bold text-center text-gray-800 mb-2">{{ confirmModal.title || 'Confirmação' }}</h3><p class="text-gray-500 text-center mb-6 text-sm whitespace-pre-line">{{ confirmModal.message }}</p><div class="flex gap-3"><button @click="handleConfirm(false)" class="flex-1 py-2.5 rounded-xl border border-gray-200 font-bold text-gray-500 hover:bg-gray-50">Cancelar</button><button @click="handleConfirm(true)" class="flex-1 py-2.5 rounded-xl text-white font-bold shadow-lg transition" :class="confirmModal.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'">{{ confirmModal.confirmText || 'Sim' }}</button></div></div></div></transition>
 
         <!-- VISUALIZADOR DE IMAGEM EM TELA CHEIA -->
         <transition name="fade">
@@ -117,8 +117,16 @@
                 </div>
                 
                 <div class="mt-8 pt-6 border-t border-red-100">
-                    <h3 class="text-sm font-bold text-red-600 mb-2"><i class="fa-solid fa-triangle-exclamation"></i> Zona de Perigo</h3>
-                    <button @click="deleteAllGrades" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl font-bold border border-red-200 transition"><i class="fa-solid fa-trash-can"></i> Apagar Todas as Notas (Reset)</button>
+                    <div class="flex items-start gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center flex-none"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div><h3 class="text-sm font-black text-red-700">Zona de Perigo</h3><p class="text-[11px] text-gray-500 mt-0.5">Faça um backup antes de continuar. Todas as ações abaixo exigem duas confirmações.</p></div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button @click="deleteAllExams" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-file-circle-xmark text-lg"></i><span><span class="block text-xs">Apagar todas as provas</span><span class="block text-[9px] opacity-70 font-medium">Inclui as notas ligadas às provas</span></span></button>
+                        <button @click="deleteAllQuestions" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-layer-group text-lg"></i><span><span class="block text-xs">Apagar todas as questões</span><span class="block text-[9px] opacity-70 font-medium">Limpa somente o banco de questões</span></span></button>
+                        <button @click="deleteAllClasses" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-users-slash text-lg"></i><span><span class="block text-xs">Apagar todas as turmas</span><span class="block text-[9px] opacity-70 font-medium">Inclui alunos e dados vinculados</span></span></button>
+                        <button @click="deleteAllGrades" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-eraser text-lg"></i><span><span class="block text-xs">Apagar todas as notas</span><span class="block text-[9px] opacity-70 font-medium">Inclui resultados e pontos extras</span></span></button>
+                    </div>
                 </div>
             </div>
 
@@ -1848,7 +1856,7 @@
                 const showLicenseModal = ref(false);
                 const isTemporal = ref(false);
                 const toast = ref({show:false,message:'',type:'info'});
-                const confirmModal = ref({show:false,message:'',onConfirm:null});
+                const confirmModal = ref({show:false,message:'',onConfirm:null,title:'Confirmação',confirmText:'Sim',danger:false});
                 
                 // API
                 const geminiKey = ref('');
@@ -3077,7 +3085,29 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     toast.value = {show:true, message:msg, type};
                     if (type !== 'loading') toastTimer = setTimeout(() => { toast.value.show = false; toastTimer = null; }, 3500);
                 };
-                const triggerConfirm = (msg, act) => { confirmModal.value={show:true,message:msg,onConfirm:act}; };
+                const triggerConfirm = (msg, act, options = {}) => {
+                    confirmModal.value = {
+                        show: true,
+                        message: msg,
+                        onConfirm: act,
+                        title: options.title || 'Confirmação',
+                        confirmText: options.confirmText || 'Sim',
+                        danger: !!options.danger
+                    };
+                };
+                const triggerDoubleConfirm = (firstMessage, finalMessage, act) => {
+                    triggerConfirm(firstMessage, () => {
+                        triggerConfirm(finalMessage, act, {
+                            title: 'Confirmação final',
+                            confirmText: 'Apagar definitivamente',
+                            danger: true
+                        });
+                    }, {
+                        title: 'Atenção',
+                        confirmText: 'Continuar',
+                        danger: true
+                    });
+                };
                 const handleConfirm = async (res) => {
                     const action = confirmModal.value.onConfirm;
                     confirmModal.value.show = false;
@@ -3755,21 +3785,115 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     showAttendancePrintModal.value = false;
                 };
 
+                const resetExamDeletionState = () => {
+                    selectedHistoryExams.value = [];
+                    editingExamId.value = null;
+                    examCart.value = [];
+                    examTargetStudentFilter.value = '';
+                    showHistory.value = false;
+                    showEditExamModal.value = false;
+                    activeExam.value = null;
+                    activeStudent.value = null;
+                    studentAnswers.value = {};
+                    correctionMode.value = false;
+                    manualConfig.value = {examId:'',studentId:'',version:0};
+                    directConfig.value = {examId:''};
+                    directGrades.value = {};
+                    aiCorrectionConfig.value = {examId:'',studentId:'',version:0};
+                    itemAnalysisExam.value = null;
+                    selectedExamForGrades.value = null;
+                    fixKeyExam.value = null;
+                    fixKeyQuestions.value = [];
+                    showManualInputModal.value = false;
+                    showDirectGradeModal.value = false;
+                    showAICorrectionSetupModal.value = false;
+                    stopAICamera();
+                    stopLiveQRScan();
+                    showItemAnalysisModal.value = false;
+                    showExamGradesModal.value = false;
+                    showFixKeyModal.value = false;
+                };
+
                 const deleteAllGrades = () => {
-                    triggerConfirm("Tem certeza que deseja apagar TODAS as notas e pontos extras de TODOS os alunos? Esta ação é irreversível.", async () => {
-                        try {
+                    const resultCount = results.value.length;
+                    const pointCount = extraPoints.value.length;
+                    const total = resultCount + pointCount;
+                    if (!total) return showToast("Não existem notas ou pontos extras para apagar.", "info");
+                    triggerDoubleConfirm(
+                        `Serão apagados ${resultCount} resultado(s) de provas e ${pointCount} lançamento(s) de pontos extras. As provas, turmas e alunos serão preservados.`,
+                        `CONFIRMAÇÃO FINAL: apagar definitivamente todas as notas e pontos extras? Esta ação não pode ser desfeita.`,
+                        async () => {
                             await db.transaction('rw', db.results, db.extraPoints, async () => {
                                 await db.results.clear();
                                 await db.extraPoints.clear();
                             });
                             results.value = [];
                             extraPoints.value = [];
+                            selectedResultDetails.value = null;
+                            showResultDetailsModal.value = false;
+                            editingResultId.value = null;
                             await load();
-                            showToast("Confirmação: Todas as notas foram apagadas com sucesso do sistema.", "success");
-                        } catch (error) {
-                            showToast("Erro ao tentar apagar as notas.", "error");
+                            showToast("Todas as notas e pontos extras foram apagados.", "success");
                         }
-                    });
+                    );
+                };
+
+                const deleteAllExams = () => {
+                    const examCount = exams.value.length;
+                    if (!examCount) return showToast("Não existem provas para apagar.", "info");
+                    const linkedResultCount = results.value.filter(r => exams.value.some(e => Number(e.id) === Number(r.examId))).length;
+                    triggerDoubleConfirm(
+                        `Serão apagadas ${examCount} prova(s) e ${linkedResultCount} nota(s) vinculada(s). Turmas, alunos, questões do banco e pontos extras serão preservados.`,
+                        `CONFIRMAÇÃO FINAL: apagar definitivamente todas as provas e suas notas vinculadas? Esta ação não pode ser desfeita.`,
+                        async () => {
+                            await db.transaction('rw', db.exams, db.results, async () => {
+                                await db.results.clear();
+                                await db.exams.clear();
+                            });
+                            resetExamDeletionState();
+                            await load();
+                            showToast("Todas as provas e notas vinculadas foram apagadas.", "success");
+                        }
+                    );
+                };
+
+                const deleteAllClasses = () => {
+                    const classCount = classes.value.length;
+                    if (!classCount) return showToast("Não existem turmas para apagar.", "info");
+                    const studentCount = students.value.length;
+                    const examCount = exams.value.length;
+                    triggerDoubleConfirm(
+                        `Serão apagadas ${classCount} turma(s), ${studentCount} aluno(s), ${examCount} prova(s) e todos os dados escolares vinculados: notas, pontos extras, frequência, horários e mapas de sala. O banco de questões, a agenda e as configurações serão preservados.`,
+                        `CONFIRMAÇÃO FINAL: apagar definitivamente todas as turmas e todos os dados vinculados? Esta ação não pode ser desfeita.`,
+                        async () => {
+                            await db.transaction('rw', db.classes, db.students, db.exams, db.results, db.extraPoints, db.attendance, db.schedules, db.seatingPlans, async () => {
+                                await db.results.clear();
+                                await db.extraPoints.clear();
+                                await db.attendance.clear();
+                                await db.schedules.clear();
+                                await db.seatingPlans.clear();
+                                await db.exams.clear();
+                                await db.students.clear();
+                                await db.classes.clear();
+                            });
+                            diaryClassId.value = null;
+                            selectedClassIdForReport.value = null;
+                            attendanceMap.value = {};
+                            justificationMap.value = {};
+                            schedulesList.value = [];
+                            bulkStudents.value = {};
+                            studentDetails.value = {};
+                            showStudentModal.value = false;
+                            seatingClassId.value = null;
+                            seatingGrid.value = [];
+                            seatingStudents.value = [];
+                            showSeatingModal.value = false;
+                            showSeatAssignModal.value = false;
+                            resetExamDeletionState();
+                            await load();
+                            showToast("Todas as turmas e dados vinculados foram apagados.", "success");
+                        }
+                    );
                 };
 
                 const importBackup = async (e) => {
@@ -5224,15 +5348,23 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const deleteAllQuestions = () => {
-                    triggerConfirm("Tem a certeza que deseja apagar TODO o banco de questões? Esta ação é irreversível.", async () => {
-                        try {
+                    const total = questions.value.length;
+                    if (!total) return showToast("O banco de questões já está vazio.", "info");
+                    triggerDoubleConfirm(
+                        `Você está prestes a apagar ${total} questão(ões) do banco. Provas já salvas serão preservadas.`,
+                        `CONFIRMAÇÃO FINAL: apagar definitivamente todas as ${total} questão(ões) do banco? Esta ação não pode ser desfeita.`,
+                        async () => {
                             await db.questions.clear();
+                            qFilter.value = '';
+                            filterType.value = '';
+                            filterSubject.value = '';
+                            filterTopic.value = '';
+                            showQFormModal.value = false;
+                            if (!editingExamId.value) examCart.value = [];
                             await load();
-                            showToast("O banco de questões foi apagado com sucesso.", "success");
-                        } catch (error) {
-                            showToast("Erro ao apagar as questões.", "error");
+                            showToast("Todas as questões do banco foram apagadas.", "success");
                         }
-                    });
+                    );
                 };
 
                 const changeQType=t=>{qType.value=t; newQ.value.options=(t==='vf')?[{text:'',isTrue:true},{text:'',isTrue:false}]:(t==='assoc'?[{text:'',match:''},{text:'',match:''}]:[{text:''},{text:''},{text:''},{text:''},{text:''}])};
@@ -6762,7 +6894,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     assistantAttachedImage, assistantAttachedImageMime, assistantTTS, handleAssistantImageUpload, speakText,
                     
                     // Functions
-                    addClass, deleteClass, saveStudents, toggleClassExpansion, deleteAllQuestions, deleteAllGrades,
+                    addClass, deleteClass, saveStudents, toggleClassExpansion, deleteAllQuestions, deleteAllGrades, deleteAllExams, deleteAllClasses,
                     changeQType, openQForm, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, deleteStudent,
                     filteredClasses, getFilteredStudents, getStudentCount, uniqueSubjects, uniqueTopics, filteredQuestions, filteredExamQuestions,
                     toggleExamQ, isQInExam, toggleExamClass, examSelectableStudents, filteredExamSelectableStudents, examSelectableStudentGroups,
