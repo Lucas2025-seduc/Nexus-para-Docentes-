@@ -31,6 +31,15 @@
         .q-type-btn.inactive:hover { background: #f9fafb; color: #4b5563; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .plan-label { display:block; font-size:.625rem; line-height:.875rem; font-weight:800; color:#6b7280; text-transform:uppercase; margin-bottom:.25rem; letter-spacing:.03em; }
+        .plan-input { width:100%; padding:.75rem; background:#f9fafb; border:1px solid #e5e7eb; border-radius:.75rem; font-size:.875rem; outline:none; transition:border-color .15s ease, box-shadow .15s ease; }
+        .plan-input:focus { border-color:#14b8a6; box-shadow:0 0 0 3px rgba(20,184,166,.12); }
+        .plan-card { background:#fff; padding:1rem; border-radius:1rem; border:1px solid #e5e7eb; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+        .plan-section-title { display:block; font-size:.875rem; font-weight:900; color:#0f766e; margin-bottom:.75rem; }
+        .plan-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem; }
+        .plan-section-head .plan-section-title { margin-bottom:0; }
+        .plan-ai-btn { flex:none; padding:.45rem .65rem; border-radius:.65rem; background:#faf5ff; color:#7e22ce; border:1px solid #e9d5ff; font-size:.625rem; line-height:.875rem; font-weight:800; }
+        .plan-ai-btn:disabled { opacity:.45; }
         .projection-question-text { font-size: clamp(1.8rem, 3.4vw, 3.8rem); line-height: 1.15; }
         .projection-option-text { font-size: clamp(1.25rem, 2.15vw, 2.35rem); line-height: 1.2; }
         .projection-option-letter { font-size: clamp(1.3rem, 2.3vw, 2.5rem); }
@@ -190,6 +199,21 @@
                         <div v-if="!isLicensed||isTemporal" @click="!isLicensed?showLicenseModal=true:null" class="mt-3 text-[10px] font-bold bg-black/20 px-3 py-1.5 rounded-full border border-white/10" :class="{'cursor-pointer':!isLicensed}"><i class="fa-regular fa-clock mr-1"></i> {{!isLicensed ? 'Teste: ' + timeLeft : 'Expira: ' + timeLeft}}</div>
                     </div>
                 </div>
+
+                <!-- ACESSO DIRETO AOS PLANOS DE AULA -->
+                <button @click="currentView='plans'" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white p-5 rounded-2xl shadow-lg flex items-center justify-between gap-4 transition text-left" title="Abrir criação de planos de aula">
+                    <div class="flex items-center gap-4 min-w-0">
+                        <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center flex-none">
+                            <i class="fa-solid fa-clipboard-list text-xl"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="font-black text-base">Criar plano de aula</h3>
+                            <p class="text-xs text-teal-50 mt-0.5">Planejamento com IA, BNCC e PDF com a logo da escola</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-white/70 flex-none"></i>
+                </button>
+
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                     <label class="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2 mb-2"><i class="fa-solid fa-users"></i> Turma</label>
                     <select v-model="selectedClassIdForReport" class="w-full p-3.5 border rounded-xl bg-gray-50 text-sm font-bold text-gray-700 outline-none"><option :value="null">Todas as turmas</option><option v-for="c in classes" :value="c.id">{{c.name}}</option></select>
@@ -223,15 +247,21 @@
                 </div>
                 
                 <div class="mt-8 pt-6 border-t border-red-100">
-                    <div class="flex items-start gap-3 mb-4">
-                        <div class="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center flex-none"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                        <div><h3 class="text-sm font-black text-red-700">Zona de Perigo</h3><p class="text-[11px] text-gray-500 mt-0.5">Faça um backup antes de continuar. Todas as ações abaixo exigem duas confirmações.</p></div>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button @click="deleteAllExams" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-file-circle-xmark text-lg"></i><span><span class="block text-xs">Apagar todas as provas</span><span class="block text-[9px] opacity-70 font-medium">Inclui as notas ligadas às provas</span></span></button>
-                        <button @click="deleteAllQuestions" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-layer-group text-lg"></i><span><span class="block text-xs">Apagar todas as questões</span><span class="block text-[9px] opacity-70 font-medium">Limpa somente o banco de questões</span></span></button>
-                        <button @click="deleteAllClasses" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-users-slash text-lg"></i><span><span class="block text-xs">Apagar todas as turmas</span><span class="block text-[9px] opacity-70 font-medium">Inclui alunos e dados vinculados</span></span></button>
-                        <button @click="deleteAllGrades" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-eraser text-lg"></i><span><span class="block text-xs">Apagar todas as notas</span><span class="block text-[9px] opacity-70 font-medium">Inclui resultados e pontos extras</span></span></button>
+                    <button @click="showDangerZone=!showDangerZone" class="w-full bg-white border border-red-100 rounded-2xl p-4 flex items-center justify-between text-left hover:bg-red-50/40 transition shadow-sm" :aria-expanded="showDangerZone">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center flex-none"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="min-w-0"><h3 class="text-sm font-black text-red-700">Zona de Perigo</h3><p class="text-[11px] text-gray-500 mt-0.5 truncate">Ações para apagar dados do aplicativo</p></div>
+                        </div>
+                        <i class="fa-solid fa-chevron-down text-red-300 transition-transform" :class="showDangerZone?'rotate-180':''"></i>
+                    </button>
+                    <div v-if="showDangerZone" class="mt-3 bg-white p-4 rounded-2xl border border-red-100 animate-fade-in">
+                        <p class="text-[11px] text-gray-500 mb-4"><i class="fa-solid fa-shield-halved text-red-400 mr-1"></i> Faça um backup antes de continuar. Todas as ações abaixo exigem duas confirmações.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <button @click="deleteAllExams" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-file-circle-xmark text-lg"></i><span><span class="block text-xs">Apagar todas as provas</span><span class="block text-[9px] opacity-70 font-medium">Inclui as notas ligadas às provas</span></span></button>
+                            <button @click="deleteAllQuestions" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-layer-group text-lg"></i><span><span class="block text-xs">Apagar todas as questões</span><span class="block text-[9px] opacity-70 font-medium">Limpa somente o banco de questões</span></span></button>
+                            <button @click="deleteAllClasses" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-users-slash text-lg"></i><span><span class="block text-xs">Apagar todas as turmas</span><span class="block text-[9px] opacity-70 font-medium">Inclui alunos e dados vinculados</span></span></button>
+                            <button @click="deleteAllGrades" class="w-full p-3 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white rounded-xl font-bold border border-red-200 transition text-left flex items-center gap-3"><i class="fa-solid fa-eraser text-lg"></i><span><span class="block text-xs">Apagar todas as notas</span><span class="block text-[9px] opacity-70 font-medium">Inclui resultados e pontos extras</span></span></button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -507,6 +537,207 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+
+            <!-- PLANOS DE AULA -->
+            <div v-if="currentView==='plans'" class="space-y-4 animate-fade-in max-w-3xl mx-auto pb-20">
+                <div class="bg-gradient-to-br from-teal-600 to-cyan-600 p-5 rounded-3xl text-white shadow-xl flex justify-between items-center overflow-hidden">
+                    <div class="z-10"><h2 class="text-2xl font-black">Planos</h2><p class="text-xs text-teal-100">Planejamento pedagógico com IA</p></div>
+                    <i class="fa-solid fa-clipboard-list text-5xl text-white/20"></i>
+                </div>
+
+                <!-- LISTA DE PLANOS -->
+                <template v-if="lessonPlanScreen==='list'">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
+                        <div class="flex items-center gap-3">
+                            <label class="w-16 h-16 rounded-xl border-2 border-dashed bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer flex-none" title="Selecionar logo da escola">
+                                <img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-contain p-1">
+                                <i v-else class="fa-solid fa-school text-gray-300 text-xl"></i>
+                                <input type="file" accept="image/png,image/jpeg,image/webp" @change="handleSchoolLogoUpload" class="hidden">
+                            </label>
+                            <div class="flex-1 min-w-0 space-y-2">
+                                <input v-model.trim="settings.schoolName" @change="saveSettings(true)" placeholder="Nome da instituição" class="w-full font-black text-teal-700 text-base outline-none border-b pb-1 bg-transparent">
+                                <input v-model.trim="settings.teacherName" @change="saveSettings(true)" placeholder="Nome completo do professor" class="w-full text-sm font-bold text-gray-600 outline-none border-b pb-1 bg-transparent">
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-400">Estes dados e a logo serão reutilizados automaticamente em todos os planos.</p>
+                    </div>
+
+                    <button @click="openNewLessonPlan" class="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-black shadow-lg flex items-center justify-center gap-2 transition"><i class="fa-solid fa-plus"></i> Criar novo plano</button>
+
+                    <div class="bg-white p-3 rounded-2xl border shadow-sm flex items-center gap-2">
+                        <i class="fa-solid fa-search text-gray-400 ml-1"></i>
+                        <input v-model="lessonPlanSearch" placeholder="Buscar por turma, disciplina ou conteúdo..." class="flex-1 bg-transparent outline-none text-sm font-medium">
+                        <button v-if="lessonPlanSearch" @click="lessonPlanSearch=''" class="text-gray-400 hover:text-red-500 px-2"><i class="fa-solid fa-times"></i></button>
+                    </div>
+
+                    <div v-if="filteredLessonPlans.length===0" class="bg-white border-2 border-dashed rounded-2xl py-12 text-center text-gray-400">
+                        <i class="fa-solid fa-clipboard text-3xl text-gray-300 mb-3 block"></i>
+                        <p class="text-sm font-bold">Nenhum plano encontrado</p>
+                        <p class="text-xs mt-1">Crie o primeiro plano com poucos dados.</p>
+                    </div>
+
+                    <div v-for="plan in filteredLessonPlans" :key="plan.id" class="bg-white rounded-2xl border shadow-sm p-4 space-y-3">
+                        <div class="flex justify-between gap-3 items-start">
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap gap-1.5 mb-2">
+                                    <span class="text-[9px] font-black uppercase bg-teal-50 text-teal-700 border border-teal-100 px-2 py-1 rounded-md">{{ lessonPlanPeriodLabel(plan.periodType) }}</span>
+                                    <span class="text-[9px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-1 rounded-md">{{ plan.educationStage==='medio'?'Ensino Médio':'Ensino Fundamental' }}</span>
+                                    <span class="text-[9px] font-black uppercase px-2 py-1 rounded-md border" :class="plan.status==='final'?'bg-emerald-50 text-emerald-700 border-emerald-100':'bg-amber-50 text-amber-700 border-amber-100'">{{plan.status==='final'?'Finalizado':'Rascunho'}}</span>
+                                </div>
+                                <h3 class="font-black text-gray-800 leading-tight truncate">{{ plan.generated?.title || plan.subject || 'Plano de aula' }}</h3>
+                                <p class="text-xs text-gray-500 mt-1 font-medium">{{ plan.className || 'Turma não informada' }} · {{ plan.subject }}</p>
+                                <p class="text-[10px] text-gray-400 mt-1 line-clamp-2">{{ plan.contents }}</p>
+                            </div>
+                            <button @click="deleteLessonPlan(plan.id)" class="w-8 h-8 rounded-full bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex-none"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button @click="editLessonPlan(plan)" class="py-2.5 bg-gray-100 text-gray-700 rounded-xl text-xs font-bold"><i class="fa-solid fa-pencil mr-1"></i> Editar</button>
+                            <button @click="duplicateLessonPlan(plan)" class="py-2.5 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-bold"><i class="fa-solid fa-copy mr-1"></i> Duplicar</button>
+                            <button @click="printStoredLessonPlan(plan,'view')" :disabled="!plan.generated" class="py-2.5 bg-teal-50 text-teal-700 rounded-xl text-xs font-bold disabled:opacity-40"><i class="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- EDITOR DO PLANO -->
+                <template v-else>
+                    <div class="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-sm py-2 flex items-center gap-2">
+                        <button @click="closeLessonPlanEditor" class="w-11 h-11 bg-white border rounded-xl text-gray-500 shadow-sm"><i class="fa-solid fa-arrow-left"></i></button>
+                        <div class="flex-1 min-w-0"><h3 class="font-black text-gray-800 truncate">{{ lessonPlanForm.id ? 'Editar plano' : 'Novo plano' }}</h3><p class="text-[10px] text-gray-400">Preencha o essencial e deixe a IA organizar.</p></div>
+                        <button @click="saveLessonPlan('draft')" class="px-3 h-11 bg-white border text-teal-700 rounded-xl text-xs font-black shadow-sm"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar</button>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-4">
+                        <div class="flex items-center gap-3 pb-3 border-b">
+                            <label class="w-14 h-14 rounded-xl border-2 border-dashed bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer flex-none">
+                                <img v-if="settings.logo" :src="settings.logo" class="w-full h-full object-contain p-1"><i v-else class="fa-solid fa-school text-gray-300"></i>
+                                <input type="file" accept="image/png,image/jpeg,image/webp" @change="handleSchoolLogoUpload" class="hidden">
+                            </label>
+                            <div class="flex-1 space-y-2">
+                                <input v-model.trim="settings.schoolName" @change="saveSettings(true)" placeholder="Instituição" class="w-full border-b pb-1 outline-none font-black text-teal-700">
+                                <input v-model.trim="settings.teacherName" @change="saveSettings(true)" placeholder="Professor(a)" class="w-full border-b pb-1 outline-none text-sm font-bold">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div><label class="plan-label">Etapa</label><select v-model="lessonPlanForm.educationStage" class="plan-input"><option value="fundamental">Ensino Fundamental</option><option value="medio">Ensino Médio</option></select></div>
+                            <div><label class="plan-label">Ano/Série</label><input v-model.trim="lessonPlanForm.grade" placeholder="Ex.: 7º ano ou 2ª série" class="plan-input"></div>
+                            <div><label class="plan-label">Turma</label><select v-model="lessonPlanForm.classId" class="plan-input"><option :value="null">Digitar manualmente</option><option v-for="c in classes" :value="c.id">{{c.name}}</option></select></div>
+                            <div v-if="!lessonPlanForm.classId"><label class="plan-label">Nome da turma</label><input v-model.trim="lessonPlanForm.className" placeholder="Ex.: 7º Ano A" class="plan-input"></div>
+                            <div :class="lessonPlanForm.classId?'sm:col-span-1':'sm:col-span-2'"><label class="plan-label">Disciplina / componente</label><input v-model.trim="lessonPlanForm.subject" list="dl-subjects" placeholder="Ex.: Matemática" class="plan-input"></div>
+                        </div>
+
+                        <div>
+                            <label class="plan-label mb-2">Período do planejamento</label>
+                            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                <button v-for="p in lessonPlanPeriodOptions" :key="p.id" @click="applyLessonPlanPeriod(p.id)" :class="lessonPlanForm.periodType===p.id?'bg-teal-600 text-white border-teal-600':'bg-gray-50 text-gray-500 border-gray-200'" class="py-2.5 rounded-xl border text-[10px] font-black transition">{{p.label}}</button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="plan-label">Data inicial</label><input type="date" v-model="lessonPlanForm.startDate" @change="applyLessonPlanPeriod(lessonPlanForm.periodType)" class="plan-input"></div>
+                            <div><label class="plan-label">Data final</label><input type="date" v-model="lessonPlanForm.endDate" class="plan-input"></div>
+                        </div>
+
+                        <div><label class="plan-label">Conteúdos que serão trabalhados</label><textarea v-model.trim="lessonPlanForm.contents" rows="5" placeholder="Ex.: Frações equivalentes, comparação e operações com frações..." class="plan-input resize-y leading-relaxed"></textarea><p class="text-[10px] text-gray-400 mt-1">Pode informar conteúdos detalhados ou apenas os temas gerais.</p></div>
+
+                        <button @click="lessonPlanAdvancedOpen=!lessonPlanAdvancedOpen" class="w-full flex justify-between items-center p-3 bg-gray-50 rounded-xl border text-xs font-black text-gray-600"><span><i class="fa-solid fa-sliders mr-2 text-teal-600"></i>Opções adicionais</span><i class="fa-solid fa-chevron-down transition-transform" :class="lessonPlanAdvancedOpen?'rotate-180':''"></i></button>
+                        <div v-if="lessonPlanAdvancedOpen" class="space-y-3 animate-fade-in">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div><label class="plan-label">Quantidade de aulas</label><input type="number" min="1" max="250" v-model.number="lessonPlanForm.numberOfLessons" placeholder="Automático" class="plan-input"></div>
+                                <div><label class="plan-label">Duração por aula</label><input v-model.trim="lessonPlanForm.duration" placeholder="Ex.: 50 minutos" class="plan-input"></div>
+                            </div>
+                            <div><label class="plan-label">Conhecimentos prévios</label><textarea v-model.trim="lessonPlanForm.priorKnowledge" rows="2" class="plan-input" placeholder="Opcional"></textarea></div>
+                            <div><label class="plan-label">Dificuldades da turma</label><textarea v-model.trim="lessonPlanForm.classDifficulties" rows="2" class="plan-input" placeholder="Opcional"></textarea></div>
+                            <div><label class="plan-label">Recursos disponíveis</label><textarea v-model.trim="lessonPlanForm.availableResources" rows="2" class="plan-input" placeholder="Ex.: projetor, laboratório, livro didático..."></textarea></div>
+                            <div><label class="plan-label">Inclusão e acessibilidade</label><textarea v-model.trim="lessonPlanForm.inclusionNotes" rows="2" class="plan-input" placeholder="Necessidades específicas ou adaptações desejadas"></textarea></div>
+                            <div><label class="plan-label">Observações para a IA</label><textarea v-model.trim="lessonPlanForm.observations" rows="3" class="plan-input" placeholder="Ex.: priorizar atividade prática e linguagem simples"></textarea></div>
+                        </div>
+
+                        <button @click="generateLessonPlan" :disabled="isGeneratingLessonPlan" class="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-black shadow-lg disabled:opacity-60"><i :class="isGeneratingLessonPlan?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-wand-magic-sparkles'" class="mr-2"></i>{{ lessonPlanForm.generated ? 'Gerar novamente com IA' : 'Gerar plano com IA' }}</button>
+                    </div>
+
+                    <!-- REVISÃO DO PLANO -->
+                    <div v-if="lessonPlanForm.generated" class="space-y-3 animate-fade-in">
+                        <div class="bg-amber-50 border border-amber-200 p-3 rounded-2xl text-[11px] text-amber-800 leading-relaxed"><i class="fa-solid fa-triangle-exclamation mr-1"></i> A IA sugere o alinhamento curricular. Revise os códigos e descrições das habilidades conforme o currículo da sua rede antes de finalizar.</div>
+
+                        <div class="plan-card"><label class="plan-section-title">Título e tema</label><input v-model.trim="lessonPlanForm.generated.title" class="plan-input font-black mb-2"><input v-model.trim="lessonPlanForm.generated.theme" class="plan-input mb-2"><textarea v-model.trim="lessonPlanForm.generated.summary" rows="3" class="plan-input"></textarea></div>
+
+                        <div class="plan-card">
+                            <div class="plan-section-head"><label class="plan-section-title">Competências gerais</label></div>
+                            <textarea :value="arrayToLines(lessonPlanForm.generated.generalCompetencies)" @input="setGeneratedArray('generalCompetencies',$event.target.value)" rows="5" class="plan-input" placeholder="Uma competência por linha"></textarea>
+                        </div>
+
+                        <div class="plan-card">
+                            <div class="plan-section-head"><label class="plan-section-title">Competências específicas</label></div>
+                            <textarea :value="arrayToLines(lessonPlanForm.generated.specificCompetencies)" @input="setGeneratedArray('specificCompetencies',$event.target.value)" rows="5" class="plan-input" placeholder="Uma competência por linha"></textarea>
+                        </div>
+
+                        <div class="plan-card">
+                            <div class="plan-section-head"><label class="plan-section-title">Habilidades da BNCC</label><button @click="regenerateLessonPlanSection('bnccSkills')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
+                            <div class="space-y-2">
+                                <div v-for="(skill,i) in lessonPlanForm.generated.bnccSkills" :key="i" class="grid grid-cols-[90px_1fr_32px] gap-2 items-start bg-gray-50 p-2 rounded-xl border">
+                                    <input v-model.trim="skill.code" class="p-2 bg-white rounded-lg border text-xs font-black uppercase">
+                                    <textarea v-model.trim="skill.description" rows="2" class="p-2 bg-white rounded-lg border text-xs resize-y"></textarea>
+                                    <button @click="lessonPlanForm.generated.bnccSkills.splice(i,1)" class="w-8 h-8 rounded-lg text-red-400 hover:bg-red-100"><i class="fa-solid fa-times"></i></button>
+                                </div>
+                                <button @click="lessonPlanForm.generated.bnccSkills.push({code:'',description:''})" class="w-full py-2 border border-dashed rounded-xl text-xs font-bold text-gray-500"><i class="fa-solid fa-plus mr-1"></i> Adicionar habilidade</button>
+                            </div>
+                        </div>
+
+                        <div class="plan-card">
+                            <div class="plan-section-head"><label class="plan-section-title">Objetivos de aprendizagem</label><button @click="regenerateLessonPlanSection('objectives')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
+                            <textarea :value="arrayToLines(lessonPlanForm.generated.objectives)" @input="setGeneratedArray('objectives',$event.target.value)" rows="6" class="plan-input"></textarea>
+                        </div>
+
+                        <div class="plan-card"><label class="plan-section-title">Conteúdos organizados</label><textarea :value="arrayToLines(lessonPlanForm.generated.organizedContents)" @input="setGeneratedArray('organizedContents',$event.target.value)" rows="5" class="plan-input"></textarea></div>
+
+                        <div class="plan-card">
+                            <div class="plan-section-head"><label class="plan-section-title">Metodologia</label><button @click="regenerateLessonPlanSection('methodology')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
+                            <textarea v-model.trim="lessonPlanForm.generated.methodology" rows="7" class="plan-input"></textarea>
+                        </div>
+
+                        <div class="plan-card">
+                            <div class="plan-section-head"><label class="plan-section-title">Sequência de aulas</label><button @click="regenerateLessonPlanSection('lessonSequence')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
+                            <div class="space-y-3">
+                                <div v-for="(step,i) in lessonPlanForm.generated.lessonSequence" :key="i" class="bg-gray-50 border rounded-xl p-3 space-y-2">
+                                    <div class="grid grid-cols-[1fr_100px_32px] gap-2"><input v-model.trim="step.title" class="p-2 bg-white border rounded-lg text-xs font-black"><input v-model.trim="step.duration" class="p-2 bg-white border rounded-lg text-xs" placeholder="Duração"><button @click="lessonPlanForm.generated.lessonSequence.splice(i,1)" class="text-red-400"><i class="fa-solid fa-trash"></i></button></div>
+                                    <textarea v-model.trim="step.activities" rows="3" class="w-full p-2 bg-white border rounded-lg text-xs resize-y" placeholder="Atividades e desenvolvimento"></textarea>
+                                    <textarea v-model.trim="step.assessment" rows="2" class="w-full p-2 bg-white border rounded-lg text-xs resize-y" placeholder="Avaliação desta etapa"></textarea>
+                                </div>
+                                <button @click="lessonPlanForm.generated.lessonSequence.push({title:'Nova etapa',duration:'',activities:'',assessment:''})" class="w-full py-2 border border-dashed rounded-xl text-xs font-bold text-gray-500"><i class="fa-solid fa-plus mr-1"></i> Adicionar etapa</button>
+                            </div>
+                        </div>
+
+                        <div class="plan-card"><label class="plan-section-title">Recursos didáticos</label><textarea :value="arrayToLines(lessonPlanForm.generated.resources)" @input="setGeneratedArray('resources',$event.target.value)" rows="4" class="plan-input"></textarea></div>
+
+                        <div class="plan-card">
+                            <div class="plan-section-head"><label class="plan-section-title">Avaliação</label><button @click="regenerateLessonPlanSection('assessment')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
+                            <label class="plan-label">Diagnóstica</label><textarea v-model.trim="lessonPlanForm.generated.assessment.diagnostic" rows="2" class="plan-input mb-2"></textarea>
+                            <label class="plan-label">Formativa</label><textarea v-model.trim="lessonPlanForm.generated.assessment.formative" rows="2" class="plan-input mb-2"></textarea>
+                            <label class="plan-label">Somativa</label><textarea v-model.trim="lessonPlanForm.generated.assessment.summative" rows="2" class="plan-input mb-2"></textarea>
+                            <label class="plan-label">Critérios e evidências</label><textarea :value="arrayToLines(lessonPlanForm.generated.assessment.criteria)" @input="setAssessmentCriteria($event.target.value)" rows="4" class="plan-input"></textarea>
+                        </div>
+
+                        <div class="plan-card">
+                            <div class="plan-section-head"><label class="plan-section-title">Adaptações e acessibilidade</label><button @click="regenerateLessonPlanSection('accessibility')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
+                            <textarea :value="arrayToLines(lessonPlanForm.generated.accessibility)" @input="setGeneratedArray('accessibility',$event.target.value)" rows="5" class="plan-input"></textarea>
+                        </div>
+
+                        <div class="plan-card"><label class="plan-section-title">Recuperação e retomada</label><textarea :value="arrayToLines(lessonPlanForm.generated.recovery)" @input="setGeneratedArray('recovery',$event.target.value)" rows="4" class="plan-input"></textarea></div>
+                        <div class="plan-card"><label class="plan-section-title">Atividade complementar</label><textarea v-model.trim="lessonPlanForm.generated.homework" rows="3" class="plan-input"></textarea></div>
+                        <div class="plan-card"><label class="plan-section-title">Referências</label><textarea :value="arrayToLines(lessonPlanForm.generated.references)" @input="setGeneratedArray('references',$event.target.value)" rows="4" class="plan-input"></textarea></div>
+                        <div class="plan-card"><label class="plan-section-title">Observações finais</label><textarea v-model.trim="lessonPlanForm.generated.notes" rows="3" class="plan-input"></textarea></div>
+
+                        <div class="grid grid-cols-2 gap-3 sticky bottom-2 z-20 bg-gray-50/95 backdrop-blur-sm p-2 rounded-2xl border shadow-xl">
+                            <button @click="saveLessonPlan('final')" class="py-3.5 bg-teal-600 text-white rounded-xl font-black"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar plano</button>
+                            <button @click="printCurrentLessonPlan('view')" class="py-3.5 bg-red-600 text-white rounded-xl font-black"><i class="fa-solid fa-file-pdf mr-1"></i> Visualizar PDF</button>
+                            <button @click="printCurrentLessonPlan('print')" class="py-3 bg-indigo-600 text-white rounded-xl font-black"><i class="fa-solid fa-print mr-1"></i> Imprimir</button>
+                            <button @click="printCurrentLessonPlan('download')" class="py-3 bg-gray-900 text-white rounded-xl font-black"><i class="fa-solid fa-download mr-1"></i> Baixar PDF</button>
+                        </div>
+                    </div>
+                </template>
             </div>
 
             <!-- TURMAS -->
@@ -971,21 +1202,19 @@
 
         <!-- NAVEGAÇÃO BOTTOM PREMIUM -->
         <nav class="flex-none bg-white border-t border-gray-100 px-3 py-3 shadow-[0_-15px_40px_rgba(0,0,0,0.04)] relative z-50">
-            <div class="flex justify-between items-center max-w-3xl mx-auto gap-1">
-                <button v-for="t in tabs" :key="t.id" @click="currentView=t.id"
-                    class="relative flex items-center justify-center h-12 rounded-2xl transition-all duration-300 overflow-hidden"
-                    :class="currentView===t.id ? 'w-auto px-5 bg-indigo-600 text-white shadow-lg shadow-indigo-200/50' : 'flex-1 text-gray-400 hover:bg-gray-50 hover:text-indigo-500'">
-                    <i :class="t.icon" class="text-lg transition-transform duration-300 z-10" :class="currentView===t.id ? 'mr-2' : ''"></i>
-                    <span class="text-[11px] font-bold tracking-wide whitespace-nowrap transition-all duration-300 z-10"
-                          :class="currentView===t.id ? 'opacity-100 max-w-[100px]' : 'opacity-0 max-w-0 absolute'">
-                        {{ t.label }}
-                    </span>
+            <div class="flex items-center max-w-3xl mx-auto gap-1 overflow-x-auto no-scrollbar pb-1">
+                <button v-for="t in tabs" :key="t.id" @click="currentView=t.id" :title="t.label"
+                    class="relative w-16 h-14 flex-none flex flex-col items-center justify-center gap-1 rounded-2xl transition-all duration-200"
+                    :class="currentView===t.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200/50' : (t.id==='plans' ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'text-gray-400 hover:bg-gray-50 hover:text-indigo-500')">
+                    <i :class="t.icon" class="text-base"></i>
+                    <span class="text-[9px] font-black leading-none whitespace-nowrap">{{ t.label }}</span>
+                    <span v-if="t.id==='plans'" class="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 border border-white" title="Nova função"></span>
                 </button>
             </div>
         </nav>
         <div class="flex-none bg-gray-50 py-1.5 px-3 text-center border-t border-gray-200 z-50">
             <p class="text-[9px] font-bold text-gray-600 flex items-center justify-center gap-1.5 leading-tight flex-wrap">
-                <i class="fa-solid fa-shield-halved text-indigo-400"></i> Desenvolvedor: Nexus - Cursos e Soluções Inteligentes | CNPJ: 62,323,279/0001-00
+                <i class="fa-solid fa-shield-halved text-indigo-400"></i> Nexus Planos v8.2 | Desenvolvedor: Nexus - Cursos e Soluções Inteligentes | CNPJ: 62,323,279/0001-00
             </p>
             <p class="text-[8px] font-medium text-gray-500 leading-tight mt-0.5 max-w-3xl mx-auto">
                 Aplicativo protegido contra cópia, reprodução, distribuição ou revenda não autorizada, conforme Lei do Software nº 9.609/1998, Lei de Direitos Autorais nº 9.610/1998 e art. 184 do Código Penal.
@@ -1920,6 +2149,15 @@
             seatingPlans: 'classId', agendaNotes: '++id, date, createdAt'
         });
 
+        // Versão 8: Planos de aula e planejamentos pedagógicos
+        db.version(8).stores({
+            classes:'++id', students:'++id, classId', questions:'++id', exams:'++id',
+            results:'++id', settings:'id', extraPoints:'++id, studentId, bimester',
+            schedules:'++id, classId', attendance:'++id, classId, date, studentId',
+            seatingPlans:'classId', agendaNotes:'++id, date, createdAt',
+            lessonPlans:'++id, createdAt, updatedAt, classId, subject, periodType, status'
+        });
+
         createApp({
             setup() {
                 const getAlternativeLabel = (t, i) => i == null ? '-' : (t === 'ce' ? ['A', 'B'][i] || '?' : ['A', 'B', 'C', 'D', 'E'][i] || '?');
@@ -1948,6 +2186,7 @@
                 const tabs = [
                     {id:'dashboard',label:'Painel',icon:'fa-solid fa-chart-pie'},
                     {id:'diary',label:'Diário',icon:'fa-solid fa-book-open'},
+                    {id:'plans',label:'Planos',icon:'fa-solid fa-clipboard-list'},
                     {id:'agenda',label:'Agenda',icon:'fa-regular fa-calendar-check'},
                     {id:'classes',label:'Turmas',icon:'fa-solid fa-chalkboard-user'},
                     {id:'questions',label:'Banca',icon:'fa-solid fa-layer-group'},
@@ -1959,9 +2198,37 @@
                 const questions = ref([]);
                 const exams = ref([]);
                 const results = ref([]);
-                const settings = ref({schoolName:'',logo:null, activeModel: null, hideAppLogo: false});
+                const settings = ref({schoolName:'',teacherName:'',logo:null, activeModel: null, hideAppLogo: false});
                 const extraPoints = ref([]);
+                const lessonPlans = ref([]);
+                const showDangerZone = ref(false);
                 
+
+                // Planos de aula
+                const lessonPlanScreen = ref('list');
+                const lessonPlanSearch = ref('');
+                const lessonPlanAdvancedOpen = ref(false);
+                const isGeneratingLessonPlan = ref(false);
+                const regeneratingLessonPlanSection = ref('');
+                const lessonPlanPeriodOptions = [
+                    {id:'aula',label:'Aula'}, {id:'semana',label:'Semana'}, {id:'mes',label:'Mês'},
+                    {id:'bimestre',label:'Bimestre'}, {id:'semestre',label:'Semestre'}, {id:'ano',label:'Ano'}
+                ];
+                const lessonPlanCurricularReference = 'BNCC vigente; Ensino Médio alinhado à Lei nº 14.945/2024 e à Resolução CNE/CEB nº 2/2024; Computação conforme complemento à BNCC (Resolução CNE/CEB nº 1/2022).';
+                const makeEmptyGeneratedLessonPlan = () => ({
+                    title:'', theme:'', summary:'', generalCompetencies:[], specificCompetencies:[], bnccSkills:[],
+                    objectives:[], organizedContents:[], priorKnowledge:'', methodology:'', lessonSequence:[], resources:[],
+                    assessment:{diagnostic:'',formative:'',summative:'',criteria:[]}, accessibility:[], recovery:[],
+                    homework:'', references:[], notes:'', curricularReference:lessonPlanCurricularReference
+                });
+                const makeEmptyLessonPlan = () => ({
+                    id:null, educationStage:'fundamental', grade:'', classId:null, className:'', subject:'', periodType:'aula',
+                    startDate:getLocalISODate(), endDate:getLocalISODate(), numberOfLessons:null, duration:'50 minutos', contents:'',
+                    priorKnowledge:'', classDifficulties:'', availableResources:'', inclusionNotes:'', observations:'',
+                    generated:null, status:'draft', createdAt:null, updatedAt:null
+                });
+                const lessonPlanForm = ref(makeEmptyLessonPlan());
+
                 // License & Globals
                 const TRIAL_DURATION = 3600000;
                 const appLocked = ref(false);
@@ -3264,6 +3531,12 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         return;
                     }
 
+                    if (action === 'print') {
+                        pdfMakeInstance.print();
+                        showToast("Janela de impressão aberta!", "success");
+                        return;
+                    }
+
                     // Apenas para a ação de "Partilhar" (WhatsApp, Email, etc)
                     pdfMakeInstance.getBlob(async (blob) => {
                         try {
@@ -3347,10 +3620,14 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     classes.value=(await db.classes.toArray()).map(c=>({...c,expanded:eIds.includes(c.id)}));
                     students.value=await db.students.toArray(); questions.value=await db.questions.orderBy('id').reverse().toArray();
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
-                    extraPoints.value=await db.extraPoints.toArray(); const s=await db.settings.get('config');
+                    extraPoints.value=await db.extraPoints.toArray();
+                    lessonPlans.value=(await db.lessonPlans.toArray())
+                        .map(plan=>normalizeLessonPlanRecord(plan))
+                        .sort((a,b)=>(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0));
+                    const s=await db.settings.get('config');
                     await loadAgendaNotes();
                     if(s) { 
-                        settings.value={...settings.value, ...s, id: undefined, schoolName:s.schoolName || '', logo:s.logo || null, activeModel:s.activeModel||null, hideAppLogo:!!s.hideAppLogo}; 
+                        settings.value={...settings.value, ...s, id: undefined, schoolName:s.schoolName || '', teacherName:s.teacherName || '', logo:s.logo || null, activeModel:s.activeModel||null, hideAppLogo:!!s.hideAppLogo}; 
                         if(s.geminiKey) geminiKey.value=s.geminiKey; 
                         if(s.printConfig) printConfig.value = { ...printConfig.value, ...s.printConfig };
                     }
@@ -3358,6 +3635,307 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
 
                 const getStudent = (id) => students.value.find(s => s.id === id);
                 const getClassName = id => classes.value.find(c=>c.id===id)?.name;
+
+
+                const lessonPlanPeriodLabel = (id) => lessonPlanPeriodOptions.find(p=>p.id===id)?.label || id || 'Plano';
+                const resolveLessonPlanClassName = (plan=lessonPlanForm.value) => classes.value.find(c=>String(c.id)===String(plan.classId))?.name || String(plan.className || '').trim();
+                const formatLessonPlanDate = (value) => {
+                    if(!isValidISODate(value)) return String(value || '—');
+                    const [y,m,d]=String(value).split('-');
+                    return `${d}/${m}/${y}`;
+                };
+                const isValidLogoDataUrl = (value) => typeof value==='string' && /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=\s]+$/i.test(value);
+                const addLessonPlanMonths = (date, months) => {
+                    const source=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+                    const targetMonth=source.getMonth()+months;
+                    const targetYear=source.getFullYear()+Math.floor(targetMonth/12);
+                    const normalizedMonth=((targetMonth%12)+12)%12;
+                    const lastDay=new Date(targetYear,normalizedMonth+1,0).getDate();
+                    return new Date(targetYear,normalizedMonth,Math.min(source.getDate(),lastDay));
+                };
+                const applyLessonPlanPeriod = (periodId) => {
+                    const f=lessonPlanForm.value;
+                    if(!lessonPlanPeriodOptions.some(p=>p.id===periodId)) periodId='aula';
+                    f.periodType=periodId;
+                    if(!isValidISODate(f.startDate)) f.startDate=getLocalISODate();
+                    const [y,m,d]=f.startDate.split('-').map(Number);
+                    const start=new Date(y,m-1,d); let end=new Date(start);
+                    if(periodId==='semana') end.setDate(end.getDate()+6);
+                    else if(periodId==='mes') { end=addLessonPlanMonths(start,1); end.setDate(end.getDate()-1); }
+                    else if(periodId==='bimestre') { end=addLessonPlanMonths(start,2); end.setDate(end.getDate()-1); }
+                    else if(periodId==='semestre') { end=addLessonPlanMonths(start,6); end.setDate(end.getDate()-1); }
+                    else if(periodId==='ano') { end=addLessonPlanMonths(start,12); end.setDate(end.getDate()-1); }
+                    f.endDate=getLocalISODate(end);
+                    if(periodId==='aula' && !f.numberOfLessons) f.numberOfLessons=1;
+                    if(periodId!=='aula' && f.numberOfLessons===1) f.numberOfLessons=null;
+                };
+                const arrayToLines = (value) => Array.isArray(value) ? value.join('\n') : String(value || '');
+                const linesToArray = (value) => String(value || '').split(/\n+/).map(v=>v.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').trim()).filter(Boolean);
+                const setGeneratedArray = (field, value) => { if(lessonPlanForm.value.generated) lessonPlanForm.value.generated[field] = linesToArray(value); };
+                const setAssessmentCriteria = (value) => { if(lessonPlanForm.value.generated?.assessment) lessonPlanForm.value.generated.assessment.criteria = linesToArray(value); };
+
+                const filteredLessonPlans = computed(() => {
+                    const term = String(lessonPlanSearch.value || '').trim().toLowerCase();
+                    if(!term) return lessonPlans.value;
+                    return lessonPlans.value.filter(plan => [plan.generated?.title, plan.className, plan.subject, plan.contents, plan.grade]
+                        .some(v => String(v || '').toLowerCase().includes(term)));
+                });
+
+                const openNewLessonPlan = () => {
+                    lessonPlanForm.value = makeEmptyLessonPlan();
+                    lessonPlanAdvancedOpen.value = false;
+                    lessonPlanScreen.value = 'editor';
+                    nextTick(()=>document.querySelector("[v-if=\"currentView==='plans'\"]")?.scrollIntoView?.({behavior:'smooth'}));
+                };
+                const closeLessonPlanEditor = () => { lessonPlanScreen.value='list'; lessonPlanAdvancedOpen.value=false; };
+                const editLessonPlan = (plan) => {
+                    const normalized=normalizeLessonPlanRecord(plan);
+                    lessonPlanForm.value = JSON.parse(JSON.stringify(normalized));
+                    lessonPlanAdvancedOpen.value = !!(normalized.priorKnowledge || normalized.classDifficulties || normalized.availableResources || normalized.inclusionNotes || normalized.observations);
+                    lessonPlanScreen.value='editor';
+                };
+                const duplicateLessonPlan = async (plan) => {
+                    const clone = normalizeLessonPlanRecord(plan);
+                    delete clone.id;
+                    const now=Date.now(); clone.createdAt=now; clone.updatedAt=now; clone.status='draft';
+                    if(clone.generated?.title) clone.generated.title = `Cópia — ${clone.generated.title}`;
+                    await db.lessonPlans.add(clone); await load(); showToast('Plano duplicado com sucesso.','success');
+                };
+                const deleteLessonPlan = (id) => triggerConfirm('Apagar este plano de aula?', async()=>{ await db.lessonPlans.delete(id); await load(); showToast('Plano apagado.','success'); });
+
+                const validateLessonPlanBasics = () => {
+                    const f=lessonPlanForm.value;
+                    if(!String(settings.value.schoolName||'').trim()) return showToast('Informe o nome da instituição.','warning'), false;
+                    if(!String(settings.value.teacherName||'').trim()) return showToast('Informe o nome completo do professor.','warning'), false;
+                    if(!resolveLessonPlanClassName(f)) return showToast('Selecione ou informe a turma.','warning'), false;
+                    if(!String(f.grade||'').trim()) return showToast('Informe o ano ou série.','warning'), false;
+                    if(!String(f.subject||'').trim()) return showToast('Informe a disciplina ou componente.','warning'), false;
+                    if(!String(f.contents||'').trim()) return showToast('Informe os conteúdos que serão trabalhados.','warning'), false;
+                    if(!isValidISODate(f.startDate) || !isValidISODate(f.endDate)) return showToast('Informe datas válidas.','warning'), false;
+                    if(f.endDate < f.startDate) return showToast('A data final não pode ser anterior à inicial.','warning'), false;
+                    return true;
+                };
+
+                const normalizeStringArray = (value) => {
+                    if(Array.isArray(value)) return value.flatMap(v=>typeof v==='string' ? linesToArray(v) : [String(v??'').trim()]).filter(Boolean);
+                    return value===null || value===undefined ? [] : linesToArray(value);
+                };
+                const normalizeGeneratedLessonPlan = (raw={}) => {
+                    raw = raw && typeof raw==='object' && !Array.isArray(raw) ? raw : {};
+                    const assessment = raw.assessment && typeof raw.assessment==='object' && !Array.isArray(raw.assessment) ? raw.assessment : {};
+                    const rawSkills=Array.isArray(raw.bnccSkills) ? raw.bnccSkills : normalizeStringArray(raw.bnccSkills);
+                    const rawSequence=Array.isArray(raw.lessonSequence) ? raw.lessonSequence : normalizeStringArray(raw.lessonSequence);
+                    return {
+                        title:String(raw.title||'Plano de aula').trim(), theme:String(raw.theme||'').trim(), summary:String(raw.summary||'').trim(),
+                        generalCompetencies:normalizeStringArray(raw.generalCompetencies), specificCompetencies:normalizeStringArray(raw.specificCompetencies),
+                        bnccSkills:rawSkills.map(s=>typeof s==='string'
+                            ? {code:'VALIDAR',description:s.trim()}
+                            : {code:String(s?.code||'VALIDAR').trim().toUpperCase(),description:String(s?.description||'Revisar alinhamento curricular.').trim()}
+                        ).filter(s=>s.code||s.description),
+                        objectives:normalizeStringArray(raw.objectives), organizedContents:normalizeStringArray(raw.organizedContents),
+                        priorKnowledge:String(raw.priorKnowledge||'').trim(), methodology:String(raw.methodology||'').trim(),
+                        lessonSequence:rawSequence.map((step,i)=>typeof step==='string'
+                            ? {title:`Etapa ${i+1}`,duration:'',activities:step.trim(),assessment:''}
+                            : {title:String(step?.title||`Etapa ${i+1}`).trim(),duration:String(step?.duration||'').trim(),activities:String(step?.activities||'').trim(),assessment:String(step?.assessment||'').trim()}
+                        ).filter(step=>step.title||step.activities),
+                        resources:normalizeStringArray(raw.resources),
+                        assessment:{diagnostic:String(assessment.diagnostic||'').trim(),formative:String(assessment.formative||'').trim(),summative:String(assessment.summative||'').trim(),criteria:normalizeStringArray(assessment.criteria)},
+                        accessibility:normalizeStringArray(raw.accessibility), recovery:normalizeStringArray(raw.recovery), homework:String(raw.homework||'').trim(),
+                        references:normalizeStringArray(raw.references), notes:String(raw.notes||'').trim(), curricularReference:lessonPlanCurricularReference
+                    };
+                };
+                const applyLessonPlanInputFallbacks = (generated, form={}) => {
+                    const g=normalizeGeneratedLessonPlan(generated||{});
+                    if(!g.organizedContents.length) g.organizedContents=normalizeStringArray(form.contents);
+                    if(!g.priorKnowledge) g.priorKnowledge=String(form.priorKnowledge||'').trim();
+                    if(!g.resources.length) g.resources=normalizeStringArray(form.availableResources);
+                    if(!g.accessibility.length) g.accessibility=normalizeStringArray(form.inclusionNotes);
+                    const contextualNotes=[String(form.classDifficulties||'').trim(),String(form.observations||'').trim()].filter(Boolean).join(' | ');
+                    if(contextualNotes && !g.notes) g.notes=contextualNotes;
+                    return g;
+                };
+                const normalizeLessonPlanRecord = (raw={}) => {
+                    raw = raw && typeof raw==='object' && !Array.isArray(raw) ? raw : {};
+                    const base=makeEmptyLessonPlan();
+                    const startDate=isValidISODate(raw.startDate) ? raw.startDate : base.startDate;
+                    const endCandidate=isValidISODate(raw.endDate) ? raw.endDate : startDate;
+                    const numericId=raw.id===null || raw.id===undefined ? null : Number(raw.id);
+                    const classNumeric=raw.classId===null || raw.classId===undefined || raw.classId==='' ? null : Number(raw.classId);
+                    const created=Number(raw.createdAt); const updated=Number(raw.updatedAt);
+                    const lessons=Number(raw.numberOfLessons);
+                    return {
+                        ...base,
+                        id:Number.isFinite(numericId) ? numericId : null,
+                        educationStage:raw.educationStage==='medio'?'medio':'fundamental',
+                        grade:String(raw.grade||'').trim(),
+                        classId:Number.isFinite(classNumeric) ? classNumeric : null,
+                        className:String(raw.className||'').trim(),
+                        subject:String(raw.subject||'').trim(),
+                        periodType:lessonPlanPeriodOptions.some(p=>p.id===raw.periodType) ? raw.periodType : 'aula',
+                        startDate,
+                        endDate:endCandidate < startDate ? startDate : endCandidate,
+                        numberOfLessons:Number.isFinite(lessons) && lessons>0 ? Math.round(lessons) : null,
+                        duration:String(raw.duration||base.duration).trim(),
+                        contents:String(raw.contents||'').trim(),
+                        priorKnowledge:String(raw.priorKnowledge||'').trim(),
+                        classDifficulties:String(raw.classDifficulties||'').trim(),
+                        availableResources:String(raw.availableResources||'').trim(),
+                        inclusionNotes:String(raw.inclusionNotes||'').trim(),
+                        observations:String(raw.observations||'').trim(),
+                        generated:raw.generated ? applyLessonPlanInputFallbacks(raw.generated,raw) : null,
+                        status:raw.status==='final'?'final':'draft',
+                        createdAt:Number.isFinite(created) && created>0 ? created : (Number.isFinite(updated)&&updated>0?updated:Date.now()),
+                        updatedAt:Number.isFinite(updated) && updated>0 ? updated : (Number.isFinite(created)&&created>0?created:Date.now()),
+                        institution:String(raw.institution||'').trim(),
+                        teacherName:String(raw.teacherName||'').trim(),
+                        logo:isValidLogoDataUrl(raw.logo) ? raw.logo : null
+                    };
+                };
+
+                const lessonPlanSchema = {
+                    type:'OBJECT', properties:{
+                        title:{type:'STRING'}, theme:{type:'STRING'}, summary:{type:'STRING'},
+                        generalCompetencies:{type:'ARRAY',items:{type:'STRING'}}, specificCompetencies:{type:'ARRAY',items:{type:'STRING'}},
+                        bnccSkills:{type:'ARRAY',items:{type:'OBJECT',properties:{code:{type:'STRING'},description:{type:'STRING'}},required:['code','description']}},
+                        objectives:{type:'ARRAY',items:{type:'STRING'}}, organizedContents:{type:'ARRAY',items:{type:'STRING'}}, priorKnowledge:{type:'STRING'}, methodology:{type:'STRING'},
+                        lessonSequence:{type:'ARRAY',items:{type:'OBJECT',properties:{title:{type:'STRING'},duration:{type:'STRING'},activities:{type:'STRING'},assessment:{type:'STRING'}},required:['title','duration','activities','assessment']}},
+                        resources:{type:'ARRAY',items:{type:'STRING'}},
+                        assessment:{type:'OBJECT',properties:{diagnostic:{type:'STRING'},formative:{type:'STRING'},summative:{type:'STRING'},criteria:{type:'ARRAY',items:{type:'STRING'}}},required:['diagnostic','formative','summative','criteria']},
+                        accessibility:{type:'ARRAY',items:{type:'STRING'}}, recovery:{type:'ARRAY',items:{type:'STRING'}}, homework:{type:'STRING'}, references:{type:'ARRAY',items:{type:'STRING'}}, notes:{type:'STRING'}, curricularReference:{type:'STRING'}
+                    }, required:['title','theme','summary','generalCompetencies','specificCompetencies','bnccSkills','objectives','organizedContents','priorKnowledge','methodology','lessonSequence','resources','assessment','accessibility','recovery','homework','references','notes','curricularReference']
+                };
+
+                const buildLessonPlanPrompt = () => {
+                    const f=lessonPlanForm.value;
+                    const className=resolveLessonPlanClassName(f);
+                    const periodLabel=lessonPlanPeriodLabel(f.periodType);
+                    return `Você é um especialista brasileiro em planejamento pedagógico. Crie um plano completo, realista, claro e diretamente aplicável por um professor.
+
+DADOS:
+Instituição: ${settings.value.schoolName}
+Professor(a): ${settings.value.teacherName}
+Etapa: ${f.educationStage==='medio'?'Ensino Médio':'Ensino Fundamental'}
+Ano/Série: ${f.grade}
+Turma: ${className}
+Disciplina/componente: ${f.subject}
+Tipo de planejamento: ${periodLabel}
+Período: ${f.startDate} a ${f.endDate}
+Quantidade de aulas: ${f.numberOfLessons || 'defina uma quantidade adequada'}
+Duração por aula: ${f.duration || 'defina adequadamente'}
+Conteúdos indicados pelo professor: ${f.contents}
+Conhecimentos prévios informados: ${f.priorKnowledge || 'não informado'}
+Dificuldades observadas: ${f.classDifficulties || 'não informado'}
+Recursos disponíveis: ${f.availableResources || 'não informado'}
+Inclusão/acessibilidade: ${f.inclusionNotes || 'não informado'}
+Observações: ${f.observations || 'nenhuma'}
+
+REGRAS:
+1. Organize o plano conforme o período. Para uma aula, detalhe a sequência da aula. Para semana ou mês, organize encontros. Para bimestre, semestre ou ano, organize unidades e progressão, evitando repetir uma mesma aula.
+2. Inclua itens essenciais: competências gerais, competências específicas, habilidades, objetivos, conteúdos, conhecimentos prévios, metodologia, sequência, recursos, avaliação diagnóstica/formativa/somativa, critérios, acessibilidade, recuperação, atividade complementar e referências.
+3. Relacione apenas habilidades da BNCC pertinentes à etapa, ano/série, disciplina e conteúdos. Use códigos oficiais somente quando os reconhecer com segurança. Se não houver segurança, escreva o código como "VALIDAR" e descreva o alinhamento a conferir; jamais invente código.
+4. No Ensino Médio, considere a organização por áreas e o marco atualizado pela Lei nº 14.945/2024 e Resolução CNE/CEB nº 2/2024. Para Computação, considere o complemento à BNCC da Resolução CNE/CEB nº 1/2022 quando pertinente.
+5. Escreva em português do Brasil, de forma objetiva, sem texto burocrático desnecessário.
+6. Retorne estritamente o JSON solicitado, sem markdown.`;
+                };
+
+                const generateLessonPlan = async () => {
+                    if(!validateLessonPlanBasics()) return;
+                    if(!geminiKey.value) return showToast('Informe e teste a chave da API Gemini no Gerador IA.','warning');
+                    isGeneratingLessonPlan.value=true; showToast('Organizando o plano com IA...','loading');
+                    try{
+                        const result=await fetchGemini(buildLessonPlanPrompt(),lessonPlanSchema);
+                        lessonPlanForm.value.generated=applyLessonPlanInputFallbacks(result,lessonPlanForm.value);
+                        lessonPlanForm.value.className=resolveLessonPlanClassName();
+                        await saveSettings(true);
+                        showToast('Plano gerado. Revise e salve.','success');
+                    }catch(e){ console.error(e); showToast(e.message||'Não foi possível gerar o plano.','error'); }
+                    finally{ isGeneratingLessonPlan.value=false; }
+                };
+
+                const sectionSchemas = {
+                    objectives:{type:'ARRAY',items:{type:'STRING'}},
+                    bnccSkills:{type:'ARRAY',items:{type:'OBJECT',properties:{code:{type:'STRING'},description:{type:'STRING'}},required:['code','description']}},
+                    methodology:{type:'STRING'},
+                    lessonSequence:{type:'ARRAY',items:{type:'OBJECT',properties:{title:{type:'STRING'},duration:{type:'STRING'},activities:{type:'STRING'},assessment:{type:'STRING'}},required:['title','duration','activities','assessment']}},
+                    assessment:{type:'OBJECT',properties:{diagnostic:{type:'STRING'},formative:{type:'STRING'},summative:{type:'STRING'},criteria:{type:'ARRAY',items:{type:'STRING'}}},required:['diagnostic','formative','summative','criteria']},
+                    accessibility:{type:'ARRAY',items:{type:'STRING'}}
+                };
+                const regenerateLessonPlanSection = async (section) => {
+                    if(!lessonPlanForm.value.generated || !sectionSchemas[section] || regeneratingLessonPlanSection.value) return;
+                    if(!geminiKey.value) return showToast('Informe a chave da API Gemini.','warning');
+                    regeneratingLessonPlanSection.value=section; showToast('Refazendo somente esta seção...','loading');
+                    try{
+                        const prompt=`${buildLessonPlanPrompt()}\n\nO plano atual é: ${JSON.stringify(lessonPlanForm.value.generated)}\nRefaça somente a seção "${section}", preservando coerência com o restante. Retorne estritamente {"value": ...}.`;
+                        const schema={type:'OBJECT',properties:{value:sectionSchemas[section]},required:['value']};
+                        const result=await fetchGemini(prompt,schema);
+                        if(result?.value===undefined) throw new Error('A IA não retornou a seção solicitada.');
+                        if(section==='bnccSkills') lessonPlanForm.value.generated.bnccSkills=normalizeGeneratedLessonPlan({bnccSkills:result.value}).bnccSkills;
+                        else if(section==='assessment') lessonPlanForm.value.generated.assessment=normalizeGeneratedLessonPlan({assessment:result.value}).assessment;
+                        else if(section==='lessonSequence') lessonPlanForm.value.generated.lessonSequence=normalizeGeneratedLessonPlan({lessonSequence:result.value}).lessonSequence;
+                        else if(['objectives','accessibility'].includes(section)) lessonPlanForm.value.generated[section]=normalizeStringArray(result.value);
+                        else lessonPlanForm.value.generated[section]=String(result.value||'').trim();
+                        showToast('Seção atualizada.','success');
+                    }catch(e){ console.error(e); showToast(e.message||'Não foi possível refazer a seção.','error'); }
+                    finally{ regeneratingLessonPlanSection.value=''; }
+                };
+
+                const saveLessonPlan = async (status='draft') => {
+                    const finalStatus=status==='final';
+                    if(finalStatus && !validateLessonPlanBasics()) return false;
+                    if(finalStatus && !lessonPlanForm.value.generated) return showToast('Gere ou preencha o plano antes de finalizá-lo.','warning'), false;
+                    if(!finalStatus){
+                        const f=lessonPlanForm.value;
+                        const hasUsefulData=!!(String(f.className||'').trim() || f.classId || String(f.subject||'').trim() || String(f.contents||'').trim() || f.generated);
+                        if(!hasUsefulData) return showToast('Preencha ao menos turma, disciplina ou conteúdo para salvar o rascunho.','warning'), false;
+                    }
+                    const now=Date.now(); const f=lessonPlanForm.value;
+                    const normalized=normalizeLessonPlanRecord({...f,
+                        institution:String(settings.value.schoolName||'').trim(), teacherName:String(settings.value.teacherName||'').trim(),
+                        logo:isValidLogoDataUrl(settings.value.logo)?settings.value.logo:null,
+                        className:resolveLessonPlanClassName(f), status:finalStatus?'final':'draft', updatedAt:now, createdAt:f.createdAt||now
+                    });
+                    const id=f.id; delete normalized.id;
+                    let savedId=id;
+                    if(savedId) await db.lessonPlans.put({...normalized,id:savedId}); else savedId=await db.lessonPlans.add(normalized);
+                    lessonPlanForm.value={...normalized,id:savedId};
+                    await saveSettings(true); await load(); showToast(finalStatus?'Plano salvo com sucesso.':'Rascunho salvo.','success');
+                    return true;
+                };
+
+                const makePdfList = (items) => normalizeStringArray(items).map((item,i)=>({columns:[{text:'•',width:12,bold:true,color:'#0f766e'},{text:item,width:'*'}],margin:[0,1,0,3]}));
+                const buildLessonPlanPdf = (plan) => {
+                    const normalizedPlan=normalizeLessonPlanRecord(plan); const g=normalizeGeneratedLessonPlan(normalizedPlan.generated||{}); const className=normalizedPlan.className||resolveLessonPlanClassName(normalizedPlan);
+                    plan={...plan,...normalizedPlan,generated:g};
+                    const content=[];
+                    const headerCols=[];
+                    const pdfLogo=isValidLogoDataUrl(plan.logo)?plan.logo:(isValidLogoDataUrl(settings.value.logo)?settings.value.logo:null);
+                    if(pdfLogo) headerCols.push({image:pdfLogo,width:60,height:60,fit:[60,60],margin:[0,0,12,0]});
+                    headerCols.push({stack:[{text:plan.institution||settings.value.schoolName||'INSTITUIÇÃO',fontSize:15,bold:true,color:'#0f766e'},{text:lessonPlanPeriodLabel(plan.periodType)==='Aula'?'PLANO DE AULA':`PLANEJAMENTO — ${lessonPlanPeriodLabel(plan.periodType).toUpperCase()}`,fontSize:11,bold:true,margin:[0,4,0,0]}],width:'*'});
+                    content.push({columns:headerCols,margin:[0,0,0,12]});
+                    content.push({table:{widths:['auto','*','auto','*'],body:[
+                        [{text:'Professor(a)',bold:true,fillColor:'#f0fdfa'},plan.teacherName||settings.value.teacherName||'',{text:'Turma',bold:true,fillColor:'#f0fdfa'},className],
+                        [{text:'Etapa',bold:true,fillColor:'#f0fdfa'},plan.educationStage==='medio'?'Ensino Médio':'Ensino Fundamental',{text:'Ano/Série',bold:true,fillColor:'#f0fdfa'},plan.grade||''],
+                        [{text:'Componente',bold:true,fillColor:'#f0fdfa'},plan.subject||'',{text:'Período',bold:true,fillColor:'#f0fdfa'},`${formatLessonPlanDate(plan.startDate)} a ${formatLessonPlanDate(plan.endDate)}`],
+                        [{text:'Quantidade de aulas',bold:true,fillColor:'#f0fdfa'},plan.numberOfLessons||'A definir',{text:'Duração por aula',bold:true,fillColor:'#f0fdfa'},plan.duration||'A definir']
+                    ]},layout:'lightHorizontalLines',margin:[0,0,0,12]});
+                    const section=(title,body)=>{ content.push({text:title,fontSize:11,bold:true,color:'#0f766e',margin:[0,10,0,5]}); if(Array.isArray(body)) content.push(...(body.length?body:[{text:'—',fontSize:9,color:'#6b7280'}])); else content.push({text:String(body||'—'),fontSize:9,lineHeight:1.25}); };
+                    section('Título',g.title); section('Tema',g.theme); section('Síntese',g.summary); section('Competências gerais',makePdfList(g.generalCompetencies)); section('Competências específicas',makePdfList(g.specificCompetencies));
+                    section('Habilidades da BNCC',g.bnccSkills.length?[{table:{widths:[70,'*'],body:[[{text:'Código',bold:true,fillColor:'#f0fdfa'},{text:'Descrição',bold:true,fillColor:'#f0fdfa'}],...g.bnccSkills.map(s=>[s.code,s.description])]},layout:'lightHorizontalLines'}]:[{text:'Nenhuma habilidade informada.',italics:true,color:'#6b7280'}]);
+                    section('Objetivos de aprendizagem',makePdfList(g.objectives)); section('Conteúdos',makePdfList(g.organizedContents)); section('Conhecimentos prévios',g.priorKnowledge||plan.priorKnowledge); section('Metodologia',g.methodology);
+                    section('Sequência de aulas',g.lessonSequence.length?g.lessonSequence.flatMap((s,i)=>[{text:`${i+1}. ${s.title}${s.duration?` — ${s.duration}`:''}`,bold:true,fontSize:9,margin:[0,3,0,2]},{text:s.activities,fontSize:9},{text:s.assessment?`Avaliação: ${s.assessment}`:'',fontSize:8,italics:true,color:'#4b5563',margin:[0,1,0,4]}]):[{text:'—'}]);
+                    section('Recursos didáticos',makePdfList(g.resources));
+                    section('Avaliação',[{text:`Diagnóstica: ${g.assessment.diagnostic||'—'}`,fontSize:9,margin:[0,1,0,3]},{text:`Formativa: ${g.assessment.formative||'—'}`,fontSize:9,margin:[0,1,0,3]},{text:`Somativa: ${g.assessment.summative||'—'}`,fontSize:9,margin:[0,1,0,3]},{text:'Critérios e evidências',bold:true,fontSize:9,margin:[0,3,0,2]},...makePdfList(g.assessment.criteria)]);
+                    section('Adaptações e acessibilidade',makePdfList(g.accessibility)); section('Recuperação e retomada',makePdfList(g.recovery)); section('Atividade complementar',g.homework); section('Referências',makePdfList(g.references)); section('Observações',g.notes);
+                    content.push({text:g.curricularReference||lessonPlanCurricularReference,fontSize:7,color:'#6b7280',italics:true,margin:[0,14,0,0]});
+                    return {pageSize:'A4',pageMargins:[38,38,38,42],content,footer:(page,count)=>({columns:[{text:`Gerado em ${new Date().toLocaleDateString('pt-BR')}`,fontSize:7,color:'#9ca3af'},{text:`Página ${page} de ${count}`,alignment:'right',fontSize:7,color:'#9ca3af'}],margin:[38,10,38,0]}),styles:{},defaultStyle:{font:'Roboto',fontSize:9}};
+                };
+                const printLessonPlanPdf = (plan,action='view') => {
+                    if(!plan?.generated) return showToast('Gere o plano antes de criar o PDF.','warning');
+                    const safe=String(plan.generated.title||plan.subject||'Plano_de_Aula').replace(/[^a-zA-Z0-9À-ÿ_-]+/g,'_').slice(0,70);
+                    downloadPDF(pdfMake.createPdf(buildLessonPlanPdf(plan)),`${safe}.pdf`,action);
+                };
+                const printCurrentLessonPlan = (action='view') => printLessonPlanPdf({...lessonPlanForm.value,institution:settings.value.schoolName,teacherName:settings.value.teacherName,className:resolveLessonPlanClassName()},action);
+                const printStoredLessonPlan = (plan,action='view') => printLessonPlanPdf(plan,action);
 
                 // --- UPLOAD DE FOTO DE ALUNO (COMPRESSÃO AUTOMÁTICA) ---
                 const uploadStudentPhoto = async (event, studentId) => {
@@ -3988,10 +4566,18 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     const studentCount = students.value.length;
                     const examCount = exams.value.length;
                     triggerDoubleConfirm(
-                        `Serão apagadas ${classCount} turma(s), ${studentCount} aluno(s), ${examCount} prova(s) e todos os dados escolares vinculados: notas, pontos extras, frequência, horários e mapas de sala. O banco de questões, a agenda e as configurações serão preservados.`,
+                        `Serão apagadas ${classCount} turma(s), ${studentCount} aluno(s), ${examCount} prova(s) e todos os dados escolares vinculados: notas, pontos extras, frequência, horários e mapas de sala. Os planos de aula serão preservados e desvinculados das turmas apagadas. O banco de questões, a agenda e as configurações serão preservados.`,
                         `CONFIRMAÇÃO FINAL: apagar definitivamente todas as turmas e todos os dados vinculados? Esta ação não pode ser desfeita.`,
                         async () => {
-                            await db.transaction('rw', db.classes, db.students, db.exams, db.results, db.extraPoints, db.attendance, db.schedules, db.seatingPlans, async () => {
+                            await db.transaction('rw', db.classes, db.students, db.exams, db.results, db.extraPoints, db.attendance, db.schedules, db.seatingPlans, db.lessonPlans, async () => {
+                                const savedPlans=await db.lessonPlans.toArray();
+                                const classNames=new Map(classes.value.map(c=>[Number(c.id),String(c.name||'').trim()]));
+                                for(const plan of savedPlans){
+                                    if(plan.classId===null || plan.classId===undefined) continue;
+                                    plan.className=String(plan.className||classNames.get(Number(plan.classId))||'').trim();
+                                    plan.classId=null; plan.updatedAt=Date.now();
+                                    await db.lessonPlans.put(plan);
+                                }
                                 await db.results.clear();
                                 await db.extraPoints.clear();
                                 await db.attendance.clear();
@@ -4034,7 +4620,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                             try {
                                 const d = JSON.parse(event.target.result);
                                 if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('Estrutura de backup inválida.');
-                                const keys = ['c','s','q','e','r','sch','att','seatP','ep','ag'];
+                                const keys = ['c','s','q','e','r','sch','att','seatP','ep','ag','lp'];
                                 if (!keys.some(key => Array.isArray(d[key]))) throw new Error('O arquivo não é um backup do Nexus.');
                                 for (const key of keys) {
                                     if (d[key] !== undefined && !Array.isArray(d[key])) throw new Error(`Secção inválida no backup: ${key}`);
@@ -4053,8 +4639,14 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                 if (data.ep.some(row => !studentIds.has(String(row.studentId)) || !Number.isFinite(Number(row.points)))) throw new Error('Há pontos extras inválidos no backup.');
                                 if (data.seatP.some(row => !classIds.has(String(row.classId)) || !Array.isArray(row.grid))) throw new Error('Há mapas de sala inválidos no backup.');
                                 if (data.ag.some(row => !isValidISODate(row.date) || (!String(row.text || '').trim() && !(row.attachments || []).length))) throw new Error('Há anotações inválidas no backup.');
+                                if (data.lp.some(row => !row || typeof row!=='object' || Array.isArray(row))) throw new Error('Há planos de aula inválidos no backup.');
+                                const ensureUniqueIds=(rows,label)=>{
+                                    const ids=rows.filter(row=>row?.id!==null&&row?.id!==undefined).map(row=>String(row.id));
+                                    if(new Set(ids).size!==ids.length) throw new Error(`Há IDs duplicados em ${label}.`);
+                                };
+                                ensureUniqueIds(data.c,'turmas'); ensureUniqueIds(data.s,'alunos'); ensureUniqueIds(data.q,'questões'); ensureUniqueIds(data.e,'provas'); ensureUniqueIds(data.r,'notas'); ensureUniqueIds(data.lp,'planos de aula');
 
-                                data.c = data.c.map(c => ({ ...c, id: Number(c.id), name: String(c.name || '').trim() }));
+                                data.c = data.c.map(c => { const {expanded,...clean}=c; return ({ ...clean, id: Number(c.id), name: String(c.name || '').trim() }); });
                                 data.s = data.s.map(s => ({ ...s, id: Number(s.id), classId: Number(s.classId), name: String(s.name || '').trim() }));
                                 data.e = data.e.map(ex => ({
                                     ...ex,
@@ -4065,17 +4657,27 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                     targetStudentIds: Array.isArray(ex.targetStudentIds) ? ex.targetStudentIds.map(Number).filter(Number.isFinite) : [],
                                     versionAssignments: Array.isArray(ex.versionAssignments) ? ex.versionAssignments.map(a => ({ ...a, studentId: Number(a.studentId), classId: Number(a.classId), versionIndex: Number(a.versionIndex ?? a.version ?? a.v) || 0 })).filter(a => Number.isFinite(a.studentId)) : []
                                 }));
-                                data.r = data.r.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, examId: Number(row.examId), studentId: Number(row.studentId), version: Number(row.version || 0) }));
+                                data.q = data.q.map(row => ({ ...row, id: row.id != null && Number.isFinite(Number(row.id)) ? Number(row.id) : row.id }));
+                                data.r = data.r.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, examId: Number(row.examId), studentId: Number(row.studentId), score:parseValidScore(row.score), version: Number(row.version || 0) }));
                                 data.sch = data.sch.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, classId: Number(row.classId) }));
                                 data.att = data.att.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, classId: Number(row.classId), studentId: Number(row.studentId) }));
                                 data.seatP = data.seatP.map(row => ({ ...row, classId: Number(row.classId) }));
                                 data.ep = data.ep.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, studentId: Number(row.studentId), points: Number(row.points) }));
                                 data.ag = data.ag.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined }));
+                                data.lp = data.lp.map(row => {
+                                    const normalized=normalizeLessonPlanRecord(row);
+                                    if(normalized.classId!==null && !classIds.has(String(normalized.classId))){
+                                        if(!normalized.className) throw new Error('Há plano ligado a uma turma inexistente e sem nome de turma.');
+                                        normalized.classId=null;
+                                    }
+                                    if(row.id===null || row.id===undefined) delete normalized.id;
+                                    return normalized;
+                                });
 
-                                await db.transaction('rw', db.classes, db.students, db.questions, db.exams, db.results, db.schedules, db.attendance, db.seatingPlans, db.extraPoints, db.agendaNotes, db.settings, async () => {
+                                await db.transaction('rw', db.classes, db.students, db.questions, db.exams, db.results, db.schedules, db.attendance, db.seatingPlans, db.extraPoints, db.agendaNotes, db.lessonPlans, db.settings, async () => {
                                     await db.classes.clear(); await db.students.clear(); await db.questions.clear();
                                     await db.exams.clear(); await db.results.clear(); await db.schedules.clear();
-                                    await db.attendance.clear(); await db.seatingPlans.clear(); await db.extraPoints.clear(); await db.agendaNotes.clear();
+                                    await db.attendance.clear(); await db.seatingPlans.clear(); await db.extraPoints.clear(); await db.agendaNotes.clear(); await db.lessonPlans.clear();
                                     if(data.c.length) await db.classes.bulkPut(data.c);
                                     if(data.s.length) await db.students.bulkPut(data.s);
                                     if(data.q.length) await db.questions.bulkPut(data.q);
@@ -4086,7 +4688,12 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                                     if(data.seatP.length) await db.seatingPlans.bulkPut(data.seatP);
                                     if(data.ep.length) await db.extraPoints.bulkPut(data.ep);
                                     if(data.ag.length) await db.agendaNotes.bulkPut(data.ag);
-                                    if(d.cfg && typeof d.cfg === 'object') await db.settings.put({ ...d.cfg, id: 'config' });
+                                    if(data.lp.length) await db.lessonPlans.bulkPut(data.lp);
+                                    if(d.cfg && typeof d.cfg === 'object' && !Array.isArray(d.cfg)) await db.settings.put({
+                                        ...d.cfg, id:'config', schoolName:String(d.cfg.schoolName||'').trim(), teacherName:String(d.cfg.teacherName||'').trim(),
+                                        logo:isValidLogoDataUrl(d.cfg.logo)?d.cfg.logo:null, activeModel:d.cfg.activeModel?String(d.cfg.activeModel):null,
+                                        hideAppLogo:!!d.cfg.hideAppLogo, geminiKey:d.cfg.geminiKey?String(d.cfg.geminiKey):''
+                                    });
                                     if(d.license && typeof d.license === 'object' && d.license.deviceId) await db.settings.put({ ...d.license, id: 'license_config' });
                                 });
 
@@ -4123,11 +4730,12 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     const seatP = await db.seatingPlans.toArray();
                     const ep = await db.extraPoints.toArray(); // Inclui pontos extras adicionados recentemente
                     const ag = await db.agendaNotes.toArray();
+                    const lp = await db.lessonPlans.toArray();
                     
                     const d = { 
-                        app: 'Nexus', schemaVersion: 7, exportedAt: new Date().toISOString(),
-                        c: classes.value, s: students.value, q: questions.value, e: exams.value, r: results.value, 
-                        sch: sch, att: att, seatP: seatP, ep: ep, ag: ag,
+                        app: 'Nexus', schemaVersion: 8, exportedAt: new Date().toISOString(),
+                        c: classes.value.map(({expanded,...item})=>item), s: students.value, q: questions.value, e: exams.value, r: results.value, 
+                        sch: sch, att: att, seatP: seatP, ep: ep, ag: ag, lp: lp.map(plan=>normalizeLessonPlanRecord(plan)),
                         cfg: { ...settings.value, id: 'config', geminiKey: geminiKey.value }, license: licenseConfig 
                     };
                     
@@ -5404,9 +6012,16 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const deleteClass = (id) => {
-                    triggerConfirm("Tem certeza que deseja apagar esta turma, os alunos e todos os dados vinculados a ela?", async () => {
+                    triggerConfirm("Tem certeza que deseja apagar esta turma e os dados escolares vinculados? Os planos de aula serão preservados com o nome da turma.", async () => {
                         const classId = Number(id);
-                        await db.transaction('rw', db.classes, db.students, db.results, db.extraPoints, db.attendance, db.schedules, db.seatingPlans, db.exams, async () => {
+                        await db.transaction('rw', db.classes, db.students, db.results, db.extraPoints, db.attendance, db.schedules, db.seatingPlans, db.exams, db.lessonPlans, async () => {
+                            const classRecord=await db.classes.get(classId);
+                            const linkedPlans=await db.lessonPlans.where('classId').equals(classId).toArray();
+                            for(const plan of linkedPlans){
+                                plan.className=String(plan.className||classRecord?.name||'').trim();
+                                plan.classId=null; plan.updatedAt=Date.now();
+                                await db.lessonPlans.put(plan);
+                            }
                             const classStudents = await db.students.where('classId').equals(classId).toArray();
                             const studentIds = new Set(classStudents.map(s => Number(s.id)));
                             const allResults = await db.results.toArray();
@@ -7116,7 +7731,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                 return {
                     // State
-                    currentView, tabs, classes, students, questions, exams, results, settings, extraPoints,
+                    currentView, tabs, classes, students, questions, exams, results, settings, extraPoints, lessonPlans, showDangerZone,
                     appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal,
                     toast, confirmModal, geminiKey, qFilter, filterType, filterSubject, filterTopic,
                     examFilterSubject, examFilterTopic, examFilter, examTab, studentFilter, dashboardStudentFilter,
@@ -7126,6 +7741,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     projectionSelectedIds, projectionQuestions, projectedQuestionIndex, projectedAnswerVisible, showProjectionMode,
                     projectionContainer, projectionIsFullscreen, projectionSelectedCount, projectedQuestion, projectionEligibleFilteredQuestions, areAllFilteredProjectionSelected, projectionTypeLabel,
                     
+                    // Planos de aula
+                    lessonPlanScreen, lessonPlanSearch, lessonPlanAdvancedOpen, isGeneratingLessonPlan, regeneratingLessonPlanSection,
+                    lessonPlanPeriodOptions, lessonPlanForm, filteredLessonPlans, lessonPlanPeriodLabel, applyLessonPlanPeriod,
+                    openNewLessonPlan, closeLessonPlanEditor, editLessonPlan, duplicateLessonPlan, deleteLessonPlan,
+                    generateLessonPlan, regenerateLessonPlanSection, saveLessonPlan, arrayToLines, setGeneratedArray, setAssessmentCriteria,
+                    printCurrentLessonPlan, printStoredLessonPlan,
+
                     // Diary
                     periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter,
                     attendanceMap, schedulesList, newSchedule, isCurrentSelectionValidSchedule, filteredStudentsInDiaryClass,
@@ -7212,7 +7834,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     deleteStudentResult: id=>triggerConfirm("Tem certeza que deseja apagar a nota deste aluno?",async()=>{await db.results.delete(id);load();showToast("Nota removida com sucesso.", "success");}),
                     
                     // Global utilities
-                    installPWA, copyDeviceId, validateLicense, handleConfirm, saveSettings, handleSchoolLogoUpload, importBackup, triggerImport, backupData, testGeminiKey,
+                    installPWA, copyDeviceId, validateLicense, handleConfirm, showToast, saveSettings, handleSchoolLogoUpload, importBackup, triggerImport, backupData, testGeminiKey,
                     generateQuestionsAI, simulateAIGeneration, whatsappLink, canInstall, formatDateTime
                 };
             }
