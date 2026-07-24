@@ -31,6 +31,14 @@
         .q-type-btn.inactive:hover { background: #f9fafb; color: #4b5563; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .projection-question-text { font-size: clamp(1.8rem, 3.4vw, 3.8rem); line-height: 1.15; }
+        .projection-option-text { font-size: clamp(1.25rem, 2.15vw, 2.35rem); line-height: 1.2; }
+        .projection-option-letter { font-size: clamp(1.3rem, 2.3vw, 2.5rem); }
+        @media (max-height: 700px) {
+            .projection-question-text { font-size: clamp(1.45rem, 2.8vw, 2.8rem); }
+            .projection-option-text { font-size: clamp(1.05rem, 1.75vw, 1.75rem); }
+            .projection-option-letter { font-size: clamp(1.1rem, 1.9vw, 1.9rem); }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden">
@@ -60,6 +68,104 @@
                 <img :src="fullScreenImageUrl" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl border border-white/10" @click.stop>
             </div>
         </transition>
+
+        <!-- MODO PROJEÇÃO DE QUESTÕES -->
+        <div v-if="showProjectionMode && projectedQuestion" ref="projectionContainer" class="fixed inset-0 z-[99999] bg-slate-950 text-white flex flex-col overflow-hidden">
+            <header class="flex-none px-5 sm:px-8 py-4 border-b border-white/10 bg-slate-950/95 flex items-center justify-between gap-4">
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="text-xs sm:text-sm font-black uppercase tracking-[0.18em] text-indigo-300 truncate">{{ projectedQuestion.subject || 'Questão' }}<span v-if="projectedQuestion.topic"> · {{ projectedQuestion.topic }}</span></div>
+                        <span class="px-2 py-1 rounded-lg bg-white/10 border border-white/10 text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-300">{{ projectionTypeLabel(projectedQuestion.type) }}</span>
+                    </div>
+                    <div class="text-sm sm:text-base font-bold text-slate-400 mt-1">Questão {{ projectedQuestionIndex + 1 }} de {{ projectionQuestions.length }}</div>
+                </div>
+                <div class="flex items-center gap-2 flex-none">
+                    <button @click="toggleProjectionFullscreen" class="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-bold text-sm transition" :title="projectionIsFullscreen ? 'Sair da tela cheia' : 'Entrar em tela cheia'">
+                        <i :class="projectionIsFullscreen ? 'fa-solid fa-compress' : 'fa-solid fa-expand'"></i>
+                        <span class="hidden sm:inline ml-2">Tela cheia</span>
+                    </button>
+                    <button @click="closeProjection" class="w-11 h-11 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white border border-red-400/20 transition" title="Fechar projeção"><i class="fa-solid fa-times text-lg"></i></button>
+                </div>
+            </header>
+
+            <main class="flex-1 min-h-0 overflow-y-auto px-5 sm:px-10 lg:px-16 py-5 sm:py-8">
+                <div class="max-w-7xl mx-auto min-h-full flex flex-col justify-center">
+                    <div class="grid gap-6 lg:gap-8" :class="projectedQuestion.image ? 'lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] lg:items-center' : ''">
+                        <div class="min-w-0">
+                            <h2 class="projection-question-text font-black tracking-tight text-white whitespace-pre-wrap break-words">{{ projectedQuestion.text }}</h2>
+                        </div>
+                        <div v-if="projectedQuestion.image" class="flex justify-center lg:justify-end">
+                            <img :src="projectedQuestion.image" class="max-h-[32vh] lg:max-h-[42vh] max-w-full rounded-2xl object-contain bg-white p-2 shadow-2xl" alt="Imagem da questão">
+                        </div>
+                    </div>
+
+                    <!-- Múltipla escolha: sempre A até E -->
+                    <div v-if="projectedQuestion.type === 'mc'" class="grid grid-cols-1 gap-3 sm:gap-4 mt-7 sm:mt-10">
+                        <div v-for="(opt, i) in projectedQuestion.options.slice(0, 5)" :key="i" class="rounded-2xl border-2 px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-4 sm:gap-6 transition-all duration-300" :class="projectedAnswerVisible ? (projectedQuestion.correct === i ? 'bg-emerald-500 border-emerald-300 text-white shadow-xl shadow-emerald-950/30 scale-[1.01]' : 'bg-slate-900/50 border-slate-800 text-slate-500 opacity-60') : 'bg-slate-800/85 border-slate-600 text-white'">
+                            <span class="projection-option-letter w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex-none flex items-center justify-center font-black border" :class="projectedAnswerVisible && projectedQuestion.correct === i ? 'bg-white text-emerald-700 border-white' : 'bg-white/10 text-white border-white/15'">{{ ['A','B','C','D','E'][i] }}</span>
+                            <span class="projection-option-text font-bold break-words min-w-0">{{ opt.text }}</span>
+                            <i v-if="projectedAnswerVisible && projectedQuestion.correct === i" class="fa-solid fa-circle-check text-3xl sm:text-4xl ml-auto flex-none"></i>
+                        </div>
+                    </div>
+
+                    <!-- Certo ou errado -->
+                    <div v-else-if="projectedQuestion.type === 'ce'" class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-8 sm:mt-12">
+                        <div v-for="(label, i) in ['CERTO','ERRADO']" :key="label" class="min-h-[130px] sm:min-h-[180px] rounded-3xl border-2 px-6 py-6 flex items-center justify-center gap-4 transition-all duration-300" :class="projectedAnswerVisible ? (projectedQuestion.correct === i ? 'bg-emerald-500 border-emerald-300 text-white shadow-xl scale-[1.01]' : 'bg-slate-900/50 border-slate-800 text-slate-500 opacity-55') : 'bg-slate-800/85 border-slate-600 text-white'">
+                            <span class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-wide">{{ label }}</span>
+                            <i v-if="projectedAnswerVisible && projectedQuestion.correct === i" class="fa-solid fa-circle-check text-4xl sm:text-5xl"></i>
+                        </div>
+                    </div>
+
+                    <!-- Verdadeiro ou falso -->
+                    <div v-else-if="projectedQuestion.type === 'vf'" class="grid grid-cols-1 gap-3 sm:gap-4 mt-7 sm:mt-10">
+                        <div v-for="(opt, i) in projectedQuestion.options" :key="i" class="rounded-2xl border-2 px-4 sm:px-6 py-3 sm:py-4 flex items-start gap-4 sm:gap-6 transition-all duration-300" :class="projectedAnswerVisible ? (opt.isTrue ? 'bg-emerald-500/20 border-emerald-400 text-white' : 'bg-red-500/20 border-red-400 text-white') : 'bg-slate-800/85 border-slate-600 text-white'">
+                            <span class="projection-option-letter w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex-none flex items-center justify-center font-black border bg-white/10 text-white border-white/15">{{ i + 1 }}</span>
+                            <span class="projection-option-text font-bold break-words min-w-0 pt-1 sm:pt-2">{{ opt.text }}</span>
+                            <span v-if="projectedAnswerVisible" class="ml-auto flex-none min-w-14 h-12 sm:h-16 px-3 rounded-xl flex items-center justify-center text-2xl sm:text-3xl font-black border" :class="opt.isTrue ? 'bg-emerald-500 text-white border-emerald-300' : 'bg-red-500 text-white border-red-300'">{{ opt.isTrue ? 'V' : 'F' }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Associação -->
+                    <div v-else-if="projectedQuestion.type === 'assoc'" class="grid grid-cols-1 gap-3 sm:gap-4 mt-7 sm:mt-10">
+                        <div v-for="(opt, i) in projectedQuestion.options" :key="i" class="rounded-2xl border-2 px-4 sm:px-6 py-3 sm:py-4 transition-all duration-300" :class="projectedAnswerVisible ? 'bg-blue-500/15 border-blue-400 text-white' : 'bg-slate-800/85 border-slate-600 text-white'">
+                            <div class="flex items-start gap-4 sm:gap-6">
+                                <span class="projection-option-letter w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex-none flex items-center justify-center font-black border bg-white/10 text-white border-white/15">{{ i + 1 }}</span>
+                                <span class="projection-option-text font-bold break-words min-w-0 pt-1 sm:pt-2">{{ opt.text }}</span>
+                            </div>
+                            <div v-if="projectedAnswerVisible" class="mt-3 sm:mt-4 ml-16 sm:ml-20 pl-4 border-l-4 border-blue-400 text-lg sm:text-2xl lg:text-3xl font-bold text-blue-100 animate-fade-in">
+                                <i class="fa-solid fa-arrow-right-long mr-3 text-blue-300"></i>{{ opt.match }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tipo futuro ou personalizado -->
+                    <div v-else-if="projectedQuestion.options && projectedQuestion.options.length" class="grid grid-cols-1 gap-3 sm:gap-4 mt-7 sm:mt-10">
+                        <div v-for="(opt, i) in projectedQuestion.options" :key="i" class="rounded-2xl border-2 px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-4 sm:gap-6 transition-all duration-300" :class="projectedAnswerVisible && Number(projectedQuestion.correct) === i ? 'bg-emerald-500 border-emerald-300 text-white shadow-xl' : 'bg-slate-800/85 border-slate-600 text-white'">
+                            <span class="projection-option-letter w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex-none flex items-center justify-center font-black border bg-white/10 text-white border-white/15">{{ i + 1 }}</span>
+                            <span class="projection-option-text font-bold break-words min-w-0">{{ opt.text || opt.label || opt.value }}</span>
+                            <i v-if="projectedAnswerVisible && Number(projectedQuestion.correct) === i" class="fa-solid fa-circle-check text-3xl sm:text-4xl ml-auto flex-none"></i>
+                        </div>
+                    </div>
+
+                    <div v-if="projectedAnswerVisible" class="mt-5 sm:mt-7 text-center text-lg sm:text-2xl font-black text-emerald-300 animate-fade-in">
+                        <template v-if="projectedQuestion.type === 'mc'">Resposta correta: {{ ['A','B','C','D','E'][projectedQuestion.correct] }}</template>
+                        <template v-else-if="projectedQuestion.type === 'ce'">Resposta correta: {{ projectedQuestion.correct === 0 ? 'CERTO' : 'ERRADO' }}</template>
+                        <template v-else-if="projectedQuestion.type === 'vf'">Gabarito verdadeiro/falso revelado</template>
+                        <template v-else-if="projectedQuestion.type === 'assoc'">Associações corretas reveladas</template>
+                        <template v-else>Gabarito revelado</template>
+                    </div>
+                </div>
+            </main>
+
+            <footer class="flex-none px-4 sm:px-8 py-4 border-t border-white/10 bg-slate-950/95">
+                <div class="max-w-5xl mx-auto grid grid-cols-[1fr_minmax(150px,1.4fr)_1fr] gap-3">
+                    <button @click="previousProjectedQuestion" :disabled="projectedQuestionIndex === 0" class="py-3 sm:py-4 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed font-black text-sm sm:text-base transition"><i class="fa-solid fa-arrow-left mr-2"></i>Anterior</button>
+                    <button @click="toggleProjectedAnswer" class="py-3 sm:py-4 rounded-xl font-black text-sm sm:text-base transition shadow-lg" :class="projectedAnswerVisible ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-indigo-500 hover:bg-indigo-400 text-white'"><i :class="projectedAnswerVisible ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'" class="mr-2"></i>{{ projectedAnswerVisible ? 'Ocultar resposta' : 'Mostrar resposta' }}</button>
+                    <button @click="nextProjectedQuestion" :disabled="projectedQuestionIndex >= projectionQuestions.length - 1" class="py-3 sm:py-4 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed font-black text-sm sm:text-base transition">Próxima<i class="fa-solid fa-arrow-right ml-2"></i></button>
+                </div>
+                <p class="hidden sm:block text-center text-[11px] text-slate-500 font-bold mt-3">Teclas: ← anterior · Enter ou espaço mostra a resposta · → próxima · F tela cheia</p>
+            </footer>
+        </div>
 
         <!-- HEADER E NAVEGAÇÃO -->
         <header class="bg-white shadow-sm z-50 flex-none border-b border-gray-200 relative">
@@ -437,16 +543,26 @@
                  <div class="bg-white p-3 rounded-2xl shadow-sm border sticky top-0 z-20 space-y-2">
                     <div class="flex gap-2"><input v-model="qFilter" placeholder="Buscar enunciado..." class="flex-1 bg-gray-50 px-3 rounded-xl text-sm outline-none font-medium"><button @click="deleteAllQuestions" class="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white transition w-12 h-10 rounded-xl flex items-center justify-center" title="Apagar todo o banco"><i class="fa-solid fa-trash-can"></i></button><button @click="showAIGenModal=true" class="bg-purple-600 text-white w-12 h-10 rounded-xl flex items-center justify-center" title="Gerador IA"><i class="fa-solid fa-wand-magic-sparkles"></i></button><button @click="openQForm('bank')" class="bg-indigo-600 text-white w-12 h-10 rounded-xl flex items-center justify-center" title="Nova Questão"><i class="fa-solid fa-plus"></i></button></div>
                     <div class="grid grid-cols-3 gap-2"><select v-model="filterType" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"><option value="">Tipos</option><option value="mc">Multi</option><option value="ce">C/E</option><option value="assoc">Assoc</option><option value="vf">V/F</option></select><input list="dl-subjects" v-model="filterSubject" placeholder="Disciplina" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"><input list="dl-topics" v-model="filterTopic" placeholder="Conteúdo" class="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none"></div>
+                    <div class="flex gap-2 items-stretch pt-1">
+                        <button @click="toggleSelectAllFilteredProjection" :disabled="projectionEligibleFilteredQuestions.length === 0" class="px-3 py-2.5 rounded-xl border text-[10px] sm:text-xs font-black transition disabled:opacity-40 disabled:cursor-not-allowed" :class="areAllFilteredProjectionSelected ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'"><i :class="areAllFilteredProjectionSelected ? 'fa-solid fa-square-minus' : 'fa-solid fa-list-check'" class="mr-1"></i>{{ areAllFilteredProjectionSelected ? 'Desmarcar visíveis' : 'Selecionar visíveis' }}</button>
+                        <button @click="clearProjectionSelection" :disabled="projectionSelectedCount === 0" class="px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 text-[10px] sm:text-xs font-black transition disabled:opacity-40 disabled:cursor-not-allowed"><i class="fa-solid fa-eraser mr-1"></i>Limpar</button>
+                        <button @click="startProjection" :disabled="projectionSelectedCount === 0" class="flex-1 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[10px] sm:text-xs font-black shadow transition disabled:opacity-40 disabled:cursor-not-allowed"><i class="fa-solid fa-display mr-1.5"></i>Projetar <span v-if="projectionSelectedCount">({{ projectionSelectedCount }})</span></button>
+                    </div>
+                    <p class="text-[9px] sm:text-[10px] text-gray-400 font-bold px-1"><i class="fa-solid fa-circle-info mr-1"></i>Todos os tipos de questão podem ser projetados, inclusive formatos futuros ou personalizados. Nas questões de múltipla escolha, são exibidas cinco alternativas (A–E).</p>
                 </div>
                 <div class="space-y-3 pb-20">
-                    <div v-for="q in filteredQuestions" :key="q.id" class="bg-white p-4 rounded-2xl shadow-sm border transition">
+                    <div v-for="q in filteredQuestions" :key="q.id" class="bg-white p-4 rounded-2xl shadow-sm border transition" :class="isProjectionQuestionSelected(q.id) ? 'ring-2 ring-indigo-500 border-indigo-300 shadow-md' : ''">
                         <div class="flex justify-between items-start mb-2">
                             <div class="flex flex-wrap gap-1.5">
                                 <span class="text-[9px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-black uppercase border border-purple-100 shadow-sm">{{ q.type === 'mc' ? 'Múltipla' : q.type === 'ce' ? 'Certo/Errado' : q.type === 'vf' ? 'V/F' : q.type === 'assoc' ? 'Associação' : q.type }}</span>
                                 <span class="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold uppercase border border-indigo-100 shadow-sm">{{q.subject}}</span>
                                 <span v-if="q.topic" class="text-[9px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border border-blue-100 uppercase font-bold shadow-sm"><i class="fa-solid fa-tag mr-0.5"></i> {{q.topic}}</span>
                             </div>
-                            <div class="flex gap-1"><button @click="editQuestion(q)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-pencil text-xs"></i></button><button @click="deleteQuestion(q.id)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-red-500 flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button></div>
+                            <div class="flex gap-1">
+                                <button v-if="isProjectionEligible(q)" @click="toggleProjectionQuestion(q)" class="w-7 h-7 rounded-full flex items-center justify-center transition" :class="isProjectionQuestionSelected(q.id) ? 'bg-indigo-600 text-white shadow' : 'bg-gray-50 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'" :title="isProjectionQuestionSelected(q.id) ? 'Remover da projeção' : 'Selecionar para projeção'"><i :class="isProjectionQuestionSelected(q.id) ? 'fa-solid fa-check' : 'fa-solid fa-display'" class="text-xs"></i></button>
+                                <button @click="editQuestion(q)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-pencil text-xs"></i></button>
+                                <button @click="deleteQuestion(q.id)" class="w-7 h-7 rounded-full bg-gray-50 text-gray-400 hover:text-red-500 flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button>
+                            </div>
                         </div>
                         <p class="text-sm font-medium text-gray-800 mb-2 leading-relaxed">{{q.text}}</p>
                         <img v-if="q.image" :src="q.image" class="h-16 mt-2 rounded border object-cover mb-2">
@@ -1875,6 +1991,15 @@
                 const examHistoryFilter = ref('');
                 const selectedHistoryExams = ref([]);
                 const recentCorrectionsFilter = ref('');
+
+                // Modo Projeção de Questões
+                const projectionSelectedIds = ref([]);
+                const projectionQuestions = ref([]);
+                const projectedQuestionIndex = ref(0);
+                const projectedAnswerVisible = ref(false);
+                const showProjectionMode = ref(false);
+                const projectionContainer = ref(null);
+                const projectionIsFullscreen = ref(false);
                 
                 // Diário (Aulas/Períodos)
                 const periodsList = ['1ª Aula', '2ª Aula', '3ª Aula', '4ª Aula', '5ª Aula', '6ª Aula', '7ª Aula', '8ª Aula', '9ª Aula'];
@@ -4686,7 +4811,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                     if (typeof o === 'string') return { text: o };
                                     if (o && o.text) return { text: o.text };
                                     return { text: "Opção omitida pela IA" };
-                                });
+                                }).slice(0, 5);
                                 while(q.options.length < 5) q.options.push({text: `Opção complementar automática`});
                                 
                                 let c = q.correct !== undefined ? q.correct : q.correto !== undefined ? q.correto : q.resposta;
@@ -5469,6 +5594,174 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const uniqueTopics = computed(() => [...new Set(questions.value.filter(q => q.subject === (filterSubject.value || newQ.value.subject || aiGenConfig.value.subject || examFilterSubject.value)).map(q => q.topic))].filter(Boolean));
                 
                 const filteredQuestions = computed(() => questions.value.filter(q => (!qFilter.value || q.text.toLowerCase().includes(qFilter.value.toLowerCase())) && (!filterType.value || q.type === filterType.value) && (!filterSubject.value || q.subject === filterSubject.value) && (!filterTopic.value || q.topic === filterTopic.value)));
+
+
+                // --- MODO PROJEÇÃO ---
+                const projectionTypeLabel = (type) => ({
+                    mc: 'Múltipla escolha',
+                    ce: 'Certo ou errado',
+                    vf: 'Verdadeiro ou falso',
+                    assoc: 'Associação'
+                }[type] || String(type || 'Questão').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+
+                const parseProjectionBoolean = (value) => value === true || String(value).toLowerCase() === 'true';
+
+                const isProjectionEligible = (q) => {
+                    if (!q || !String(q.text || '').trim()) return false;
+
+                    if (q.type === 'mc') {
+                        if (!Array.isArray(q.options) || q.options.length < 5) return false;
+                        const firstFiveAreFilled = q.options.slice(0, 5).every(opt => String(opt?.text || '').trim());
+                        const correctIndex = Number(q.correct);
+                        return firstFiveAreFilled && Number.isInteger(correctIndex) && correctIndex >= 0 && correctIndex <= 4;
+                    }
+
+                    if (q.type === 'ce') {
+                        const correctIndex = Number(q.correct);
+                        return Number.isInteger(correctIndex) && (correctIndex === 0 || correctIndex === 1);
+                    }
+
+                    if (q.type === 'vf') {
+                        return Array.isArray(q.options) && q.options.length > 0 && q.options.every(opt =>
+                            String(opt?.text || '').trim() && (typeof opt?.isTrue === 'boolean' || ['true', 'false'].includes(String(opt?.isTrue).toLowerCase()))
+                        );
+                    }
+
+                    if (q.type === 'assoc') {
+                        return Array.isArray(q.options) && q.options.length > 0 && q.options.every(opt =>
+                            String(opt?.text || '').trim() && String(opt?.match || '').trim()
+                        );
+                    }
+
+                    // Tipos futuros ou personalizados também podem ser projetados.
+                    return true;
+                };
+
+                const normalizeProjectionQuestion = (question) => {
+                    const cloned = JSON.parse(JSON.stringify(question));
+                    if (cloned.type === 'mc') {
+                        cloned.options = cloned.options.slice(0, 5).map(opt => ({ ...opt, text: String(opt.text || '') }));
+                        cloned.correct = Number(cloned.correct);
+                    } else if (cloned.type === 'ce') {
+                        cloned.correct = Number(cloned.correct);
+                    } else if (cloned.type === 'vf') {
+                        cloned.options = cloned.options.map(opt => ({ ...opt, text: String(opt.text || ''), isTrue: parseProjectionBoolean(opt.isTrue) }));
+                    } else if (cloned.type === 'assoc') {
+                        cloned.options = cloned.options.map(opt => ({ ...opt, text: String(opt.text || ''), match: String(opt.match || '') }));
+                    } else {
+                        cloned.options = Array.isArray(cloned.options)
+                            ? cloned.options.map(opt => typeof opt === 'string' ? { text: opt } : ({ ...opt, text: String(opt?.text || opt?.label || opt?.value || '') }))
+                            : [];
+                        if (cloned.correct !== undefined && cloned.correct !== null && cloned.correct !== '') {
+                            const numericCorrect = Number(cloned.correct);
+                            cloned.correct = Number.isInteger(numericCorrect) ? numericCorrect : cloned.correct;
+                        }
+                    }
+                    return cloned;
+                };
+
+                const projectionEligibleFilteredQuestions = computed(() => filteredQuestions.value.filter(isProjectionEligible));
+                const projectionSelectedCount = computed(() => projectionSelectedIds.value.length);
+                const projectedQuestion = computed(() => projectionQuestions.value[projectedQuestionIndex.value] || null);
+                const areAllFilteredProjectionSelected = computed(() => {
+                    const eligible = projectionEligibleFilteredQuestions.value;
+                    return eligible.length > 0 && eligible.every(q => projectionSelectedIds.value.includes(q.id));
+                });
+
+                const isProjectionQuestionSelected = (id) => projectionSelectedIds.value.includes(id);
+
+                const toggleProjectionQuestion = (q) => {
+                    if (!isProjectionEligible(q)) return showToast('Esta questão está incompleta ou possui um gabarito inválido para projeção.', 'warning');
+                    const idx = projectionSelectedIds.value.indexOf(q.id);
+                    if (idx >= 0) projectionSelectedIds.value.splice(idx, 1);
+                    else projectionSelectedIds.value.push(q.id);
+                };
+
+                const toggleSelectAllFilteredProjection = () => {
+                    const visibleIds = projectionEligibleFilteredQuestions.value.map(q => q.id);
+                    if (!visibleIds.length) return showToast('Nenhuma questão válida para projeção está visível com os filtros atuais.', 'info');
+                    if (areAllFilteredProjectionSelected.value) {
+                        projectionSelectedIds.value = projectionSelectedIds.value.filter(id => !visibleIds.includes(id));
+                    } else {
+                        const selected = new Set(projectionSelectedIds.value);
+                        visibleIds.forEach(id => selected.add(id));
+                        projectionSelectedIds.value = Array.from(selected);
+                    }
+                };
+
+                const clearProjectionSelection = () => { projectionSelectedIds.value = []; };
+
+                const startProjection = async () => {
+                    const selected = projectionSelectedIds.value
+                        .map(id => questions.value.find(q => q.id === id))
+                        .filter(isProjectionEligible)
+                        .map(normalizeProjectionQuestion);
+                    if (!selected.length) {
+                        projectionSelectedIds.value = [];
+                        return showToast('Selecione pelo menos uma questão válida para projeção.', 'warning');
+                    }
+                    projectionQuestions.value = selected;
+                    projectedQuestionIndex.value = 0;
+                    projectedAnswerVisible.value = false;
+                    showProjectionMode.value = true;
+                    await nextTick();
+                    if (projectionContainer.value?.requestFullscreen && !document.fullscreenElement) {
+                        try { await projectionContainer.value.requestFullscreen(); } catch (error) { console.info('Tela cheia não iniciada automaticamente:', error); }
+                    }
+                };
+
+                const closeProjection = async () => {
+                    if (document.fullscreenElement) {
+                        try { await document.exitFullscreen(); } catch (error) { console.info('Não foi possível sair da tela cheia:', error); }
+                    }
+                    showProjectionMode.value = false;
+                    projectedAnswerVisible.value = false;
+                    projectionQuestions.value = [];
+                    projectedQuestionIndex.value = 0;
+                };
+
+                const nextProjectedQuestion = () => {
+                    if (projectedQuestionIndex.value < projectionQuestions.value.length - 1) {
+                        projectedQuestionIndex.value += 1;
+                        projectedAnswerVisible.value = false;
+                    }
+                };
+
+                const previousProjectedQuestion = () => {
+                    if (projectedQuestionIndex.value > 0) {
+                        projectedQuestionIndex.value -= 1;
+                        projectedAnswerVisible.value = false;
+                    }
+                };
+
+                const toggleProjectedAnswer = () => { projectedAnswerVisible.value = !projectedAnswerVisible.value; };
+
+                const toggleProjectionFullscreen = async () => {
+                    try {
+                        if (document.fullscreenElement) await document.exitFullscreen();
+                        else if (projectionContainer.value?.requestFullscreen) await projectionContainer.value.requestFullscreen();
+                        else showToast('Este navegador não oferece suporte ao modo tela cheia.', 'warning');
+                    } catch (error) {
+                        console.error('Erro ao alternar tela cheia:', error);
+                        showToast('Não foi possível alternar o modo tela cheia.', 'error');
+                    }
+                };
+
+                const handleProjectionKeydown = (event) => {
+                    if (!showProjectionMode.value) return;
+                    const tag = String(event.target?.tagName || '').toUpperCase();
+                    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
+                    if (event.key === 'ArrowRight') { event.preventDefault(); nextProjectedQuestion(); }
+                    else if (event.key === 'ArrowLeft') { event.preventDefault(); previousProjectedQuestion(); }
+                    else if (event.key === 'Enter' || event.code === 'Space') { event.preventDefault(); toggleProjectedAnswer(); }
+                    else if (event.key.toLowerCase() === 'f') { event.preventDefault(); toggleProjectionFullscreen(); }
+                    else if (event.key === 'Escape' && !document.fullscreenElement) { closeProjection(); }
+                };
+
+                watch(questions, (currentQuestions) => {
+                    const existingIds = new Set(currentQuestions.filter(isProjectionEligible).map(q => q.id));
+                    projectionSelectedIds.value = projectionSelectedIds.value.filter(id => existingIds.has(id));
+                });
                 const filteredExamQuestions = computed(() => questions.value.filter(q => (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase())) && (!examFilterSubject.value || q.subject === examFilterSubject.value) && (!examFilterTopic.value || q.topic === examFilterTopic.value)));
                 
                 // Exames e Provas
@@ -6810,6 +7103,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 onMounted(async () => {
+                    window.addEventListener('keydown', handleProjectionKeydown);
+                    document.addEventListener('fullscreenchange', () => { projectionIsFullscreen.value = !!document.fullscreenElement; });
                     try {
                         await initLicenseSystem();
                         await load();
@@ -6826,6 +7121,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     toast, confirmModal, geminiKey, qFilter, filterType, filterSubject, filterTopic,
                     examFilterSubject, examFilterTopic, examFilter, examTab, studentFilter, dashboardStudentFilter,
                     examHistoryFilter, selectedHistoryExams, recentCorrectionsFilter, examTargetStudentFilter,
+
+                    // Projection Mode
+                    projectionSelectedIds, projectionQuestions, projectedQuestionIndex, projectedAnswerVisible, showProjectionMode,
+                    projectionContainer, projectionIsFullscreen, projectionSelectedCount, projectedQuestion, projectionEligibleFilteredQuestions, areAllFilteredProjectionSelected, projectionTypeLabel,
                     
                     // Diary
                     periodsList, diaryClassId, diaryTab, attendanceDate, attendancePeriod, attendanceStudentFilter,
@@ -6896,6 +7195,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     // Functions
                     addClass, deleteClass, saveStudents, toggleClassExpansion, deleteAllQuestions, deleteAllGrades, deleteAllExams, deleteAllClasses,
                     changeQType, openQForm, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, deleteStudent,
+                    isProjectionEligible, isProjectionQuestionSelected, toggleProjectionQuestion, toggleSelectAllFilteredProjection, clearProjectionSelection,
+                    startProjection, closeProjection, nextProjectedQuestion, previousProjectedQuestion, toggleProjectedAnswer, toggleProjectionFullscreen,
                     filteredClasses, getFilteredStudents, getStudentCount, uniqueSubjects, uniqueTopics, filteredQuestions, filteredExamQuestions,
                     toggleExamQ, isQInExam, toggleExamClass, examSelectableStudents, filteredExamSelectableStudents, examSelectableStudentGroups,
                     examSelectedStudentCount, examTargetSummary, isExamReady, selectAllExamStudents, toggleExamTargetStudent,
