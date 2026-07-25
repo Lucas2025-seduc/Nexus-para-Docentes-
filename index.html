@@ -114,11 +114,14 @@
             border-top: 1px solid rgba(226,232,240,0.9);
         }
         .assistant-fab {
-            bottom: 6.75rem !important;
-            right: 1rem !important;
-            z-index: 120 !important;
+            bottom: 8.5rem !important;
+            right: 1.25rem !important;
+            z-index: 999 !important;
+            min-width: 3.5rem;
             box-shadow: 0 18px 40px rgba(79,70,229,0.35), 0 6px 20px rgba(67,56,202,0.22) !important;
         }
+        .assistant-fab-label { display: none; }
+        .assistant-fab:hover { transform: translateY(-2px) scale(1.02); }
         .assistant-chat-panel {
             box-shadow: 0 24px 60px rgba(15,23,42,0.22) !important;
             border: 1px solid rgba(226,232,240,0.95) !important;
@@ -148,16 +151,28 @@
                 font-size: 0.65rem !important;
             }
             .assistant-fab {
-                width: 4rem !important;
-                height: 4rem !important;
-                right: max(1.5rem, calc((100vw - var(--app-max-width)) / 2 + 1.5rem)) !important;
-                bottom: 4.9rem !important;
+                width: auto !important;
+                min-width: 10.5rem !important;
+                height: 3.75rem !important;
+                padding-left: 1.15rem !important;
+                padding-right: 1.25rem !important;
+                right: max(2rem, calc((100vw - var(--app-max-width)) / 2 + 2rem)) !important;
+                bottom: 8.25rem !important;
+                border-radius: 1.15rem !important;
+            }
+            .assistant-fab-label {
+                display: inline !important;
+                margin-left: 0.7rem;
+                font-size: 0.875rem;
+                font-weight: 900;
+                letter-spacing: -0.01em;
+                white-space: nowrap;
             }
             .assistant-chat-panel {
                 max-width: 26rem !important;
                 height: min(78vh, 820px) !important;
                 margin-right: max(1rem, calc((100vw - var(--app-max-width)) / 2 + 0.5rem));
-                margin-bottom: 4.75rem;
+                margin-bottom: 7.5rem;
             }
             .bg-white.rounded-2xl.shadow-sm.border,
             .bg-white.rounded-2xl.border,
@@ -1400,8 +1415,8 @@
         </main>
 
         <!-- ASSISTENTE IA FLOATING BUTTON -->
-        <button @click="showAssistant=true" class="assistant-fab fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center text-2xl z-40 hover:scale-110 transition-transform">
-            <i class="fa-solid fa-robot"></i>
+        <button @click="showAssistant=true" class="assistant-fab fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-full shadow-2xl shadow-indigo-500/40 flex items-center justify-center text-2xl z-40 transition-transform" title="Abrir Assistente IA" aria-label="Abrir Assistente IA">
+            <i class="fa-solid fa-robot"></i><span class="assistant-fab-label">Assistente IA</span>
         </button>
 
         <!-- ASSISTENTE IA MODAL CHAT COM SUPORTE A AÇÕES -->
