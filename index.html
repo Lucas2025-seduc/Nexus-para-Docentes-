@@ -99,6 +99,14 @@
                     <div class="text-sm sm:text-base font-bold text-slate-400 mt-1">Questão {{ projectedQuestionIndex + 1 }} de {{ projectionQuestions.length }}</div>
                 </div>
                 <div class="flex items-center gap-2 flex-none">
+                    <div v-if="projectionTimerEnabled" class="relative h-11 min-w-[132px] sm:min-w-[168px] rounded-xl border overflow-hidden transition" :class="projectionTimeRemaining <= 10 ? 'bg-red-500/20 border-red-400/40' : 'bg-white/10 border-white/10'">
+                        <div class="absolute inset-y-0 left-0 bg-indigo-500/25 transition-[width] duration-1000" :style="{width: projectionTimerProgress + '%'}"></div>
+                        <div class="relative h-full flex items-center justify-between gap-1 px-2">
+                            <button @click="toggleProjectionTimer" class="w-8 h-8 rounded-lg hover:bg-white/15 flex items-center justify-center" :title="projectionTimerRunning ? 'Pausar temporizador' : 'Continuar temporizador'"><i :class="projectionTimerRunning ? 'fa-solid fa-pause' : 'fa-solid fa-play'"></i></button>
+                            <div class="font-mono text-base sm:text-lg font-black tabular-nums" :class="projectionTimeRemaining <= 10 ? 'text-red-200' : 'text-white'">{{ projectionTimerDisplay }}</div>
+                            <button @click="restartProjectionTimer" class="w-8 h-8 rounded-lg hover:bg-white/15 flex items-center justify-center" title="Reiniciar contagem"><i class="fa-solid fa-rotate-right"></i></button>
+                        </div>
+                    </div>
                     <button @click="toggleProjectionFullscreen" class="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 font-bold text-sm transition" :title="projectionIsFullscreen ? 'Sair da tela cheia' : 'Entrar em tela cheia'">
                         <i :class="projectionIsFullscreen ? 'fa-solid fa-compress' : 'fa-solid fa-expand'"></i>
                         <span class="hidden sm:inline ml-2">Tela cheia</span>
@@ -198,7 +206,7 @@
                     <button @click="toggleProjectedAnswer" class="py-3 sm:py-4 rounded-xl font-black text-sm sm:text-base transition shadow-lg" :class="projectedAnswerVisible ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-indigo-500 hover:bg-indigo-400 text-white'"><i :class="projectedAnswerVisible ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'" class="mr-2"></i>{{ projectedAnswerVisible ? 'Ocultar resposta' : 'Mostrar resposta' }}</button>
                     <button @click="nextProjectedQuestion" :disabled="projectedQuestionIndex >= projectionQuestions.length - 1" class="py-3 sm:py-4 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed font-black text-sm sm:text-base transition">Próxima<i class="fa-solid fa-arrow-right ml-2"></i></button>
                 </div>
-                <p class="hidden sm:block text-center text-[11px] text-slate-500 font-bold mt-3">Teclas: ← anterior · Enter ou espaço mostra a resposta · → próxima · F tela cheia</p>
+                <p class="hidden sm:block text-center text-[11px] text-slate-500 font-bold mt-3">Teclas: ← anterior · Enter ou espaço mostra a resposta · → próxima · T pausa/continua o tempo · R reinicia · F tela cheia</p>
             </footer>
         </div>
 
@@ -917,7 +925,19 @@
                         <button @click="clearProjectionSelection" :disabled="projectionSelectedCount === 0" class="px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 text-[10px] sm:text-xs font-black transition disabled:opacity-40 disabled:cursor-not-allowed"><i class="fa-solid fa-eraser mr-1"></i>Limpar</button>
                         <button @click="startProjection" :disabled="projectionSelectedCount === 0" class="flex-1 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[10px] sm:text-xs font-black shadow transition disabled:opacity-40 disabled:cursor-not-allowed"><i class="fa-solid fa-display mr-1.5"></i>Projetar <span v-if="projectionSelectedCount">({{ projectionSelectedCount }})</span></button>
                     </div>
-                    <p class="text-[9px] sm:text-[10px] text-gray-400 font-bold px-1"><i class="fa-solid fa-circle-info mr-1"></i>Todos os tipos de questão podem ser projetados, inclusive formatos futuros ou personalizados. Nas questões de múltipla escolha, são exibidas cinco alternativas (A–E).</p>
+                    <div v-if="projectionSelectedCount" class="grid grid-cols-[1fr_auto] gap-2 items-center rounded-xl border border-indigo-100 bg-indigo-50/60 p-2.5 animate-fade-in">
+                        <button @click="projectionTimerEnabled=!projectionTimerEnabled; updateProjectionTimerSettings()" class="flex items-center gap-2 text-left min-w-0" :aria-pressed="projectionTimerEnabled">
+                            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-none transition" :class="projectionTimerEnabled ? 'bg-indigo-600 text-white' : 'bg-white border text-gray-400'"><i class="fa-solid fa-stopwatch"></i></span>
+                            <span class="min-w-0"><span class="block text-[11px] font-black text-gray-700">Mudança automática de questão</span><span class="block text-[9px] font-bold text-gray-400">{{ projectionTimerEnabled ? 'Ativada' : 'Desativada' }}</span></span>
+                        </button>
+                        <label class="flex items-center gap-1.5 text-[10px] font-black text-indigo-700">
+                            <span class="hidden sm:inline">Tempo</span>
+                            <select v-model.number="projectionTimerDuration" @change="updateProjectionTimerSettings" :disabled="!projectionTimerEnabled" class="p-2 rounded-lg border border-indigo-200 bg-white text-xs font-black outline-none disabled:opacity-40">
+                                <option :value="15">15 s</option><option :value="30">30 s</option><option :value="45">45 s</option><option :value="60">1 min</option><option :value="90">1 min 30 s</option><option :value="120">2 min</option><option :value="180">3 min</option><option :value="300">5 min</option>
+                            </select>
+                        </label>
+                    </div>
+                    <p class="text-[9px] sm:text-[10px] text-gray-400 font-bold px-1"><i class="fa-solid fa-circle-info mr-1"></i>Todos os tipos de questão podem ser projetados. Quando o temporizador estiver ativado, a próxima questão será exibida automaticamente ao fim da contagem.</p>
                 </div>
                 <div class="space-y-3 pb-20">
                     <div v-for="q in filteredQuestions" :key="q.id" class="bg-white p-4 rounded-2xl shadow-sm border transition" :class="isProjectionQuestionSelected(q.id) ? 'ring-2 ring-indigo-500 border-indigo-300 shadow-md' : ''">
@@ -2493,6 +2513,13 @@
                 const projectionContainer = ref(null);
                 const projectionScrollArea = ref(null);
                 const projectionIsFullscreen = ref(false);
+                const storedProjectionTimerEnabled = localStorage.getItem('nexusProjectionTimerEnabled');
+                const projectionTimerEnabled = ref(storedProjectionTimerEnabled === null ? true : storedProjectionTimerEnabled === 'true');
+                const storedProjectionTimerDuration = Number(localStorage.getItem('nexusProjectionTimerDuration'));
+                const projectionTimerDuration = ref(Number.isFinite(storedProjectionTimerDuration) && storedProjectionTimerDuration >= 5 ? storedProjectionTimerDuration : 60);
+                const projectionTimeRemaining = ref(projectionTimerDuration.value);
+                const projectionTimerRunning = ref(false);
+                let projectionTimerInterval = null;
                 
                 // Diário (Aulas/Períodos)
                 const periodsList = ['1ª Aula', '2ª Aula', '3ª Aula', '4ª Aula', '5ª Aula', '6ª Aula', '7ª Aula', '8ª Aula', '9ª Aula'];
@@ -7267,6 +7294,78 @@ Retorne exatamente:
 
                 const clearProjectionSelection = () => { projectionSelectedIds.value = []; };
 
+                const normalizeProjectionTimerDuration = () => {
+                    const duration = Math.round(Number(projectionTimerDuration.value));
+                    projectionTimerDuration.value = Number.isFinite(duration) ? Math.min(3600, Math.max(5, duration)) : 60;
+                    return projectionTimerDuration.value;
+                };
+
+                const updateProjectionTimerSettings = () => {
+                    normalizeProjectionTimerDuration();
+                    localStorage.setItem('nexusProjectionTimerEnabled', String(!!projectionTimerEnabled.value));
+                    localStorage.setItem('nexusProjectionTimerDuration', String(projectionTimerDuration.value));
+                    if (!showProjectionMode.value) projectionTimeRemaining.value = projectionTimerDuration.value;
+                    if (!projectionTimerEnabled.value) stopProjectionTimer(false);
+                };
+
+                const stopProjectionTimer = (reset = false) => {
+                    if (projectionTimerInterval) {
+                        clearInterval(projectionTimerInterval);
+                        projectionTimerInterval = null;
+                    }
+                    projectionTimerRunning.value = false;
+                    if (reset) projectionTimeRemaining.value = normalizeProjectionTimerDuration();
+                };
+
+                const handleProjectionTimerFinished = () => {
+                    stopProjectionTimer(false);
+                    if (projectedQuestionIndex.value < projectionQuestions.value.length - 1) {
+                        nextProjectedQuestion(true);
+                    } else {
+                        projectionTimeRemaining.value = 0;
+                        showToast('Tempo encerrado na última questão.', 'info');
+                    }
+                };
+
+                const startProjectionTimer = () => {
+                    if (!projectionTimerEnabled.value || !showProjectionMode.value || !projectedQuestion.value) return;
+                    if (projectionTimeRemaining.value <= 0) projectionTimeRemaining.value = normalizeProjectionTimerDuration();
+                    if (projectionTimerInterval) clearInterval(projectionTimerInterval);
+                    projectionTimerRunning.value = true;
+                    projectionTimerInterval = setInterval(() => {
+                        if (!showProjectionMode.value || !projectionTimerEnabled.value) return stopProjectionTimer(false);
+                        if (projectionTimeRemaining.value > 1) projectionTimeRemaining.value -= 1;
+                        else {
+                            projectionTimeRemaining.value = 0;
+                            handleProjectionTimerFinished();
+                        }
+                    }, 1000);
+                };
+
+                const restartProjectionTimer = () => {
+                    stopProjectionTimer(false);
+                    projectionTimeRemaining.value = normalizeProjectionTimerDuration();
+                    if (projectionTimerEnabled.value && showProjectionMode.value) startProjectionTimer();
+                };
+
+                const toggleProjectionTimer = () => {
+                    if (!projectionTimerEnabled.value) return;
+                    if (projectionTimerRunning.value) stopProjectionTimer(false);
+                    else startProjectionTimer();
+                };
+
+                const projectionTimerDisplay = computed(() => {
+                    const total = Math.max(0, Number(projectionTimeRemaining.value) || 0);
+                    const minutes = Math.floor(total / 60);
+                    const seconds = total % 60;
+                    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                });
+
+                const projectionTimerProgress = computed(() => {
+                    const duration = Math.max(1, Number(projectionTimerDuration.value) || 1);
+                    return Math.max(0, Math.min(100, (projectionTimeRemaining.value / duration) * 100));
+                });
+
                 const startProjection = async () => {
                     const selected = projectionSelectedIds.value
                         .map(id => questions.value.find(q => q.id === id))
@@ -7276,18 +7375,23 @@ Retorne exatamente:
                         projectionSelectedIds.value = [];
                         return showToast('Selecione pelo menos uma questão válida para projeção.', 'warning');
                     }
+                    updateProjectionTimerSettings();
+                    stopProjectionTimer(false);
                     projectionQuestions.value = selected;
                     projectedQuestionIndex.value = 0;
                     projectedAnswerVisible.value = false;
+                    projectionTimeRemaining.value = normalizeProjectionTimerDuration();
                     showProjectionMode.value = true;
                     await nextTick();
                     if(projectionScrollArea.value) projectionScrollArea.value.scrollTop=0;
+                    if (projectionTimerEnabled.value) startProjectionTimer();
                     if (projectionContainer.value?.requestFullscreen && !document.fullscreenElement) {
                         try { await projectionContainer.value.requestFullscreen(); } catch (error) { console.info('Tela cheia não iniciada automaticamente:', error); }
                     }
                 };
 
                 const closeProjection = async () => {
+                    stopProjectionTimer(true);
                     if (document.fullscreenElement) {
                         try { await document.exitFullscreen(); } catch (error) { console.info('Não foi possível sair da tela cheia:', error); }
                     }
@@ -7297,11 +7401,15 @@ Retorne exatamente:
                     projectedQuestionIndex.value = 0;
                 };
 
-                const nextProjectedQuestion = () => {
+                const nextProjectedQuestion = (fromTimer = false) => {
                     if (projectedQuestionIndex.value < projectionQuestions.value.length - 1) {
                         projectedQuestionIndex.value += 1;
                         projectedAnswerVisible.value = false;
                         resetProjectionScroll();
+                        restartProjectionTimer();
+                    } else if (!fromTimer && projectionTimerEnabled.value) {
+                        stopProjectionTimer(false);
+                        projectionTimeRemaining.value = 0;
                     }
                 };
 
@@ -7310,6 +7418,7 @@ Retorne exatamente:
                         projectedQuestionIndex.value -= 1;
                         projectedAnswerVisible.value = false;
                         resetProjectionScroll();
+                        restartProjectionTimer();
                     }
                 };
 
@@ -7333,6 +7442,8 @@ Retorne exatamente:
                     if (event.key === 'ArrowRight') { event.preventDefault(); nextProjectedQuestion(); }
                     else if (event.key === 'ArrowLeft') { event.preventDefault(); previousProjectedQuestion(); }
                     else if (event.key === 'Enter' || event.code === 'Space') { event.preventDefault(); toggleProjectedAnswer(); }
+                    else if (event.key.toLowerCase() === 't') { event.preventDefault(); toggleProjectionTimer(); }
+                    else if (event.key.toLowerCase() === 'r') { event.preventDefault(); restartProjectionTimer(); }
                     else if (event.key.toLowerCase() === 'f') { event.preventDefault(); toggleProjectionFullscreen(); }
                     else if (event.key === 'Escape' && !document.fullscreenElement) { closeProjection(); }
                 };
@@ -8712,10 +8823,11 @@ Retorne exatamente:
                 const handleDriveVisibilityChange = () => {
                     if (document.visibilityState === 'visible') maybeShowDailyDriveReminder();
                 };
+                const handleProjectionFullscreenChange = () => { projectionIsFullscreen.value = !!document.fullscreenElement; };
 
                 onMounted(async () => {
                     window.addEventListener('keydown', handleProjectionKeydown);
-                    document.addEventListener('fullscreenchange', () => { projectionIsFullscreen.value = !!document.fullscreenElement; });
+                    document.addEventListener('fullscreenchange', handleProjectionFullscreenChange);
                     document.addEventListener('visibilitychange', handleDriveVisibilityChange);
                     try {
                         await initLicenseSystem();
@@ -8732,6 +8844,9 @@ Retorne exatamente:
                 });
 
                 onBeforeUnmount(() => {
+                    stopProjectionTimer(false);
+                    window.removeEventListener('keydown', handleProjectionKeydown);
+                    document.removeEventListener('fullscreenchange', handleProjectionFullscreenChange);
                     document.removeEventListener('visibilitychange', handleDriveVisibilityChange);
                 });
 
@@ -8747,6 +8862,7 @@ Retorne exatamente:
                     // Projection Mode
                     projectionSelectedIds, projectionQuestions, projectedQuestionIndex, projectedAnswerVisible, showProjectionMode,
                     projectionContainer, projectionScrollArea, projectionIsFullscreen, projectionIsDense, projectionSelectedCount, projectedQuestion, projectionEligibleFilteredQuestions, areAllFilteredProjectionSelected, projectionTypeLabel, associationLabel, associationMatchLabelForConcept,
+                    projectionTimerEnabled, projectionTimerDuration, projectionTimeRemaining, projectionTimerRunning, projectionTimerDisplay, projectionTimerProgress,
                     
                     // Planos de aula
                     lessonPlanScreen, lessonPlanSearch, lessonPlanAdvancedOpen, lessonPlanSectionsOpen, isGeneratingLessonPlan, regeneratingLessonPlanSection,
@@ -8830,6 +8946,7 @@ Retorne exatamente:
                     changeQType, openQForm, saveQuestion, handleImageUpload, deleteQuestion, editQuestion, deleteStudent,
                     isProjectionEligible, isProjectionQuestionSelected, toggleProjectionQuestion, toggleSelectAllFilteredProjection, clearProjectionSelection,
                     startProjection, closeProjection, nextProjectedQuestion, previousProjectedQuestion, toggleProjectedAnswer, toggleProjectionFullscreen,
+                    updateProjectionTimerSettings, toggleProjectionTimer, restartProjectionTimer,
                     filteredClasses, getFilteredStudents, getStudentCount, uniqueSubjects, uniqueTopics, filteredQuestions, filteredExamQuestions,
                     toggleExamQ, isQInExam, toggleExamClass, examSelectableStudents, filteredExamSelectableStudents, examSelectableStudentGroups,
                     examSelectedStudentCount, examTargetSummary, isExamReady, selectAllExamStudents, toggleExamTargetStudent,
