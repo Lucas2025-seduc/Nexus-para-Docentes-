@@ -143,17 +143,33 @@
                         </div>
                     </div>
 
-                    <!-- Associação -->
-                    <div v-else-if="projectedQuestion.type === 'assoc'" class="grid grid-cols-1 gap-2.5 sm:gap-3 mt-5 sm:mt-7">
-                        <div v-for="(opt, i) in projectedQuestion.options" :key="i" class="rounded-2xl border-2 px-3 sm:px-5 py-3 transition-all duration-300" :class="projectedAnswerVisible ? 'bg-blue-500/15 border-blue-400 text-white' : 'bg-slate-800/85 border-slate-600 text-white'">
-                            <div class="flex items-start gap-4 sm:gap-6">
-                                <span class="projection-option-letter w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex-none flex items-center justify-center font-black border bg-white/10 text-white border-white/15">{{ i + 1 }}</span>
-                                <span class="projection-option-text font-bold break-words min-w-0 pt-1 sm:pt-2">{{ opt.text }}</span>
+                    <!-- Associação: conceitos e significados embaralhados -->
+                    <div v-else-if="projectedQuestion.type === 'assoc'" class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-5 sm:mt-7 items-start">
+                        <section class="rounded-3xl border border-indigo-400/30 bg-indigo-500/10 p-3 sm:p-5">
+                            <h3 class="text-xs sm:text-sm font-black uppercase tracking-[0.16em] text-indigo-200 mb-3 sm:mb-4">Conceitos</h3>
+                            <div class="grid grid-cols-1 gap-2.5 sm:gap-3">
+                                <div v-for="(opt, i) in projectedQuestion.options" :key="`concept-${i}`" class="rounded-2xl border-2 px-3 sm:px-4 py-3 flex items-start gap-3 sm:gap-4 transition-all duration-300" :class="projectedAnswerVisible ? 'bg-indigo-500/20 border-indigo-300 text-white' : 'bg-slate-800/85 border-slate-600 text-white'">
+                                    <span class="projection-option-letter w-11 h-11 sm:w-14 sm:h-14 rounded-xl flex-none flex items-center justify-center font-black border bg-white/10 text-white border-white/15">{{ i + 1 }}</span>
+                                    <span class="projection-option-text font-bold break-words min-w-0 pt-1 sm:pt-2">{{ opt.text }}</span>
+                                    <span v-if="projectedAnswerVisible" class="ml-auto flex-none px-3 min-w-11 h-11 sm:h-14 rounded-xl bg-emerald-500 text-white border border-emerald-300 flex items-center justify-center text-xl sm:text-2xl font-black animate-fade-in">
+                                        {{ associationMatchLabelForConcept(projectedQuestion, i) }}
+                                    </span>
+                                </div>
                             </div>
-                            <div v-if="projectedAnswerVisible" class="mt-3 ml-0 sm:ml-20 pl-3 sm:pl-4 border-l-4 border-blue-400 text-base sm:text-xl lg:text-2xl font-bold text-blue-100 animate-fade-in break-words">
-                                <i class="fa-solid fa-arrow-right-long mr-3 text-blue-300"></i>{{ opt.match }}
+                        </section>
+
+                        <section class="rounded-3xl border border-amber-400/30 bg-amber-500/10 p-3 sm:p-5">
+                            <h3 class="text-xs sm:text-sm font-black uppercase tracking-[0.16em] text-amber-200 mb-3 sm:mb-4">Significados embaralhados</h3>
+                            <div class="grid grid-cols-1 gap-2.5 sm:gap-3">
+                                <div v-for="(item, i) in projectedQuestion.associationMatches" :key="`meaning-${i}-${item.id}`" class="rounded-2xl border-2 px-3 sm:px-4 py-3 flex items-start gap-3 sm:gap-4 transition-all duration-300" :class="projectedAnswerVisible ? 'bg-amber-500/20 border-amber-300 text-white' : 'bg-slate-800/85 border-slate-600 text-white'">
+                                    <span class="projection-option-letter w-11 h-11 sm:w-14 sm:h-14 rounded-xl flex-none flex items-center justify-center font-black border bg-white/10 text-white border-white/15">{{ associationLabel(i) }}</span>
+                                    <span class="projection-option-text font-bold break-words min-w-0 pt-1 sm:pt-2">{{ item.match }}</span>
+                                    <span v-if="projectedAnswerVisible" class="ml-auto flex-none px-3 min-w-11 h-11 sm:h-14 rounded-xl bg-emerald-500 text-white border border-emerald-300 flex items-center justify-center text-xl sm:text-2xl font-black animate-fade-in">
+                                        {{ item.id }}
+                                    </span>
+                                </div>
                             </div>
-                        </div>
+                        </section>
                     </div>
 
                     <!-- Tipo futuro ou personalizado -->
@@ -1443,8 +1459,8 @@
                         <div v-for="(o,i) in newQ.options" class="flex gap-3 items-center">
                             <button v-if="qType==='vf'" @click="o.isTrue=!o.isTrue" :class="o.isTrue?'bg-emerald-500':'bg-red-500'" class="w-10 h-10 rounded-lg text-white font-bold flex-none transition-colors">{{o.isTrue?'V':'F'}}</button>
                             <span v-if="qType==='assoc'" class="w-10 font-black text-gray-500 text-center">{{i+1}}.</span>
-                            <input v-model="o.text" class="flex-1 p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 transition-colors" placeholder="Item">
-                            <input v-if="qType==='assoc'" v-model="o.match" class="flex-1 p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 transition-colors" placeholder="Corresp.">
+                            <input v-model="o.text" class="flex-1 p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 transition-colors" placeholder="Conceito">
+                            <input v-if="qType==='assoc'" v-model="o.match" class="flex-1 p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 transition-colors" placeholder="Definição / significado">
                             <button @click="newQ.options.splice(i,1)" class="w-8 h-10 flex items-center justify-center text-red-500 hover:text-red-700 transition-colors flex-none"><i class="fa-solid fa-trash"></i></button>
                         </div>
                         <button @click="newQ.options.push(qType==='vf'?{text:'',isTrue:true}:{text:'',match:''})" class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-bold text-gray-400 hover:border-indigo-300 hover:text-indigo-500 transition-colors">+ Add</button>
@@ -3182,6 +3198,102 @@ Texto original do professor: "${textToImprove}"`;
                     return arr;
                 };
 
+                // Compatibilidade para questões de associação criadas em versões antigas,
+                // importadas de backups ou geradas por IA com nomes de campos diferentes.
+                const associationConceptText = (option) => String(
+                    option?.text ?? option?.concept ?? option?.conceito ?? option?.term ?? option?.termo ?? option?.item ?? option?.label ?? ''
+                ).trim();
+
+                const associationMeaningText = (option) => String(
+                    option?.match ?? option?.definition ?? option?.definicao ?? option?.['definição'] ??
+                    option?.meaning ?? option?.significado ?? option?.description ?? option?.descricao ?? option?.['descrição'] ??
+                    option?.correspondencia ?? option?.['correspondência'] ?? option?.corresp ?? option?.answer ?? option?.resposta ?? ''
+                ).trim();
+
+                const normalizeAssociationOptions = (options) => (Array.isArray(options) ? options : []).map(option => ({
+                    ...(option && typeof option === 'object' ? option : {}),
+                    text: associationConceptText(option),
+                    match: associationMeaningText(option)
+                }));
+
+                const stableAssociationShuffle = (items, seed) => {
+                    const source = JSON.parse(JSON.stringify(items || []));
+                    const shuffled = stableShuffle(source, seed);
+                    if (shuffled.length > 1 && shuffled.every((item, index) => Number(item?.id) === Number(source[index]?.id))) {
+                        [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+                    }
+                    return shuffled;
+                };
+
+                const normalizeAssociationMatches = (question, seed = 'association') => {
+                    const options = normalizeAssociationOptions(question?.options);
+                    const existing = Array.isArray(question?.associationMatches)
+                        ? question.associationMatches.map((item, index) => ({
+                            ...(item && typeof item === 'object' ? item : {}),
+                            id: Number(item?.id ?? item?.conceptId ?? item?.conceptoId ?? item?.number ?? item?.numero ?? index + 1),
+                            match: associationMeaningText(item)
+                        }))
+                        : [];
+
+                    const validExisting = existing.length === options.length && existing.length > 0 &&
+                        existing.every(item => Number.isInteger(item.id) && item.id >= 1 && item.id <= options.length && item.match) &&
+                        new Set(existing.map(item => item.id)).size === existing.length;
+
+                    if (validExisting) return existing;
+
+                    const baseMatches = options.map((option, index) => ({ id: index + 1, match: option.match }));
+                    return stableAssociationShuffle(baseMatches, `${seed}|matches`);
+                };
+
+                const getAssociationPresentationState = (question, seed = 'association') => {
+                    const options = normalizeAssociationOptions(question?.options);
+                    const rawMatches = Array.isArray(question?.associationMatches) ? question.associationMatches : [];
+                    const normalizedRawMatches = rawMatches.map((item, index) => ({
+                        ...(item && typeof item === 'object' ? item : {}),
+                        id: Number(item?.id ?? item?.conceptId ?? item?.conceptoId ?? item?.number ?? item?.numero ?? index + 1),
+                        match: associationMeaningText(item)
+                    }));
+                    const hasValidExistingMatches = normalizedRawMatches.length === options.length && normalizedRawMatches.length > 0 &&
+                        normalizedRawMatches.every(item => Number.isInteger(item.id) && item.id >= 1 && item.id <= options.length && item.match) &&
+                        new Set(normalizedRawMatches.map(item => item.id)).size === normalizedRawMatches.length;
+                    const associationMatches = hasValidExistingMatches
+                        ? normalizedRawMatches
+                        : normalizeAssociationMatches({ ...question, options, associationMatches: [] }, seed);
+                    const existingCorrectIndex = Number(question?.correctIndex);
+                    const hasValidExistingAnswers = hasValidExistingMatches && Array.isArray(question?.answerOptions) && question.answerOptions.length === 5 &&
+                        question.answerOptions.every(value => String(value || '').trim()) &&
+                        Number.isInteger(existingCorrectIndex) && existingCorrectIndex >= 0 && existingCorrectIndex < 5;
+
+                    if (hasValidExistingAnswers) {
+                        return {
+                            options,
+                            associationMatches,
+                            answerOptions: question.answerOptions.map(value => String(value)),
+                            correctIndex: existingCorrectIndex
+                        };
+                    }
+
+                    const correctSequence = associationMatches.map(item => String(item.id));
+                    const built = buildSequenceAlternatives(correctSequence, `${seed}|answers`);
+                    return { options, associationMatches, answerOptions: built.alternatives, correctIndex: built.correctIndex };
+                };
+
+                const associationLabel = (index) => {
+                    let n = Number(index);
+                    if (!Number.isInteger(n) || n < 0) return '?';
+                    let label = '';
+                    do {
+                        label = String.fromCharCode(65 + (n % 26)) + label;
+                        n = Math.floor(n / 26) - 1;
+                    } while (n >= 0);
+                    return label;
+                };
+
+                const associationMatchLabelForConcept = (question, conceptIndex) => {
+                    const matches = Array.isArray(question?.associationMatches) ? question.associationMatches : [];
+                    return associationLabel(matches.findIndex(item => Number(item?.id) === Number(conceptIndex) + 1));
+                };
+
                 const getQuestionCorrectIndex = (q) => {
                     const explicit = Number(q?.correctIndex);
                     if (Number.isInteger(explicit) && explicit >= 0) return explicit;
@@ -3253,9 +3365,10 @@ Texto original do professor: "${textToImprove}"`;
                         q.answerOptions = built.alternatives;
                         q.correctIndex = built.correctIndex;
                     } else if (q.type === 'assoc') {
-                        const baseMatches = (q.options || []).map((o, i) => ({ id: i + 1, match: o?.match || '' }));
-                        q.associationMatches = stableShuffle(baseMatches, qSeed + '|matches');
-                        const correctSeq = q.associationMatches.map(m => String(m.id));
+                        q.options = normalizeAssociationOptions(q.options);
+                        const baseMatches = q.options.map((option, optionIndex) => ({ id: optionIndex + 1, match: option.match }));
+                        q.associationMatches = stableAssociationShuffle(baseMatches, qSeed + '|matches');
+                        const correctSeq = q.associationMatches.map(item => String(item.id));
                         const built = buildSequenceAlternatives(correctSeq, qSeed + '|assoc');
                         q.answerOptions = built.alternatives;
                         q.correctIndex = built.correctIndex;
@@ -3754,7 +3867,10 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 const load = async () => {
                     const eIds=classes.value.filter(c=>c.expanded).map(c=>c.id);
                     classes.value=(await db.classes.toArray()).map(c=>({...c,expanded:eIds.includes(c.id)}));
-                    students.value=await db.students.toArray(); questions.value=await db.questions.orderBy('id').reverse().toArray();
+                    students.value=await db.students.toArray();
+                    questions.value=(await db.questions.orderBy('id').reverse().toArray()).map(question =>
+                        question?.type === 'assoc' ? { ...question, options: normalizeAssociationOptions(question.options) } : question
+                    );
                     exams.value=await db.exams.orderBy('id').reverse().toArray(); results.value=await db.results.toArray();
                     extraPoints.value=await db.extraPoints.toArray();
                     lessonPlans.value=(await db.lessonPlans.toArray())
@@ -4921,7 +5037,11 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                                     targetStudentIds: Array.isArray(ex.targetStudentIds) ? ex.targetStudentIds.map(Number).filter(Number.isFinite) : [],
                                     versionAssignments: Array.isArray(ex.versionAssignments) ? ex.versionAssignments.map(a => ({ ...a, studentId: Number(a.studentId), classId: Number(a.classId), versionIndex: Number(a.versionIndex ?? a.version ?? a.v) || 0 })).filter(a => Number.isFinite(a.studentId)) : []
                                 }));
-                                data.q = data.q.map(row => ({ ...row, id: row.id != null && Number.isFinite(Number(row.id)) ? Number(row.id) : row.id }));
+                                data.q = data.q.map(row => {
+                                    const normalized = { ...row, id: row.id != null && Number.isFinite(Number(row.id)) ? Number(row.id) : row.id };
+                                    if (normalized.type === 'assoc') normalized.options = normalizeAssociationOptions(normalized.options);
+                                    return normalized;
+                                });
                                 data.r = data.r.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, examId: Number(row.examId), studentId: Number(row.studentId), score:parseValidScore(row.score), version: Number(row.version || 0) }));
                                 data.sch = data.sch.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, classId: Number(row.classId) }));
                                 data.att = data.att.map(row => ({ ...row, id: row.id != null ? Number(row.id) : undefined, classId: Number(row.classId), studentId: Number(row.studentId) }));
@@ -6391,8 +6511,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         q.options = (q.options || []).map(o => ({...o, text: String(o.text || '').trim(), isTrue: !!o.isTrue}));
                         if (q.options.length < 2 || q.options.some(o => !o.text)) return showToast("Inclua ao menos duas afirmações V/F preenchidas.", "warning");
                     } else if (qType.value === 'assoc') {
-                        q.options = (q.options || []).map(o => ({...o, text: String(o.text || '').trim(), match: String(o.match || '').trim()}));
-                        if (q.options.length < 2 || q.options.some(o => !o.text || !o.match)) return showToast("Inclua ao menos dois pares de associação completos.", "warning");
+                        q.options = normalizeAssociationOptions(q.options);
+                        if (q.options.length < 2 || q.options.some(option => !option.text || !option.match)) return showToast("Inclua ao menos dois pares de associação completos.", "warning");
                     }
                     q = JSON.parse(JSON.stringify(q));
                     if(q.id) {
@@ -6507,9 +6627,8 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     }
 
                     if (q.type === 'assoc') {
-                        return Array.isArray(q.options) && q.options.length > 0 && q.options.every(opt =>
-                            String(opt?.text || '').trim() && String(opt?.match || '').trim()
-                        );
+                        const pairs = normalizeAssociationOptions(q.options);
+                        return pairs.length > 0 && pairs.every(option => option.text && option.match);
                     }
 
                     // Tipos futuros ou personalizados também podem ser projetados.
@@ -6526,7 +6645,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     } else if (cloned.type === 'vf') {
                         cloned.options = cloned.options.map(opt => ({ ...opt, text: String(opt.text || ''), isTrue: parseProjectionBoolean(opt.isTrue) }));
                     } else if (cloned.type === 'assoc') {
-                        cloned.options = cloned.options.map(opt => ({ ...opt, text: String(opt.text || ''), match: String(opt.match || '') }));
+                        cloned.options = normalizeAssociationOptions(cloned.options);
+                        cloned.associationMatches = normalizeAssociationMatches(
+                            cloned,
+                            `projection|${cloned.id ?? ''}|${cloned.text || ''}`
+                        );
                     } else {
                         cloned.options = Array.isArray(cloned.options)
                             ? cloned.options.map(opt => typeof opt === 'string' ? { text: opt } : ({ ...opt, text: String(opt?.text || opt?.label || opt?.value || '') }))
@@ -7215,21 +7338,33 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 });
                             }
                         } else if (q.type === 'assoc') {
-                            const assocState = Array.isArray(q.associationMatches) && q.associationMatches.length
-                                ? q
-                                : normalizeVersionQuestion(q, `${ex.id}|${vIdx}|${qIdx}|assoc`, false, qIdx);
-                            let matchItems = assocState.associationMatches || [];
-                            
+                            const assocSeed = `${ex.id}|${vIdx}|${qIdx}|assoc`;
+                            const assocState = getAssociationPresentationState(q, assocSeed);
+                            const conceptItems = assocState.options;
+                            const matchItems = assocState.associationMatches;
+
                             let cols = [[], []];
-                            q.options.forEach((o, i) => {
-                                cols[0].push({ text: `${i + 1}. ${o.text}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
-                                cols[1].push({ text: `(   ) ${(matchItems[i] || {}).match || ''}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
+                            conceptItems.forEach((option, i) => {
+                                cols[0].push({ text: `${i + 1}. ${option.text}`, fontSize: qFontSize, margin: [0, 0, 0, isEco ? 2 : 4] });
+                                const meaning = (matchItems[i] || {}).match || '— definição não informada —';
+                                cols[1].push({
+                                    text: [{ text: `${associationLabel(i)}) `, bold: true }, { text: meaning }],
+                                    fontSize: qFontSize,
+                                    margin: [0, 0, 0, isEco ? 2 : 4]
+                                });
                             });
-                            content.push({ columns: [{width: '*', stack: cols[0]}, {width: '*', stack: cols[1]}], margin: [15, 0, 0, isEco ? 2 : 4] });
-                            
-                            const optsText = Array.isArray(assocState.answerOptions) && assocState.answerOptions.length === 5 ? assocState.answerOptions : [];
+                            content.push({
+                                columns: [
+                                    {width: '*', stack: [{ text: 'CONCEITOS', bold: true, fontSize: qFontSize, margin: [0, 0, 0, 4] }, ...cols[0]]},
+                                    {width: '*', stack: [{ text: 'SIGNIFICADOS (EMBARALHADOS)', bold: true, fontSize: qFontSize, margin: [0, 0, 0, 4] }, ...cols[1]]}
+                                ],
+                                columnGap: 12,
+                                margin: [15, 0, 0, isEco ? 2 : 4]
+                            });
+
+                            const optsText = assocState.answerOptions;
                             content.push({ text: 'A sequência correta é:', fontSize: qFontSize, bold: true, margin: [15, 6, 0, 2] });
-                            
+
                             if (isEco) {
                                 let inlineOpts = [];
                                 optsText.forEach((txt, i) => {
@@ -7620,7 +7755,10 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             if (q.type === 'vf') {
                                 ans = `${altLetra} ` + q.options.map(o => o.isTrue ? 'V' : 'F').join(', ');
                             } else if (q.type === 'assoc') {
-                                ans = `${altLetra} ` + q.options.map((o, i) => `${i+1} -> ${o.match}`).join(' | ');
+                                const assocState = getAssociationPresentationState(q, `${e.id}|${vIdx}|${qIdx}|assoc`);
+                                const correctLetter = ['A)','B)','C)','D)','E)'][assocState.correctIndex] || '?';
+                                const mapping = assocState.associationMatches.map((item, index) => `${associationLabel(index)}=${item.id}`).join(' | ');
+                                ans = `${correctLetter} ${assocState.associationMatches.map(item => item.id).join(', ')} (${mapping})`;
                             } else if (q.type === 'ce') {
                                 ans = q.correctIndex === 0 ? 'Certo' : 'Errado';
                             } else {
@@ -8015,7 +8153,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     // Projection Mode
                     projectionSelectedIds, projectionQuestions, projectedQuestionIndex, projectedAnswerVisible, showProjectionMode,
-                    projectionContainer, projectionScrollArea, projectionIsFullscreen, projectionIsDense, projectionSelectedCount, projectedQuestion, projectionEligibleFilteredQuestions, areAllFilteredProjectionSelected, projectionTypeLabel,
+                    projectionContainer, projectionScrollArea, projectionIsFullscreen, projectionIsDense, projectionSelectedCount, projectedQuestion, projectionEligibleFilteredQuestions, areAllFilteredProjectionSelected, projectionTypeLabel, associationLabel, associationMatchLabelForConcept,
                     
                     // Planos de aula
                     lessonPlanScreen, lessonPlanSearch, lessonPlanAdvancedOpen, lessonPlanSectionsOpen, isGeneratingLessonPlan, regeneratingLessonPlanSection,
