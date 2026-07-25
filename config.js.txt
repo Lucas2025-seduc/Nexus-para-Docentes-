@@ -1,0 +1,8 @@
+// Configuração pública do Nexus
+window.NEXUS_CONFIG = {
+  SUPABASE_URL: "https://qhkbxgwbehvnytathsbh.supabase.co",
+  SUPABASE_PUBLISHABLE_KEY: "sb_publishable_oJ_UkG6y7d1-6TZsrac5yA_2PJCpLFf",
+  APP_VERSION: "secure-1.0.0",
+  LICENSE_RECHECK_MINUTES: 30,
+  OFFLINE_GRACE_HOURS: 72
+};

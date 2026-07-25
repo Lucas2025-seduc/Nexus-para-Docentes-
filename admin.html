@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Nexus — Painel de Licenças</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f1f5f9;color:#0f172a;font-family:Inter,system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:24px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:20px;box-shadow:0 8px 30px rgba(15,23,42,.05);margin-bottom:18px}h1,h2,h3{margin-top:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}label{display:block;font-size:12px;font-weight:800;color:#475569;margin-bottom:6px}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}textarea{min-height:74px;resize:vertical}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}button{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;background:#4f46e5;color:#fff}button.secondary{background:#e2e8f0;color:#334155}button.warning{background:#d97706}button.danger{background:#dc2626}button.success{background:#059669}button:disabled{opacity:.5;cursor:not-allowed}.hidden{display:none!important}.message{padding:12px;border-radius:10px;margin:12px 0;background:#e0f2fe;color:#075985;font-weight:700}.message.error{background:#fee2e2;color:#991b1b}.message.success{background:#d1fae5;color:#065f46}.license{border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-top:12px}.license-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.muted{color:#64748b;font-size:13px}.tag{display:inline-block;padding:4px 8px;border-radius:999px;background:#e2e8f0;font-size:11px;font-weight:900;text-transform:uppercase}.tag.active{background:#d1fae5;color:#065f46}.tag.suspended{background:#fef3c7;color:#92400e}.tag.revoked{background:#fee2e2;color:#991b1b}.device{margin-top:8px;padding:10px;background:#f8fafc;border-radius:10px;font-size:13px;display:flex;justify-content:space-between;gap:10px}.keybox{font-family:ui-monospace,monospace;font-size:18px;font-weight:900;padding:16px;border:2px dashed #4f46e5;background:#eef2ff;border-radius:12px;overflow-wrap:anywhere}.small{font-size:12px}.right{text-align:right}@media(max-width:640px){main{padding:14px}.top,.license-head,.device{display:block}.right{text-align:left;margin-top:8px}.actions button{flex:1}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="top"><div><h1>Nexus — Licenças</h1><div class="muted">Este painel não guarda sua senha administrativa.</div></div><a href="./" style="color:#4f46e5;font-weight:800">Abrir aplicativo</a></div>
+
+  <section id="loginCard" class="card">
+    <h2>Entrar no painel</h2>
+    <label for="adminToken">Senha administrativa</label>
+    <input id="adminToken" type="password" autocomplete="off" placeholder="Cole o ADMIN_TOKEN">
+    <div class="actions"><button id="loginBtn">Entrar</button></div>
+    <div id="loginMessage"></div>
+  </section>
+
+  <div id="panel" class="hidden">
+    <section class="card">
+      <div class="top"><h2>Criar nova licença</h2><button id="logoutBtn" class="secondary">Sair</button></div>
+      <div class="grid">
+        <div><label>Nome do cliente</label><input id="customerName" placeholder="Ex.: Maria Silva"></div>
+        <div><label>E-mail</label><input id="customerEmail" type="email" placeholder="cliente@exemplo.com"></div>
+        <div><label>Dispositivos permitidos</label><input id="maxDevices" type="number" value="1" min="1" max="20"></div>
+        <div><label>Validade (vazio = permanente)</label><input id="expiresAt" type="date"></div>
+      </div>
+      <div style="margin-top:12px"><label>Observações</label><textarea id="notes" placeholder="Informação interna opcional"></textarea></div>
+      <div class="actions"><button id="createBtn" class="success">Gerar licença</button></div>
+      <div id="createdResult"></div>
+    </section>
+
+    <section class="card">
+      <div class="top"><h2>Licenças existentes</h2><button id="refreshBtn" class="secondary">Atualizar</button></div>
+      <div id="listMessage"></div>
+      <div id="licenseList"></div>
+    </section>
+  </div>
+</main>
+<script src="config.js"></script>
+<script>
+(() => {
+  const config = window.NEXUS_CONFIG || {};
+  const base = String(config.SUPABASE_URL || '').replace(/\/$/, '');
+  const key = String(config.SUPABASE_PUBLISHABLE_KEY || '');
+  const endpoint = `${base}/functions/v1/admin-license`;
+  let token = sessionStorage.getItem('nexusAdminToken') || '';
+  let cache = {licenses:[], devices:[]};
+  const $ = id => document.getElementById(id);
+  const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+  const formatDate = value => value ? new Date(value).toLocaleString('pt-BR') : 'Permanente';
+  function message(el, text, type=''){ el.innerHTML = text ? `<div class="message ${type}">${escapeHtml(text)}</div>` : ''; }
+  async function api(action, payload={}) {
+    if (!base || !key || /COLE_AQUI/i.test(base+key)) throw new Error('Edite o arquivo config.js primeiro.');
+    const response = await fetch(endpoint, {method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`,'x-admin-token':token},body:JSON.stringify({action,...payload})});
+    const data = await response.json().catch(()=>({}));
+    if (!response.ok || data.ok === false) throw new Error(data.error || 'Falha no painel.');
+    return data;
+  }
+  function showPanel(){ $('loginCard').classList.add('hidden'); $('panel').classList.remove('hidden'); load(); }
+  function logout(){ token=''; sessionStorage.removeItem('nexusAdminToken'); $('panel').classList.add('hidden'); $('loginCard').classList.remove('hidden'); $('adminToken').value=''; }
+  async function login(){ token=$('adminToken').value.trim(); if(!token) return message($('loginMessage'),'Digite a senha.','error'); message($('loginMessage'),'Verificando...'); try{ await api('list'); sessionStorage.setItem('nexusAdminToken',token); showPanel(); message($('loginMessage'),''); }catch(e){token='';message($('loginMessage'),e.message,'error');} }
+  async function create(){ $('createBtn').disabled=true; message($('createdResult'),'Criando...'); try{ const expiry=$('expiresAt').value ? new Date(`${$('expiresAt').value}T23:59:59`).toISOString() : null; const data=await api('create',{customerName:$('customerName').value,customerEmail:$('customerEmail').value,maxDevices:Number($('maxDevices').value||1),expiresAt:expiry,notes:$('notes').value,plan:'pro'}); $('createdResult').innerHTML=`<div class="message success">Licença criada. Copie agora: esta chave completa não será mostrada de novo.</div><div class="keybox" id="newKey">${escapeHtml(data.licenseKey)}</div><div class="actions"><button id="copyKeyBtn">Copiar licença</button></div>`; $('copyKeyBtn').onclick=()=>navigator.clipboard.writeText(data.licenseKey); await load(); }catch(e){message($('createdResult'),e.message,'error');}finally{$('createBtn').disabled=false;} }
+  function devicesFor(id){return cache.devices.filter(d=>d.license_id===id)}
+  function render(){ if(!cache.licenses.length){$('licenseList').innerHTML='<div class="muted">Nenhuma licença criada.</div>';return;} $('licenseList').innerHTML=cache.licenses.map(lic=>{const devices=devicesFor(lic.id);return `<article class="license"><div class="license-head"><div><h3>${escapeHtml(lic.customer_name||'Cliente sem nome')} <span class="tag ${escapeHtml(lic.status)}">${escapeHtml(lic.status)}</span></h3><div class="muted">Final da chave: ••••-${escapeHtml(lic.code_last4)} · ${escapeHtml(lic.customer_email||'sem e-mail')}</div><div class="muted">Validade: ${escapeHtml(formatDate(lic.expires_at))} · Dispositivos: ${devices.filter(d=>!d.revoked_at).length}/${lic.max_devices}</div>${lic.notes?`<div class="muted">${escapeHtml(lic.notes)}</div>`:''}</div><div class="right small">Criada em<br>${escapeHtml(formatDate(lic.created_at))}</div></div><div class="actions"><button class="success" data-action="status" data-id="${lic.id}" data-value="active">Ativar</button><button class="warning" data-action="status" data-id="${lic.id}" data-value="suspended">Suspender</button><button class="danger" data-action="status" data-id="${lic.id}" data-value="revoked">Revogar</button><button class="secondary" data-action="reset" data-id="${lic.id}">Liberar todos dispositivos</button><button class="secondary" data-action="edit" data-id="${lic.id}" data-max="${lic.max_devices}" data-expiry="${lic.expires_at||''}" data-notes="${escapeHtml(lic.notes||'')}">Editar</button></div>${devices.map(d=>`<div class="device"><span>${escapeHtml(d.device_label||'Dispositivo')}<br><span class="muted">Último acesso: ${escapeHtml(formatDate(d.last_seen_at))}${d.revoked_at?' · revogado':''}</span></span>${d.revoked_at?'':`<button class="danger" data-action="device" data-device="${d.id}">Revogar dispositivo</button>`}</div>`).join('')}</article>`}).join('');
+    document.querySelectorAll('[data-action]').forEach(btn=>btn.onclick=handleAction);
+  }
+  async function handleAction(event){const b=event.currentTarget;const action=b.dataset.action;b.disabled=true;try{if(action==='status')await api('set-status',{licenseId:b.dataset.id,status:b.dataset.value});if(action==='reset'&&confirm('Liberar todos os dispositivos desta licença?'))await api('reset-devices',{licenseId:b.dataset.id});if(action==='device'&&confirm('Revogar este dispositivo?'))await api('revoke-device',{deviceId:b.dataset.device});if(action==='edit'){const max=prompt('Quantidade máxima de dispositivos:',b.dataset.max);if(max===null)return;const expiry=prompt('Validade em formato AAAA-MM-DD. Deixe vazio para permanente:',b.dataset.expiry?b.dataset.expiry.slice(0,10):'');if(expiry===null)return;const notes=prompt('Observações:',b.dataset.notes||'');if(notes===null)return;await api('update',{licenseId:b.dataset.id,maxDevices:Number(max),expiresAt:expiry?new Date(`${expiry}T23:59:59`).toISOString():null,notes});}await load();}catch(e){alert(e.message);}finally{b.disabled=false;}}
+  async function load(){message($('listMessage'),'Carregando...');try{const data=await api('list');cache=data;render();message($('listMessage'),'');}catch(e){message($('listMessage'),e.message,'error');if(/senha/i.test(e.message))logout();}}
+  $('loginBtn').onclick=login; $('adminToken').addEventListener('keydown',e=>{if(e.key==='Enter')login()}); $('logoutBtn').onclick=logout; $('createBtn').onclick=create; $('refreshBtn').onclick=load;
+  if(token) showPanel();
+})();
+</script>
+</body>
+</html>
