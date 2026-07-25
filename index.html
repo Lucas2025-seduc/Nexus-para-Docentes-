@@ -1406,7 +1406,7 @@
                     <div class="pt-2 border-t">
                         <label class="text-[10px] font-bold text-gray-400 uppercase block mb-2">Quantidades</label>
                         <div class="grid grid-cols-2 gap-2">
-                            <div v-for="t in [{id:'mc',lbl:'Multi'},{id:'ce',lbl:'C/E'},{id:'vf',lbl:'V/F'},{id:'assoc',lbl:'Assoc'}]" :key="t.id" class="flex justify-between bg-white border p-2 rounded-lg"><span class="text-[11px] font-medium">{{t.lbl}}</span><input type="number" v-model="aiGenConfig.counts[t.id]" min="0" max="15" class="w-10 bg-gray-50 border text-center text-xs p-1 outline-none"></div>
+                            <div v-for="t in [{id:'mc',lbl:'Multi'},{id:'ce',lbl:'C/E'},{id:'vf',lbl:'V/F'},{id:'assoc',lbl:'Assoc (5 pares)'}]" :key="t.id" class="flex justify-between bg-white border p-2 rounded-lg"><span class="text-[11px] font-medium">{{t.lbl}}</span><input type="number" v-model="aiGenConfig.counts[t.id]" min="0" max="15" class="w-10 bg-gray-50 border text-center text-xs p-1 outline-none"></div>
                         </div>
                     </div>
                     <button @click="generateQuestionsAI" :disabled="isGeneratingAI" class="w-full py-3.5 bg-purple-600 text-white rounded-xl font-bold"><i :class="isGeneratingAI?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-wand-magic-sparkles'"></i> Gerar</button>
@@ -1456,14 +1456,17 @@
                         <button v-for="(lbl,i) in ['CERTO','ERRADO']" @click="newQ.correct=i" :class="newQ.correct===i?'bg-blue-600 text-white shadow-md':'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="px-8 py-3.5 rounded-xl font-bold transition-all">{{lbl}}</button>
                     </div>
                     <div v-if="qType==='vf'||qType==='assoc'" class="space-y-3">
+                        <div v-if="qType==='assoc'" class="bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl p-3 text-xs font-bold">
+                            Preencha exatamente 5 conceitos e os 5 significados correspondentes. Cada linha deve conter um par correto; o aplicativo embaralhará os significados na prova e na projeção.
+                        </div>
                         <div v-for="(o,i) in newQ.options" class="flex gap-3 items-center">
                             <button v-if="qType==='vf'" @click="o.isTrue=!o.isTrue" :class="o.isTrue?'bg-emerald-500':'bg-red-500'" class="w-10 h-10 rounded-lg text-white font-bold flex-none transition-colors">{{o.isTrue?'V':'F'}}</button>
                             <span v-if="qType==='assoc'" class="w-10 font-black text-gray-500 text-center">{{i+1}}.</span>
                             <input v-model="o.text" class="flex-1 p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 transition-colors" placeholder="Conceito">
                             <input v-if="qType==='assoc'" v-model="o.match" class="flex-1 p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-indigo-500 transition-colors" placeholder="Definição / significado">
-                            <button @click="newQ.options.splice(i,1)" class="w-8 h-10 flex items-center justify-center text-red-500 hover:text-red-700 transition-colors flex-none"><i class="fa-solid fa-trash"></i></button>
+                            <button v-if="qType==='vf'" @click="newQ.options.splice(i,1)" class="w-8 h-10 flex items-center justify-center text-red-500 hover:text-red-700 transition-colors flex-none"><i class="fa-solid fa-trash"></i></button>
                         </div>
-                        <button @click="newQ.options.push(qType==='vf'?{text:'',isTrue:true}:{text:'',match:''})" class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-bold text-gray-400 hover:border-indigo-300 hover:text-indigo-500 transition-colors">+ Add</button>
+                        <button v-if="qType==='vf'" @click="newQ.options.push({text:'',isTrue:true})" class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-bold text-gray-400 hover:border-indigo-300 hover:text-indigo-500 transition-colors">+ Add</button>
                     </div>
                 </div>
                 <div class="p-5 border-t bg-white rounded-b-2xl">
@@ -3198,9 +3201,13 @@ Texto original do professor: "${textToImprove}"`;
                     return arr;
                 };
 
+                // Toda questão de associação deve possuir exatamente cinco pares completos.
+                const ASSOCIATION_PAIR_COUNT = 5;
+
                 // Compatibilidade para questões de associação criadas em versões antigas,
                 // importadas de backups ou geradas por IA com nomes de campos diferentes.
                 const associationConceptText = (option) => String(
+                    typeof option === 'string' ? option :
                     option?.text ?? option?.concept ?? option?.conceito ?? option?.term ?? option?.termo ?? option?.item ?? option?.label ?? ''
                 ).trim();
 
@@ -3215,6 +3222,39 @@ Texto original do professor: "${textToImprove}"`;
                     text: associationConceptText(option),
                     match: associationMeaningText(option)
                 }));
+
+                const validateAssociationPairs = (options, expectedCount = ASSOCIATION_PAIR_COUNT) => {
+                    const pairs = normalizeAssociationOptions(options).map(option => ({
+                        ...option,
+                        text: String(option.text || '').trim(),
+                        match: String(option.match || '').trim()
+                    }));
+                    const placeholderPattern = /(?:omitid[ao]|não gerad[ao]|nao gerad[ao]|^(?:conceito|defini(?:ç|c)ão|significado|associa(?:ç|c)ão|item)(?:\s+\d+|\s+complementar(?:\s+correspondente)?)?$)/i;
+
+                    if (pairs.length !== expectedCount) {
+                        return { valid: false, pairs, message: `A questão de associação deve conter exatamente ${expectedCount} conceitos e ${expectedCount} significados.` };
+                    }
+                    if (pairs.some(pair => !pair.text || !pair.match)) {
+                        return { valid: false, pairs, message: 'Preencha os cinco conceitos e os cinco significados correspondentes.' };
+                    }
+                    if (pairs.some(pair => placeholderPattern.test(pair.text) || placeholderPattern.test(pair.match))) {
+                        return { valid: false, pairs, message: 'A associação contém textos genéricos ou incompletos. Gere novamente ou revise os pares.' };
+                    }
+
+                    const conceptKeys = pairs.map(pair => pair.text.toLocaleLowerCase('pt-BR'));
+                    const meaningKeys = pairs.map(pair => pair.match.toLocaleLowerCase('pt-BR'));
+                    if (new Set(conceptKeys).size !== expectedCount) {
+                        return { valid: false, pairs, message: 'Os cinco conceitos da associação devem ser diferentes.' };
+                    }
+                    if (new Set(meaningKeys).size !== expectedCount) {
+                        return { valid: false, pairs, message: 'Os cinco significados da associação devem ser diferentes.' };
+                    }
+                    if (pairs.some((pair, index) => conceptKeys[index] === meaningKeys[index])) {
+                        return { valid: false, pairs, message: 'O significado deve explicar o conceito, e não apenas repetir o seu nome.' };
+                    }
+
+                    return { valid: true, pairs, message: '' };
+                };
 
                 const stableAssociationShuffle = (items, seed) => {
                     const source = JSON.parse(JSON.stringify(items || []));
@@ -5692,9 +5732,17 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     try{
                         let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
 
-Gere exatamente ${t} questões: ${aiGenConfig.value.counts.mc} "mc" (5 opções), ${aiGenConfig.value.counts.ce} "ce" (Certo=0/Errado=1), ${aiGenConfig.value.counts.vf} "vf" (4 itens com isTrue), ${aiGenConfig.value.counts.assoc} "assoc" (4 pares text/match).
+Gere exatamente ${t} questões: ${aiGenConfig.value.counts.mc} "mc" (5 opções), ${aiGenConfig.value.counts.ce} "ce" (Certo=0/Errado=1), ${aiGenConfig.value.counts.vf} "vf" (4 itens com isTrue), ${aiGenConfig.value.counts.assoc} "assoc" (EXATAMENTE 5 pares text/match).
 
 O retorno deve ser ESTRITAMENTE um JSON. Siga o formato abaixo, MAS CRIE CONTEÚDO REAL E PROFUNDO SOBRE: ${aiGenConfig.value.topic}.
+
+REGRAS OBRIGATÓRIAS PARA CADA QUESTÃO "assoc":
+1. O array "options" deve conter exatamente 5 objetos.
+2. Em cada objeto, "text" deve ser um conceito ou termo curto e específico.
+3. Em cada objeto, "match" deve ser a definição, função, característica ou significado correto daquele mesmo conceito.
+4. Mantenha o conceito e seu significado correto juntos no mesmo objeto. NÃO embaralhe os pares no JSON; o aplicativo fará o embaralhamento apenas na apresentação ao aluno.
+5. Use cinco conceitos distintos e cinco significados distintos, sem textos genéricos, lacunas ou repetições.
+6. Antes de responder, revise internamente se cada significado corresponde factual e exclusivamente ao conceito do mesmo objeto.
 
 EXEMPLO DE COMO PREENCHER (Se o tema fosse Biologia Celular):
 {
@@ -5725,9 +5773,10 @@ EXEMPLO DE COMO PREENCHER (Se o tema fosse Biologia Celular):
       "text": "Associe as organelas às suas funções:",
       "options": [
         {"text": "Cloroplasto", "match": "Realiza a fotossíntese em plantas."},
-        {"text": "Complexo de Golgi", "match": "Modifica, empacota e secreta পক্ষের proteínas."},
-        {"text": "Lisossomo", "match": "Digestão intracelular."},
-        {"text": "Retículo Liso", "match": "Síntese de lipídios e desintoxicação."}
+        {"text": "Complexo de Golgi", "match": "Modifica, empacota e direciona proteínas e lipídios para secreção ou uso celular."},
+        {"text": "Lisossomo", "match": "Realiza a digestão intracelular de partículas e estruturas celulares."},
+        {"text": "Retículo Endoplasmático Liso", "match": "Participa da síntese de lipídios e da desintoxicação celular."},
+        {"text": "Ribossomo", "match": "Realiza a síntese de proteínas por meio da tradução do RNA mensageiro."}
       ]
     }
   ]
@@ -5778,6 +5827,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
                             q.text = q.text || q.enunciado || q.pergunta || q.question || "Enunciado não gerado";
+                            const rawType = String(q.type || q.tipo || '').trim().toLocaleLowerCase('pt-BR');
+                            q.type = ['assoc', 'associacao', 'associação', 'association'].includes(rawType) ? 'assoc' :
+                                ['mc', 'multipla', 'múltipla', 'multiple_choice'].includes(rawType) ? 'mc' :
+                                ['ce', 'certo_errado', 'certo/errado'].includes(rawType) ? 'ce' :
+                                ['vf', 'verdadeiro_falso', 'verdadeiro/falso'].includes(rawType) ? 'vf' : rawType;
                             
                             let opts = q.options || q.opcoes || q.itens || q.alternativas || [];
                             if (typeof opts === 'object' && !Array.isArray(opts) && opts !== null) {
@@ -5830,16 +5884,21 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 while (q.options.length < 4) q.options.push({text: `Afirmativa automática complementar`, isTrue: false});
                                 
                             } else if (q.type === 'assoc') {
-                                q.options = opts.map((opt, i) => {
-                                    if (typeof opt === 'string') return { text: opt, match: `Definição ${i+1}` };
-                                    let match = opt.match || opt.correspondencia || opt.corresp || opt.resposta || opt.definicao || `Definição ${i+1}`;
-                                    return { text: opt.text || opt.conceito || opt.item || `Conceito ${i+1}`, match: String(match) };
-                                });
-                                while (q.options.length < 4) q.options.push({text: `Conceito complementar`, match: `Definição complementar correspondente`});
+                                const associationCheck = validateAssociationPairs(opts);
+                                if (!associationCheck.valid) {
+                                    throw new Error(`A IA retornou uma questão de associação inválida: ${associationCheck.message}`);
+                                }
+                                q.options = associationCheck.pairs;
                             }
                             
                             return q;
                         });
+
+                        const expectedAssociationQuestions = Number(aiGenConfig.value.counts.assoc || 0);
+                        const generatedAssociationQuestions = gq.filter(question => question.type === 'assoc').length;
+                        if (generatedAssociationQuestions !== expectedAssociationQuestions) {
+                            throw new Error(`A IA deveria gerar ${expectedAssociationQuestions} questão(ões) de associação, mas retornou ${generatedAssociationQuestions}. Nenhuma questão foi salva.`);
+                        }
 
                         await db.questions.bulkAdd(gq);
                         await load();
@@ -5892,8 +5951,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 options: [
                                     {text: "Lisossomo", match: "Responsável pela digestão intracelular de partículas e organelas envelhecidas."},
                                     {text: "Complexo de Golgi", match: "Atua na modificação, empacotamento e secreção de proteínas e lipídios."},
-                                    {text: "Retículo Endoplasmático Rugoso", match: "Possui ribossomos aderidos à sua membrana e atua ativamente na síntese de proteínas."},
-                                    {text: "Ribossomo", match: "Pequena estrutura não membranosa responsável pela tradução e síntese de proteínas."}
+                                    {text: "Retículo Endoplasmático Rugoso", match: "Possui ribossomos aderidos à sua membrana e participa da síntese e do transporte inicial de proteínas."},
+                                    {text: "Ribossomo", match: "Estrutura não membranosa responsável pela tradução do RNA mensageiro e pela síntese de proteínas."},
+                                    {text: "Mitocôndria", match: "Realiza etapas da respiração celular e produz a maior parte do ATP utilizado pela célula."}
                                 ]
                             }
                         ];
@@ -6491,7 +6551,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     );
                 };
 
-                const changeQType=t=>{qType.value=t; newQ.value.options=(t==='vf')?[{text:'',isTrue:true},{text:'',isTrue:false}]:(t==='assoc'?[{text:'',match:''},{text:'',match:''}]:[{text:''},{text:''},{text:''},{text:''},{text:''}])};
+                const changeQType=t=>{qType.value=t; newQ.value.options=(t==='vf')?[{text:'',isTrue:true},{text:'',isTrue:false}]:(t==='assoc'?Array.from({length:ASSOCIATION_PAIR_COUNT},()=>({text:'',match:''})):[{text:''},{text:''},{text:''},{text:''},{text:''}])};
                 const openQForm=src=>{formSource.value=src; newQ.value={subject:'',topic:'',text:'',options:[]}; changeQType('mc'); showQFormModal.value=true};
                 const saveQuestion=async(add)=>{
                     let q={...newQ.value, type:qType.value}; 
@@ -6511,8 +6571,9 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         q.options = (q.options || []).map(o => ({...o, text: String(o.text || '').trim(), isTrue: !!o.isTrue}));
                         if (q.options.length < 2 || q.options.some(o => !o.text)) return showToast("Inclua ao menos duas afirmações V/F preenchidas.", "warning");
                     } else if (qType.value === 'assoc') {
-                        q.options = normalizeAssociationOptions(q.options);
-                        if (q.options.length < 2 || q.options.some(option => !option.text || !option.match)) return showToast("Inclua ao menos dois pares de associação completos.", "warning");
+                        const associationCheck = validateAssociationPairs(q.options);
+                        if (!associationCheck.valid) return showToast(associationCheck.message, "warning");
+                        q.options = associationCheck.pairs;
                     }
                     q = JSON.parse(JSON.stringify(q));
                     if(q.id) {
@@ -6540,7 +6601,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 };
 
                 const deleteQuestion = id => triggerConfirm("Apagar questão?", async() => { await db.questions.delete(id); load(); });
-                const editQuestion = q => { newQ.value = JSON.parse(JSON.stringify(q)); qType.value = q.type; showQFormModal.value = true; };
+                const editQuestion = q => {
+                    newQ.value = JSON.parse(JSON.stringify(q));
+                    qType.value = q.type;
+                    if (qType.value === 'assoc') {
+                        newQ.value.options = normalizeAssociationOptions(newQ.value.options).slice(0, ASSOCIATION_PAIR_COUNT);
+                        while (newQ.value.options.length < ASSOCIATION_PAIR_COUNT) newQ.value.options.push({text:'', match:''});
+                    }
+                    showQFormModal.value = true;
+                };
                 const deleteStudent = id => triggerConfirm("Apagar este aluno e todos os seus dados de notas, frequência e mapa de sala?", async() => {
                     const studentId = Number(id);
                     await db.transaction('rw', db.students, db.results, db.extraPoints, db.attendance, db.seatingPlans, db.exams, async () => {
@@ -6627,8 +6696,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     }
 
                     if (q.type === 'assoc') {
-                        const pairs = normalizeAssociationOptions(q.options);
-                        return pairs.length > 0 && pairs.every(option => option.text && option.match);
+                        return validateAssociationPairs(q.options).valid;
                     }
 
                     // Tipos futuros ou personalizados também podem ser projetados.
@@ -6645,7 +6713,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     } else if (cloned.type === 'vf') {
                         cloned.options = cloned.options.map(opt => ({ ...opt, text: String(opt.text || ''), isTrue: parseProjectionBoolean(opt.isTrue) }));
                     } else if (cloned.type === 'assoc') {
-                        cloned.options = normalizeAssociationOptions(cloned.options);
+                        cloned.options = normalizeAssociationOptions(cloned.options).slice(0, ASSOCIATION_PAIR_COUNT);
                         cloned.associationMatches = normalizeAssociationMatches(
                             cloned,
                             `projection|${cloned.id ?? ''}|${cloned.text || ''}`
@@ -6779,7 +6847,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const filteredExamQuestions = computed(() => questions.value.filter(q => (!examFilter.value || q.text.toLowerCase().includes(examFilter.value.toLowerCase())) && (!examFilterSubject.value || q.subject === examFilterSubject.value) && (!examFilterTopic.value || q.topic === examFilterTopic.value)));
                 
                 // Exames e Provas
-                const toggleExamQ = q => { const i = examCart.value.findIndex(x => x.id === q.id); if(i > -1) examCart.value.splice(i, 1); else examCart.value.push(JSON.parse(JSON.stringify(q))); };
+                const toggleExamQ = q => {
+                    const i = examCart.value.findIndex(x => x.id === q.id);
+                    if (i > -1) return examCart.value.splice(i, 1);
+                    if (q?.type === 'assoc') {
+                        const associationCheck = validateAssociationPairs(q.options);
+                        if (!associationCheck.valid) return showToast(`Revise esta questão antes de adicioná-la à prova. ${associationCheck.message}`, 'warning');
+                    }
+                    examCart.value.push(JSON.parse(JSON.stringify(q)));
+                };
                 const isQInExam = id => examCart.value.some(q => q.id === id);
 
                 const normalizeExamConfigTargets = () => {
@@ -7485,6 +7561,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const saveExam = async (silent = false) => {
                     if (!examCart.value.length) {
                         showToast('Selecione pelo menos uma questão.', 'warning');
+                        return null;
+                    }
+                    const invalidAssociation = examCart.value.find(question => question?.type === 'assoc' && !validateAssociationPairs(question.options).valid);
+                    if (invalidAssociation) {
+                        showToast('Há uma questão de associação sem os cinco pares completos. Edite-a antes de salvar a prova.', 'warning');
                         return null;
                     }
                     if (!examConfig.value.title || !examConfig.value.title.trim()) {
