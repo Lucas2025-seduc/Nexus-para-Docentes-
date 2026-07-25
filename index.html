@@ -40,13 +40,22 @@
         .plan-section-head .plan-section-title { margin-bottom:0; }
         .plan-ai-btn { flex:none; padding:.45rem .65rem; border-radius:.65rem; background:#faf5ff; color:#7e22ce; border:1px solid #e9d5ff; font-size:.625rem; line-height:.875rem; font-weight:800; }
         .plan-ai-btn:disabled { opacity:.45; }
-        .projection-question-text { font-size: clamp(1.8rem, 3.4vw, 3.8rem); line-height: 1.15; }
-        .projection-option-text { font-size: clamp(1.25rem, 2.15vw, 2.35rem); line-height: 1.2; }
+        .projection-question-text { font-size: clamp(1.8rem, 3.4vw, 3.8rem); line-height: 1.15; overflow-wrap: anywhere; }
+        .projection-option-text { font-size: clamp(1.25rem, 2.15vw, 2.35rem); line-height: 1.2; overflow-wrap: anywhere; }
         .projection-option-letter { font-size: clamp(1.3rem, 2.3vw, 2.5rem); }
+        .projection-scroll-area { scroll-padding-top: 1.25rem; scroll-padding-bottom: 1.25rem; overscroll-behavior: contain; }
+        .projection-dense .projection-question-text { font-size: clamp(1.35rem, 2.45vw, 2.75rem); line-height: 1.12; }
+        .projection-dense .projection-option-text { font-size: clamp(1rem, 1.65vw, 1.65rem); line-height: 1.18; }
+        .projection-dense .projection-option-letter { font-size: clamp(1.05rem, 1.75vw, 1.8rem); }
+        .projection-association .projection-question-text { font-size: clamp(1.25rem, 2.2vw, 2.5rem); }
+        .projection-association .projection-option-text { font-size: clamp(.95rem, 1.5vw, 1.5rem); }
         @media (max-height: 700px) {
             .projection-question-text { font-size: clamp(1.45rem, 2.8vw, 2.8rem); }
             .projection-option-text { font-size: clamp(1.05rem, 1.75vw, 1.75rem); }
             .projection-option-letter { font-size: clamp(1.1rem, 1.9vw, 1.9rem); }
+            .projection-dense .projection-question-text { font-size: clamp(1.15rem, 2.1vw, 2.1rem); }
+            .projection-dense .projection-option-text { font-size: clamp(.88rem, 1.35vw, 1.3rem); }
+            .projection-dense .projection-option-letter { font-size: clamp(.95rem, 1.45vw, 1.45rem); }
         }
     </style>
 </head>
@@ -79,7 +88,7 @@
         </transition>
 
         <!-- MODO PROJEÇÃO DE QUESTÕES -->
-        <div v-if="showProjectionMode && projectedQuestion" ref="projectionContainer" class="fixed inset-0 z-[99999] bg-slate-950 text-white flex flex-col overflow-hidden">
+        <div v-if="showProjectionMode && projectedQuestion" ref="projectionContainer" class="fixed inset-0 z-[99999] bg-slate-950 text-white flex flex-col overflow-hidden" :class="{'projection-dense': projectionIsDense, 'projection-association': projectedQuestion.type === 'assoc'}">
             <header class="flex-none px-5 sm:px-8 py-4 border-b border-white/10 bg-slate-950/95 flex items-center justify-between gap-4">
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
@@ -97,8 +106,8 @@
                 </div>
             </header>
 
-            <main class="flex-1 min-h-0 overflow-y-auto px-5 sm:px-10 lg:px-16 py-5 sm:py-8">
-                <div class="max-w-7xl mx-auto min-h-full flex flex-col justify-center">
+            <main ref="projectionScrollArea" class="projection-scroll-area flex-1 min-h-0 overflow-y-auto px-5 sm:px-10 lg:px-16 py-5 sm:py-8">
+                <div class="max-w-7xl mx-auto min-h-full flex flex-col pb-5 sm:pb-8" :class="projectionIsDense ? 'justify-start' : 'justify-center'">
                     <div class="grid gap-6 lg:gap-8" :class="projectedQuestion.image ? 'lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] lg:items-center' : ''">
                         <div class="min-w-0">
                             <h2 class="projection-question-text font-black tracking-tight text-white whitespace-pre-wrap break-words">{{ projectedQuestion.text }}</h2>
@@ -135,13 +144,13 @@
                     </div>
 
                     <!-- Associação -->
-                    <div v-else-if="projectedQuestion.type === 'assoc'" class="grid grid-cols-1 gap-3 sm:gap-4 mt-7 sm:mt-10">
-                        <div v-for="(opt, i) in projectedQuestion.options" :key="i" class="rounded-2xl border-2 px-4 sm:px-6 py-3 sm:py-4 transition-all duration-300" :class="projectedAnswerVisible ? 'bg-blue-500/15 border-blue-400 text-white' : 'bg-slate-800/85 border-slate-600 text-white'">
+                    <div v-else-if="projectedQuestion.type === 'assoc'" class="grid grid-cols-1 gap-2.5 sm:gap-3 mt-5 sm:mt-7">
+                        <div v-for="(opt, i) in projectedQuestion.options" :key="i" class="rounded-2xl border-2 px-3 sm:px-5 py-3 transition-all duration-300" :class="projectedAnswerVisible ? 'bg-blue-500/15 border-blue-400 text-white' : 'bg-slate-800/85 border-slate-600 text-white'">
                             <div class="flex items-start gap-4 sm:gap-6">
                                 <span class="projection-option-letter w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex-none flex items-center justify-center font-black border bg-white/10 text-white border-white/15">{{ i + 1 }}</span>
                                 <span class="projection-option-text font-bold break-words min-w-0 pt-1 sm:pt-2">{{ opt.text }}</span>
                             </div>
-                            <div v-if="projectedAnswerVisible" class="mt-3 sm:mt-4 ml-16 sm:ml-20 pl-4 border-l-4 border-blue-400 text-lg sm:text-2xl lg:text-3xl font-bold text-blue-100 animate-fade-in">
+                            <div v-if="projectedAnswerVisible" class="mt-3 ml-0 sm:ml-20 pl-3 sm:pl-4 border-l-4 border-blue-400 text-base sm:text-xl lg:text-2xl font-bold text-blue-100 animate-fade-in break-words">
                                 <i class="fa-solid fa-arrow-right-long mr-3 text-blue-300"></i>{{ opt.match }}
                             </div>
                         </div>
@@ -643,6 +652,23 @@
 
                         <div><label class="plan-label">Conteúdos que serão trabalhados</label><textarea v-model.trim="lessonPlanForm.contents" rows="5" placeholder="Ex.: Frações equivalentes, comparação e operações com frações..." class="plan-input resize-y leading-relaxed"></textarea><p class="text-[10px] text-gray-400 mt-1">Pode informar conteúdos detalhados ou apenas os temas gerais.</p></div>
 
+                        <div class="plan-card border-teal-200 bg-teal-50/40 space-y-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div><label class="plan-section-title mb-1"><i class="fa-solid fa-list-check mr-2"></i>Partes do plano a serem geradas</label><p class="text-[10px] text-gray-500 leading-relaxed">Marque antes de usar a IA. Somente as partes selecionadas serão solicitadas, geradas, revisadas e exibidas no PDF, reduzindo tempo e consumo da API.</p></div>
+                                <span class="flex-none px-2 py-1 rounded-lg bg-white border border-teal-200 text-[10px] font-black text-teal-700">{{ selectedLessonPlanSectionCount }}/{{ lessonPlanSectionOptions.length }}</span>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" @click="selectEssentialLessonPlanSections" class="px-3 py-2 rounded-lg bg-white border border-teal-200 text-[10px] font-black text-teal-700 hover:bg-teal-100">Essenciais</button>
+                                <button type="button" @click="selectAllLessonPlanSections" class="px-3 py-2 rounded-lg bg-white border border-teal-200 text-[10px] font-black text-teal-700 hover:bg-teal-100">Selecionar todas</button>
+                                <button type="button" @click="clearLessonPlanSections" class="px-3 py-2 rounded-lg bg-white border border-gray-200 text-[10px] font-black text-gray-500 hover:bg-gray-100">Limpar</button>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <label v-for="sectionOpt in lessonPlanSectionOptions" :key="sectionOpt.id" class="flex items-center gap-2 bg-white border rounded-xl p-2.5 text-xs font-bold text-gray-600 cursor-pointer hover:border-teal-300 transition">
+                                    <input type="checkbox" v-model="lessonPlanForm.sectionVisibility[sectionOpt.id]" class="accent-teal-600"><span>{{sectionOpt.label}}</span>
+                                </label>
+                            </div>
+                        </div>
+
                         <button @click="lessonPlanAdvancedOpen=!lessonPlanAdvancedOpen" class="w-full flex justify-between items-center p-3 bg-gray-50 rounded-xl border text-xs font-black text-gray-600"><span><i class="fa-solid fa-sliders mr-2 text-teal-600"></i>Metodologias, recursos e opções adicionais</span><i class="fa-solid fa-chevron-down transition-transform" :class="lessonPlanAdvancedOpen?'rotate-180':''"></i></button>
                         <div v-if="lessonPlanAdvancedOpen" class="space-y-3 animate-fade-in">
                             <div class="grid grid-cols-2 gap-3">
@@ -681,19 +707,9 @@
 
                     <!-- REVISÃO DO PLANO -->
                     <div v-if="lessonPlanForm.generated" class="space-y-3 animate-fade-in">
-                        <div class="bg-amber-50 border border-amber-200 p-3 rounded-2xl text-[11px] text-amber-800 leading-relaxed"><i class="fa-solid fa-triangle-exclamation mr-1"></i> A IA sugere o alinhamento curricular. Revise os códigos e descrições das habilidades conforme o currículo da sua rede antes de finalizar.</div>
+                        <div v-if="isLessonPlanSectionSelected('generalCompetencies') || isLessonPlanSectionSelected('specificCompetencies') || isLessonPlanSectionSelected('bnccSkills')" class="bg-amber-50 border border-amber-200 p-3 rounded-2xl text-[11px] text-amber-800 leading-relaxed"><i class="fa-solid fa-triangle-exclamation mr-1"></i> A IA sugere o alinhamento curricular. Revise os códigos e descrições das habilidades conforme o currículo da sua rede antes de finalizar.</div>
 
-                        <div class="plan-card space-y-3">
-                            <button @click="lessonPlanSectionsOpen=!lessonPlanSectionsOpen" class="w-full flex justify-between items-center text-left"><span class="plan-section-title"><i class="fa-solid fa-eye mr-2 text-teal-600"></i>Partes exibidas no PDF</span><i class="fa-solid fa-chevron-down text-gray-400 transition-transform" :class="lessonPlanSectionsOpen?'rotate-180':''"></i></button>
-                            <p class="text-[10px] text-gray-500">As partes desmarcadas continuam salvas no plano, mas não aparecem no PDF.</p>
-                            <div v-if="lessonPlanSectionsOpen" class="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-fade-in">
-                                <label v-for="sectionOpt in lessonPlanSectionOptions" :key="sectionOpt.id" class="flex items-center gap-2 bg-gray-50 border rounded-xl p-2.5 text-xs font-bold text-gray-600 cursor-pointer">
-                                    <input type="checkbox" v-model="lessonPlanForm.sectionVisibility[sectionOpt.id]" class="accent-teal-600"><span>{{sectionOpt.label}}</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="plan-card space-y-3">
+                        <div v-if="isLessonPlanSectionSelected('generalCompetencies') || isLessonPlanSectionSelected('specificCompetencies') || isLessonPlanSectionSelected('bnccSkills')" class="plan-card space-y-3">
                             <button @click="bnccSearchOpen=!bnccSearchOpen" class="w-full flex justify-between items-center text-left"><span class="plan-section-title"><i class="fa-solid fa-magnifying-glass mr-2 text-indigo-600"></i>Pesquisar e selecionar na BNCC</span><i class="fa-solid fa-chevron-down text-gray-400 transition-transform" :class="bnccSearchOpen?'rotate-180':''"></i></button>
                             <p class="text-[10px] text-gray-500">Uso opcional. As competências gerais usam catálogo local; competências específicas e habilidades são pesquisadas com a IA conforme etapa, área, disciplina e conteúdos.</p>
                             <div v-if="bnccSearchOpen" class="space-y-3 animate-fade-in">
@@ -713,19 +729,19 @@
                             </div>
                         </div>
 
-                        <div class="plan-card"><label class="plan-section-title">Título e tema</label><input v-model.trim="lessonPlanForm.generated.title" class="plan-input font-black mb-2"><input v-model.trim="lessonPlanForm.generated.theme" class="plan-input mb-2"><textarea v-model.trim="lessonPlanForm.generated.summary" rows="3" class="plan-input"></textarea></div>
+                        <div v-if="isLessonPlanSectionSelected('overview')" class="plan-card"><label class="plan-section-title">Título e tema</label><input v-model.trim="lessonPlanForm.generated.title" class="plan-input font-black mb-2"><input v-model.trim="lessonPlanForm.generated.theme" class="plan-input mb-2"><textarea v-model.trim="lessonPlanForm.generated.summary" rows="3" class="plan-input"></textarea></div>
 
-                        <div class="plan-card">
+                        <div v-if="isLessonPlanSectionSelected('generalCompetencies')" class="plan-card">
                             <div class="plan-section-head"><label class="plan-section-title">Competências gerais</label></div>
                             <textarea :value="arrayToLines(lessonPlanForm.generated.generalCompetencies)" @input="setGeneratedArray('generalCompetencies',$event.target.value)" rows="5" class="plan-input" placeholder="Uma competência por linha"></textarea>
                         </div>
 
-                        <div class="plan-card">
+                        <div v-if="isLessonPlanSectionSelected('specificCompetencies')" class="plan-card">
                             <div class="plan-section-head"><label class="plan-section-title">Competências específicas</label></div>
                             <textarea :value="arrayToLines(lessonPlanForm.generated.specificCompetencies)" @input="setGeneratedArray('specificCompetencies',$event.target.value)" rows="5" class="plan-input" placeholder="Uma competência por linha"></textarea>
                         </div>
 
-                        <div class="plan-card">
+                        <div v-if="isLessonPlanSectionSelected('bnccSkills')" class="plan-card">
                             <div class="plan-section-head"><label class="plan-section-title">Habilidades da BNCC</label><button @click="regenerateLessonPlanSection('bnccSkills')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
                             <div class="space-y-2">
                                 <div v-for="(skill,i) in lessonPlanForm.generated.bnccSkills" :key="i" class="grid grid-cols-[90px_1fr_32px] gap-2 items-start bg-gray-50 p-2 rounded-xl border">
@@ -737,19 +753,21 @@
                             </div>
                         </div>
 
-                        <div class="plan-card">
+                        <div v-if="isLessonPlanSectionSelected('objectives')" class="plan-card">
                             <div class="plan-section-head"><label class="plan-section-title">Objetivos de aprendizagem</label><button @click="regenerateLessonPlanSection('objectives')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
                             <textarea :value="arrayToLines(lessonPlanForm.generated.objectives)" @input="setGeneratedArray('objectives',$event.target.value)" rows="6" class="plan-input"></textarea>
                         </div>
 
-                        <div class="plan-card"><label class="plan-section-title">Conteúdos organizados</label><textarea :value="arrayToLines(lessonPlanForm.generated.organizedContents)" @input="setGeneratedArray('organizedContents',$event.target.value)" rows="5" class="plan-input"></textarea></div>
+                        <div v-if="isLessonPlanSectionSelected('organizedContents')" class="plan-card"><label class="plan-section-title">Conteúdos organizados</label><textarea :value="arrayToLines(lessonPlanForm.generated.organizedContents)" @input="setGeneratedArray('organizedContents',$event.target.value)" rows="5" class="plan-input"></textarea></div>
 
-                        <div class="plan-card">
+                        <div v-if="isLessonPlanSectionSelected('priorKnowledge')" class="plan-card"><label class="plan-section-title">Conhecimentos prévios</label><textarea v-model.trim="lessonPlanForm.generated.priorKnowledge" rows="4" class="plan-input"></textarea></div>
+
+                        <div v-if="isLessonPlanSectionSelected('methodology')" class="plan-card">
                             <div class="plan-section-head"><label class="plan-section-title">Metodologia</label><button @click="regenerateLessonPlanSection('methodology')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
                             <textarea v-model.trim="lessonPlanForm.generated.methodology" rows="7" class="plan-input"></textarea>
                         </div>
 
-                        <div class="plan-card">
+                        <div v-if="isLessonPlanSectionSelected('lessonSequence')" class="plan-card">
                             <div class="plan-section-head"><label class="plan-section-title">Sequência de aulas</label><button @click="regenerateLessonPlanSection('lessonSequence')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
                             <div class="space-y-3">
                                 <div v-for="(step,i) in lessonPlanForm.generated.lessonSequence" :key="i" class="bg-gray-50 border rounded-xl p-3 space-y-2">
@@ -761,9 +779,9 @@
                             </div>
                         </div>
 
-                        <div class="plan-card"><label class="plan-section-title">Recursos didáticos</label><textarea :value="arrayToLines(lessonPlanForm.generated.resources)" @input="setGeneratedArray('resources',$event.target.value)" rows="4" class="plan-input"></textarea></div>
+                        <div v-if="isLessonPlanSectionSelected('resources')" class="plan-card"><label class="plan-section-title">Recursos didáticos</label><textarea :value="arrayToLines(lessonPlanForm.generated.resources)" @input="setGeneratedArray('resources',$event.target.value)" rows="4" class="plan-input"></textarea></div>
 
-                        <div class="plan-card">
+                        <div v-if="isLessonPlanSectionSelected('assessment')" class="plan-card">
                             <div class="plan-section-head"><label class="plan-section-title">Avaliação</label><button @click="regenerateLessonPlanSection('assessment')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
                             <label class="plan-label">Diagnóstica</label><textarea v-model.trim="lessonPlanForm.generated.assessment.diagnostic" rows="2" class="plan-input mb-2"></textarea>
                             <label class="plan-label">Formativa</label><textarea v-model.trim="lessonPlanForm.generated.assessment.formative" rows="2" class="plan-input mb-2"></textarea>
@@ -771,15 +789,15 @@
                             <label class="plan-label">Critérios e evidências</label><textarea :value="arrayToLines(lessonPlanForm.generated.assessment.criteria)" @input="setAssessmentCriteria($event.target.value)" rows="4" class="plan-input"></textarea>
                         </div>
 
-                        <div class="plan-card">
+                        <div v-if="isLessonPlanSectionSelected('accessibility')" class="plan-card">
                             <div class="plan-section-head"><label class="plan-section-title">Adaptações e acessibilidade</label><button @click="regenerateLessonPlanSection('accessibility')" :disabled="!!regeneratingLessonPlanSection" class="plan-ai-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Refazer</button></div>
                             <textarea :value="arrayToLines(lessonPlanForm.generated.accessibility)" @input="setGeneratedArray('accessibility',$event.target.value)" rows="5" class="plan-input"></textarea>
                         </div>
 
-                        <div class="plan-card"><label class="plan-section-title">Recuperação e retomada</label><textarea :value="arrayToLines(lessonPlanForm.generated.recovery)" @input="setGeneratedArray('recovery',$event.target.value)" rows="4" class="plan-input"></textarea></div>
-                        <div class="plan-card"><label class="plan-section-title">Atividade complementar</label><textarea v-model.trim="lessonPlanForm.generated.homework" rows="3" class="plan-input"></textarea></div>
-                        <div class="plan-card"><label class="plan-section-title">Referências</label><textarea :value="arrayToLines(lessonPlanForm.generated.references)" @input="setGeneratedArray('references',$event.target.value)" rows="4" class="plan-input"></textarea></div>
-                        <div class="plan-card"><label class="plan-section-title">Observações finais</label><textarea v-model.trim="lessonPlanForm.generated.notes" rows="3" class="plan-input"></textarea></div>
+                        <div v-if="isLessonPlanSectionSelected('recovery')" class="plan-card"><label class="plan-section-title">Recuperação e retomada</label><textarea :value="arrayToLines(lessonPlanForm.generated.recovery)" @input="setGeneratedArray('recovery',$event.target.value)" rows="4" class="plan-input"></textarea></div>
+                        <div v-if="isLessonPlanSectionSelected('homework')" class="plan-card"><label class="plan-section-title">Atividade complementar</label><textarea v-model.trim="lessonPlanForm.generated.homework" rows="3" class="plan-input"></textarea></div>
+                        <div v-if="isLessonPlanSectionSelected('references')" class="plan-card"><label class="plan-section-title">Referências</label><textarea :value="arrayToLines(lessonPlanForm.generated.references)" @input="setGeneratedArray('references',$event.target.value)" rows="4" class="plan-input"></textarea></div>
+                        <div v-if="isLessonPlanSectionSelected('notes')" class="plan-card"><label class="plan-section-title">Observações finais</label><textarea v-model.trim="lessonPlanForm.generated.notes" rows="3" class="plan-input"></textarea></div>
 
                         <div class="grid grid-cols-2 gap-3 sticky bottom-2 z-20 bg-gray-50/95 backdrop-blur-sm p-2 rounded-2xl border shadow-xl">
                             <button @click="saveLessonPlan('final')" class="py-3.5 bg-teal-600 text-white rounded-xl font-black"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar plano</button>
@@ -2275,15 +2293,28 @@
                 ];
                 const lessonPlanCurricularReference = 'BNCC vigente; Ensino Médio alinhado à Lei nº 14.945/2024 e à Resolução CNE/CEB nº 2/2024; Computação conforme complemento à BNCC (Resolução CNE/CEB nº 1/2022).';
                 const lessonPlanMethodologyOptions = [
-                    'Aula expositiva dialogada','Resolução de problemas','Aprendizagem baseada em problemas','Aprendizagem baseada em projetos',
-                    'Sala de aula invertida','Rotação por estações','Ensino híbrido','Gamificação','Estudo de caso','Sequência didática',
-                    'Investigação científica','Experimentação','Trabalho colaborativo','Debate ou roda de conversa','Leitura e produção textual',
-                    'Oficina prática','Cultura maker','Abordagem interdisciplinar'
+                    'Aula expositiva dialogada','Ensino explícito ou instrução direta','Prática guiada e gradual (scaffolding)','Sequência didática',
+                    'Resolução de problemas','Aprendizagem baseada em problemas','Aprendizagem baseada em projetos','Aprendizagem baseada em desafios',
+                    'Metodologia da problematização (Arco de Maguerez)','Estudo de caso','Ensino por investigação','Investigação científica',
+                    'Experimentação','Modelagem','Sala de aula invertida','Rotação por estações','Ensino híbrido','Trilhas de aprendizagem',
+                    'Aprendizagem entre pares (Peer Instruction)','Tutoria entre pares','Aprendizagem cooperativa','Trabalho colaborativo',
+                    'Think-Pair-Share (pensar, formar dupla e compartilhar)','Debate ou roda de conversa','Seminário','Júri simulado',
+                    'Dramatização ou role-play','Storytelling','Estudo dirigido','Leitura e produção textual','Mapas mentais ou conceituais',
+                    'Portfólio','Gamificação','Quiz formativo','WebQuest','Design thinking','STEAM','Cultura maker','Oficina prática',
+                    'Aula de campo ou estudo do meio','Aprendizagem-serviço','Abordagem interdisciplinar','Instrução diferenciada',
+                    'Ensino por competências','Microaprendizagem'
                 ];
                 const lessonPlanResourceOptions = [
-                    'Quadro e pincel','Livro didático','Textos impressos','Caderno','Projetor ou TV','Computador ou notebook',
-                    'Celulares ou tablets','Internet','Vídeos','Slides','Imagens, mapas ou infográficos','Jogos pedagógicos',
-                    'Material concreto ou manipulável','Laboratório','Biblioteca','Cartazes','Áudios ou músicas','Plataforma digital'
+                    'Quadro e pincel','Lousa digital interativa','Livro didático','Livros paradidáticos ou literatura','Textos impressos','Caderno',
+                    'Projetor ou TV','Computador ou notebook','Celulares ou tablets','Internet','Slides','Vídeos','Áudios ou músicas','Áudios, músicas ou podcast',
+                    'Imagens, mapas ou infográficos','Imagens, mapas, gráficos ou infográficos','Atlas ou globo terrestre','Documentos e fontes históricas','Cartazes','Cartazes ou murais',
+                    'Jogos pedagógicos','Jogos digitais','Material concreto ou manipulável','Calculadora','Instrumentos geométricos',
+                    'Materiais artísticos','Instrumentos musicais','Materiais recicláveis ou sucata','Modelos, maquetes, coleções ou amostras',
+                    'Laboratório','Laboratório de ciências','Laboratório de informática','Biblioteca','Biblioteca ou sala de leitura','Ambiente virtual de aprendizagem',
+                    'Plataforma digital','Formulários ou quizzes online','Simuladores virtuais','Objetos digitais de aprendizagem','QR Codes',
+                    'Realidade aumentada ou virtual','Kits de robótica ou eletrônica','Impressora 3D','Recursos naturais ou ambiente externo',
+                    'Visita técnica ou aula de campo','Sala de recursos/AEE','Tecnologia assistiva','Materiais ampliados, táteis ou em Braille',
+                    'Comunicação alternativa e aumentativa','Intérprete de Libras ou vídeos em Libras','Impressora ou copiadora'
                 ];
                 const lessonPlanSectionOptions = [
                     {id:'overview',label:'Tema e síntese'},{id:'generalCompetencies',label:'Competências gerais'},
@@ -2296,6 +2327,17 @@
                     {id:'references',label:'Referências'},{id:'notes',label:'Observações'}
                 ];
                 const makeDefaultLessonPlanSectionVisibility = () => Object.fromEntries(lessonPlanSectionOptions.map(s=>[s.id,true]));
+                const essentialLessonPlanSectionIds = ['overview','bnccSkills','objectives','organizedContents','methodology','lessonSequence','resources','assessment','accessibility','recovery'];
+                const isLessonPlanSectionSelected = (key, form=lessonPlanForm.value) => form?.sectionVisibility?.[key] !== false;
+                const selectedLessonPlanSections = computed(() => lessonPlanSectionOptions.filter(section => isLessonPlanSectionSelected(section.id)));
+                const selectedLessonPlanSectionCount = computed(() => selectedLessonPlanSections.value.length);
+                const setLessonPlanSectionSelection = (ids=[]) => {
+                    const selected = new Set(ids);
+                    lessonPlanSectionOptions.forEach(section => { lessonPlanForm.value.sectionVisibility[section.id] = selected.has(section.id); });
+                };
+                const selectAllLessonPlanSections = () => setLessonPlanSectionSelection(lessonPlanSectionOptions.map(section=>section.id));
+                const selectEssentialLessonPlanSections = () => setLessonPlanSectionSelection(essentialLessonPlanSectionIds);
+                const clearLessonPlanSections = () => setLessonPlanSectionSelection([]);
                 const bnccGeneralCompetenciesCatalog = [
                     {type:'general',code:'CG1',title:'Conhecimento',description:'Valorizar e utilizar os conhecimentos historicamente construídos sobre o mundo físico, social, cultural e digital para entender e explicar a realidade, continuar aprendendo e colaborar para uma sociedade justa, democrática e inclusiva.'},
                     {type:'general',code:'CG2',title:'Pensamento científico, crítico e criativo',description:'Exercitar a curiosidade intelectual e recorrer à investigação, reflexão, análise crítica, imaginação e criatividade para investigar causas, elaborar e testar hipóteses, resolver problemas e criar soluções.'},
@@ -2359,6 +2401,7 @@
                 const projectedAnswerVisible = ref(false);
                 const showProjectionMode = ref(false);
                 const projectionContainer = ref(null);
+                const projectionScrollArea = ref(null);
                 const projectionIsFullscreen = ref(false);
                 
                 // Diário (Aulas/Períodos)
@@ -3829,6 +3872,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     if(!String(f.grade||'').trim()) return showToast('Informe o ano ou série.','warning'), false;
                     if(!String(f.subject||'').trim()) return showToast('Informe a disciplina ou componente.','warning'), false;
                     if(!String(f.contents||'').trim()) return showToast('Informe os conteúdos que serão trabalhados.','warning'), false;
+                    if(!lessonPlanSectionOptions.some(section=>isLessonPlanSectionSelected(section.id,f))) return showToast('Selecione ao menos uma parte do plano a ser gerada.','warning'), false;
                     if(!isValidISODate(f.startDate) || !isValidISODate(f.endDate)) return showToast('Informe datas válidas.','warning'), false;
                     if(f.endDate < f.startDate) return showToast('A data final não pode ser anterior à inicial.','warning'), false;
                     return true;
@@ -3864,18 +3908,24 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                 };
                 const applyLessonPlanInputFallbacks = (generated, form={}) => {
                     const g=normalizeGeneratedLessonPlan(generated||{});
-                    if(!g.organizedContents.length) g.organizedContents=normalizeStringArray(form.contents);
-                    if(!g.priorKnowledge) g.priorKnowledge=String(form.priorKnowledge||'').trim();
-                    const selectedResources=getSelectedLessonPlanResources(form);
-                    g.resources=[...new Set([...selectedResources,...g.resources])];
-                    const selectedMethods=getSelectedLessonPlanMethodologies(form);
-                    if(selectedMethods.length){
-                        const methodLine=`Metodologias selecionadas pelo professor: ${selectedMethods.join(', ')}.`;
-                        if(!g.methodology.toLowerCase().includes('metodologias selecionadas pelo professor')) g.methodology=[methodLine,g.methodology].filter(Boolean).join('\n\n');
-                    }
-                    if(!g.accessibility.length) g.accessibility=normalizeStringArray(form.inclusionNotes);
+                    if(isLessonPlanSectionSelected('organizedContents',form) && !g.organizedContents.length) g.organizedContents=normalizeStringArray(form.contents);
+                    if(isLessonPlanSectionSelected('priorKnowledge',form) && !g.priorKnowledge) g.priorKnowledge=String(form.priorKnowledge||'').trim();
+                    if(isLessonPlanSectionSelected('resources',form)){
+                        const selectedResources=getSelectedLessonPlanResources(form);
+                        g.resources=[...new Set([...selectedResources,...g.resources])];
+                    } else g.resources=[];
+                    if(isLessonPlanSectionSelected('methodology',form)){
+                        const selectedMethods=getSelectedLessonPlanMethodologies(form);
+                        if(selectedMethods.length){
+                            const methodLine=`Metodologias selecionadas pelo professor: ${selectedMethods.join(', ')}.`;
+                            if(!g.methodology.toLowerCase().includes('metodologias selecionadas pelo professor')) g.methodology=[methodLine,g.methodology].filter(Boolean).join('\n\n');
+                        }
+                    } else g.methodology='';
+                    if(isLessonPlanSectionSelected('accessibility',form) && !g.accessibility.length) g.accessibility=normalizeStringArray(form.inclusionNotes);
+                    else if(!isLessonPlanSectionSelected('accessibility',form)) g.accessibility=[];
                     const contextualNotes=[String(form.classDifficulties||'').trim(),String(form.observations||'').trim()].filter(Boolean).join(' | ');
-                    if(contextualNotes && !g.notes) g.notes=contextualNotes;
+                    if(isLessonPlanSectionSelected('notes',form) && contextualNotes && !g.notes) g.notes=contextualNotes;
+                    else if(!isLessonPlanSectionSelected('notes',form)) g.notes='';
                     return g;
                 };
                 const normalizeLessonPlanRecord = (raw={}) => {
@@ -3922,24 +3972,43 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     };
                 };
 
-                const lessonPlanSchema = {
-                    type:'OBJECT', properties:{
-                        title:{type:'STRING'}, theme:{type:'STRING'}, summary:{type:'STRING'},
-                        generalCompetencies:{type:'ARRAY',items:{type:'STRING'}}, specificCompetencies:{type:'ARRAY',items:{type:'STRING'}},
-                        bnccSkills:{type:'ARRAY',items:{type:'OBJECT',properties:{code:{type:'STRING'},description:{type:'STRING'}},required:['code','description']}},
-                        objectives:{type:'ARRAY',items:{type:'STRING'}}, organizedContents:{type:'ARRAY',items:{type:'STRING'}}, priorKnowledge:{type:'STRING'}, methodology:{type:'STRING'},
-                        lessonSequence:{type:'ARRAY',items:{type:'OBJECT',properties:{title:{type:'STRING'},duration:{type:'STRING'},activities:{type:'STRING'},assessment:{type:'STRING'}},required:['title','duration','activities','assessment']}},
-                        resources:{type:'ARRAY',items:{type:'STRING'}},
-                        assessment:{type:'OBJECT',properties:{diagnostic:{type:'STRING'},formative:{type:'STRING'},summative:{type:'STRING'},criteria:{type:'ARRAY',items:{type:'STRING'}}},required:['diagnostic','formative','summative','criteria']},
-                        accessibility:{type:'ARRAY',items:{type:'STRING'}}, recovery:{type:'ARRAY',items:{type:'STRING'}}, homework:{type:'STRING'}, references:{type:'ARRAY',items:{type:'STRING'}}, notes:{type:'STRING'}, curricularReference:{type:'STRING'}
-                    }, required:['title','theme','summary','generalCompetencies','specificCompetencies','bnccSkills','objectives','organizedContents','priorKnowledge','methodology','lessonSequence','resources','assessment','accessibility','recovery','homework','references','notes','curricularReference']
+                const lessonPlanSectionSchemaProperties = {
+                    overview:{theme:{type:'STRING'},summary:{type:'STRING'}},
+                    generalCompetencies:{generalCompetencies:{type:'ARRAY',items:{type:'STRING'}}},
+                    specificCompetencies:{specificCompetencies:{type:'ARRAY',items:{type:'STRING'}}},
+                    bnccSkills:{bnccSkills:{type:'ARRAY',items:{type:'OBJECT',properties:{code:{type:'STRING'},description:{type:'STRING'}},required:['code','description']}}},
+                    objectives:{objectives:{type:'ARRAY',items:{type:'STRING'}}},
+                    organizedContents:{organizedContents:{type:'ARRAY',items:{type:'STRING'}}},
+                    priorKnowledge:{priorKnowledge:{type:'STRING'}},
+                    methodology:{methodology:{type:'STRING'}},
+                    lessonSequence:{lessonSequence:{type:'ARRAY',items:{type:'OBJECT',properties:{title:{type:'STRING'},duration:{type:'STRING'},activities:{type:'STRING'},assessment:{type:'STRING'}},required:['title','duration','activities','assessment']}}},
+                    resources:{resources:{type:'ARRAY',items:{type:'STRING'}}},
+                    assessment:{assessment:{type:'OBJECT',properties:{diagnostic:{type:'STRING'},formative:{type:'STRING'},summative:{type:'STRING'},criteria:{type:'ARRAY',items:{type:'STRING'}}},required:['diagnostic','formative','summative','criteria']}},
+                    accessibility:{accessibility:{type:'ARRAY',items:{type:'STRING'}}},
+                    recovery:{recovery:{type:'ARRAY',items:{type:'STRING'}}},
+                    homework:{homework:{type:'STRING'}},
+                    references:{references:{type:'ARRAY',items:{type:'STRING'}}},
+                    notes:{notes:{type:'STRING'}}
+                };
+                const buildLessonPlanSchema = (form=lessonPlanForm.value) => {
+                    const properties={title:{type:'STRING'}};
+                    const required=['title'];
+                    lessonPlanSectionOptions.forEach(section=>{
+                        if(!isLessonPlanSectionSelected(section.id,form)) return;
+                        const sectionProperties=lessonPlanSectionSchemaProperties[section.id]||{};
+                        Object.assign(properties,sectionProperties);
+                        required.push(...Object.keys(sectionProperties));
+                    });
+                    return {type:'OBJECT',properties,required:[...new Set(required)]};
                 };
 
                 const buildLessonPlanPrompt = () => {
                     const f=lessonPlanForm.value;
                     const className=resolveLessonPlanClassName(f);
                     const periodLabel=lessonPlanPeriodLabel(f.periodType);
-                    return `Você é um especialista brasileiro em planejamento pedagógico. Crie um plano completo, realista, claro e diretamente aplicável por um professor.
+                    const selectedSections=lessonPlanSectionOptions.filter(section=>isLessonPlanSectionSelected(section.id,f));
+                    const selectedSectionLabels=selectedSections.map(section=>section.label).join('; ');
+                    return `Você é um especialista brasileiro em planejamento pedagógico. Crie um plano realista, claro e diretamente aplicável por um professor, gerando somente as partes solicitadas.
 
 DADOS:
 Instituição: ${settings.value.schoolName}
@@ -3961,12 +4030,15 @@ Recursos didáticos disponíveis: ${getSelectedLessonPlanResources(f).join('; ')
 Inclusão/acessibilidade: ${f.inclusionNotes || 'não informado'}
 Observações: ${f.observations || 'nenhuma'}
 
+PARTES DO PLANO A SEREM GERADAS:
+${selectedSectionLabels}
+
 REGRAS:
-1. Organize o plano conforme o período. Para uma aula, detalhe a sequência da aula. Para semana ou mês, organize encontros. Para bimestre, semestre ou ano, organize unidades e progressão, evitando repetir uma mesma aula.
-2. Inclua itens essenciais: competências gerais, competências específicas, habilidades, objetivos, conteúdos, conhecimentos prévios, metodologia, sequência, recursos, avaliação diagnóstica/formativa/somativa, critérios, acessibilidade, recuperação, atividade complementar e referências.
-3. Selecione somente competências gerais e específicas diretamente desenvolvidas pelo tema, conteúdos, objetivos, metodologia e avaliação deste plano. Não liste competências genéricas apenas para preencher o documento. Cada competência escolhida deve poder ser observada em pelo menos uma atividade ou evidência de aprendizagem.
-4. Relacione apenas habilidades da BNCC pertinentes à etapa, ano/série, área do conhecimento, disciplina e conteúdos. Use códigos oficiais somente quando os reconhecer com segurança. Se não houver segurança, escreva o código como "VALIDAR" e descreva o alinhamento a conferir; jamais invente código.
-5. Respeite obrigatoriamente as metodologias marcadas pelo professor e priorize os recursos didáticos que ele declarou disponíveis.
+1. Gere exclusivamente as partes listadas acima e representadas no schema JSON. Não crie, complete ou repita seções não selecionadas.
+2. Organize cada parte conforme o período. Para uma aula, detalhe a sequência da aula. Para semana ou mês, organize encontros. Para bimestre, semestre ou ano, organize unidades e progressão, evitando repetir uma mesma aula.
+3. Quando competências gerais ou específicas forem solicitadas, selecione somente as diretamente desenvolvidas pelo tema, conteúdos, objetivos, metodologia e avaliação. Não liste competências genéricas apenas para preencher o documento.
+4. Quando habilidades da BNCC forem solicitadas, relacione apenas as pertinentes à etapa, ano/série, área do conhecimento, disciplina e conteúdos. Use códigos oficiais somente quando os reconhecer com segurança. Se não houver segurança, escreva o código como "VALIDAR" e descreva o alinhamento a conferir; jamais invente código.
+5. Quando metodologia ou sequência forem solicitadas, respeite obrigatoriamente as metodologias marcadas pelo professor. Quando recursos forem solicitados, utilize somente os recursos declarados disponíveis ou alternativas claramente compatíveis com essa realidade.
 6. No Ensino Médio, considere a organização por áreas e o marco atualizado pela Lei nº 14.945/2024 e Resolução CNE/CEB nº 2/2024. Para Computação, considere o complemento à BNCC da Resolução CNE/CEB nº 1/2022 quando pertinente.
 7. Escreva em português do Brasil, de forma objetiva, sem texto burocrático desnecessário.
 8. Retorne estritamente o JSON solicitado, sem markdown.`;
@@ -3977,7 +4049,7 @@ REGRAS:
                     if(!geminiKey.value) return showToast('Informe e teste a chave da API Gemini no Gerador IA.','warning');
                     isGeneratingLessonPlan.value=true; showToast('Organizando o plano com IA...','loading');
                     try{
-                        const result=await fetchGemini(buildLessonPlanPrompt(),lessonPlanSchema);
+                        const result=await fetchGemini(buildLessonPlanPrompt(),buildLessonPlanSchema());
                         lessonPlanForm.value.generated=applyLessonPlanInputFallbacks(result,lessonPlanForm.value);
                         lessonPlanForm.value.className=resolveLessonPlanClassName();
                         await saveSettings(true);
@@ -4050,6 +4122,7 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                 };
                 const regenerateLessonPlanSection = async (section) => {
                     if(!lessonPlanForm.value.generated || !sectionSchemas[section] || regeneratingLessonPlanSection.value) return;
+                    if(!isLessonPlanSectionSelected(section)) return showToast('Esta parte não está marcada para geração.','warning');
                     if(!geminiKey.value) return showToast('Informe a chave da API Gemini.','warning');
                     regeneratingLessonPlanSection.value=section; showToast('Refazendo somente esta seção...','loading');
                     try{
@@ -6469,6 +6542,15 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                 const projectionEligibleFilteredQuestions = computed(() => filteredQuestions.value.filter(isProjectionEligible));
                 const projectionSelectedCount = computed(() => projectionSelectedIds.value.length);
                 const projectedQuestion = computed(() => projectionQuestions.value[projectedQuestionIndex.value] || null);
+                const projectionIsDense = computed(() => {
+                    const q=projectedQuestion.value;
+                    if(!q) return false;
+                    const options=Array.isArray(q.options)?q.options:[];
+                    const optionLength=options.reduce((sum,opt)=>sum+String(opt?.text||opt?.label||opt?.value||'').length+String(opt?.match||'').length,0);
+                    const totalLength=String(q.text||'').length+optionLength;
+                    return q.type==='assoc' || q.type==='vf' && options.length>4 || options.length>5 || totalLength>550 || String(q.text||'').length>300;
+                });
+                const resetProjectionScroll = () => nextTick(()=>{ if(projectionScrollArea.value) projectionScrollArea.value.scrollTop=0; });
                 const areAllFilteredProjectionSelected = computed(() => {
                     const eligible = projectionEligibleFilteredQuestions.value;
                     return eligible.length > 0 && eligible.every(q => projectionSelectedIds.value.includes(q.id));
@@ -6511,6 +6593,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     projectedAnswerVisible.value = false;
                     showProjectionMode.value = true;
                     await nextTick();
+                    if(projectionScrollArea.value) projectionScrollArea.value.scrollTop=0;
                     if (projectionContainer.value?.requestFullscreen && !document.fullscreenElement) {
                         try { await projectionContainer.value.requestFullscreen(); } catch (error) { console.info('Tela cheia não iniciada automaticamente:', error); }
                     }
@@ -6530,6 +6613,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     if (projectedQuestionIndex.value < projectionQuestions.value.length - 1) {
                         projectedQuestionIndex.value += 1;
                         projectedAnswerVisible.value = false;
+                        resetProjectionScroll();
                     }
                 };
 
@@ -6537,6 +6621,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     if (projectedQuestionIndex.value > 0) {
                         projectedQuestionIndex.value -= 1;
                         projectedAnswerVisible.value = false;
+                        resetProjectionScroll();
                     }
                 };
 
@@ -7930,12 +8015,13 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
 
                     // Projection Mode
                     projectionSelectedIds, projectionQuestions, projectedQuestionIndex, projectedAnswerVisible, showProjectionMode,
-                    projectionContainer, projectionIsFullscreen, projectionSelectedCount, projectedQuestion, projectionEligibleFilteredQuestions, areAllFilteredProjectionSelected, projectionTypeLabel,
+                    projectionContainer, projectionScrollArea, projectionIsFullscreen, projectionIsDense, projectionSelectedCount, projectedQuestion, projectionEligibleFilteredQuestions, areAllFilteredProjectionSelected, projectionTypeLabel,
                     
                     // Planos de aula
                     lessonPlanScreen, lessonPlanSearch, lessonPlanAdvancedOpen, lessonPlanSectionsOpen, isGeneratingLessonPlan, regeneratingLessonPlanSection,
                     lessonPlanPeriodOptions, lessonPlanMethodologyOptions, lessonPlanResourceOptions, lessonPlanSectionOptions, lessonPlanKnowledgeAreaOptions,
-                    lessonPlanForm, filteredLessonPlans, lessonPlanPeriodLabel, applyLessonPlanPeriod, syncLessonPlanKnowledgeArea,
+                    lessonPlanForm, filteredLessonPlans, selectedLessonPlanSectionCount, isLessonPlanSectionSelected, selectAllLessonPlanSections, selectEssentialLessonPlanSections, clearLessonPlanSections,
+                    lessonPlanPeriodLabel, applyLessonPlanPeriod, syncLessonPlanKnowledgeArea,
                     bnccSearchOpen, bnccSearchType, bnccSearchQuery, bnccSearchResults, bnccSearchSelected, bnccSearchPerformed, isSearchingBncc,
                     bnccResultKey, searchBnccCatalog, applyBnccSelections,
                     openNewLessonPlan, closeLessonPlanEditor, editLessonPlan, duplicateLessonPlan, deleteLessonPlan,
