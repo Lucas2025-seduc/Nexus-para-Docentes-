@@ -621,11 +621,12 @@
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div><label class="plan-label">Etapa</label><select v-model="lessonPlanForm.educationStage" class="plan-input"><option value="fundamental">Ensino Fundamental</option><option value="medio">Ensino Médio</option></select></div>
+                            <div><label class="plan-label">Etapa</label><select v-model="lessonPlanForm.educationStage" @change="syncLessonPlanKnowledgeArea" class="plan-input"><option value="fundamental">Ensino Fundamental</option><option value="medio">Ensino Médio</option></select></div>
                             <div><label class="plan-label">Ano/Série</label><input v-model.trim="lessonPlanForm.grade" placeholder="Ex.: 7º ano ou 2ª série" class="plan-input"></div>
                             <div><label class="plan-label">Turma</label><select v-model="lessonPlanForm.classId" class="plan-input"><option :value="null">Digitar manualmente</option><option v-for="c in classes" :value="c.id">{{c.name}}</option></select></div>
                             <div v-if="!lessonPlanForm.classId"><label class="plan-label">Nome da turma</label><input v-model.trim="lessonPlanForm.className" placeholder="Ex.: 7º Ano A" class="plan-input"></div>
-                            <div :class="lessonPlanForm.classId?'sm:col-span-1':'sm:col-span-2'"><label class="plan-label">Disciplina / componente</label><input v-model.trim="lessonPlanForm.subject" list="dl-subjects" placeholder="Ex.: Matemática" class="plan-input"></div>
+                            <div :class="lessonPlanForm.classId?'sm:col-span-1':'sm:col-span-2'"><label class="plan-label">Disciplina / componente</label><input v-model.trim="lessonPlanForm.subject" @change="syncLessonPlanKnowledgeArea" list="dl-subjects" placeholder="Ex.: Matemática" class="plan-input"></div>
+                            <div class="sm:col-span-2"><label class="plan-label">Área do conhecimento</label><select v-model="lessonPlanForm.knowledgeArea" class="plan-input"><option value="">Selecionar ou preencher automaticamente</option><option v-for="area in lessonPlanKnowledgeAreaOptions" :key="area" :value="area">{{area}}</option></select></div>
                         </div>
 
                         <div>
@@ -642,7 +643,7 @@
 
                         <div><label class="plan-label">Conteúdos que serão trabalhados</label><textarea v-model.trim="lessonPlanForm.contents" rows="5" placeholder="Ex.: Frações equivalentes, comparação e operações com frações..." class="plan-input resize-y leading-relaxed"></textarea><p class="text-[10px] text-gray-400 mt-1">Pode informar conteúdos detalhados ou apenas os temas gerais.</p></div>
 
-                        <button @click="lessonPlanAdvancedOpen=!lessonPlanAdvancedOpen" class="w-full flex justify-between items-center p-3 bg-gray-50 rounded-xl border text-xs font-black text-gray-600"><span><i class="fa-solid fa-sliders mr-2 text-teal-600"></i>Opções adicionais</span><i class="fa-solid fa-chevron-down transition-transform" :class="lessonPlanAdvancedOpen?'rotate-180':''"></i></button>
+                        <button @click="lessonPlanAdvancedOpen=!lessonPlanAdvancedOpen" class="w-full flex justify-between items-center p-3 bg-gray-50 rounded-xl border text-xs font-black text-gray-600"><span><i class="fa-solid fa-sliders mr-2 text-teal-600"></i>Metodologias, recursos e opções adicionais</span><i class="fa-solid fa-chevron-down transition-transform" :class="lessonPlanAdvancedOpen?'rotate-180':''"></i></button>
                         <div v-if="lessonPlanAdvancedOpen" class="space-y-3 animate-fade-in">
                             <div class="grid grid-cols-2 gap-3">
                                 <div><label class="plan-label">Quantidade de aulas</label><input type="number" min="1" max="250" v-model.number="lessonPlanForm.numberOfLessons" placeholder="Automático" class="plan-input"></div>
@@ -650,7 +651,27 @@
                             </div>
                             <div><label class="plan-label">Conhecimentos prévios</label><textarea v-model.trim="lessonPlanForm.priorKnowledge" rows="2" class="plan-input" placeholder="Opcional"></textarea></div>
                             <div><label class="plan-label">Dificuldades da turma</label><textarea v-model.trim="lessonPlanForm.classDifficulties" rows="2" class="plan-input" placeholder="Opcional"></textarea></div>
-                            <div><label class="plan-label">Recursos disponíveis</label><textarea v-model.trim="lessonPlanForm.availableResources" rows="2" class="plan-input" placeholder="Ex.: projetor, laboratório, livro didático..."></textarea></div>
+
+                            <div class="bg-teal-50/60 border border-teal-100 rounded-2xl p-3 space-y-3">
+                                <div><label class="plan-section-title">Metodologias preferidas</label><p class="text-[10px] text-gray-500 mt-1">Marque quantas desejar. A IA organizará o plano respeitando as escolhas.</p></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <label v-for="method in lessonPlanMethodologyOptions" :key="method" class="flex gap-2 items-start bg-white p-2.5 rounded-xl border cursor-pointer text-xs font-bold text-gray-600">
+                                        <input type="checkbox" v-model="lessonPlanForm.selectedMethodologies" :value="method" class="mt-0.5 accent-teal-600"><span>{{method}}</span>
+                                    </label>
+                                </div>
+                                <input v-model.trim="lessonPlanForm.methodologyOther" class="plan-input" placeholder="Outra metodologia ou orientação do professor">
+                            </div>
+
+                            <div class="bg-blue-50/60 border border-blue-100 rounded-2xl p-3 space-y-3">
+                                <div><label class="plan-section-title">Recursos didáticos disponíveis</label><p class="text-[10px] text-gray-500 mt-1">A IA utilizará somente recursos disponíveis ou adequados à realidade informada.</p></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <label v-for="resource in lessonPlanResourceOptions" :key="resource" class="flex gap-2 items-start bg-white p-2.5 rounded-xl border cursor-pointer text-xs font-bold text-gray-600">
+                                        <input type="checkbox" v-model="lessonPlanForm.selectedResources" :value="resource" class="mt-0.5 accent-blue-600"><span>{{resource}}</span>
+                                    </label>
+                                </div>
+                                <input v-model.trim="lessonPlanForm.resourceOther" class="plan-input" placeholder="Outro recurso disponível">
+                            </div>
+
                             <div><label class="plan-label">Inclusão e acessibilidade</label><textarea v-model.trim="lessonPlanForm.inclusionNotes" rows="2" class="plan-input" placeholder="Necessidades específicas ou adaptações desejadas"></textarea></div>
                             <div><label class="plan-label">Observações para a IA</label><textarea v-model.trim="lessonPlanForm.observations" rows="3" class="plan-input" placeholder="Ex.: priorizar atividade prática e linguagem simples"></textarea></div>
                         </div>
@@ -661,6 +682,36 @@
                     <!-- REVISÃO DO PLANO -->
                     <div v-if="lessonPlanForm.generated" class="space-y-3 animate-fade-in">
                         <div class="bg-amber-50 border border-amber-200 p-3 rounded-2xl text-[11px] text-amber-800 leading-relaxed"><i class="fa-solid fa-triangle-exclamation mr-1"></i> A IA sugere o alinhamento curricular. Revise os códigos e descrições das habilidades conforme o currículo da sua rede antes de finalizar.</div>
+
+                        <div class="plan-card space-y-3">
+                            <button @click="lessonPlanSectionsOpen=!lessonPlanSectionsOpen" class="w-full flex justify-between items-center text-left"><span class="plan-section-title"><i class="fa-solid fa-eye mr-2 text-teal-600"></i>Partes exibidas no PDF</span><i class="fa-solid fa-chevron-down text-gray-400 transition-transform" :class="lessonPlanSectionsOpen?'rotate-180':''"></i></button>
+                            <p class="text-[10px] text-gray-500">As partes desmarcadas continuam salvas no plano, mas não aparecem no PDF.</p>
+                            <div v-if="lessonPlanSectionsOpen" class="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-fade-in">
+                                <label v-for="sectionOpt in lessonPlanSectionOptions" :key="sectionOpt.id" class="flex items-center gap-2 bg-gray-50 border rounded-xl p-2.5 text-xs font-bold text-gray-600 cursor-pointer">
+                                    <input type="checkbox" v-model="lessonPlanForm.sectionVisibility[sectionOpt.id]" class="accent-teal-600"><span>{{sectionOpt.label}}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="plan-card space-y-3">
+                            <button @click="bnccSearchOpen=!bnccSearchOpen" class="w-full flex justify-between items-center text-left"><span class="plan-section-title"><i class="fa-solid fa-magnifying-glass mr-2 text-indigo-600"></i>Pesquisar e selecionar na BNCC</span><i class="fa-solid fa-chevron-down text-gray-400 transition-transform" :class="bnccSearchOpen?'rotate-180':''"></i></button>
+                            <p class="text-[10px] text-gray-500">Uso opcional. As competências gerais usam catálogo local; competências específicas e habilidades são pesquisadas com a IA conforme etapa, área, disciplina e conteúdos.</p>
+                            <div v-if="bnccSearchOpen" class="space-y-3 animate-fade-in">
+                                <div class="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-2">
+                                    <select v-model="bnccSearchType" class="plan-input"><option value="general">Competências gerais</option><option value="specific">Competências específicas</option><option value="skill">Habilidades</option></select>
+                                    <input v-model.trim="bnccSearchQuery" @keyup.enter="searchBnccCatalog" class="plan-input" placeholder="Digite tema, código ou palavra-chave">
+                                    <button @click="searchBnccCatalog" :disabled="isSearchingBncc" class="px-4 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black disabled:opacity-60"><i :class="isSearchingBncc?'fa-solid fa-circle-notch fa-spin':'fa-solid fa-search'" class="mr-1"></i>Buscar</button>
+                                </div>
+                                <div v-if="bnccSearchResults.length" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+                                    <label v-for="(item,idx) in bnccSearchResults" :key="bnccResultKey(item,idx)" class="flex items-start gap-2 bg-indigo-50/40 border border-indigo-100 rounded-xl p-3 cursor-pointer">
+                                        <input type="checkbox" v-model="bnccSearchSelected" :value="bnccResultKey(item,idx)" class="mt-1 accent-indigo-600">
+                                        <span class="min-w-0"><span class="block text-[10px] font-black text-indigo-700 uppercase">{{item.code || item.title || 'BNCC'}}</span><span class="block text-xs text-gray-700 mt-0.5 leading-relaxed">{{item.description}}</span></span>
+                                    </label>
+                                </div>
+                                <p v-else-if="bnccSearchPerformed" class="text-xs text-gray-400 text-center py-3">Nenhum resultado encontrado.</p>
+                                <button v-if="bnccSearchResults.length" @click="applyBnccSelections" :disabled="!bnccSearchSelected.length" class="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-black disabled:opacity-40"><i class="fa-solid fa-check mr-1"></i>Adicionar itens marcados ao plano</button>
+                            </div>
+                        </div>
 
                         <div class="plan-card"><label class="plan-section-title">Título e tema</label><input v-model.trim="lessonPlanForm.generated.title" class="plan-input font-black mb-2"><input v-model.trim="lessonPlanForm.generated.theme" class="plan-input mb-2"><textarea v-model.trim="lessonPlanForm.generated.summary" rows="3" class="plan-input"></textarea></div>
 
@@ -2208,6 +2259,14 @@
                 const lessonPlanScreen = ref('list');
                 const lessonPlanSearch = ref('');
                 const lessonPlanAdvancedOpen = ref(false);
+                const lessonPlanSectionsOpen = ref(false);
+                const bnccSearchOpen = ref(false);
+                const bnccSearchType = ref('general');
+                const bnccSearchQuery = ref('');
+                const bnccSearchResults = ref([]);
+                const bnccSearchSelected = ref([]);
+                const bnccSearchPerformed = ref(false);
+                const isSearchingBncc = ref(false);
                 const isGeneratingLessonPlan = ref(false);
                 const regeneratingLessonPlanSection = ref('');
                 const lessonPlanPeriodOptions = [
@@ -2215,6 +2274,40 @@
                     {id:'bimestre',label:'Bimestre'}, {id:'semestre',label:'Semestre'}, {id:'ano',label:'Ano'}
                 ];
                 const lessonPlanCurricularReference = 'BNCC vigente; Ensino Médio alinhado à Lei nº 14.945/2024 e à Resolução CNE/CEB nº 2/2024; Computação conforme complemento à BNCC (Resolução CNE/CEB nº 1/2022).';
+                const lessonPlanMethodologyOptions = [
+                    'Aula expositiva dialogada','Resolução de problemas','Aprendizagem baseada em problemas','Aprendizagem baseada em projetos',
+                    'Sala de aula invertida','Rotação por estações','Ensino híbrido','Gamificação','Estudo de caso','Sequência didática',
+                    'Investigação científica','Experimentação','Trabalho colaborativo','Debate ou roda de conversa','Leitura e produção textual',
+                    'Oficina prática','Cultura maker','Abordagem interdisciplinar'
+                ];
+                const lessonPlanResourceOptions = [
+                    'Quadro e pincel','Livro didático','Textos impressos','Caderno','Projetor ou TV','Computador ou notebook',
+                    'Celulares ou tablets','Internet','Vídeos','Slides','Imagens, mapas ou infográficos','Jogos pedagógicos',
+                    'Material concreto ou manipulável','Laboratório','Biblioteca','Cartazes','Áudios ou músicas','Plataforma digital'
+                ];
+                const lessonPlanSectionOptions = [
+                    {id:'overview',label:'Tema e síntese'},{id:'generalCompetencies',label:'Competências gerais'},
+                    {id:'specificCompetencies',label:'Competências específicas'},{id:'bnccSkills',label:'Habilidades da BNCC'},
+                    {id:'objectives',label:'Objetivos de aprendizagem'},{id:'organizedContents',label:'Conteúdos'},
+                    {id:'priorKnowledge',label:'Conhecimentos prévios'},{id:'methodology',label:'Metodologia'},
+                    {id:'lessonSequence',label:'Sequência de aulas'},{id:'resources',label:'Recursos didáticos'},
+                    {id:'assessment',label:'Avaliação'},{id:'accessibility',label:'Adaptações e acessibilidade'},
+                    {id:'recovery',label:'Recuperação e retomada'},{id:'homework',label:'Atividade complementar'},
+                    {id:'references',label:'Referências'},{id:'notes',label:'Observações'}
+                ];
+                const makeDefaultLessonPlanSectionVisibility = () => Object.fromEntries(lessonPlanSectionOptions.map(s=>[s.id,true]));
+                const bnccGeneralCompetenciesCatalog = [
+                    {type:'general',code:'CG1',title:'Conhecimento',description:'Valorizar e utilizar os conhecimentos historicamente construídos sobre o mundo físico, social, cultural e digital para entender e explicar a realidade, continuar aprendendo e colaborar para uma sociedade justa, democrática e inclusiva.'},
+                    {type:'general',code:'CG2',title:'Pensamento científico, crítico e criativo',description:'Exercitar a curiosidade intelectual e recorrer à investigação, reflexão, análise crítica, imaginação e criatividade para investigar causas, elaborar e testar hipóteses, resolver problemas e criar soluções.'},
+                    {type:'general',code:'CG3',title:'Repertório cultural',description:'Valorizar e fruir as diversas manifestações artísticas e culturais e participar de práticas diversificadas da produção artístico-cultural.'},
+                    {type:'general',code:'CG4',title:'Comunicação',description:'Utilizar diferentes linguagens e conhecimentos para se expressar, partilhar informações, experiências, ideias e sentimentos e produzir sentidos que levem ao entendimento mútuo.'},
+                    {type:'general',code:'CG5',title:'Cultura digital',description:'Compreender, utilizar e criar tecnologias digitais de forma crítica, significativa, reflexiva e ética para comunicar, produzir conhecimentos, resolver problemas e exercer protagonismo e autoria.'},
+                    {type:'general',code:'CG6',title:'Trabalho e projeto de vida',description:'Valorizar a diversidade de saberes e vivências e apropriar-se de conhecimentos e experiências para compreender o mundo do trabalho e fazer escolhas alinhadas à cidadania e ao projeto de vida.'},
+                    {type:'general',code:'CG7',title:'Argumentação',description:'Argumentar com base em fatos, dados e informações confiáveis para formular, negociar e defender ideias e decisões que respeitem direitos humanos, consciência socioambiental e consumo responsável.'},
+                    {type:'general',code:'CG8',title:'Autoconhecimento e autocuidado',description:'Conhecer-se, apreciar-se e cuidar da saúde física e emocional, reconhecendo emoções próprias e dos outros, com autocrítica e capacidade para lidar com elas.'},
+                    {type:'general',code:'CG9',title:'Empatia e cooperação',description:'Exercitar empatia, diálogo, resolução de conflitos e cooperação, promovendo respeito ao outro, aos direitos humanos e à diversidade, sem preconceitos.'},
+                    {type:'general',code:'CG10',title:'Responsabilidade e cidadania',description:'Agir pessoal e coletivamente com autonomia, responsabilidade, flexibilidade, resiliência e determinação, tomando decisões baseadas em princípios éticos, democráticos, inclusivos, sustentáveis e solidários.'}
+                ];
                 const makeEmptyGeneratedLessonPlan = () => ({
                     title:'', theme:'', summary:'', generalCompetencies:[], specificCompetencies:[], bnccSkills:[],
                     objectives:[], organizedContents:[], priorKnowledge:'', methodology:'', lessonSequence:[], resources:[],
@@ -2222,10 +2315,10 @@
                     homework:'', references:[], notes:'', curricularReference:lessonPlanCurricularReference
                 });
                 const makeEmptyLessonPlan = () => ({
-                    id:null, educationStage:'fundamental', grade:'', classId:null, className:'', subject:'', periodType:'aula',
+                    id:null, educationStage:'fundamental', grade:'', classId:null, className:'', subject:'', knowledgeArea:'', periodType:'aula',
                     startDate:getLocalISODate(), endDate:getLocalISODate(), numberOfLessons:null, duration:'50 minutos', contents:'',
-                    priorKnowledge:'', classDifficulties:'', availableResources:'', inclusionNotes:'', observations:'',
-                    generated:null, status:'draft', createdAt:null, updatedAt:null
+                    priorKnowledge:'', classDifficulties:'', availableResources:'', selectedMethodologies:[], methodologyOther:'', selectedResources:[], resourceOther:'', inclusionNotes:'', observations:'',
+                    sectionVisibility:makeDefaultLessonPlanSectionVisibility(), generated:null, status:'draft', createdAt:null, updatedAt:null
                 });
                 const lessonPlanForm = ref(makeEmptyLessonPlan());
 
@@ -3644,6 +3737,29 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     const [y,m,d]=String(value).split('-');
                     return `${d}/${m}/${y}`;
                 };
+                const lessonPlanKnowledgeAreaOptions = computed(() => lessonPlanForm.value.educationStage==='medio'
+                    ? ['Linguagens e suas Tecnologias','Matemática e suas Tecnologias','Ciências da Natureza e suas Tecnologias','Ciências Humanas e Sociais Aplicadas','Formação Técnica e Profissional','Interdisciplinar']
+                    : ['Linguagens','Matemática','Ciências da Natureza','Ciências Humanas','Ensino Religioso','Interdisciplinar']);
+                const inferLessonPlanKnowledgeArea = (subject,stage=lessonPlanForm.value.educationStage) => {
+                    const s=String(subject||'').toLowerCase();
+                    const medio=stage==='medio';
+                    if(/matem|estat|geometr/.test(s)) return medio?'Matemática e suas Tecnologias':'Matemática';
+                    if(/portugu|ingl|espan|arte|educaç[aã]o física|literatura|lingu/.test(s)) return medio?'Linguagens e suas Tecnologias':'Linguagens';
+                    if(/biolog|físic|fisic|químic|quimic|ciênc|cienc/.test(s)) return medio?'Ciências da Natureza e suas Tecnologias':'Ciências da Natureza';
+                    if(/histór|histor|geograf|filosof|sociolog/.test(s)) return medio?'Ciências Humanas e Sociais Aplicadas':'Ciências Humanas';
+                    if(/relig/.test(s) && !medio) return 'Ensino Religioso';
+                    return '';
+                };
+                const syncLessonPlanKnowledgeArea = () => {
+                    const options=lessonPlanKnowledgeAreaOptions.value;
+                    if(!options.includes(lessonPlanForm.value.knowledgeArea)) lessonPlanForm.value.knowledgeArea=inferLessonPlanKnowledgeArea(lessonPlanForm.value.subject,lessonPlanForm.value.educationStage);
+                };
+                const getSelectedLessonPlanMethodologies = (form=lessonPlanForm.value) => [...new Set([
+                    ...normalizeStringArray(form.selectedMethodologies), ...normalizeStringArray(form.methodologyOther)
+                ])];
+                const getSelectedLessonPlanResources = (form=lessonPlanForm.value) => [...new Set([
+                    ...normalizeStringArray(form.selectedResources), ...normalizeStringArray(form.resourceOther), ...normalizeStringArray(form.availableResources)
+                ])];
                 const isValidLogoDataUrl = (value) => typeof value==='string' && /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=\s]+$/i.test(value);
                 const addLessonPlanMonths = (date, months) => {
                     const source=new Date(date.getFullYear(),date.getMonth(),date.getDate());
@@ -3683,15 +3799,17 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
 
                 const openNewLessonPlan = () => {
                     lessonPlanForm.value = makeEmptyLessonPlan();
-                    lessonPlanAdvancedOpen.value = false;
+                    lessonPlanAdvancedOpen.value = false; lessonPlanSectionsOpen.value=false; bnccSearchOpen.value=false;
+                    bnccSearchResults.value=[]; bnccSearchSelected.value=[]; bnccSearchPerformed.value=false;
                     lessonPlanScreen.value = 'editor';
                     nextTick(()=>document.querySelector("[v-if=\"currentView==='plans'\"]")?.scrollIntoView?.({behavior:'smooth'}));
                 };
-                const closeLessonPlanEditor = () => { lessonPlanScreen.value='list'; lessonPlanAdvancedOpen.value=false; };
+                const closeLessonPlanEditor = () => { lessonPlanScreen.value='list'; lessonPlanAdvancedOpen.value=false; lessonPlanSectionsOpen.value=false; bnccSearchOpen.value=false; };
                 const editLessonPlan = (plan) => {
                     const normalized=normalizeLessonPlanRecord(plan);
                     lessonPlanForm.value = JSON.parse(JSON.stringify(normalized));
-                    lessonPlanAdvancedOpen.value = !!(normalized.priorKnowledge || normalized.classDifficulties || normalized.availableResources || normalized.inclusionNotes || normalized.observations);
+                    lessonPlanAdvancedOpen.value = !!(normalized.priorKnowledge || normalized.classDifficulties || normalized.availableResources || normalized.selectedMethodologies.length || normalized.selectedResources.length || normalized.methodologyOther || normalized.resourceOther || normalized.inclusionNotes || normalized.observations);
+                    lessonPlanSectionsOpen.value=false; bnccSearchOpen.value=false; bnccSearchResults.value=[]; bnccSearchSelected.value=[]; bnccSearchPerformed.value=false;
                     lessonPlanScreen.value='editor';
                 };
                 const duplicateLessonPlan = async (plan) => {
@@ -3748,7 +3866,13 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                     const g=normalizeGeneratedLessonPlan(generated||{});
                     if(!g.organizedContents.length) g.organizedContents=normalizeStringArray(form.contents);
                     if(!g.priorKnowledge) g.priorKnowledge=String(form.priorKnowledge||'').trim();
-                    if(!g.resources.length) g.resources=normalizeStringArray(form.availableResources);
+                    const selectedResources=getSelectedLessonPlanResources(form);
+                    g.resources=[...new Set([...selectedResources,...g.resources])];
+                    const selectedMethods=getSelectedLessonPlanMethodologies(form);
+                    if(selectedMethods.length){
+                        const methodLine=`Metodologias selecionadas pelo professor: ${selectedMethods.join(', ')}.`;
+                        if(!g.methodology.toLowerCase().includes('metodologias selecionadas pelo professor')) g.methodology=[methodLine,g.methodology].filter(Boolean).join('\n\n');
+                    }
                     if(!g.accessibility.length) g.accessibility=normalizeStringArray(form.inclusionNotes);
                     const contextualNotes=[String(form.classDifficulties||'').trim(),String(form.observations||'').trim()].filter(Boolean).join(' | ');
                     if(contextualNotes && !g.notes) g.notes=contextualNotes;
@@ -3771,6 +3895,7 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         classId:Number.isFinite(classNumeric) ? classNumeric : null,
                         className:String(raw.className||'').trim(),
                         subject:String(raw.subject||'').trim(),
+                        knowledgeArea:String(raw.knowledgeArea||inferLessonPlanKnowledgeArea(raw.subject,raw.educationStage==='medio'?'medio':'fundamental')).trim(),
                         periodType:lessonPlanPeriodOptions.some(p=>p.id===raw.periodType) ? raw.periodType : 'aula',
                         startDate,
                         endDate:endCandidate < startDate ? startDate : endCandidate,
@@ -3780,8 +3905,13 @@ Exemplo exato de saída esperada: {"respostas_marcadas": [2, 0, null, 4, 1, 3]}`
                         priorKnowledge:String(raw.priorKnowledge||'').trim(),
                         classDifficulties:String(raw.classDifficulties||'').trim(),
                         availableResources:String(raw.availableResources||'').trim(),
+                        selectedMethodologies:normalizeStringArray(raw.selectedMethodologies).filter(v=>lessonPlanMethodologyOptions.includes(v)),
+                        methodologyOther:String(raw.methodologyOther||'').trim(),
+                        selectedResources:normalizeStringArray(raw.selectedResources).filter(v=>lessonPlanResourceOptions.includes(v)),
+                        resourceOther:String(raw.resourceOther||'').trim(),
                         inclusionNotes:String(raw.inclusionNotes||'').trim(),
                         observations:String(raw.observations||'').trim(),
+                        sectionVisibility:{...makeDefaultLessonPlanSectionVisibility(),...(raw.sectionVisibility&&typeof raw.sectionVisibility==='object'?Object.fromEntries(Object.entries(raw.sectionVisibility).map(([k,v])=>[k,v!==false])):{})},
                         generated:raw.generated ? applyLessonPlanInputFallbacks(raw.generated,raw) : null,
                         status:raw.status==='final'?'final':'draft',
                         createdAt:Number.isFinite(created) && created>0 ? created : (Number.isFinite(updated)&&updated>0?updated:Date.now()),
@@ -3818,6 +3948,7 @@ Etapa: ${f.educationStage==='medio'?'Ensino Médio':'Ensino Fundamental'}
 Ano/Série: ${f.grade}
 Turma: ${className}
 Disciplina/componente: ${f.subject}
+Área do conhecimento: ${f.knowledgeArea || inferLessonPlanKnowledgeArea(f.subject,f.educationStage) || 'definir conforme a BNCC'}
 Tipo de planejamento: ${periodLabel}
 Período: ${f.startDate} a ${f.endDate}
 Quantidade de aulas: ${f.numberOfLessons || 'defina uma quantidade adequada'}
@@ -3825,17 +3956,20 @@ Duração por aula: ${f.duration || 'defina adequadamente'}
 Conteúdos indicados pelo professor: ${f.contents}
 Conhecimentos prévios informados: ${f.priorKnowledge || 'não informado'}
 Dificuldades observadas: ${f.classDifficulties || 'não informado'}
-Recursos disponíveis: ${f.availableResources || 'não informado'}
+Metodologias escolhidas pelo professor: ${getSelectedLessonPlanMethodologies(f).join('; ') || 'livre escolha da IA'}
+Recursos didáticos disponíveis: ${getSelectedLessonPlanResources(f).join('; ') || 'não informado'}
 Inclusão/acessibilidade: ${f.inclusionNotes || 'não informado'}
 Observações: ${f.observations || 'nenhuma'}
 
 REGRAS:
 1. Organize o plano conforme o período. Para uma aula, detalhe a sequência da aula. Para semana ou mês, organize encontros. Para bimestre, semestre ou ano, organize unidades e progressão, evitando repetir uma mesma aula.
 2. Inclua itens essenciais: competências gerais, competências específicas, habilidades, objetivos, conteúdos, conhecimentos prévios, metodologia, sequência, recursos, avaliação diagnóstica/formativa/somativa, critérios, acessibilidade, recuperação, atividade complementar e referências.
-3. Relacione apenas habilidades da BNCC pertinentes à etapa, ano/série, disciplina e conteúdos. Use códigos oficiais somente quando os reconhecer com segurança. Se não houver segurança, escreva o código como "VALIDAR" e descreva o alinhamento a conferir; jamais invente código.
-4. No Ensino Médio, considere a organização por áreas e o marco atualizado pela Lei nº 14.945/2024 e Resolução CNE/CEB nº 2/2024. Para Computação, considere o complemento à BNCC da Resolução CNE/CEB nº 1/2022 quando pertinente.
-5. Escreva em português do Brasil, de forma objetiva, sem texto burocrático desnecessário.
-6. Retorne estritamente o JSON solicitado, sem markdown.`;
+3. Selecione somente competências gerais e específicas diretamente desenvolvidas pelo tema, conteúdos, objetivos, metodologia e avaliação deste plano. Não liste competências genéricas apenas para preencher o documento. Cada competência escolhida deve poder ser observada em pelo menos uma atividade ou evidência de aprendizagem.
+4. Relacione apenas habilidades da BNCC pertinentes à etapa, ano/série, área do conhecimento, disciplina e conteúdos. Use códigos oficiais somente quando os reconhecer com segurança. Se não houver segurança, escreva o código como "VALIDAR" e descreva o alinhamento a conferir; jamais invente código.
+5. Respeite obrigatoriamente as metodologias marcadas pelo professor e priorize os recursos didáticos que ele declarou disponíveis.
+6. No Ensino Médio, considere a organização por áreas e o marco atualizado pela Lei nº 14.945/2024 e Resolução CNE/CEB nº 2/2024. Para Computação, considere o complemento à BNCC da Resolução CNE/CEB nº 1/2022 quando pertinente.
+7. Escreva em português do Brasil, de forma objetiva, sem texto burocrático desnecessário.
+8. Retorne estritamente o JSON solicitado, sem markdown.`;
                 };
 
                 const generateLessonPlan = async () => {
@@ -3851,6 +3985,60 @@ REGRAS:
                     }catch(e){ console.error(e); showToast(e.message||'Não foi possível gerar o plano.','error'); }
                     finally{ isGeneratingLessonPlan.value=false; }
                 };
+
+                const bnccResultKey = (item,index=0) => `${item?.type||bnccSearchType.value}|${item?.code||''}|${item?.title||''}|${item?.description||''}|${index}`;
+                const bnccSearchSchema = {type:'OBJECT',properties:{results:{type:'ARRAY',items:{type:'OBJECT',properties:{type:{type:'STRING'},code:{type:'STRING'},title:{type:'STRING'},description:{type:'STRING'}},required:['type','code','title','description']}}},required:['results']};
+                const searchBnccCatalog = async () => {
+                    bnccSearchPerformed.value=true; bnccSearchSelected.value=[];
+                    const query=String(bnccSearchQuery.value||'').trim().toLowerCase();
+                    if(bnccSearchType.value==='general'){
+                        bnccSearchResults.value=bnccGeneralCompetenciesCatalog.filter(item=>!query || `${item.code} ${item.title} ${item.description}`.toLowerCase().includes(query));
+                        return;
+                    }
+                    if(!geminiKey.value) return showToast('Informe a chave da API Gemini para pesquisar competências específicas e habilidades.','warning');
+                    if(!validateLessonPlanBasics()) return;
+                    isSearchingBncc.value=true; showToast('Pesquisando alinhamentos da BNCC...','loading');
+                    try{
+                        const f=lessonPlanForm.value;
+                        const requestedType=bnccSearchType.value==='skill'?'habilidades com código oficial':'competências específicas da área ou componente';
+                        const prompt=`Atue como pesquisador curricular da BNCC brasileira. Retorne até 12 ${requestedType} que tenham relação direta com o contexto abaixo.
+Etapa: ${f.educationStage==='medio'?'Ensino Médio':'Ensino Fundamental'}
+Ano/Série: ${f.grade}
+Área do conhecimento: ${f.knowledgeArea||inferLessonPlanKnowledgeArea(f.subject,f.educationStage)}
+Componente: ${f.subject}
+Tema e conteúdos: ${f.contents}
+Pesquisa do professor: ${bnccSearchQuery.value||f.contents}
+
+Regras: use somente códigos e descrições que reconhecer com segurança; não invente códigos; descarte itens apenas vagamente relacionados; escreva type como "${bnccSearchType.value}"; em competências sem código oficial específico, deixe code vazio e use title claro; retorne estritamente o JSON solicitado.`;
+                        const result=await fetchGemini(prompt,bnccSearchSchema);
+                        bnccSearchResults.value=(Array.isArray(result?.results)?result.results:[]).map(item=>({
+                            type:bnccSearchType.value, code:String(item?.code||'').trim().toUpperCase(), title:String(item?.title||'').trim(), description:String(item?.description||'').trim()
+                        })).filter(item=>item.description && (bnccSearchType.value!=='skill' || item.code));
+                        if(!bnccSearchResults.value.length) showToast('Nenhum item seguro foi encontrado para essa busca.','warning');
+                        else showToast(`${bnccSearchResults.value.length} item(ns) encontrado(s).`,'success');
+                    }catch(e){ console.error(e); bnccSearchResults.value=[]; showToast(e.message||'Não foi possível pesquisar na BNCC.','error'); }
+                    finally{ isSearchingBncc.value=false; }
+                };
+                const applyBnccSelections = () => {
+                    if(!lessonPlanForm.value.generated) lessonPlanForm.value.generated=makeEmptyGeneratedLessonPlan();
+                    const selected=new Set(bnccSearchSelected.value);
+                    const items=bnccSearchResults.value.filter((item,idx)=>selected.has(bnccResultKey(item,idx)));
+                    if(!items.length) return showToast('Marque ao menos um item.','warning');
+                    const g=lessonPlanForm.value.generated;
+                    items.forEach(item=>{
+                        if(item.type==='general'){
+                            const value=`${item.code} — ${item.title}: ${item.description}`;
+                            if(!g.generalCompetencies.some(v=>String(v).includes(item.code))) g.generalCompetencies.push(value);
+                        }else if(item.type==='specific'){
+                            const value=[item.code,item.title,item.description].filter(Boolean).join(item.code?' — ':': ');
+                            if(!g.specificCompetencies.some(v=>String(v).toLowerCase()===value.toLowerCase())) g.specificCompetencies.push(value);
+                        }else{
+                            if(!g.bnccSkills.some(s=>String(s.code).toUpperCase()===item.code.toUpperCase())) g.bnccSkills.push({code:item.code,description:item.description});
+                        }
+                    });
+                    bnccSearchSelected.value=[]; showToast('Itens adicionados ao plano.','success');
+                };
+                const isLessonPlanSectionVisible = (plan,key) => plan?.sectionVisibility?.[key]!==false;
 
                 const sectionSchemas = {
                     objectives:{type:'ARRAY',items:{type:'STRING'}},
@@ -3907,25 +4095,28 @@ REGRAS:
                     const normalizedPlan=normalizeLessonPlanRecord(plan); const g=normalizeGeneratedLessonPlan(normalizedPlan.generated||{}); const className=normalizedPlan.className||resolveLessonPlanClassName(normalizedPlan);
                     plan={...plan,...normalizedPlan,generated:g};
                     const content=[];
-                    const headerCols=[];
                     const pdfLogo=isValidLogoDataUrl(plan.logo)?plan.logo:(isValidLogoDataUrl(settings.value.logo)?settings.value.logo:null);
-                    if(pdfLogo) headerCols.push({image:pdfLogo,width:60,height:60,fit:[60,60],margin:[0,0,12,0]});
-                    headerCols.push({stack:[{text:plan.institution||settings.value.schoolName||'INSTITUIÇÃO',fontSize:15,bold:true,color:'#0f766e'},{text:lessonPlanPeriodLabel(plan.periodType)==='Aula'?'PLANO DE AULA':`PLANEJAMENTO — ${lessonPlanPeriodLabel(plan.periodType).toUpperCase()}`,fontSize:11,bold:true,margin:[0,4,0,0]}],width:'*'});
-                    content.push({columns:headerCols,margin:[0,0,0,12]});
+                    const headerStack=[];
+                    if(pdfLogo) headerStack.push({image:pdfLogo,width:68,height:68,fit:[68,68],alignment:'center',margin:[0,0,0,6]});
+                    headerStack.push({text:plan.institution||settings.value.schoolName||'INSTITUIÇÃO',fontSize:15,bold:true,color:'#0f766e',alignment:'center'});
+                    headerStack.push({text:g.title||'Plano de aula',fontSize:14,bold:true,alignment:'center',margin:[0,5,0,0]});
+                    headerStack.push({text:lessonPlanPeriodLabel(plan.periodType)==='Aula'?'PLANO DE AULA':`PLANEJAMENTO — ${lessonPlanPeriodLabel(plan.periodType).toUpperCase()}`,fontSize:10,bold:true,color:'#4b5563',alignment:'center',margin:[0,3,0,0]});
+                    content.push({stack:headerStack,margin:[0,0,0,14]});
                     content.push({table:{widths:['auto','*','auto','*'],body:[
                         [{text:'Professor(a)',bold:true,fillColor:'#f0fdfa'},plan.teacherName||settings.value.teacherName||'',{text:'Turma',bold:true,fillColor:'#f0fdfa'},className],
                         [{text:'Etapa',bold:true,fillColor:'#f0fdfa'},plan.educationStage==='medio'?'Ensino Médio':'Ensino Fundamental',{text:'Ano/Série',bold:true,fillColor:'#f0fdfa'},plan.grade||''],
-                        [{text:'Componente',bold:true,fillColor:'#f0fdfa'},plan.subject||'',{text:'Período',bold:true,fillColor:'#f0fdfa'},`${formatLessonPlanDate(plan.startDate)} a ${formatLessonPlanDate(plan.endDate)}`],
-                        [{text:'Quantidade de aulas',bold:true,fillColor:'#f0fdfa'},plan.numberOfLessons||'A definir',{text:'Duração por aula',bold:true,fillColor:'#f0fdfa'},plan.duration||'A definir']
+                        [{text:'Área do conhecimento',bold:true,fillColor:'#f0fdfa'},plan.knowledgeArea||inferLessonPlanKnowledgeArea(plan.subject,plan.educationStage)||'—',{text:'Componente',bold:true,fillColor:'#f0fdfa'},plan.subject||''],
+                        [{text:'Período',bold:true,fillColor:'#f0fdfa'},`${formatLessonPlanDate(plan.startDate)} a ${formatLessonPlanDate(plan.endDate)}`,{text:'Aulas / duração',bold:true,fillColor:'#f0fdfa'},`${plan.numberOfLessons||'A definir'} · ${plan.duration||'A definir'}`]
                     ]},layout:'lightHorizontalLines',margin:[0,0,0,12]});
-                    const section=(title,body)=>{ content.push({text:title,fontSize:11,bold:true,color:'#0f766e',margin:[0,10,0,5]}); if(Array.isArray(body)) content.push(...(body.length?body:[{text:'—',fontSize:9,color:'#6b7280'}])); else content.push({text:String(body||'—'),fontSize:9,lineHeight:1.25}); };
-                    section('Título',g.title); section('Tema',g.theme); section('Síntese',g.summary); section('Competências gerais',makePdfList(g.generalCompetencies)); section('Competências específicas',makePdfList(g.specificCompetencies));
-                    section('Habilidades da BNCC',g.bnccSkills.length?[{table:{widths:[70,'*'],body:[[{text:'Código',bold:true,fillColor:'#f0fdfa'},{text:'Descrição',bold:true,fillColor:'#f0fdfa'}],...g.bnccSkills.map(s=>[s.code,s.description])]},layout:'lightHorizontalLines'}]:[{text:'Nenhuma habilidade informada.',italics:true,color:'#6b7280'}]);
-                    section('Objetivos de aprendizagem',makePdfList(g.objectives)); section('Conteúdos',makePdfList(g.organizedContents)); section('Conhecimentos prévios',g.priorKnowledge||plan.priorKnowledge); section('Metodologia',g.methodology);
-                    section('Sequência de aulas',g.lessonSequence.length?g.lessonSequence.flatMap((s,i)=>[{text:`${i+1}. ${s.title}${s.duration?` — ${s.duration}`:''}`,bold:true,fontSize:9,margin:[0,3,0,2]},{text:s.activities,fontSize:9},{text:s.assessment?`Avaliação: ${s.assessment}`:'',fontSize:8,italics:true,color:'#4b5563',margin:[0,1,0,4]}]):[{text:'—'}]);
-                    section('Recursos didáticos',makePdfList(g.resources));
-                    section('Avaliação',[{text:`Diagnóstica: ${g.assessment.diagnostic||'—'}`,fontSize:9,margin:[0,1,0,3]},{text:`Formativa: ${g.assessment.formative||'—'}`,fontSize:9,margin:[0,1,0,3]},{text:`Somativa: ${g.assessment.summative||'—'}`,fontSize:9,margin:[0,1,0,3]},{text:'Critérios e evidências',bold:true,fontSize:9,margin:[0,3,0,2]},...makePdfList(g.assessment.criteria)]);
-                    section('Adaptações e acessibilidade',makePdfList(g.accessibility)); section('Recuperação e retomada',makePdfList(g.recovery)); section('Atividade complementar',g.homework); section('Referências',makePdfList(g.references)); section('Observações',g.notes);
+                    const section=(key,title,body)=>{ if(!isLessonPlanSectionVisible(plan,key)) return; content.push({text:title,fontSize:11,bold:true,color:'#0f766e',margin:[0,10,0,5]}); if(Array.isArray(body)) content.push(...(body.length?body:[{text:'—',fontSize:9,color:'#6b7280'}])); else content.push({text:String(body||'—'),fontSize:9,lineHeight:1.25}); };
+                    if(isLessonPlanSectionVisible(plan,'overview')){ section('overview','Tema',g.theme); content.push({text:'Síntese',fontSize:11,bold:true,color:'#0f766e',margin:[0,10,0,5]},{text:String(g.summary||'—'),fontSize:9,lineHeight:1.25}); }
+                    section('generalCompetencies','Competências gerais',makePdfList(g.generalCompetencies)); section('specificCompetencies','Competências específicas',makePdfList(g.specificCompetencies));
+                    section('bnccSkills','Habilidades da BNCC',g.bnccSkills.length?[{table:{widths:[70,'*'],body:[[{text:'Código',bold:true,fillColor:'#f0fdfa'},{text:'Descrição',bold:true,fillColor:'#f0fdfa'}],...g.bnccSkills.map(s=>[s.code,s.description])]},layout:'lightHorizontalLines'}]:[{text:'Nenhuma habilidade informada.',italics:true,color:'#6b7280'}]);
+                    section('objectives','Objetivos de aprendizagem',makePdfList(g.objectives)); section('organizedContents','Conteúdos',makePdfList(g.organizedContents)); section('priorKnowledge','Conhecimentos prévios',g.priorKnowledge||plan.priorKnowledge); section('methodology','Metodologia',g.methodology);
+                    section('lessonSequence','Sequência de aulas',g.lessonSequence.length?g.lessonSequence.flatMap((s,i)=>[{text:`${i+1}. ${s.title}${s.duration?` — ${s.duration}`:''}`,bold:true,fontSize:9,margin:[0,3,0,2]},{text:s.activities,fontSize:9},{text:s.assessment?`Avaliação: ${s.assessment}`:'',fontSize:8,italics:true,color:'#4b5563',margin:[0,1,0,4]}]):[{text:'—'}]);
+                    section('resources','Recursos didáticos',makePdfList(g.resources));
+                    section('assessment','Avaliação',[{text:`Diagnóstica: ${g.assessment.diagnostic||'—'}`,fontSize:9,margin:[0,1,0,3]},{text:`Formativa: ${g.assessment.formative||'—'}`,fontSize:9,margin:[0,1,0,3]},{text:`Somativa: ${g.assessment.summative||'—'}`,fontSize:9,margin:[0,1,0,3]},{text:'Critérios e evidências',bold:true,fontSize:9,margin:[0,3,0,2]},...makePdfList(g.assessment.criteria)]);
+                    section('accessibility','Adaptações e acessibilidade',makePdfList(g.accessibility)); section('recovery','Recuperação e retomada',makePdfList(g.recovery)); section('homework','Atividade complementar',g.homework); section('references','Referências',makePdfList(g.references)); section('notes','Observações',g.notes);
                     content.push({text:g.curricularReference||lessonPlanCurricularReference,fontSize:7,color:'#6b7280',italics:true,margin:[0,14,0,0]});
                     return {pageSize:'A4',pageMargins:[38,38,38,42],content,footer:(page,count)=>({columns:[{text:`Gerado em ${new Date().toLocaleDateString('pt-BR')}`,fontSize:7,color:'#9ca3af'},{text:`Página ${page} de ${count}`,alignment:'right',fontSize:7,color:'#9ca3af'}],margin:[38,10,38,0]}),styles:{},defaultStyle:{font:'Roboto',fontSize:9}};
                 };
@@ -7742,8 +7933,11 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                     projectionContainer, projectionIsFullscreen, projectionSelectedCount, projectedQuestion, projectionEligibleFilteredQuestions, areAllFilteredProjectionSelected, projectionTypeLabel,
                     
                     // Planos de aula
-                    lessonPlanScreen, lessonPlanSearch, lessonPlanAdvancedOpen, isGeneratingLessonPlan, regeneratingLessonPlanSection,
-                    lessonPlanPeriodOptions, lessonPlanForm, filteredLessonPlans, lessonPlanPeriodLabel, applyLessonPlanPeriod,
+                    lessonPlanScreen, lessonPlanSearch, lessonPlanAdvancedOpen, lessonPlanSectionsOpen, isGeneratingLessonPlan, regeneratingLessonPlanSection,
+                    lessonPlanPeriodOptions, lessonPlanMethodologyOptions, lessonPlanResourceOptions, lessonPlanSectionOptions, lessonPlanKnowledgeAreaOptions,
+                    lessonPlanForm, filteredLessonPlans, lessonPlanPeriodLabel, applyLessonPlanPeriod, syncLessonPlanKnowledgeArea,
+                    bnccSearchOpen, bnccSearchType, bnccSearchQuery, bnccSearchResults, bnccSearchSelected, bnccSearchPerformed, isSearchingBncc,
+                    bnccResultKey, searchBnccCatalog, applyBnccSelections,
                     openNewLessonPlan, closeLessonPlanEditor, editLessonPlan, duplicateLessonPlan, deleteLessonPlan,
                     generateLessonPlan, regenerateLessonPlanSection, saveLessonPlan, arrayToLines, setGeneratedArray, setAssessmentCriteria,
                     printCurrentLessonPlan, printStoredLessonPlan,
