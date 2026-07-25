@@ -3214,7 +3214,11 @@ Texto original do professor: "${textToImprove}"`;
                 const associationMeaningText = (option) => String(
                     option?.match ?? option?.definition ?? option?.definicao ?? option?.['definição'] ??
                     option?.meaning ?? option?.significado ?? option?.description ?? option?.descricao ?? option?.['descrição'] ??
-                    option?.correspondencia ?? option?.['correspondência'] ?? option?.corresp ?? option?.answer ?? option?.resposta ?? ''
+                    option?.correspondencia ?? option?.['correspondência'] ?? option?.corresp ??
+                    option?.association ?? option?.associacao ?? option?.['associação'] ??
+                    option?.function ?? option?.funcao ?? option?.['função'] ??
+                    option?.explanation ?? option?.explicacao ?? option?.['explicação'] ??
+                    option?.answer ?? option?.resposta ?? ''
                 ).trim();
 
                 const normalizeAssociationOptions = (options) => (Array.isArray(options) ? options : []).map(option => ({
@@ -3222,6 +3226,41 @@ Texto original do professor: "${textToImprove}"`;
                     text: associationConceptText(option),
                     match: associationMeaningText(option)
                 }));
+
+                // Aceita os formatos mais comuns retornados por modelos de IA:
+                // options/pares/pairs com objetos ou duas listas paralelas de conceitos e significados.
+                const extractAssociationOptions = (question, fallbackOptions = []) => {
+                    const directCandidates = [
+                        question?.pairs,
+                        question?.pares,
+                        question?.associations,
+                        question?.associacoes,
+                        question?.['associações'],
+                        question?.correspondences,
+                        question?.correspondencias,
+                        question?.['correspondências'],
+                        fallbackOptions
+                    ];
+
+                    for (const candidate of directCandidates) {
+                        if (Array.isArray(candidate) && candidate.length) return candidate;
+                        if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+                            const values = Object.values(candidate);
+                            if (values.length) return values;
+                        }
+                    }
+
+                    const concepts = question?.concepts || question?.conceitos || question?.terms || question?.termos;
+                    const meanings = question?.meanings || question?.significados || question?.definitions || question?.definicoes || question?.['definições'];
+                    if (Array.isArray(concepts) && Array.isArray(meanings)) {
+                        return concepts.slice(0, Math.max(concepts.length, meanings.length)).map((concept, index) => ({
+                            text: typeof concept === 'object' ? associationConceptText(concept) : String(concept || ''),
+                            match: typeof meanings[index] === 'object' ? associationMeaningText(meanings[index]) || associationConceptText(meanings[index]) : String(meanings[index] || '')
+                        }));
+                    }
+
+                    return [];
+                };
 
                 const validateAssociationPairs = (options, expectedCount = ASSOCIATION_PAIR_COUNT) => {
                     const pairs = normalizeAssociationOptions(options).map(option => ({
@@ -5732,14 +5771,14 @@ RETORNO: Apenas o JSON estrito. Não use blocos \`\`\`json.`;
                     try{
                         let promptText = `Você é um professor especialista. Gere uma prova de ${aiGenConfig.value.subject} sobre o tópico "${aiGenConfig.value.topic}" (Nível: ${aiGenConfig.value.difficulty}, Estilo: ${aiGenConfig.value.style}).
 
-Gere exatamente ${t} questões: ${aiGenConfig.value.counts.mc} "mc" (5 opções), ${aiGenConfig.value.counts.ce} "ce" (Certo=0/Errado=1), ${aiGenConfig.value.counts.vf} "vf" (4 itens com isTrue), ${aiGenConfig.value.counts.assoc} "assoc" (EXATAMENTE 5 pares text/match).
+Gere exatamente ${t} questões: ${aiGenConfig.value.counts.mc} "mc" (5 opções), ${aiGenConfig.value.counts.ce} "ce" (Certo=0/Errado=1), ${aiGenConfig.value.counts.vf} "vf" (4 itens com isTrue), ${aiGenConfig.value.counts.assoc} "assoc" (EXATAMENTE 5 pares concept/meaning no array pairs).
 
 O retorno deve ser ESTRITAMENTE um JSON. Siga o formato abaixo, MAS CRIE CONTEÚDO REAL E PROFUNDO SOBRE: ${aiGenConfig.value.topic}.
 
 REGRAS OBRIGATÓRIAS PARA CADA QUESTÃO "assoc":
-1. O array "options" deve conter exatamente 5 objetos.
-2. Em cada objeto, "text" deve ser um conceito ou termo curto e específico.
-3. Em cada objeto, "match" deve ser a definição, função, característica ou significado correto daquele mesmo conceito.
+1. Use o array "pairs", contendo exatamente 5 objetos.
+2. Em cada objeto, "concept" deve ser um conceito ou termo curto e específico.
+3. Em cada objeto, "meaning" deve ser a definição, função, característica ou significado correto daquele mesmo conceito.
 4. Mantenha o conceito e seu significado correto juntos no mesmo objeto. NÃO embaralhe os pares no JSON; o aplicativo fará o embaralhamento apenas na apresentação ao aluno.
 5. Use cinco conceitos distintos e cinco significados distintos, sem textos genéricos, lacunas ou repetições.
 6. Antes de responder, revise internamente se cada significado corresponde factual e exclusivamente ao conceito do mesmo objeto.
@@ -5771,12 +5810,12 @@ EXEMPLO DE COMO PREENCHER (Se o tema fosse Biologia Celular):
     {
       "type": "assoc",
       "text": "Associe as organelas às suas funções:",
-      "options": [
-        {"text": "Cloroplasto", "match": "Realiza a fotossíntese em plantas."},
-        {"text": "Complexo de Golgi", "match": "Modifica, empacota e direciona proteínas e lipídios para secreção ou uso celular."},
-        {"text": "Lisossomo", "match": "Realiza a digestão intracelular de partículas e estruturas celulares."},
-        {"text": "Retículo Endoplasmático Liso", "match": "Participa da síntese de lipídios e da desintoxicação celular."},
-        {"text": "Ribossomo", "match": "Realiza a síntese de proteínas por meio da tradução do RNA mensageiro."}
+      "pairs": [
+        {"concept": "Cloroplasto", "meaning": "Realiza a fotossíntese em plantas."},
+        {"concept": "Complexo de Golgi", "meaning": "Modifica, empacota e direciona proteínas e lipídios para secreção ou uso celular."},
+        {"concept": "Lisossomo", "meaning": "Realiza a digestão intracelular de partículas e estruturas celulares."},
+        {"concept": "Retículo Endoplasmático Liso", "meaning": "Participa da síntese de lipídios e da desintoxicação celular."},
+        {"concept": "Ribossomo", "meaning": "Realiza a síntese de proteínas por meio da tradução do RNA mensageiro."}
       ]
     }
   ]
@@ -5802,7 +5841,19 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                                         text: { type: "STRING" },
                                                         isTrue: { type: "BOOLEAN" },
                                                         match: { type: "STRING" }
-                                                    }
+                                                    },
+                                                    required: ["text"]
+                                                }
+                                            },
+                                            pairs: {
+                                                type: "ARRAY",
+                                                items: {
+                                                    type: "OBJECT",
+                                                    properties: {
+                                                        concept: { type: "STRING" },
+                                                        meaning: { type: "STRING" }
+                                                    },
+                                                    required: ["concept", "meaning"]
                                                 }
                                             },
                                             correct: { type: "INTEGER" }
@@ -5814,6 +5865,56 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                             required: ["questions"]
                         };
 
+                        const repairAssociationQuestionAI = async (rawQuestion, questionNumber) => {
+                            const rawText = String(rawQuestion?.text || rawQuestion?.enunciado || rawQuestion?.pergunta || '').trim();
+                            const originalPairs = extractAssociationOptions(rawQuestion, rawQuestion?.options || rawQuestion?.opcoes || rawQuestion?.itens || []);
+                            const repairPrompt = `Gere novamente APENAS uma questão de associação sobre ${aiGenConfig.value.subject}, tópico "${aiGenConfig.value.topic}", nível ${aiGenConfig.value.difficulty}.
+
+A resposta anterior da questão ${questionNumber} estava incompleta ou em formato inválido.
+Enunciado anterior: ${rawText || '(não informado)'}
+Dados anteriores, que podem ser aproveitados somente se estiverem corretos: ${JSON.stringify(originalPairs)}
+
+Retorne exatamente:
+- um enunciado claro no campo "text";
+- um array "pairs" com EXATAMENTE 5 objetos;
+- cada objeto deve conter obrigatoriamente "concept" e "meaning";
+- cada "meaning" deve explicar corretamente o "concept" do mesmo objeto;
+- não repita conceitos nem significados;
+- não use textos genéricos, marcadores ou campos vazios;
+- não embaralhe os pares.`;
+
+                            const repairSchema = {
+                                type: "OBJECT",
+                                properties: {
+                                    text: { type: "STRING" },
+                                    pairs: {
+                                        type: "ARRAY",
+                                        items: {
+                                            type: "OBJECT",
+                                            properties: {
+                                                concept: { type: "STRING" },
+                                                meaning: { type: "STRING" }
+                                            },
+                                            required: ["concept", "meaning"]
+                                        }
+                                    }
+                                },
+                                required: ["text", "pairs"]
+                            };
+
+                            const repaired = await fetchGemini(repairPrompt, repairSchema);
+                            const repairedPairs = extractAssociationOptions(repaired, repaired?.pairs || []);
+                            const repairedCheck = validateAssociationPairs(repairedPairs);
+                            if (!repairedCheck.valid) {
+                                const receivedCount = normalizeAssociationOptions(repairedPairs).length;
+                                throw new Error(`A IA não conseguiu completar a questão de associação ${questionNumber}. Foram reconhecidos ${receivedCount} par(es). ${repairedCheck.message}`);
+                            }
+                            return {
+                                text: String(repaired?.text || rawText || 'Associe corretamente os conceitos aos seus significados:').trim(),
+                                options: repairedCheck.pairs
+                            };
+                        };
+
                         let aiResult = await fetchGemini(promptText, schema);
                         
                         let gq = aiResult.questions || aiResult.items || aiResult;
@@ -5823,7 +5924,7 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                         }
                         if(!Array.isArray(gq) || gq.length === 0) throw new Error("A IA não gerou conteúdo. Tente novamente.");
                         
-                        gq = gq.map(q => {
+                        gq = await Promise.all(gq.map(async (q, questionIndex) => {
                             q.subject = aiGenConfig.value.subject;
                             q.topic = aiGenConfig.value.topic;
                             q.text = q.text || q.enunciado || q.pergunta || q.question || "Enunciado não gerado";
@@ -5884,15 +5985,22 @@ REGRA DE OURO: NUNCA gere arrays de "options" vazios. Preencha TUDO com conhecim
                                 while (q.options.length < 4) q.options.push({text: `Afirmativa automática complementar`, isTrue: false});
                                 
                             } else if (q.type === 'assoc') {
-                                const associationCheck = validateAssociationPairs(opts);
+                                const associationRawOptions = extractAssociationOptions(q, opts);
+                                let associationCheck = validateAssociationPairs(associationRawOptions);
+
+                                // O retorno combinado pode omitir campos opcionais. Nesse caso,
+                                // refaz somente esta questão com um esquema dedicado e obrigatório.
                                 if (!associationCheck.valid) {
-                                    throw new Error(`A IA retornou uma questão de associação inválida: ${associationCheck.message}`);
+                                    const repairedAssociation = await repairAssociationQuestionAI(q, questionIndex + 1);
+                                    q.text = repairedAssociation.text;
+                                    q.options = repairedAssociation.options;
+                                } else {
+                                    q.options = associationCheck.pairs;
                                 }
-                                q.options = associationCheck.pairs;
                             }
                             
                             return q;
-                        });
+                        }));
 
                         const expectedAssociationQuestions = Number(aiGenConfig.value.counts.assoc || 0);
                         const generatedAssociationQuestions = gq.filter(question => question.type === 'assoc').length;
