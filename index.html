@@ -211,7 +211,8 @@
                     <button v-if="canInstall" @click="installPWA" class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-download"></i></button>
                     <button v-if="!isLicensed" @click="showLicenseModal=true" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center animate-pulse"><i class="fa-solid fa-key"></i></button>
                     <button @click="triggerImport" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-cloud-arrow-up"></i></button><input type="file" id="importFile" class="hidden" accept=".json" @change="importBackup">
-                    <button @click="backupData" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-cloud-arrow-down"></i></button>
+                    <button @click="backupData" class="w-8 h-8 rounded-full hover:bg-gray-100 hover:text-indigo-600 flex items-center justify-center" title="Baixar backup neste dispositivo"><i class="fa-solid fa-cloud-arrow-down"></i></button>
+                    <button @click="backupDriveWithAuthorization" :disabled="driveConnectionBusy || driveBackupInProgress || locationProtocolIsFile" class="w-8 h-8 rounded-full flex items-center justify-center transition disabled:opacity-40" :class="driveBackupDue ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 animate-pulse' : 'hover:bg-blue-50 text-blue-600'" :title="driveBackupDue ? 'Backup diário pendente no Google Drive' : 'Fazer backup no Google Drive'"><i :class="driveConnectionBusy || driveBackupInProgress ? 'fa-solid fa-circle-notch fa-spin' : 'fa-brands fa-google-drive'"></i></button>
                 </div>
             </div>
         </header>
@@ -226,47 +227,50 @@
                     </div>
                 </div>
 
-                <!-- BACKUP AUTOMÁTICO NO GOOGLE DRIVE -->
+                <!-- BACKUP DIÁRIO NO GOOGLE DRIVE -->
                 <section class="bg-white p-5 rounded-2xl shadow-sm border border-blue-100 space-y-4">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-none border border-blue-100"><i class="fa-brands fa-google-drive text-xl"></i></div>
                             <div class="min-w-0">
-                                <h3 class="font-black text-gray-800">Backup no Google Drive</h3>
-                                <p class="text-[11px] text-gray-500 mt-0.5">Salva em <strong>Meu Drive › Nexus Backups</strong> da conta autorizada.</p>
+                                <h3 class="font-black text-gray-800">Backup diário no Google Drive</h3>
+                                <p class="text-[11px] text-gray-500 mt-0.5">Salva em <strong>Meu Drive › Nexus Backups</strong> da conta do professor.</p>
                             </div>
                         </div>
-                        <span class="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wide flex-none" :class="driveConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'">{{ driveConnected ? 'Conectado' : 'Desconectado' }}</span>
+                        <span class="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wide flex-none" :class="driveConnected ? 'bg-emerald-100 text-emerald-700' : (settings.driveAccountEmail ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500')">{{ driveConnected ? 'Sessão autorizada' : (settings.driveAccountEmail ? 'Conta lembrada' : 'Não configurado') }}</span>
                     </div>
 
                     <div v-if="settings.driveAccountEmail" class="rounded-xl bg-blue-50/60 border border-blue-100 p-3 text-xs text-blue-900">
                         <div class="font-black truncate"><i class="fa-solid fa-user-shield mr-1.5"></i>{{ settings.driveAccountEmail }}</div>
-                        <div class="text-[10px] text-blue-700 mt-1">O backup pertence a esta conta Google.</div>
+                        <div class="text-[10px] text-blue-700 mt-1">O arquivo pertence ao Drive desta conta, não ao Drive do desenvolvedor.</div>
+                    </div>
+
+                    <div v-if="settings.driveDailyReminder && driveBackupDue" class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-amber-900 flex items-start gap-3">
+                        <i class="fa-solid fa-bell mt-0.5 text-amber-600"></i>
+                        <div><div class="text-xs font-black">Backup de hoje ainda não realizado</div><div class="text-[10px] mt-1 text-amber-800">Toque no botão abaixo. O Google só solicitará uma autorização temporária quando ela for necessária.</div></div>
                     </div>
 
                     <div v-if="locationProtocolIsFile" class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[11px] font-bold text-amber-800">
                         <i class="fa-solid fa-triangle-exclamation mr-1"></i> O login do Google exige que o app seja aberto por HTTPS ou localhost; não funciona diretamente por file://.
                     </div>
 
-                    <button v-if="!driveConnected" @click="connectGoogleDrive" :disabled="driveConnectionBusy || locationProtocolIsFile" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold shadow-md flex items-center justify-center gap-2 transition">
-                        <i :class="driveConnectionBusy ? 'fa-solid fa-circle-notch fa-spin' : 'fa-brands fa-google'"></i>
-                        {{ driveConnectionBusy ? 'Conectando...' : (settings.driveAccountEmail ? 'Reconectar conta do professor' : 'Conectar conta do professor') }}
+                    <button @click="backupDriveWithAuthorization" :disabled="driveConnectionBusy || driveBackupInProgress || locationProtocolIsFile" class="w-full py-3.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed text-white font-black shadow-md flex items-center justify-center gap-2 transition" :class="driveBackupDue ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'">
+                        <i :class="driveConnectionBusy || driveBackupInProgress ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-cloud-arrow-up'"></i>
+                        {{ driveConnectionBusy ? 'Autorizando conta...' : (driveBackupInProgress ? 'Enviando backup...' : (driveBackupDue ? 'Fazer backup diário no Drive' : 'Fazer novo backup no Drive')) }}
                     </button>
 
-                    <template v-else>
-                        <label class="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 border cursor-pointer">
-                            <div><span class="block text-xs font-black text-gray-700">Backup automático</span><span class="block text-[10px] text-gray-500 mt-0.5">Verifica alterações a cada 10 minutos enquanto o app estiver aberto.</span></div>
-                            <input type="checkbox" v-model="settings.driveAutoBackup" @change="toggleDriveAutoBackup" class="w-5 h-5 accent-blue-600 flex-none">
-                        </label>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button @click="backupToGoogleDrive({manual:true})" :disabled="driveBackupInProgress" class="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 transition">
-                                <i :class="driveBackupInProgress ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-cloud-arrow-up'"></i> Backup agora
-                            </button>
-                            <a v-if="driveBackupWebViewLink" :href="driveBackupWebViewLink" target="_blank" rel="noopener noreferrer" class="py-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 font-bold text-xs flex items-center justify-center gap-2 transition"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir no Drive</a>
-                            <button v-else disabled class="py-3 rounded-xl bg-gray-50 text-gray-300 border font-bold text-xs"><i class="fa-solid fa-folder-open mr-1"></i> Abrir no Drive</button>
-                        </div>
-                        <button @click="disconnectGoogleDrive" class="w-full py-2 text-[10px] font-bold text-gray-500 hover:text-red-600 transition">Desconectar desta sessão</button>
-                    </template>
+                    <div class="grid grid-cols-2 gap-2">
+                        <a v-if="driveBackupWebViewLink" :href="driveBackupWebViewLink" target="_blank" rel="noopener noreferrer" class="py-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 font-bold text-xs flex items-center justify-center gap-2 transition"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir no Drive</a>
+                        <button v-else disabled class="py-3 rounded-xl bg-gray-50 text-gray-300 border font-bold text-xs"><i class="fa-solid fa-folder-open mr-1"></i> Abrir no Drive</button>
+                        <button @click="changeGoogleDriveAccount" :disabled="driveConnectionBusy || driveBackupInProgress || locationProtocolIsFile" class="py-3 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 border font-bold text-xs flex items-center justify-center gap-2 transition disabled:opacity-40"><i class="fa-solid fa-right-left"></i> {{ settings.driveAccountEmail ? 'Trocar conta' : 'Escolher conta' }}</button>
+                    </div>
+
+                    <label class="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 border cursor-pointer">
+                        <div><span class="block text-xs font-black text-gray-700">Lembrete diário</span><span class="block text-[10px] text-gray-500 mt-0.5">Avisa ao abrir ou voltar ao app quando o backup do dia estiver pendente.</span></div>
+                        <input type="checkbox" v-model="settings.driveDailyReminder" @change="toggleDriveDailyReminder" class="w-5 h-5 accent-blue-600 flex-none">
+                    </label>
+
+                    <button v-if="driveConnected" @click="disconnectGoogleDrive" class="w-full py-2 text-[10px] font-bold text-gray-500 hover:text-red-600 transition">Encerrar autorização desta sessão</button>
 
                     <div class="text-[10px] text-gray-500 flex items-start gap-2">
                         <i class="fa-solid fa-clock-rotate-left mt-0.5 text-blue-500"></i>
@@ -2335,7 +2339,7 @@
                 const questions = ref([]);
                 const exams = ref([]);
                 const results = ref([]);
-                const settings = ref({schoolName:'',teacherName:'',logo:null, activeModel: null, hideAppLogo: false, driveAutoBackup: false, driveAccountEmail: '', driveFolderId: '', driveFileId: '', driveLastBackupAt: ''});
+                const settings = ref({schoolName:'',teacherName:'',logo:null, activeModel: null, hideAppLogo: false, driveAutoBackup: false, driveDailyReminder: true, driveAccountEmail: '', driveFolderId: '', driveFileId: '', driveLastBackupAt: ''});
                 const extraPoints = ref([]);
                 const lessonPlans = ref([]);
                 const showDangerZone = ref(false);
@@ -2346,8 +2350,7 @@
                 const GOOGLE_ACCOUNT_SCOPE = 'https://www.googleapis.com/auth/userinfo.email';
                 const GOOGLE_DRIVE_SCOPES = `${GOOGLE_DRIVE_SCOPE} ${GOOGLE_ACCOUNT_SCOPE}`;
                 const DRIVE_FOLDER_NAME = 'Nexus Backups';
-                const DRIVE_BACKUP_FILE_NAME = 'Nexus_Backup_Automatico.json';
-                const DRIVE_AUTO_BACKUP_INTERVAL_MS = 10 * 60 * 1000;
+                const DRIVE_BACKUP_FILE_NAME = 'Nexus_Backup_Diario.json';
                 const driveConnected = ref(false);
                 const driveConnectionBusy = ref(false);
                 const driveBackupInProgress = ref(false);
@@ -2356,8 +2359,8 @@
                 const locationProtocolIsFile = window.location.protocol === 'file:';
                 let driveAccessToken = '';
                 let driveAccessTokenExpiresAt = 0;
-                let driveAutoBackupTimer = null;
                 let lastDriveBackupFingerprint = '';
+                let lastDriveReminderDateInSession = '';
                 
 
                 // Planos de aula
@@ -5141,13 +5144,36 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                     return parsed.toLocaleDateString('pt-BR') + ' às ' + parsed.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
                 };
 
+                const getLocalDateKey = (value = new Date()) => {
+                    const date = value instanceof Date ? value : new Date(value);
+                    if (Number.isNaN(date.getTime())) return '';
+                    const pad = number => String(number).padStart(2, '0');
+                    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+                };
+
+                const driveBackupDue = computed(() => {
+                    if (!settings.value.driveLastBackupAt) return true;
+                    return getLocalDateKey(settings.value.driveLastBackupAt) !== getLocalDateKey();
+                });
+
                 const driveStatusText = computed(() => {
                     if (driveBackupInProgress.value) return 'Enviando o backup para o Google Drive...';
                     if (driveLastError.value) return driveLastError.value;
-                    if (settings.value.driveLastBackupAt) return `Último backup no Drive: ${formatDriveBackupDate(settings.value.driveLastBackupAt)}.`;
-                    if (settings.value.driveAccountEmail && !driveConnected.value) return 'Conta lembrada. Reconecte para continuar os backups automáticos nesta sessão.';
-                    return 'Ainda não foi realizado nenhum backup no Google Drive.';
+                    if (settings.value.driveLastBackupAt) {
+                        const prefix = driveBackupDue.value ? 'Backup diário pendente. ' : 'Backup de hoje concluído. ';
+                        return `${prefix}Último backup: ${formatDriveBackupDate(settings.value.driveLastBackupAt)}.`;
+                    }
+                    if (settings.value.driveAccountEmail) return 'Conta do professor lembrada. Toque em “Fazer backup diário” quando desejar salvar.';
+                    return 'Escolha a conta Google do professor no primeiro backup.';
                 });
+
+                const maybeShowDailyDriveReminder = () => {
+                    if (!settings.value.driveDailyReminder || !driveBackupDue.value) return;
+                    const today = getLocalDateKey();
+                    if (!today || lastDriveReminderDateInSession === today) return;
+                    lastDriveReminderDateInSession = today;
+                    showToast('Lembrete: o backup de hoje no Google Drive ainda está pendente.', 'warning');
+                };
 
                 const buildBackupPayload = async () => {
                     const [licenseConfig, c, s, q, e, r, sch, att, seatP, ep, ag, lp] = await Promise.all([
@@ -5179,8 +5205,7 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                     const valid = !!driveAccessToken && Date.now() < driveAccessTokenExpiresAt - 30000;
                     if (!valid && driveConnected.value) {
                         driveConnected.value = false;
-                        driveLastError.value = 'A autorização expirou. Reconecte a conta do professor para continuar.';
-                        stopDriveAutoBackupTimer();
+                        driveLastError.value = 'A autorização temporária expirou. Toque em “Fazer backup” para obter outra quando necessário.';
                     }
                     return valid;
                 };
@@ -5209,7 +5234,6 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                             driveConnected.value = false;
                             driveAccessToken = '';
                             driveAccessTokenExpiresAt = 0;
-                            stopDriveAutoBackupTimer();
                         }
                         const message = data?.error?.message || data?.error_description || `Erro do Google Drive (${response.status}).`;
                         const error = new Error(message);
@@ -5301,7 +5325,7 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                         method: 'POST', headers: {'Content-Type':'application/json'},
                         body: JSON.stringify({
                             name: DRIVE_BACKUP_FILE_NAME, mimeType: 'application/json', parents: [folderId],
-                            description: 'Backup automático do aplicativo Nexus - Gestão Docente', appProperties: {nexusBackup: 'automatic'}
+                            description: 'Backup diário do aplicativo Nexus - Gestão Docente', appProperties: {nexusBackup: 'daily'}
                         })
                     });
                     settings.value.driveFileId = metadata.id;
@@ -5336,6 +5360,7 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                         settings.value.driveLastBackupAt = new Date().toISOString();
                         driveBackupWebViewLink.value = uploaded?.webViewLink || `https://drive.google.com/file/d/${settings.value.driveFileId}/view`;
                         lastDriveBackupFingerprint = fingerprint;
+                        lastDriveReminderDateInSession = getLocalDateKey();
                         await saveSettings(true);
                         if (manual) showToast(`Backup salvo no Drive de ${settings.value.driveAccountEmail}.`, 'success');
                         return true;
@@ -5352,36 +5377,17 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                     }
                 };
 
-                function stopDriveAutoBackupTimer() {
-                    if (driveAutoBackupTimer) clearInterval(driveAutoBackupTimer);
-                    driveAutoBackupTimer = null;
-                }
-
-                function startDriveAutoBackupTimer() {
-                    stopDriveAutoBackupTimer();
-                    if (!settings.value.driveAutoBackup || !driveConnected.value) return;
-                    driveAutoBackupTimer = setInterval(() => backupToGoogleDrive({manual:false}), DRIVE_AUTO_BACKUP_INTERVAL_MS);
-                }
-
-                const toggleDriveAutoBackup = async () => {
-                    await saveSettings(true);
-                    if (settings.value.driveAutoBackup && driveConnected.value) {
-                        await backupToGoogleDrive({manual:true});
-                        startDriveAutoBackupTimer();
-                    } else {
-                        stopDriveAutoBackupTimer();
-                    }
-                };
-
-                const connectGoogleDrive = async () => {
+                const authorizeGoogleDrive = async ({backupAfterAuthorization = true, forceAccountSelection = false} = {}) => {
                     if (locationProtocolIsFile) return showToast('Publique o app em HTTPS ou use localhost para conectar ao Google.', 'warning');
+                    if (driveConnectionBusy.value || driveBackupInProgress.value) return false;
                     driveConnectionBusy.value = true;
                     driveLastError.value = '';
                     try {
                         await waitForGoogleIdentity();
-                        const client = window.google.accounts.oauth2.initTokenClient({
+                        const tokenClientConfig = {
                             client_id: GOOGLE_DRIVE_CLIENT_ID,
                             scope: GOOGLE_DRIVE_SCOPES,
+                            include_granted_scopes: true,
                             callback: async (response) => {
                                 try {
                                     if (!response || response.error || !response.access_token) throw new Error(response?.error_description || response?.error || 'Autorização cancelada.');
@@ -5398,14 +5404,18 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                                         lastDriveBackupFingerprint = '';
                                     }
                                     settings.value.driveAccountEmail = email;
-                                    settings.value.driveAutoBackup = true;
+                                    settings.value.driveAutoBackup = false;
+                                    if (typeof settings.value.driveDailyReminder !== 'boolean') settings.value.driveDailyReminder = true;
                                     await saveSettings(true);
-                                    await backupToGoogleDrive({manual:true});
-                                    startDriveAutoBackupTimer();
+                                    if (backupAfterAuthorization) {
+                                        await backupToGoogleDrive({manual:true});
+                                    } else {
+                                        showToast(`Conta do professor selecionada: ${email}.`, 'success');
+                                    }
                                 } catch (error) {
-                                    console.error('Erro ao conectar Google Drive:', error);
+                                    console.error('Erro ao autorizar Google Drive:', error);
                                     driveConnected.value = false;
-                                    driveLastError.value = error.message || 'Não foi possível conectar ao Google Drive.';
+                                    driveLastError.value = error.message || 'Não foi possível autorizar o Google Drive.';
                                     showToast(driveLastError.value, 'error');
                                 } finally {
                                     driveConnectionBusy.value = false;
@@ -5414,24 +5424,46 @@ Regras: use somente códigos e descrições que reconhecer com segurança; não 
                             error_callback: (error) => {
                                 console.error('Falha na janela OAuth:', error);
                                 driveConnectionBusy.value = false;
-                                driveLastError.value = 'A janela de login do Google foi fechada ou bloqueada.';
+                                driveLastError.value = 'A janela de autorização do Google foi fechada ou bloqueada.';
                             }
+                        };
+                        if (settings.value.driveAccountEmail && !forceAccountSelection) {
+                            tokenClientConfig.login_hint = settings.value.driveAccountEmail;
+                        }
+                        const client = window.google.accounts.oauth2.initTokenClient(tokenClientConfig);
+                        client.requestAccessToken({
+                            prompt: forceAccountSelection || !settings.value.driveAccountEmail ? 'select_account' : ''
                         });
-                        client.requestAccessToken({prompt: 'select_account'});
+                        return true;
                     } catch (error) {
                         driveConnectionBusy.value = false;
-                        driveLastError.value = error.message || 'Não foi possível iniciar o login do Google.';
+                        driveLastError.value = error.message || 'Não foi possível iniciar a autorização do Google.';
                         showToast(driveLastError.value, 'error');
+                        return false;
                     }
+                };
+
+                const backupDriveWithAuthorization = async () => {
+                    if (locationProtocolIsFile) return showToast('Publique o app em HTTPS ou use localhost para conectar ao Google.', 'warning');
+                    driveLastError.value = '';
+                    if (hasValidDriveToken()) return backupToGoogleDrive({manual:true});
+                    return authorizeGoogleDrive({backupAfterAuthorization:true, forceAccountSelection:false});
+                };
+
+                const connectGoogleDrive = () => authorizeGoogleDrive({backupAfterAuthorization:false, forceAccountSelection:false});
+                const changeGoogleDriveAccount = () => authorizeGoogleDrive({backupAfterAuthorization:false, forceAccountSelection:true});
+
+                const toggleDriveDailyReminder = async () => {
+                    settings.value.driveAutoBackup = false;
+                    await saveSettings(true);
+                    if (settings.value.driveDailyReminder) maybeShowDailyDriveReminder();
                 };
 
                 const disconnectGoogleDrive = () => {
                     driveAccessToken = '';
                     driveAccessTokenExpiresAt = 0;
                     driveConnected.value = false;
-                    driveBackupWebViewLink.value = '';
-                    driveLastError.value = 'Conta desconectada desta sessão. Os backups já salvos continuam no Drive do professor.';
-                    stopDriveAutoBackupTimer();
+                    driveLastError.value = 'Autorização temporária encerrada. O backup já salvo continua no Drive do professor.';
                 };
 
                 const importBackup = async (e) => {
@@ -8678,7 +8710,7 @@ Retorne exatamente:
                 };
 
                 const handleDriveVisibilityChange = () => {
-                    if (document.visibilityState === 'visible' && driveConnected.value && settings.value.driveAutoBackup) backupToGoogleDrive({manual:false});
+                    if (document.visibilityState === 'visible') maybeShowDailyDriveReminder();
                 };
 
                 onMounted(async () => {
@@ -8688,9 +8720,11 @@ Retorne exatamente:
                     try {
                         await initLicenseSystem();
                         await load();
-                        if (settings.value.driveAccountEmail && settings.value.driveAutoBackup) {
-                            driveLastError.value = 'Reconecte a conta do professor para retomar o backup automático nesta sessão.';
+                        if (settings.value.driveAutoBackup) {
+                            settings.value.driveAutoBackup = false;
+                            await saveSettings(true);
                         }
+                        maybeShowDailyDriveReminder();
                     } catch (error) {
                         console.error('Falha ao iniciar o Nexus:', error);
                         showToast('Não foi possível abrir a base local. Verifique o armazenamento do navegador.', 'error');
@@ -8698,14 +8732,13 @@ Retorne exatamente:
                 });
 
                 onBeforeUnmount(() => {
-                    stopDriveAutoBackupTimer();
                     document.removeEventListener('visibilitychange', handleDriveVisibilityChange);
                 });
 
                 return {
                     // State
                     currentView, tabs, classes, students, questions, exams, results, settings, extraPoints, lessonPlans, showDangerZone,
-                    driveConnected, driveConnectionBusy, driveBackupInProgress, driveBackupWebViewLink, driveStatusText, locationProtocolIsFile,
+                    driveConnected, driveConnectionBusy, driveBackupInProgress, driveBackupWebViewLink, driveStatusText, driveBackupDue, locationProtocolIsFile,
                     appLocked, isLicensed, deviceId, timeLeft, licenseInput, showLicenseModal, isTemporal,
                     toast, confirmModal, geminiKey, qFilter, filterType, filterSubject, filterTopic,
                     examFilterSubject, examFilterTopic, examFilter, examTab, studentFilter, dashboardStudentFilter,
@@ -8813,7 +8846,7 @@ Retorne exatamente:
                     
                     // Global utilities
                     installPWA, copyDeviceId, validateLicense, handleConfirm, showToast, saveSettings, handleSchoolLogoUpload, importBackup, triggerImport, backupData,
-                    connectGoogleDrive, disconnectGoogleDrive, backupToGoogleDrive, toggleDriveAutoBackup, testGeminiKey,
+                    connectGoogleDrive, changeGoogleDriveAccount, disconnectGoogleDrive, backupToGoogleDrive, backupDriveWithAuthorization, toggleDriveDailyReminder, testGeminiKey,
                     generateQuestionsAI, simulateAIGeneration, whatsappLink, canInstall, formatDateTime
                 };
             }
